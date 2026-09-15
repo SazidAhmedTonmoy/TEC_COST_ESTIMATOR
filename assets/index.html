@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <script src="/assets/theme.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TEC ConEst</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg">
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/workspace.css">
+  <link rel="stylesheet" href="/assets/theme.css">
+</head>
+<body>
+  <section id="login-screen" class="login-screen">
+    <form id="login-form" class="login-card">
+      <img src="/assets/tec-mark.svg" width="64" height="64" alt="TEC">
+      <p class="eyebrow">TEC ConEst</p><h1>Your estimating workspace</h1>
+      <p class="login-intro">Sign in to manage projects and build estimates.</p>
+      <label>Username<input id="login-username" autocomplete="username" required maxlength="64" autofocus></label>
+      <label>Password<span class="password-field"><input id="login-password" type="password" autocomplete="current-password" required maxlength="256"><button type="button" class="key-toggle" data-password-target="login-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
+      <p id="login-error" class="form-error" role="alert"></p>
+      <button class="button primary" id="login-submit" type="submit">Sign in</button>
+      <p class="helper-text">Need an account or a password reset? Contact your administrator.</p>
+    </form>
+  </section>
+  <div class="app-shell hidden" id="authenticated-app">
+    <aside class="sidebar">
+      <a class="brand brand-home" href="#/home" aria-label="TEC ConEst home">
+        <div class="brand-mark" aria-hidden="true">TEC</div>
+        <div><strong>TEC ConEst</strong><span>Estimator</span></div>
+      </a>
+      <nav aria-label="Main navigation">
+        <a class="nav-button active" data-view="home" href="#/home"><span>⌂</span> Home</a>
+        <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
+        <a class="nav-button" data-view="calendar" href="#/calendar"><span>▤</span> Calendar</a>
+        <a class="nav-button" data-view="catalog" href="#/catalog"><span>⌕</span> Catalog</a>
+        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
+        <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
+        <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light price check</a>
+        <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
+        <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
+      </nav>
+      <div class="account-summary"><strong id="account-name"></strong><span id="account-role"></span><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
+      <div class="sidebar-footer">
+        <span class="status-dot"></span>
+        <span id="system-status">Checking database…</span>
+      </div>
+    </aside>
+
+    <main>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Connected estimating workspace</p>
+          <h1 id="view-title">Home</h1>
+        </div>
+        <div class="topbar-actions">
+          <select id="project-select" aria-label="Current project"></select>
+          <div class="project-action-buttons">
+            <button class="button secondary" id="new-project-button">New project</button>
+            <button class="button secondary danger-text" id="delete-project-button">Delete project</button>
+            <button class="button primary" id="export-button">Export Excel</button>
+          </div>
+        </div>
+      </header>
+
+      <section id="home-view" class="view active">
+        <div class="workspace-welcome"><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div><button id="refresh-home" class="button secondary">Refresh projects</button></div>
+        <div id="home-metrics" class="metric-grid home-metrics"></div>
+        <div class="home-grid">
+          <section class="panel portfolio-panel">
+            <div id="deadline-notifications" class="deadline-notifications" aria-live="polite"></div>
+            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Your project board</h2></div><input id="project-search" type="search" placeholder="Project, builder, estimator or team" aria-label="Search projects"></div>
+            <div class="project-tabs" id="project-tabs" role="group" aria-label="Filter projects">
+              <button type="button" data-filter="all" class="active">All projects</button>
+              <button type="button" data-filter="new" class="admin-only">Newly added</button>
+              <button type="button" data-filter="draft">Not started</button>
+              <button type="button" data-filter="in_progress">In progress</button>
+              <button type="button" data-filter="submitted">Submitted</button>
+              <button type="button" class="user-only" data-filter="team">My team</button>
+              <button type="button" data-filter="mine">Created by me</button>
+              <button type="button" data-filter="completed">Completed</button>
+            </div>
+            <div id="project-board" class="project-board"></div>
+            <div id="portfolio-value" class="portfolio-value"></div>
+          </section>
+          <aside class="panel deadline-panel"><div class="panel-heading"><div><p class="eyebrow">Keep on schedule</p><h2>Next deadlines</h2></div></div><div id="deadline-agenda"></div><a id="open-calendar" class="button secondary" href="#/calendar">Open calendar</a></aside>
+        </div>
+      </section>
+
+      <section id="calendar-view" class="view">
+        <section class="panel calendar-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Submission deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-today" class="button secondary">Today</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
+          <p class="helper-text calendar-note">Select a project to view its brief. Deadlines are shown as calendar dates.</p>
+          <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid" aria-label="Project deadline calendar"></div></div>
+          <div id="calendar-agenda" class="calendar-agenda"></div>
+        </section>
+      </section>
+
+      <section id="users-view" class="view">
+        <div class="split-heading"><div><p class="eyebrow">Team administration</p><h2>People and access</h2><p>Create accounts, change roles and manage team membership. Admins have access to all projects.</p></div><button class="button primary" id="add-user">+ Add user</button></div>
+        <section class="panel"><div class="table-scroll"><table class="data-table users-table"><thead><tr><th>Person</th><th>Username</th><th>Role</th><th>Team</th><th>Status</th><th>Actions</th></tr></thead><tbody id="user-rows"></tbody></table></div></section>
+        <section class="panel teams-panel"><div class="panel-heading"><div><h2>Teams</h2><p class="helper-text">Each user belongs to one team. Team changes take effect immediately.</p></div><button class="button secondary" id="add-team">+ Add team</button></div><div id="team-cards" class="team-cards"></div></section>
+      </section>
+
+      <section id="profile-view" class="view">
+        <section class="panel profile-panel"><div class="panel-heading"><div><p class="eyebrow">Your account</p><h2>My profile</h2></div></div>
+          <p id="password-setup-note" class="setup-note hidden">Choose a new password to finish setting up your account. Enter your starter password as the current password.</p>
+          <form id="profile-form" class="settings-grid">
+            <label>Name<input id="profile-name" required maxlength="120" autocomplete="name"></label>
+            <label>Username<input id="profile-username" required minlength="3" maxlength="64" autocomplete="username" pattern="[A-Za-z0-9_.-]+"></label>
+            <label>Job title<input id="profile-title" maxlength="120" autocomplete="organization-title"></label>
+            <label>Email <span class="optional-label">(optional)</span><input id="profile-email" type="email" maxlength="254" autocomplete="email"></label><label>Role<input id="profile-role" disabled></label>
+            <fieldset class="profile-security span-full"><legend>Password &amp; security</legend><div class="settings-grid">
+            <label>Current password<span class="password-field"><input id="profile-current-password" type="password" autocomplete="current-password" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-current-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
+            <label>New password<span class="password-field"><input id="profile-new-password" type="password" autocomplete="new-password" minlength="8" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-new-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
+            <label>Confirm new password<span class="password-field"><input id="profile-confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-confirm-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
+            <p class="helper-text span-full">Enter your current password when changing your username or password. Password changes sign out your other sessions.</p>
+            </div></fieldset>
+            <div class="form-actions span-full"><button class="button primary" type="submit">Save profile</button></div>
+          </form>
+        </section>
+        <section class="panel profile-panel profile-team-panel"><div class="panel-heading"><div><p class="eyebrow">Your colleagues</p><h2 id="profile-team-title">My team</h2></div><button class="button secondary" id="refresh-my-team">Refresh team</button></div><div id="my-team-details"></div></section>
+      </section>
+
+      <section id="estimate-view" class="view">
+        <div id="estimate-project-brief" class="estimate-project-brief"></div>
+        <div id="collaboration-status" class="collaboration-status" aria-live="polite"></div>
+        <div class="metric-grid" id="metric-grid">
+          <article class="metric"><span>Materials</span><strong id="metric-material">$0.00</strong><small>including material mark-up</small></article>
+          <article class="metric"><span>Labour hours</span><strong id="metric-hours">0.00</strong><small>total time for the selected items</small></article>
+          <article class="metric"><span>Labour</span><strong id="metric-labour">$0.00</strong><small>includes hourly and fixed prices</small></article>
+          <article class="metric accent"><span>Quoted total</span><strong id="metric-quoted">$0.00</strong><small>including final mark-up</small></article>
+        </div>
+
+        <section class="panel project-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Project controls</p><h2>Rates and mark-ups</h2></div>
+            <button class="text-button" id="toggle-project-settings">Show / hide settings</button>
+          </div>
+          <form id="project-settings-form" class="settings-grid compact">
+            <label>Project name<input id="project-name" required></label>
+            <label>Client<input id="project-client"></label>
+            <label>Currency<input id="project-currency" maxlength="8"></label>
+            <label>Material mark-up %<input id="project-material-markup" type="number" min="0" step="0.1"></label>
+            <label>Labour rate / hr<input id="project-labour-rate" type="number" min="0" step="0.01"></label>
+            <label>Final mark-up %<input id="project-overhead-markup" type="number" min="0" step="0.1"></label>
+            <label>Hours / person / day<input id="project-hours-per-day" type="number" min="0.25" max="24" step="0.25" required></label>
+            <label>Crew size<input id="project-crew-size" type="number" min="1" max="5000" step="1" required></label>
+            <div class="crew-plan-result"><span>Crew hours / day <b id="crew-hours-per-day">16</b></span><span>Working days <b id="crew-working-days">0</b></span><small>Based on recorded labour hours.</small></div>
+            <div class="form-actions"><button class="button primary" type="submit">Save project settings</button></div>
+          </form>
+        </section>
+
+        <section class="panel finder-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Smart catalog search</p><h2>Find and add an item</h2></div>
+            <button class="button secondary" id="manual-item-button">+ Create item</button>
+          </div>
+          <form id="smart-search-form" class="smart-search">
+            <label class="search-field">
+              <span>Search by item title</span>
+              <button type="button" class="clear-search" id="clear-smart-search" aria-label="Clear search and results" title="Clear search">×</button><input id="smart-search-input" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-search-suggestions" placeholder="Try: batten, 1200mm LED light, or double power outlet">
+              <div id="smart-search-suggestions" class="suggestion-menu hidden" role="listbox" aria-label="Catalog suggestions"></div>
+            </label>
+            <label class="quantity-field"><span>Qty</span><input id="smart-quantity" type="number" min="0" step="any" value="1"></label>
+            <button class="button primary large" type="submit">Find</button>
+          </form>
+          <p class="helper-text">Choose an item, review its components, then add it to your estimate. Use the round search button to keep adding from anywhere on the page.</p>
+          <div id="search-results" class="search-results hidden" aria-live="polite"></div>
+        </section>
+
+        <section class="panel scope-breakdown" aria-labelledby="scope-breakdown-title">
+          <div class="scope-breakdown-heading"><h2 id="scope-breakdown-title">Scope cost summary</h2><div class="summary-switch" role="group" aria-label="Cost summary view"><button type="button" class="summary-mode" data-mode="scope" aria-pressed="true">By scope</button><button type="button" class="summary-mode" data-mode="work" aria-pressed="false">By work type</button></div></div>
+          <div class="table-scroll"><table class="scope-table">
+            <thead><tr><th>Scope / Category</th><th>Assemblies</th><th>Total Material</th><th>Total Hours</th><th>Total Labour</th><th>Quoted Total</th></tr></thead>
+            <tbody id="scope-breakdown-rows"></tbody><tfoot id="scope-breakdown-total"></tfoot>
+          </table></div>
+        </section>
+
+        <section class="panel estimate-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Live estimate</p><h2>Estimate items</h2></div>
+            <div class="estimate-find"><button type="button" class="button secondary small" id="expand-all-items">Expand all</button><button type="button" class="button secondary small" id="collapse-all-items">Collapse all</button><button type="button" class="button secondary small" id="find-estimate-button">Find in estimate</button><input id="estimate-find-input" type="search" placeholder="Find an item already added…" aria-label="Find in this estimate" class="hidden"><span class="pill" id="estimate-line-count">0 assemblies</span></div>
+          </div>
+          <p class="estimate-help">Edit a name, category or quantity directly. Use <b>+</b> for components. Drag <b>⠿</b> to reorder items or whole categories.</p>
+          <div class="table-scroll">
+            <table class="estimate-table">
+              <thead><tr><th>Item / component</th><th>Qty</th><th>Supply / unit</th><th>Install material / unit</th><th>Total material</th><th>Labour / unit</th><th>Total hrs</th><th>Total labour</th><th>Direct cost</th><th>Quoted</th><th></th></tr></thead>
+              <tbody id="estimate-lines"></tbody>
+            </table>
+          </div>
+          <div id="empty-estimate" class="empty-state">
+            <div class="empty-icon">＋</div>
+            <h3 id="empty-estimate-title">Your estimate is empty</h3>
+            <p id="empty-estimate-description">Search for an assembly above, or use the search button at the lower right.</p>
+          </div>
+        </section>
+      </section>
+
+      <section id="catalog-view" class="view">
+        <div class="split-heading">
+          <div><p class="eyebrow">Knowledge base</p><h2>Catalog Explorer</h2><p>Browse reusable items, compare allowances and save your own pricing.</p></div>
+          <button class="button primary" id="catalog-manual-button">+ New catalog item</button>
+        </div>
+        <section class="panel">
+          <div class="catalog-search-row">
+            <input id="catalog-search-input" placeholder="Search item titles…">
+            <select id="catalog-category" aria-label="Catalog category"><option value="">All categories</option></select>
+            <label class="catalog-check"><input id="catalog-show-incomplete" type="checkbox"><span>Show records needing prices</span></label>
+            <button id="catalog-search-button" class="button secondary">Search</button>
+          </div>
+          <p class="catalog-clean-note">Identical items appear once, regardless of their original codes. Different sizes, components and prices remain separate.</p>
+          <div class="catalog-layout">
+            <div id="catalog-results" class="catalog-results"></div>
+            <article id="catalog-detail" class="catalog-detail empty-detail"><p>Select an item to review its materials, labour and saved options.</p></article>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="light-prices-view">
+        <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light price check</h2></div><span id="light-price-count" class="pill"></span></div>
+          <p class="helper-text">Search supplier, description, catalogue number or project. Prices are quoted supply prices in AUD, excluding GST. Open a result to see all connected parts and freight.</p>
+          <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Description, cat no or project…" autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
+
+          <p id="light-price-status" role="status" class="helper-text"></p><div id="light-price-results"></div><div class="light-price-pages"><button id="light-price-prev" class="button secondary small" type="button">Previous</button><button id="light-price-next" class="button secondary small" type="button">Next</button></div>
+        </section>
+        <section class="panel hidden" id="light-price-detail" aria-label="Connected supplier prices"></section>
+        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Upload a connected Excel workbook or TLE quotation PDF. Existing quotes are skipped automatically.</p></div><form id="light-price-import-form"><label class="light-upload-file">Choose a quote file<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button class="button primary" type="submit">Import prices</button></form><p id="light-price-import-status" class="helper-text" role="status"></p></section>
+      </section>
+      <section id="imports-view" class="view">
+        <div class="split-heading"><div><p class="eyebrow">Database growth</p><h2>Import future ConEst workbooks</h2><p>The importer reads every matching ConEst sheet, keeps source variants, and reports anything needing review.</p></div></div>
+        <section class="panel upload-panel">
+          <form id="import-form">
+            <label class="drop-zone" id="drop-zone">
+              <span class="drop-icon">⇧</span>
+              <strong>Choose a ConEst Excel workbook</strong>
+              <span>.xlsx or .xlsm, up to 80 MB</span>
+              <input id="import-file" type="file" accept=".xlsx,.xlsm" required>
+            </label>
+            <button class="button primary" type="submit">Preview workbook</button>
+          </form>
+          <div id="import-progress" class="progress-message hidden"></div>
+          <div id="import-preview" class="hidden"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-heading"><div><p class="eyebrow">Audit trail</p><h2>Imported sheets</h2></div><span class="pill" id="source-count">0 sheets</span></div>
+          <div class="table-scroll"><table class="data-table"><thead><tr><th>File / sheet</th><th>Project</th><th>Format</th><th>Rows</th><th>Assemblies</th><th>Components</th><th>Review</th></tr></thead><tbody id="source-rows"></tbody></table></div>
+        </section>
+</section>
+
+      <section id="settings-view" class="view">
+        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">Daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
+        <div class="split-heading"><div><p class="eyebrow">Application defaults</p><h2>Settings</h2><p>These values are used when a new estimate is created. Each project can override them.</p></div></div>
+        <section class="panel settings-panel">
+          <form id="app-settings-form" class="settings-grid">
+            <label>Default material mark-up %<input id="default-material-markup" type="number" min="0" step="0.1"></label>
+            <label>Default labour rate / hr<input id="default-labour-rate" type="number" min="0" step="0.01"></label>
+            <label>Default final mark-up %<input id="default-overhead-markup" type="number" min="0" step="0.1"></label>
+            <label>Default currency<input id="default-currency" maxlength="8"></label>
+            <label>Default hours / person / day<input id="default-hours-per-day" type="number" min="0.01" max="24" step="0.01" required></label>
+            <label>Default crew size<input id="default-crew-size" type="number" min="1" max="5000" step="1" required></label>
+
+            <div class="ai-settings-card span-full">
+              <div class="ai-settings-heading">
+                <div><p class="eyebrow">Optional smart reranking</p><h3>Google Gemini · free-tier models only</h3></div>
+                <span class="provider-badge">GEMINI</span>
+              </div>
+              <div class="ai-settings-grid">
+                <label>Gemini model<select id="llm-model"></select></label>
+                <label>Gemini API key
+                  <div class="password-field"><input id="gemini-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a Google AI Studio key"><button id="toggle-gemini-key" class="key-toggle" type="button" aria-label="Show or hide API key">Show</button></div>
+                </label>
+                <label class="checkbox-label"><input id="llm-enabled" type="checkbox"><span>Use Gemini to rerank difficult wording matches</span></label>
+              </div>
+              <p id="llm-key-status" class="helper-text"></p>
+              <p class="free-tier-note"><strong>Free-tier safety:</strong> this app only offers Gemini models that have a free tier and falls back to local search on quota errors. To guarantee no charges, use an AI Studio project with billing disabled.</p>
+              <div class="inline-actions">
+                <button class="button secondary" id="test-llm-button" type="button">Test Gemini</button>
+                <button class="text-button danger-text" id="clear-llm-key-button" type="button">Clear saved key</button>
+              </div>
+            </div>
+            <div class="form-actions span-full"><button class="button primary" type="submit">Save defaults</button></div>
+          </form>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="project-dialog">
+    <form id="new-project-form" method="dialog" class="dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow">New workspace</p><h2>Create estimate</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+      <label>Project name<input id="new-project-name" required placeholder="Project or tender name"></label>
+      <label>Client<input id="new-project-client" placeholder="Optional"></label>
+      <label>Scope of work<textarea id="new-project-scope" rows="4" maxlength="20000" placeholder="Describe the electrical works to be estimated"></textarea></label>
+      <label>Submission deadline<input id="new-project-deadline" type="date"></label>
+      <p class="helper-text">User-created projects are automatically shared with their team and sent to the admin review queue. Admins can assign teams in Manage project.</p>
+      <div class="dialog-actions"><button class="button secondary close-dialog" type="button">Cancel</button><button class="button primary" type="submit">Create project</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="manual-dialog">
+    <form id="manual-item-form" method="dialog" class="dialog-card wide-dialog">
+      <div class="dialog-heading"><div><p class="eyebrow">Reusable catalog pricing</p><h2 id="manual-title">Add catalog item</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+      <div class="manual-main-grid">
+        <label>Scope / Category<input id="manual-category" list="category-options" maxlength="120" placeholder="Automatic, or enter a category"></label>
+        <label>Work type<select id="manual-work-type"></select></label><label>Assembly size / specification<input id="manual-assembly-size" maxlength="250" placeholder="e.g. 1200 mm or 25 mm²"></label>
+        <label id="manual-quantity-label">Estimate quantity<input id="manual-quantity" type="number" min="0" step="any" value="1" required></label>
+        <label class="span-two">Item / assembly name<input id="manual-name" required placeholder="e.g. Downlight installation or double GPO"></label>
+        <label>Unit — choose or type your own<input id="manual-uom" list="unit-options" value="EA" required></label>
+        <label>Description / notes<input id="manual-description" placeholder="Optional item description"></label>
+        <label>Supplier<input id="manual-supplier" maxlength="1000"></label><label>Quote date<input type="date" id="manual-quote-date"></label><label>Price source / reference<input id="manual-price-source" maxlength="1000" placeholder="Supplier quote reference or budget allowance"></label>
+      </div>
+      <p id="manual-work-help" class="manual-note"></p>
+      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Every row scales with the estimate quantity.</span></div><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div>
+      <div class="table-scroll"><table class="component-editor"><thead><tr><th>Description</th><th>Size / specification</th><th>Qty / 1</th><th>Unit</th><th>Product / material price</th><th>Labour basis</th><th>Labour hrs / price</th><th></th></tr></thead><tbody id="manual-components"></tbody></table></div>
+      <p class="manual-note">A fixed labour price replaces hours × hourly rate. It adds no labour hours. Changing a unit changes its label; review quantities and prices for that unit.</p>
+      <div id="manual-cost-preview" class="manual-cost-preview" aria-live="polite"></div>
+      <label id="manual-save-mode-label">Save changes to<select id="manual-save-mode"><option value="new">Save new catalog item</option></select></label><p id="manual-save-note" class="manual-note"></p>
+      <div class="dialog-actions"><button class="button secondary close-dialog" type="button">Cancel</button><button class="button primary" id="manual-save-button" type="submit">Save to catalog</button></div>
+    </form>
+  </dialog>
+  <datalist id="unit-options"><option value="EA"><option value="M"><option value="m²"><option value="Set"><option value="Item"><option value="Point"><option value="Hr"><option value="Lot"></datalist>
+  <datalist id="category-options"></datalist>
+
+  <button class="floating-search-button hidden" id="floating-search-button" type="button" aria-label="Search catalog and add an item" title="Search and add items">
+    <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
+  <button class="floating-bottom-button hidden" id="floating-bottom-button" type="button" title="Go to end of estimate" aria-label="Go to bottom of estimate">↓</button>
+  <dialog id="quick-search-dialog" aria-labelledby="quick-search-title">
+    <div class="dialog-card">
+      <div class="dialog-heading"><div><p class="eyebrow" id="quick-search-project"></p><h2 id="quick-search-title">Search & add items</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close search">×</button></div>
+      <form id="quick-search-form" class="quick-search-form">
+        <label>Catalog search<input id="quick-search-input" placeholder="Name, size or component…" autocomplete="off"></label>
+        <label>Quantity<input id="quick-search-quantity" type="number" min="0" step="any" value="1" required></label>
+        <button class="button primary" type="submit">Find</button>
+      </form>
+      <div class="quick-search-actions"><button class="button secondary small" id="quick-manual-button" type="button">+ Create item</button><span id="quick-search-status" role="status" aria-live="polite"></span></div>
+      <div id="quick-search-results" class="quick-search-results"></div>
+    </div>
+  </dialog>
+
+  <aside id="catalog-hover-preview" class="catalog-hover-preview hidden" aria-live="polite"></aside>
+  <dialog id="project-brief-dialog" aria-labelledby="brief-title">
+    <div class="dialog-card project-brief-card"><div class="dialog-heading"><div><p class="eyebrow" id="brief-client"></p><h2 id="brief-title"></h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+      <div id="brief-summary"></div>
+      <form id="project-workflow-form" class="workflow-form">
+        <label>Scope of work<textarea id="brief-scope" rows="5" maxlength="20000"></textarea></label>
+        <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="submitted">Submitted</option><option value="completed">Completed</option></select></label></div>
+        <fieldset class="admin-only assignment-fieldset"><legend>Assign teams</legend><p class="helper-text">Every current member of a selected team can view and work on this project.</p><div id="assignment-options"></div></fieldset>
+        <div class="dialog-actions"><button id="brief-delete" type="button" class="button secondary danger-text">Delete project</button><a id="brief-open-estimate" class="button secondary" href="#/estimate">Open estimate</a><button id="brief-save" type="submit" class="button primary">Save project</button></div>
+      </form>
+      <section id="activity-section"><h3>Project activity</h3><p class="helper-text">New activity is tracked from this version onward.</p><div id="project-contributors" class="contributor-list"></div><h4>Activity history</h4><div id="project-activity"></div></section>
+    </div>
+  </dialog>
+  <dialog id="user-dialog" aria-labelledby="user-dialog-title">
+    <form id="user-form" class="dialog-card"><div class="dialog-heading"><h2 id="user-dialog-title">Add user</h2><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+      <label>Name<input id="user-name" required maxlength="120"></label><label>Username<input id="user-username" required minlength="3" maxlength="64" autocomplete="off" pattern="[A-Za-z0-9_.-]+"></label><label>Job title<input id="user-title" maxlength="120"></label>
+      <label>Role<select id="user-role"><option value="user">User</option><option value="admin">Admin</option></select></label>
+      <label>Team<select id="user-team"></select></label><p id="user-team-note" class="helper-text"></p>
+      <label id="user-password-label">Temporary password<span class="password-field"><input id="user-password" type="password" minlength="8" maxlength="256" autocomplete="new-password"><button type="button" class="key-toggle" data-password-target="user-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
+      <p id="user-password-note" class="helper-text">The user chooses a new password at their next sign-in.</p>
+      <label class="checkbox-label"><input id="user-active" type="checkbox" checked><span>Account is active</span></label>
+      <p class="helper-text">Deactivated accounts lose access immediately. Their project history is preserved.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary close-dialog">Cancel</button><button class="button primary" type="submit">Save user</button></div>
+    </form>
+  </dialog>
+  <dialog id="team-dialog" aria-labelledby="team-dialog-title">
+    <form id="team-form" class="dialog-card"><div class="dialog-heading"><h2 id="team-dialog-title">Add team</h2><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div>
+      <label>Team name<input id="team-name" required maxlength="100"></label>
+      <p class="helper-text">Select members. Selecting a member from another team moves them here. Unchecked current members will have no team. Admins do not need team membership.</p>
+      <fieldset class="assignment-fieldset"><legend>Team members</legend><div id="team-member-options"></div></fieldset>
+      <div class="dialog-actions"><button type="button" class="button secondary close-dialog">Cancel</button><button type="submit" class="button primary">Save team</button></div>
+    </form>
+  </dialog>
+  <dialog id="notes-dialog" aria-labelledby="notes-title"><div class="dialog-card">
+    <div class="dialog-heading"><div><p class="eyebrow">Shared project notes</p><h2 id="notes-title">Important notes</h2></div><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div>
+    <p class="helper-text">Everyone with access to this project can add a note or remove one that is no longer needed. Each note shows its author and date.</p>
+    <form id="notes-form"><label>Add note<textarea id="note-body" rows="4" maxlength="10000" required placeholder="Important assumptions, reminders or coordination items…"></textarea></label><div class="dialog-actions"><button type="button" class="button secondary" id="refresh-notes">Refresh notes</button><button type="submit" class="button primary">Add note</button></div></form>
+    <div id="project-notes-list" aria-live="polite"></div>
+  </div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="revision-dialog" class="productivity-dialog"><div class="dialog-heading"><h2>Tender revisions</h2><button class="button secondary" data-close="revision-dialog">Close</button></div>
+<p class="helper-text">Save a named copy of the current quotation. Later edits leave saved revisions unchanged.</p>
+<form id="revision-form" class="inline-form"><label>Revision name<input id="revision-label" maxlength="100" required placeholder="Original / Revision 1 / Final Submission"></label><button class="button primary">Save current estimate</button></form>
+<div id="revision-list"></div><div id="revision-comparison"></div></dialog>
+<dialog id="price-dialog" class="productivity-dialog"><div class="dialog-heading"><h2>Price history & source</h2><button class="button secondary" data-close="price-dialog">Close</button></div>
+<form id="price-source-form" class="inline-form"><label>Supplier<input id="price-supplier" maxlength="1000"></label><label>Quote date<input id="price-date" type="date"></label><label>Source / reference<input id="price-source" maxlength="1000" required></label><button class="button primary">Record current price source</button></form><div id="price-history-list"></div></dialog>
+  <button type="button" id="floating-estimate-total" class="floating-estimate-total hidden" title="Return to estimate totals"></button>
+  <button id="help-chat-button" class="help-chat-launch hidden" type="button" aria-haspopup="dialog">? <span>Help</span></button>
+  <dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title">
+    <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst guide</h2><p>Help with estimating, your catalogue and supplier prices</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
+    <p class="help-chat-notice">Uses the saved Gemini setting when enabled. Your question and selected catalogue, supplier-price and current-project data may be sent to Gemini. Read-only; answers never change your work.</p>
+    <div class="help-chat-starters"><button type="button" data-help-question="How do I search supplier quotes in Light price check?">Light price check</button><button type="button" data-help-question="How do I reorder categories?">Move categories</button><button type="button" data-help-question="What is this project's total?">Project total</button></div>
+    <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
+    <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Ask how to use the app, or find a catalogue item…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
+  </dialog>
+  <script src="/assets/app.js" defer></script>
+  <script src="/assets/workspace.js" defer></script>
+  <script src="/assets/productivity.js" defer></script>
+  <script src="/assets/estimate_workspace.js" defer></script>
+  <script src="/assets/navigation.js" defer></script>
+  <script src="/assets/help_chat.js" defer></script>
+  <script src="/assets/estimate_extras.js" defer></script>
+  <script src="/assets/light_prices.js" defer></script>
+</body>
+</html>
