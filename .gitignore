@@ -8,10 +8,6 @@ backups/
 .env
 .env.*
 !.env.example
-data/*.db
-data/*.db-wal
-data/*.db-shm
-data/*.db-journal
 *.log
 
 data/import_previews/
