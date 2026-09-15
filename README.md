@@ -1,4 +1,4 @@
-# TEC ConEst v1.20 — user and maintenance guide
+# TEC ConEst v1.20
 
 TEC ConEst is a shared electrical estimating application. One office computer runs the Python server and holds the SQLite databases. Team members use a browser to connect. The database is the source of saved catalogue prices, accounts, projects and estimates; imported Excel originals are not required to run the application.
 
