@@ -440,6 +440,8 @@ def initialize(path: str | Path | None = None) -> Path:
         conn.commit()
     from .lighting_migration import merge_legacy_prices
     merge_legacy_prices(target)
+    from .backups import prune_backups
+    prune_backups(target.parent/'backups')
     return target
 
 

@@ -149,6 +149,7 @@ function setView(name, load = true, remember = true) {
   $("#view-title").textContent = titles[name] || "TEC ConEst";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
+  syncCategoryToggle();
   $('#project-select').classList.toggle('hidden', name !== 'estimate');
   $('#delete-project-button').classList.toggle('hidden', name !== 'estimate');
   $('#new-project-button').classList.toggle('hidden', Boolean(state.user?.must_change_password));
@@ -243,7 +244,7 @@ function renderProject() {
   if(project.id) refreshNoteBadge(project.id).catch(()=>{});
   if(available && !project.can_edit) {
     $$('#estimate-view input, #estimate-view textarea, #estimate-view select, #estimate-view button').forEach(field=>field.disabled=true);
-    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .toggle-scope, #expand-all-items, #collapse-all-items, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings').forEach(field=>field.disabled=false);
+    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings').forEach(field=>field.disabled=false);
     $('#floating-search-button').disabled=true;
   }
 }
@@ -702,6 +703,7 @@ function openManualDialog(addToEstimate = false, sourceItem = null, editExisting
   state.manualProjectId = state.projectId;
   state.manualSource = sourceItem || {};
   state.manualSaving = false;
+  $("#manual-save-error").classList.add("hidden");
   $("#manual-item-form").reset();
   const options = state.dashboard.manual_options;
   $("#manual-category").value = sourceItem?.category_override || sourceItem?.category || "Lighting";
@@ -711,7 +713,7 @@ function openManualDialog(addToEstimate = false, sourceItem = null, editExisting
   $('#manual-assembly-size').value=sourceItem?.assembly_size || '';
   $('#manual-save-mode-label').classList.toggle('hidden',!addToEstimate||!sourceItem);
   $('#manual-save-mode').innerHTML=(sourceItem?'<option value="estimate">Save this estimate only</option>':'')+(sourceItem?.id?'<option value="update">Update existing catalog item</option>':'')+'<option value="new">Save as a new catalog item</option>';
-  $('#manual-save-mode').value=sourceItem?'estimate':'new';
+  $('#manual-save-mode').value='new';
   $("#manual-description").value = sourceItem?.description || "";
   $("#manual-uom").value = sourceItem?.base_uom || "EA";
   state.manualBaseUom = $("#manual-uom").value;
@@ -743,9 +745,13 @@ function openEstimateLineEditor(lineId) {
   }, false, line.id);
 }
 
+function showManualSaveError(error){
+  const box=$('#manual-save-error');box.textContent=error.message||'Unable to save. Please try again.';box.classList.remove('hidden');box.scrollIntoView({block:'nearest'});box.focus();
+}
 async function saveManualItem(event) {
   event.preventDefault();
   if (state.manualSaving) return;
+  $("#manual-save-error").classList.add("hidden");
   const form = $("#manual-item-form");
   if (!form.reportValidity()) return;
   const payload = {
@@ -773,24 +779,21 @@ async function saveManualItem(event) {
         : `/api/projects/${state.manualProjectId}/manual-items`;
       result = await api(path, { method: "POST", body: { save_mode:$("#manual-save-mode").value || "new", item: payload, quantity: Number($("#manual-quantity").value), ...(state.manualLineId ? {expected_revision:state.manualLineRevision}: {}) } });
       state.projectData = result;
-      renderProject();
-      $("#search-results").classList.add("hidden");
     } else {
       const path = state.manualEditId ? `/api/catalog/${state.manualEditId}` : "/api/catalog";
       result = await api(path, { method: state.manualEditId ? "PUT" : "POST", body: payload });
     }
-    state.catalogCache.clear();
-    hideSmartSuggestions();
-    hideCatalogHover(0);
-    $("#manual-dialog").close();
-    toast(state.manualLineId ? "Estimate saved" : state.manualAddToEstimate ? (result.catalog_saved ? "Saved to catalog and added to estimate" : "Added to estimate") : "Catalog changes saved for future use");
   } finally {
     state.manualSaving = false;
     button.disabled = false;
     button.textContent = originalLabel;
   }
-  // A refresh failure must not turn a successful save into a duplicate retry.
+  $("#manual-dialog").close();
+  toast(state.manualLineId ? "Estimate saved" : state.manualAddToEstimate ? "Estimate changes saved" : "Catalog changes saved for future use");
+  // A rendering/refresh failure must not turn a successful write into a retry.
   try {
+    state.catalogCache.clear();hideSmartSuggestions();hideCatalogHover(0);
+    if(state.manualAddToEstimate){renderProject();$("#search-results").classList.add("hidden");}
     await loadDashboard();
     if (!state.manualAddToEstimate) {
       $("#catalog-category").value = "";
@@ -1116,7 +1119,10 @@ function bindEvents() {
     $("#quick-search-dialog").close();
     openManualDialog(true, null, false, null, Number($("#quick-search-quantity").value || 1));
   });
-  $("#new-project-button").addEventListener("click", () => $("#project-dialog").showModal());
+  $("#new-project-button").addEventListener("click", () => {
+    const now=new Date(),today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    $('#new-project-deadline').min=today;$('#project-dialog').showModal();
+  });
   $("#new-project-form").addEventListener("submit", (event) => submitWithButton(event, () => createNewProject(event)));
   $$(".close-dialog").forEach((button) => button.addEventListener("click", () => {
     if (button.closest("dialog").id === "manual-dialog" && state.manualSaving) return;
@@ -1165,7 +1171,7 @@ function bindEvents() {
     // Select changes switch the value first in the change handler above.
     if (!event.target.matches(".component-labor-mode")) refreshManualPricing();
   });
-  $("#manual-item-form").addEventListener("submit", (event) => saveManualItem(event).catch((error) => toast(error.message, true)));
+  $("#manual-item-form").addEventListener("submit", (event) => saveManualItem(event).catch(showManualSaveError));
   $("#catalog-search-button").addEventListener("click", () => loadCatalog().catch((error) => toast(error.message, true)));
   $('#catalog-search-input').addEventListener('input',()=>{clearTimeout(catalogSearchTimer);catalogSearchRequest++;catalogSearchTimer=setTimeout(()=>loadCatalog().catch(error=>toast(error.message,true)),200);});
   $("#catalog-search-input").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); loadCatalog().catch((error) => toast(error.message, true)); } });

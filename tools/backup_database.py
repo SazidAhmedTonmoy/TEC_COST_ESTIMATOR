@@ -1,24 +1,13 @@
-"""Make a consistent backup, including any committed WAL transactions."""
-from datetime import datetime
+"""Create a consistent backup in the shared two-snapshot backup folder."""
 from pathlib import Path
-import sqlite3
 import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from conest_app.database import database_path
-
+from conest_app.backups import create_backup
 
 def main():
-    source = database_path()
-    if not source.is_file():
-        raise SystemExit('Database not found')
-    folder = Path(__file__).resolve().parents[1] / 'backups'
-    folder.mkdir(exist_ok=True)
-    target = folder / ('conest_catalog_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f') + '.db')
-    with sqlite3.connect(source) as live, sqlite3.connect(target) as backup:
-        live.backup(backup)
-    print('Backup created:', target)
+    if not database_path().is_file():raise SystemExit('Database not found')
+    result=create_backup()
+    print('Backup created:',database_path().parent/'backups'/result['name'])
 
-
-if __name__ == '__main__':
-    main()
+if __name__=='__main__':main()

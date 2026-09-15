@@ -12,3 +12,17 @@ backups/
 
 data/import_previews/
 data/backups/
+
+# Local databases, SQLite sidecars, dumps and database backups
+*.db
+*.db-*
+*.db.*
+*.sqlite
+*.sqlite-*
+*.sqlite.*
+*.sqlite3
+*.sqlite3-*
+*.sqlite3.*
+*.dump
+*.sql.gz
+*.sql.zip

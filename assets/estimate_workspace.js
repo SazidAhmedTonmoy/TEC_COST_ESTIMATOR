@@ -22,6 +22,7 @@ function renderGroupedEstimate(lines){
   const names=scopeNames();
   $$('.scope-move').forEach(button=>{const at=names.indexOf(button.dataset.scope);button.disabled=!names[at+Number(button.dataset.direction)]||!state.projectData?.project?.can_edit;});
   fitEstimateText();
+  syncCategoryToggle();
   if(state.projectData?.project?.can_edit===false){
     $$('#estimate-lines input, #estimate-lines textarea, #estimate-lines select, #estimate-lines button').forEach(field=>field.disabled=!field.matches('.toggle-details,.toggle-scope'));
   }

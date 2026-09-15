@@ -17,6 +17,20 @@ document.addEventListener('DOMContentLoaded',()=>{
   window.addEventListener('scroll',refreshFloatingTotal,{passive:true});window.addEventListener('resize',refreshFloatingTotal);
   new MutationObserver(refreshFloatingTotal).observe($('#estimate-view'),{attributes:true,attributeFilter:['class']});
   $('#floating-estimate-total').addEventListener('click',()=>$('#metric-quoted').scrollIntoView({behavior:'smooth',block:'center'}));
-  $('#expand-all-items').addEventListener('click',()=>{estimateViewState.bulkCollapsed=false;for(const line of state.projectData?.lines||[]){estimateViewState.collapsed.delete(scopeKey(line.category_snapshot||'Other'));}renderGroupedEstimate(state.projectData?.lines||[]);});
-  $('#collapse-all-items').addEventListener('click',()=>{estimateViewState.bulkCollapsed=true;for(const line of state.projectData?.lines||[])estimateViewState.collapsed.add(scopeKey(line.category_snapshot||'Other'));renderGroupedEstimate(state.projectData?.lines||[]);});
+  $('#toggle-all-categories').addEventListener('click',()=>{
+    const lines=state.projectData?.lines||[];
+    const allCollapsed=lines.length>0&&lines.every(line=>estimateViewState.collapsed.has(scopeKey(line.category_snapshot||'Other')));
+    estimateViewState.bulkCollapsed=!allCollapsed;
+    for(const line of lines){const key=scopeKey(line.category_snapshot||'Other');if(allCollapsed)estimateViewState.collapsed.delete(key);else estimateViewState.collapsed.add(key);}
+    renderGroupedEstimate(lines);
+  });
 });
+function syncCategoryToggle(){
+  const button=$('#toggle-all-categories'),lines=state.projectData?.lines||[];
+  button.classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
+  button.disabled=!lines.length;
+  const collapsed=lines.length>0&&lines.every(line=>estimateViewState.collapsed.has(scopeKey(line.category_snapshot||'Other')));
+  const label=collapsed?'Expand all categories':'Collapse all categories';
+  button.textContent=collapsed?'+':'−';
+  button.title=label;button.setAttribute('aria-label',label);button.setAttribute('aria-expanded',String(!collapsed));
+}

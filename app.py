@@ -79,7 +79,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/2.0"
+    server_version = "TECConEst/2.1"
 
     def setup(self):
         super().setup()

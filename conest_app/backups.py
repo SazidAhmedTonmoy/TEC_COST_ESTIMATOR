@@ -16,6 +16,14 @@ def folder():
     return path
 
 
+def prune_backups(directory=None):
+    """Keep two completed snapshots, each with its optional metadata sidecar."""
+    with write_lock:
+        files=sorted((p for p in (Path(directory) if directory is not None else folder()).glob('*.db') if p.is_file() and not p.is_symlink()),key=lambda p:(p.stat().st_mtime_ns,p.name),reverse=True)
+        for old in files[2:]:
+            old.unlink(missing_ok=True);old.with_suffix('.json').unlink(missing_ok=True)
+
+
 def create_backup(reason='manual',actor=None):
     if reason not in ('manual','daily','before-import','before-restore'):raise ValueError('Invalid backup reason')
     with write_lock:
@@ -30,27 +38,31 @@ def create_backup(reason='manual',actor=None):
             target.with_suffix('.json').write_text(json.dumps({'reason':reason,'created_by':actor,'created_at':datetime.now(timezone.utc).isoformat()}))
         except Exception:
             pending.unlink(missing_ok=True);raise
+        prune_backups()
         return {'name':name,'bytes':target.stat().st_size,'reason':reason}
 
 
 def daily_backup():
     today=datetime.now(timezone.utc).strftime('%Y%m%d')
     with write_lock:
+        prune_backups()
         if not list(folder().glob(today+'T*-daily-*.db')):create_backup('daily')
 
 
 def list_backups():
+    prune_backups()
     result=[]
-    for p in sorted(folder().glob('*.db'),reverse=True):
+    for p in sorted(folder().glob('*.db'),key=lambda p:(p.stat().st_mtime_ns,p.name),reverse=True):
         meta=json.loads(p.with_suffix('.json').read_text()) if p.with_suffix('.json').exists() else {}
         result.append({'name':p.name,'bytes':p.stat().st_size,**meta})
     return result
 
 
 def backup_path(name):
-    if not re.fullmatch(r'\d{8}T\d{6}Z-(manual|daily|before-import|before-restore)-[a-f0-9]{8}\.db',name):
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*\.db',name):
         raise ValueError('Invalid backup name')
     path=folder()/name
+    if path.is_symlink() or path.resolve().parent!=folder().resolve():raise ValueError('Invalid backup path')
     if not path.is_file():raise LookupError('Backup not found')
     return path
 
@@ -58,7 +70,9 @@ def backup_path(name):
 def restore_backup(name):
     path=backup_path(name)
     with write_lock:
-        with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro',uri=True)) as source,connect() as dest:
+        with closing(sqlite3.connect(':memory:')) as source,connect() as dest:
+            # Read first, so retention can remove the original safely during restore.
+            with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro',uri=True)) as disk:disk.backup(source)
             if source.execute('PRAGMA integrity_check').fetchone()[0]!='ok' or source.execute('PRAGMA foreign_key_check').fetchall():
                 raise ValueError('Backup integrity check failed')
             if source.execute('SELECT version FROM schema_version').fetchone()[0]!=dest.execute('SELECT version FROM schema_version').fetchone()[0]:

@@ -9,6 +9,8 @@
   <link rel="stylesheet" href="/assets/styles.css">
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/theme.css">
+  <link rel="stylesheet" href="/assets/responsive.css">
+  <script src="/assets/mobile.js" defer></script>
 </head>
 <body>
   <section id="login-screen" class="login-screen">
@@ -29,7 +31,8 @@
         <div class="brand-mark" aria-hidden="true">TEC</div>
         <div><strong>TEC ConEst</strong><span>Estimator</span></div>
       </a>
-      <nav aria-label="Main navigation">
+      <button class="mobile-menu-button" id="mobile-menu-button" type="button" aria-expanded="false" aria-controls="main-navigation account-controls">☰ <span>Menu</span></button>
+      <nav id="main-navigation" aria-label="Main navigation">
         <a class="nav-button active" data-view="home" href="#/home"><span>⌂</span> Home</a>
         <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
         <a class="nav-button" data-view="calendar" href="#/calendar"><span>▤</span> Calendar</a>
@@ -40,7 +43,7 @@
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
         <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
       </nav>
-      <div class="account-summary"><strong id="account-name"></strong><span id="account-role"></span><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
+      <div class="account-summary" id="account-controls"><strong id="account-name"></strong><span id="account-role"></span><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
       <div class="sidebar-footer">
         <span class="status-dot"></span>
         <span id="system-status">Checking database…</span>
@@ -180,7 +183,7 @@
         <section class="panel estimate-panel">
           <div class="panel-heading">
             <div><p class="eyebrow">Live estimate</p><h2>Estimate items</h2></div>
-            <div class="estimate-find"><button type="button" class="button secondary small" id="expand-all-items">Expand all</button><button type="button" class="button secondary small" id="collapse-all-items">Collapse all</button><button type="button" class="button secondary small" id="find-estimate-button">Find in estimate</button><input id="estimate-find-input" type="search" placeholder="Find an item already added…" aria-label="Find in this estimate" class="hidden"><span class="pill" id="estimate-line-count">0 assemblies</span></div>
+            <div class="estimate-find"><button type="button" class="button secondary small" id="find-estimate-button">Find in estimate</button><input id="estimate-find-input" type="search" placeholder="Find an item already added…" aria-label="Find in this estimate" class="hidden"><span class="pill" id="estimate-line-count">0 assemblies</span></div>
           </div>
           <p class="estimate-help">Edit a name, category or quantity directly. Use <b>+</b> for components. Drag <b>⠿</b> to reorder items or whole categories.</p>
           <div class="table-scroll">
@@ -249,7 +252,7 @@
 </section>
 
       <section id="settings-view" class="view">
-        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">Daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
+        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">The latest two backup sets are kept automatically. Backups run daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
         <div class="split-heading"><div><p class="eyebrow">Application defaults</p><h2>Settings</h2><p>These values are used when a new estimate is created. Each project can override them.</p></div></div>
         <section class="panel settings-panel">
           <form id="app-settings-form" class="settings-grid">
@@ -316,6 +319,7 @@
       <p class="manual-note">A fixed labour price replaces hours × hourly rate. It adds no labour hours. Changing a unit changes its label; review quantities and prices for that unit.</p>
       <div id="manual-cost-preview" class="manual-cost-preview" aria-live="polite"></div>
       <label id="manual-save-mode-label">Save changes to<select id="manual-save-mode"><option value="new">Save new catalog item</option></select></label><p id="manual-save-note" class="manual-note"></p>
+      <p id="manual-save-error" class="manual-save-error hidden" role="alert" tabindex="-1"></p>
       <div class="dialog-actions"><button class="button secondary close-dialog" type="button">Cancel</button><button class="button primary" id="manual-save-button" type="submit">Save to catalog</button></div>
     </form>
   </dialog>
@@ -325,6 +329,7 @@
   <button class="floating-search-button hidden" id="floating-search-button" type="button" aria-label="Search catalog and add an item" title="Search and add items">
     <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
+  <button class="floating-category-button hidden" id="toggle-all-categories" type="button" aria-label="Collapse all categories" title="Collapse all categories"><span aria-hidden="true">−</span></button>
   <button class="floating-bottom-button hidden" id="floating-bottom-button" type="button" title="Go to end of estimate" aria-label="Go to bottom of estimate">↓</button>
   <dialog id="quick-search-dialog" aria-labelledby="quick-search-title">
     <div class="dialog-card">

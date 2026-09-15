@@ -3,6 +3,7 @@ from __future__ import annotations
 import sqlite3
 import json
 import math
+from datetime import date
 from typing import Any
 
 from .catalog import create_manual_catalog_item, update_manual_catalog_item, _validated_components, get_catalog_item, record_selection, _nonnegative
@@ -50,6 +51,12 @@ def crew_plan(payload):
 
 
 def create_project(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[str, Any]:
+    deadline=payload.get('submission_deadline')
+    if deadline:
+        try: parsed=date.fromisoformat(deadline)
+        except (TypeError,ValueError): raise ValueError('Submission deadline must be a valid date') from None
+        if parsed.isoformat()!=deadline or parsed<date.today():
+            raise ValueError('New project deadline must be today or a future date')
     name = clean_text(payload.get("name") or "New Estimate")
     now = utc_now()
     defaults=dict(conn.execute('SELECT key,value FROM settings'))
