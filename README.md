@@ -338,12 +338,3 @@ Features remain available even when controls move. The v1.17 migration preserves
 - **Before significant imports or maintenance:** retain a known-good backup. Database restoration replaces current data, so coordinate it with the team.
 
 Tests are kept in the development workspace, not shipped as runtime requirements. They cover pricing, imports, permissions, snapshots, sessions, search cancellation, workbook formula structure, concurrent requests and deletion preservation. Visual layout should also be reviewed on your actual browser/window sizes. No claim is made that every browser or Excel implementation behaves identically.
-
-### v1.16_Fixed — minor interface fixes
-- Equal-width columns in the desktop Rates and mark-ups panel.
-- Removed the extra Item options button/dialog. Work type remains in the component editor.
-- Category suggestions appear while focusing/typing in the wrapping category field. Choose an existing category or type a custom one.
-- No database or calculation changes.
-
-### v1.16_Fixed2 — category suggestion correction
-Corrected an inherited expand-button width/height rule that cramped category choices. Suggestions show full wrapping names in a scrollable list with all categories available. Typing places matching categories first. Pointer selection saves before focus can leave the editor; keyboard activation remains supported. No database or pricing changes.
