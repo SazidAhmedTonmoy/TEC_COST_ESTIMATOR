@@ -1,15 +1,21 @@
-"""Separate supplier-quote database. Types are internal linkage keys, never UI fields."""
+"""Supplier quotes in the main application database; types stay internal."""
 from pathlib import Path
 from datetime import datetime
 from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal,InvalidOperation
 import hashlib,io,json,os,re,sqlite3,threading
-from .database import database_path
+from .database import database_path, write_lock
 
-LOCK=threading.RLock()
+LOCK=write_lock
 def db_path():
-    return Path(os.environ.get('CONEST_LIGHT_PRICES_DB') or database_path().parent/'lighting_prices.db')
+    return database_path()
+
+def ensure_schema(conn):
+    conn.executescript('''CREATE TABLE IF NOT EXISTS quotes(id INTEGER PRIMARY KEY,reference TEXT NOT NULL,project TEXT,quote_date TEXT,source TEXT,content_hash TEXT NOT NULL,imported_at TEXT NOT NULL,total_ex REAL,UNIQUE(reference,quote_date,content_hash));
+        CREATE TABLE IF NOT EXISTS groups(id INTEGER PRIMARY KEY,quote_id INTEGER NOT NULL REFERENCES quotes(id),type_code TEXT,base_qty REAL,description TEXT,supplier TEXT,cat_no TEXT,search_text TEXT,source_group TEXT);
+        CREATE TABLE IF NOT EXISTS lines(id INTEGER PRIMARY KEY,group_id INTEGER NOT NULL REFERENCES groups(id),line_order INTEGER,item_no TEXT,type_raw TEXT,type_effective TEXT,supplier TEXT,quantity REAL,cat_no TEXT,description TEXT,raw_description TEXT,unit_ex REAL,total_ex REAL,status TEXT,page INTEGER,source_row INTEGER,connection_basis TEXT,source_values TEXT);
+        CREATE INDEX IF NOT EXISTS idx_lighting_lines_group ON lines(group_id);CREATE INDEX IF NOT EXISTS idx_lighting_groups_quote ON groups(quote_id);''')
 
 @contextmanager
 def connect():
@@ -17,10 +23,7 @@ def connect():
     conn=sqlite3.connect(path,timeout=30);conn.row_factory=sqlite3.Row
     conn.execute('PRAGMA foreign_keys=ON');conn.execute('PRAGMA busy_timeout=30000')
     try:
-        conn.executescript('''CREATE TABLE IF NOT EXISTS quotes(id INTEGER PRIMARY KEY,reference TEXT NOT NULL,project TEXT,quote_date TEXT,source TEXT,content_hash TEXT NOT NULL,imported_at TEXT NOT NULL,total_ex REAL,UNIQUE(reference,quote_date,content_hash));
-        CREATE TABLE IF NOT EXISTS groups(id INTEGER PRIMARY KEY,quote_id INTEGER NOT NULL REFERENCES quotes(id),type_code TEXT,base_qty REAL,description TEXT,supplier TEXT,cat_no TEXT,search_text TEXT,source_group TEXT);
-        CREATE TABLE IF NOT EXISTS lines(id INTEGER PRIMARY KEY,group_id INTEGER NOT NULL REFERENCES groups(id),line_order INTEGER,item_no TEXT,type_raw TEXT,type_effective TEXT,supplier TEXT,quantity REAL,cat_no TEXT,description TEXT,raw_description TEXT,unit_ex REAL,total_ex REAL,status TEXT,page INTEGER,source_row INTEGER,connection_basis TEXT,source_values TEXT);
-        CREATE INDEX IF NOT EXISTS idx_lighting_lines_group ON lines(group_id);CREATE INDEX IF NOT EXISTS idx_lighting_groups_quote ON groups(quote_id);''')
+        ensure_schema(conn)
         yield conn;conn.commit()
     except:conn.rollback();raise
     finally:conn.close()
@@ -153,8 +156,8 @@ def save_quotes(quotes,excluded=0):
             if conn.execute('SELECT 1 FROM quotes WHERE reference=? AND quote_date=? AND content_hash=?',(quote['reference'],quote['quote_date'],digest)).fetchone():report['quotes_skipped']+=1
             else:pending.append((quote,digest))
         if pending and conn.execute('SELECT COUNT(*) FROM quotes').fetchone()[0]:
-            dest=db_path().parent/'lighting_backups'/('lighting_'+datetime.now().strftime('%Y%m%d_%H%M%S_%f')+'.db');dest.parent.mkdir(exist_ok=True)
-            with sqlite3.connect(dest) as target:conn.backup(target)
+            from .backups import create_backup
+            create_backup('before-import')
         for quote,digest in pending:
             qid=conn.execute('INSERT INTO quotes(reference,project,quote_date,source,content_hash,imported_at,total_ex) VALUES(?,?,?,?,?,?,?)',(quote['reference'],quote['project'],quote['quote_date'],quote['source'],digest,datetime.now().isoformat(),quote['total_ex'])).lastrowid
             for typ,members in group_lines(quote['lines']).items():

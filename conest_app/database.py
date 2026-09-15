@@ -434,8 +434,12 @@ def initialize(path: str | Path | None = None) -> Path:
             if name not in columns:conn.execute(f'ALTER TABLE projects ADD COLUMN {name} {definition}')
         if 'email' not in {row[1] for row in conn.execute('PRAGMA table_info(users)')}:
             conn.execute("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
-        conn.execute('UPDATE schema_version SET version=16')
+        from .light_prices import ensure_schema
+        ensure_schema(conn)
+        conn.execute('UPDATE schema_version SET version=20')
         conn.commit()
+    from .lighting_migration import merge_legacy_prices
+    merge_legacy_prices(target)
     return target
 
 

@@ -77,7 +77,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/1.20"
+    server_version = "TECConEst/2.0"
 
     def setup(self):
         super().setup()
@@ -211,10 +211,10 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 from conest_app import light_prices
                 if self.user['role']!='admin':raise ApiError(403,'Administrator access is required')
                 with tempfile.TemporaryDirectory() as folder:
-                    output=Path(folder)/'lighting_prices.db'
+                    output=Path(folder)/'conest_catalog.db'
                     with light_prices.connect() as source:
                         with sqlite3.connect(output) as target:source.backup(target)
-                    self._send_file(output,'lighting_prices.db')
+                    self._send_file(output,'conest_catalog.db')
                 return
             light_match=re.fullmatch(r'/api/light-prices/(\d+)',path)
             if light_match:

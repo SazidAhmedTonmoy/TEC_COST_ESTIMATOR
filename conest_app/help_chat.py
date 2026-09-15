@@ -10,7 +10,7 @@ from .utils import clean_text
 
 AI_SLOTS=threading.BoundedSemaphore(3)
 GUIDE='''TEC ConEst help:
-Light price check has a separate supplier-quote database. Search supplier, description, catalogue number or project, expand the result to see linked equipment, accessories and freight. Connected unit price is the group quoted total divided by its first row's quantity, in AUD excluding GST. Zero base quantity or missing prices means no complete connected unit price. Upload a connected workbook or text-based TLE PDF using Add supplier prices.
+Light price check has supplier-quote tables in the main application database. Search supplier, description, catalogue number or project, expand the result to see linked equipment, accessories and freight. Connected unit price is the group quoted total divided by its first row's quantity, in AUD excluding GST. Zero base quantity or missing prices means no complete connected unit price. Upload a connected workbook or text-based TLE PDF using Add supplier prices.
 Create a project with New project. Team members share team projects. Admins manage users, teams and assignments.
 Estimate: find an item using the top search, select it, set Qty, then Add to estimate. The floating search button scrolls to this search.
 Edit names, categories, quantities and fitting supply cost directly; leave the field to save. Category offers suggestions and accepts a new name.
@@ -24,7 +24,7 @@ Manage project & activity contains status, deadline, team assignments and contri
 My profile contains account details and team members. Calendar shows deadlines. Admins manage backups in App settings. Page links support browser Back/Forward, refresh and opening in a new tab.
 '''
 TIPS=[
-    (('light price check','supplier quote','price database'), 'Open Light price check and search by supplier, description, catalogue number or project. Open a result to see connected parts and freight. Use Add supplier prices for a connected workbook or TLE PDF. These records use a separate database.'),
+    (('light price check','supplier quote','price database'), 'Open Light price check and search by supplier, description, catalogue number or project. Open a result to see connected parts and freight. Use Add supplier prices for a connected workbook or TLE PDF. These records are stored in conest_catalog.db.'),
     (('crew','working day','person-day'), 'Set Crew size and Hours / person / day in project settings. Person-days = total labour hours divided by hours per person per day; crew working days divides again by crew size. This changes the time plan, not the estimate cost.'),
     (('size','specification'), 'Open Edit item / components. Change Assembly size / specification, then save with Estimate only for this quotation, or Update catalog for future reuse.'),
     (('supply','lighting','fitting'), 'Enter the supplier price for one fitting in Supply cost / unit. Qty controls the total. Lighting and Emergency & Exit Lighting prices stay with this estimate; saving a catalogue version omits that fitting supply price.'),
