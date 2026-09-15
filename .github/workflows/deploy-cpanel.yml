@@ -1,0 +1,123 @@
+name: Deploy TEC ConEst to cPanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tec-conest-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      DEPLOY_PATH: /home/ampecportal/tec-const.ampecportal.com
+      SITE_URL: https://tec-const.ampecportal.com
+      SSH_HOST: ${{ secrets.CPANEL_HOST }}
+      SSH_USER: ${{ secrets.CPANEL_USER }}
+      SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Validate application
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          python -m compileall -q app.py conest_app
+
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.CPANEL_SSH_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SSH_HOST:-}" ] || [ -z "${SSH_USER:-}" ] || [ -z "${SSH_PRIVATE_KEY:-}" ]; then
+            echo "Missing one or more required GitHub secrets: CPANEL_HOST, CPANEL_USER, CPANEL_SSH_KEY"
+            exit 1
+          fi
+
+          PORT="${SSH_PORT:-22}"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/tec_conest_deploy_key
+          chmod 600 ~/.ssh/tec_conest_deploy_key
+          ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      - name: Back up production SQLite database
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+
+          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
+            "APP='$DEPLOY_PATH'; \
+             cd \"\$APP\"; \
+             mkdir -p data/backups; \
+             PY=\"\$APP/venv/bin/python\"; \
+             if [ ! -x \"\$PY\" ]; then PY=python3.11; fi; \
+             \"\$PY\" -c 'import sqlite3, datetime, pathlib; src=pathlib.Path(\"data/conest_catalog.db\"); stamp=datetime.datetime.now().strftime(\"%Y%m%d_%H%M%S\"); dst=pathlib.Path(\"data/backups\") / f\"predeploy_{stamp}.db\"; print(f\"Backing up {src} -> {dst}\"); s=sqlite3.connect(src); d=sqlite3.connect(dst); s.backup(d); d.close(); s.close()'"
+
+      - name: Upload application code
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/tec_conest_deploy_key -p $PORT" \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude '.well-known/' \
+            --exclude '.htaccess' \
+            --exclude 'passenger_wsgi.py' \
+            --exclude 'venv/' \
+            --exclude '.venv/' \
+            --exclude 'tmp/' \
+            --exclude '__pycache__/' \
+            --exclude '*.pyc' \
+            --exclude '*.log' \
+            --exclude 'data/conest_catalog.db' \
+            --exclude 'data/conest_catalog.db-wal' \
+            --exclude 'data/conest_catalog.db-shm' \
+            --exclude 'data/conest_catalog.db-journal' \
+            --exclude 'data/backups/' \
+            --exclude 'data/imports/' \
+            --exclude 'data/exports/' \
+            --exclude 'data/import_previews/' \
+            ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
+
+      - name: Install production dependencies and restart Passenger
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+
+          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
+            "set -e; \
+             cd '$DEPLOY_PATH'; \
+             if [ -x venv/bin/pip ]; then venv/bin/pip install -r requirements.txt; else python3.11 -m pip install --user -r requirements.txt; fi; \
+             mkdir -p tmp; \
+             touch tmp/restart.txt; \
+             echo 'Passenger restart requested.'"
+
+      - name: Verify production health
+        run: |
+          set -euo pipefail
+          sleep 3
+          RESPONSE="$(curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$SITE_URL/api/health")"
+          echo "$RESPONSE"
+          echo "$RESPONSE" | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'
