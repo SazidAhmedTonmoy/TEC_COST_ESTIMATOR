@@ -65,6 +65,7 @@ def catalog_content_key(item: Any, components: list[dict[str, Any]]) -> str:
             "labor_pricing": c.get("labor_pricing") or "hours",
         }
         if c.get("is_supply_copy"):detail["is_supply_copy"]=True
+        if c.get("fixed_quantity"):detail["fixed_quantity"]=True
         details.append(detail)
     details.sort(key=stable_hash)
     return stable_hash({"name": normalize_text(item["name"]),

@@ -72,7 +72,7 @@ jobs:
              mkdir -p data/backups; \
              PY=\"\$APP/venv/bin/python\"; \
              if [ ! -x \"\$PY\" ]; then PY=python3.11; fi; \
-             \"\$PY\" -c 'import sqlite3, datetime, pathlib; src=pathlib.Path(\"data/conest_catalog.db\"); stamp=datetime.datetime.now().strftime(\"%Y%m%d_%H%M%S\"); dst=pathlib.Path(\"data/backups\") / f\"predeploy_{stamp}.db\"; print(f\"Backing up {src} -> {dst}\"); assert src.is_file(); s=sqlite3.connect(src); d=sqlite3.connect(dst); s.backup(d); assert d.execute(\"PRAGMA integrity_check\").fetchone()[0] == \"ok\"; d.close(); s.close(); snapshots=sorted(dst.parent.glob(\"*.db\"), key=lambda p: (p.stat().st_mtime_ns, p.name), reverse=True); [(p.unlink(), p.with_suffix(\".json\").unlink(missing_ok=True)) for p in snapshots[2:] if not p.is_symlink()]'"
+             \"\$PY\" -c 'import sqlite3, datetime, pathlib; src=pathlib.Path(\"data/conest_catalog.db\"); stamp=datetime.datetime.now().strftime(\"%Y%m%d_%H%M%S\"); dst=pathlib.Path(\"data/backups\") / f\"predeploy_{stamp}.db\"; print(f\"Backing up {src} -> {dst}\"); assert src.is_file(); s=sqlite3.connect(src); d=sqlite3.connect(dst); s.backup(d); assert d.execute(\"PRAGMA integrity_check\").fetchone()[0] == \"ok\"; d.close(); s.close(); snapshots=sorted(dst.parent.glob(\"*.db\"), key=lambda p: (p.stat().st_mtime_ns, p.name), reverse=True); [(p.unlink(), p.with_suffix(\".json\").unlink(missing_ok=True)) for p in snapshots[1:] if not p.is_symlink()]'"
 
       - name: Upload application code
         run: |

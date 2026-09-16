@@ -40,6 +40,24 @@ TIPS=[
 ]
 STOP=set('a an the is are of for to in on at how what which can i we my me you please find show list search catalog catalogue item items price prices cost costs about do does have database available our this that'.split())
 
+def project_facts(conn,pid,question):
+    data=calculate_project(conn,pid);project=data['project']
+    facts={k:project.get(k) for k in ('id','name','currency','material_markup','labor_rate','overhead_markup')}
+    facts.update(totals=data['totals'],crew_plan=data['crew_plan'],item_count=len(data['lines']))
+    words=set(re.findall(r'\w+',question.lower()))-STOP
+    def terms(line):return set(re.findall(r'\w+',(' '.join(str(line.get(k) or '') for k in ('name_snapshot','category_snapshot','size_snapshot'))).lower()))
+    matching=[line for line in data['lines'] if words & terms(line)]
+    lines=sorted(matching or data['lines'],key=lambda line:-len(words & terms(line)))[:30]
+    facts['selected_items']=[{k:l.get(k) for k in ('name_snapshot','category_snapshot','quantity','size_snapshot','supply_unit_cost','quoted_total','total_hours')} for l in lines]
+    facts['selection_limit']=30;facts['matching_item_count']=len(matching)
+    categories={}
+    for line in data['lines']:
+        name=line.get('category_snapshot') or 'Other'
+        categories[name]=categories.get(name,0)+line['quoted_total']
+    facts['category_quoted_totals']=categories
+    return facts
+
+
 def prepare_context(conn,user,payload):
     question=clean_text(payload.get('question'))
     if not question or len(question)>1000:raise ValueError('Enter a question of 1–1,000 characters')
@@ -49,17 +67,25 @@ def prepare_context(conn,user,payload):
     if pid is not None:
         if type(pid) is not int or pid<=0:raise ValueError('Choose a valid project')
         require_project(conn,pid,user,'view')
-        data=calculate_project(conn,pid)
-        project=data['project']
-        context['current_project']={k:project.get(k) for k in ('name','currency','material_markup','labor_rate','overhead_markup')}
-        context['current_project']['totals']=data['totals']
-        context['current_project']['crew_plan']=data['crew_plan']
-        context['current_project']['item_count']=len(data['lines'])
-        words=set(re.findall(r'\w+',question.lower()))-STOP
-        lines=sorted(data['lines'],key=lambda l:-len(words & set(re.findall(r'\w+',l['name_snapshot'].lower()))))[:30]
-        context['current_project']['selected_items']=[{k:l.get(k) for k in ('name_snapshot','category_snapshot','quantity','size_snapshot','supply_unit_cost','quoted_total')} for l in lines]
-        context['current_project']['selection_limit']=30
-        sources.append({'label':project['name'],'url':f'#/estimate/{pid}'})
+        context['current_project']=project_facts(conn,pid,question)
+        sources.append({'label':context['current_project']['name'],'url':f'#/estimate/{pid}'})
+    # Filter on the server before matching names. Never disclose inaccessible projects.
+    words=set(re.findall(r'\w+',question.lower()))-STOP-{'project','projects','total','totals','estimate','estimates','another','compare','with','and'}
+    rows=conn.execute("""SELECT p.id,p.name FROM projects p WHERE ?='admin' OR p.owner_id=? OR p.status='completed'
+        OR EXISTS(SELECT 1 FROM project_teams t JOIN users u ON u.team_id=t.team_id
+                  WHERE t.project_id=p.id AND u.id=? AND u.role='user' AND u.is_active=1)""",
+        (user['role'],user['id'],user['id'])).fetchall()
+    matched=[]
+    for row in rows:
+        score=len(words & set(re.findall(r'\w+',row['name'].lower())))
+        if score and row['id']!=pid:matched.append((score,row['id']))
+    context['matching_projects']=[]
+    for _,project_id in sorted(matched,reverse=True)[:3]:
+        require_project(conn,project_id,user,'view')
+        facts=project_facts(conn,project_id,question)
+        context['matching_projects'].append(facts)
+        sources.append({'label':facts['name'],'url':f'#/estimate/{project_id}'})
+    context['project_search_note']='Up to three accessible projects matched by name. Ask using the project name to select another project.'
     terms=[w for w in re.findall(r'[\w²]+',question.lower()) if w not in STOP][:6]
     matches=search_catalog(conn,' '.join(terms),limit=5) if terms else []
     if not matches and len(terms)>1:
@@ -102,8 +128,16 @@ def answer_context(prepared):
     tip=next((text for keys,text in TIPS if any(k in lower for k in keys)),
         'Start with New project, then search for a catalogue item on Estimate and add its quantity. Ask me about categories, supply costs, editing, imports, teams, revisions or Excel export.')
     facts=[tip]
-    if 'current_project' in context and any(w in lower for w in ('total','project','estimate')):
-        p=context['current_project'];facts.append(f"Current project: {p['name']}. {p['item_count']} estimate items; quoted total {p['currency']} {p['totals']['quoted']:,.2f}.")
+    projects=([context['current_project']] if 'current_project' in context else [])+context.get('matching_projects',[])
+    if projects and (any(w in lower for w in ('total','project','estimate','hour','day','added','include','quantity','qty','category','scope','breakdown')) or context.get('matching_projects')):
+        for p in projects:
+            facts.append(f"Project: {p['name']}. {p['item_count']} estimate items; quoted total {p['currency']} {p['totals']['quoted']:,.2f}. Labour: {p['totals']['hours']:,.2f} hours; {p['crew_plan']['working_days']:,.2f} crew working days.")
+            if any(w in lower for w in ('item','added','include','quantity','qty')):
+                facts.append('Selected estimate items (up to 30):\n'+'\n'.join(f"• {l['name_snapshot']} — Qty {l['quantity']:g}" for l in p['selected_items']))
+            if any(w in lower for w in ('category','scope','breakdown')):
+                facts.append('Category quoted totals:\n'+'\n'.join(f"• {name}: {p['currency']} {cost:,.2f}" for name,cost in p['category_quoted_totals'].items()))
+    if not context.get('matching_projects') and any(w in lower for w in ('another project','other project')):
+        facts.append('Include the other project’s name in your question. I can only read projects you can access.')
     if any(w in lower for w in ('database','catalog','how many')):facts.append(f"The catalogue contains {context['catalogue_record_count']:,} saved records (including source versions).")
     if context['selected_catalogue_items']:
         facts.append('Selected catalogue matches (open a source below for its rates and components):\n'+'\n'.join('• '+(i.get('display_name') or i['name'])+(' · '+i['specification'] if i.get('specification') else '') for i in context['selected_catalogue_items']))

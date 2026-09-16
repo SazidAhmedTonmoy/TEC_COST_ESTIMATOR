@@ -162,8 +162,8 @@ def _copy_line_components(conn: sqlite3.Connection, line_id: int, item: dict[str
         conn.execute(
             """INSERT INTO project_line_components
                (project_line_id, line_order, item_no, description, quantity_per_unit, uom, q_m, size,
-                unit_material, material_factor, unit_hours, labor_factor, is_parent, notes, labor_pricing, unit_labor_price, is_supply_copy)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                unit_material, material_factor, unit_hours, labor_factor, is_parent, notes, labor_pricing, unit_labor_price, is_supply_copy, fixed_quantity, source_quantity)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 line_id,
                 component["line_order"],
@@ -182,6 +182,8 @@ def _copy_line_components(conn: sqlite3.Connection, line_id: int, item: dict[str
                 component.get("labor_pricing", "hours"),
                 component.get("unit_labor_price", 0),
                 component.get("is_supply_copy",0),
+                component.get("fixed_quantity",0),
+                component.get("source_quantity",component["quantity_per_unit"]),
             ),
         )
 
@@ -349,12 +351,12 @@ def calculate_project(
             if component['id']==supply_id and line.get('supply_unit_cost_override') is not None:
                 component['unit_material']=line['supply_unit_cost_override']
                 component['material_factor']=1.0
-            scaled_qty = line_qty * float(component["quantity_per_unit"])
+            scaled_qty = (1 if component.get("fixed_quantity") else line_qty) * float(component["quantity_per_unit"])
             component['supply_quantity_is_overridden']=component['id']==supply_id and line.get('supply_quantity_override') is not None
             if component['supply_quantity_is_overridden']:scaled_qty=float(line['supply_quantity_override'])
             raw_material = scaled_qty * float(component["unit_material"]) * float(component["material_factor"])
             material = raw_material * (1 + material_markup)
-            labor_qty=line_qty*float(component["quantity_per_unit"])
+            labor_qty=(1 if component.get("fixed_quantity") else line_qty)*float(component["quantity_per_unit"])
             fixed = component["labor_pricing"] == "fixed"
             hours = 0.0 if fixed else labor_qty * float(component["unit_hours"]) * float(component["labor_factor"])
             labor = (labor_qty * float(component["unit_labor_price"]) * float(component["labor_factor"])) if fixed else hours * labor_rate
@@ -383,7 +385,7 @@ def calculate_project(
             cost=line.get('supply_unit_cost_override')
             line['supply_unit_cost']=float(supply['unit_material'] if cost is None else cost)
             qty=line.get('supply_quantity_override')
-            line['supply_quantity']=line_qty*float(supply['quantity_per_unit']) if qty is None else float(qty)
+            line['supply_quantity']=(1 if supply.get('fixed_quantity') else line_qty)*float(supply['quantity_per_unit']) if qty is None else float(qty)
             line['pricing_work_type']='supply_install' if (line['supply_unit_cost'] or supply['unit_hours'] or supply['unit_labor_price'] or any(c['is_supply_copy'] and (c['unit_material'] or c['unit_hours'] or c['unit_labor_price']) for c in component_rows)) else 'installation_only'
         line['unit_supply_material']=supply_material/line_qty if line_qty else 0.0
         line['unit_installation_material']=(line_material-supply_material)/line_qty if line_qty else 0.0

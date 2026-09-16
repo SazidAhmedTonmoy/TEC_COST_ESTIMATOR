@@ -300,6 +300,9 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             ws.cell(row, 4, ratio)
             ws.cell(row, 4).comment = Comment("Editable component quantity per one parent unit. Scaled quantity = parent take-off × this ratio.", "User")
             ws.cell(row, 5, f"=$D${parent_row}*D{row}")
+            if component.get('fixed_quantity'):
+                ws.cell(row,5,f'=D{row}')
+                ws.cell(row,4).comment=Comment('Fixed total quantity. Does not multiply by the parent take-off quantity.','User')
             if component.get('supply_quantity_is_overridden'):
                 ws.cell(row,4,float(component['scaled_quantity']))
                 ws.cell(row,5,f'=D{row}')
@@ -315,7 +318,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 ws.cell(row, 10, f"=E{row}*H{row}*{_safe_formula_factor(component.get('labor_factor'))}")
                 ws.cell(row, 8).comment = Comment("Fixed labour/work price per component unit, before final mark-up. Independent of the hourly rate. No labour hours are inferred.", "User")
             if component.get('supply_quantity_is_overridden'):
-                labor_base=f'$D${parent_row}*{ratio}'
+                labor_base=str(ratio) if component.get('fixed_quantity') else f'$D${parent_row}*{ratio}'
                 if component.get('labor_pricing')=='fixed':ws.cell(row,10,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}')
                 else:
                     ws.cell(row,9,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}')
@@ -323,6 +326,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             ws.cell(row, 12, f"=K{row}*(1+{settings_ref}$C$6)")
             ws.cell(row, 14, " · ".join(filter(None, [
                 "Fixed labour price; hours not provided" if component.get("labor_pricing") == "fixed" else "",
+                "Fixed total quantity" if component.get("fixed_quantity") else "",
                 component.get("notes"),
             ])))
             for cell in ws[row][:14]:

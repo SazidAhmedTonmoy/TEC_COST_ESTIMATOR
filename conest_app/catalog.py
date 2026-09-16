@@ -283,7 +283,7 @@ def get_catalog_item(conn: sqlite3.Connection, catalog_item_id: int) -> dict[str
         for component in conn.execute(
             """SELECT id, line_order, item_no, description, quantity_per_unit, source_quantity, uom,
                       q_m, size, unit_material, material_factor, unit_hours, labor_factor, is_parent,
-                      source_row, quantity_formula, notes, labor_pricing, unit_labor_price, is_supply_copy
+                      source_row, quantity_formula, notes, labor_pricing, unit_labor_price, is_supply_copy, fixed_quantity
                FROM catalog_components WHERE catalog_item_id = ? ORDER BY line_order, id""",
             (catalog_item_id,),
         )
@@ -416,7 +416,8 @@ def _validated_components(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 "item_no": clean_text(component.get("item_no")),
                 "description": description,
                 "quantity_per_unit": quantity,
-                "source_quantity": quantity,
+                "source_quantity": _nonnegative(component.get("source_quantity", quantity), "Original quantity", quantity),
+                "fixed_quantity": 1 if component.get("fixed_quantity") else 0,
                 "uom": clean_text(component.get("uom") or "EA"),
                 "q_m": clean_text(component.get("q_m")),
                 "size": clean_text(component.get("size")),
@@ -484,8 +485,8 @@ def _replace_components(conn: sqlite3.Connection, item_id: int, components: list
         conn.execute(
             """INSERT INTO catalog_components
                (catalog_item_id, line_order, item_no, description, quantity_per_unit, source_quantity,
-                uom, q_m, size, unit_material, material_factor, unit_hours, labor_factor, is_parent, notes, labor_pricing, unit_labor_price, is_supply_copy)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                uom, q_m, size, unit_material, material_factor, unit_hours, labor_factor, is_parent, notes, labor_pricing, unit_labor_price, is_supply_copy, fixed_quantity)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 item_id,
                 component["line_order"],
@@ -505,6 +506,7 @@ def _replace_components(conn: sqlite3.Connection, item_id: int, components: list
                 component["labor_pricing"],
                 component["unit_labor_price"],
                 component.get("is_supply_copy",0),
+                component.get("fixed_quantity",0),
             ),
         )
 

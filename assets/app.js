@@ -332,7 +332,7 @@ function renderEstimateLine(line) {
   const category = line.category_snapshot || "Other";
   const details = (line.components || []).map((component) => `
     <tr class="detail-row hidden-row" data-parent="${line.id}" data-component-id="${component.id}">
-      <td class="assembly-cell"><span class="drag-handle" draggable="true" data-drag-kind="component" data-line-id="${line.id}" data-component-id="${component.id}" title="Drag component">⠿</span><button class="component-copy-live" data-line-id="${line.id}" data-component-id="${component.id}" title="Copy component below" aria-label="Copy component">+</button>${componentLabel(component)}</td>
+      <td class="assembly-cell"><span class="drag-handle" draggable="true" data-drag-kind="component" data-line-id="${line.id}" data-component-id="${component.id}" title="Drag component">⠿</span><button class="component-copy-live" data-line-id="${line.id}" data-component-id="${component.id}" title="Copy component below" aria-label="Copy component">+</button>${componentLabel(component)}${component.fixed_quantity?'<small class="fixed-quantity-note">Fixed total quantity</small>':''}</td>
       <td>${fmtNumber(component.scaled_quantity)} ${escapeHtml(component.uom || "")}</td>
       <td>${component.is_supply_allowance?fmtMoney(component.unit_material):"—"}</td><td>${component.is_supply_allowance?"—":fmtMoney(component.unit_material)}</td>
       <td>${fmtMoney(component.total_material)}</td>
@@ -475,7 +475,7 @@ async function chooseSmartSuggestion(index) {
 function compactComponentTable(item, maxRows = 8) {
   const components = item.components || [];
   const rows = components.slice(0, maxRows).map((component) => `
-    <tr><td>${componentLabel(component)}</td><td>${fmtNumber(component.quantity_per_unit, 4)} ${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
+    <tr><td>${componentLabel(component)}${component.fixed_quantity?'<small class="fixed-quantity-note">Fixed total quantity</small>':''}</td><td>${fmtNumber(component.quantity_per_unit, 4)} ${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
   const more = components.length > maxRows ? `<p class="preview-more">+ ${components.length - maxRows} more component rows</p>` : "";
   return `<div class="component-preview-wrap"><table class="component-preview-table"><thead><tr><th>Contained detail</th><th>Qty / 1</th><th>Unit material</th><th>Labour / unit</th></tr></thead><tbody>${rows}</tbody></table>${more}</div>`;
 }
@@ -537,6 +537,8 @@ async function addCatalogItem(itemId, query = "", quantity = null) {
   state.projectData = result;
   renderProject();
   $("#search-results").classList.add("hidden");
+  $("#smart-quantity").value="1";
+  $("#quick-search-quantity").value="1";
   toast("Assembly added with all component rows");
 }
 
@@ -620,6 +622,7 @@ function componentRow(component = {}) {
   return `<tr class="manual-component" data-component="${escapeHtml(JSON.stringify(component))}" data-labor-mode="${escapeHtml(mode)}">
     <td data-label="Description"><span class="drag-handle" draggable="true" data-drag-kind="manual" title="Drag component">⠿</span><button class="copy-manual-component" type="button" title="Copy component below" aria-label="Copy component">+</button><input class="component-description" aria-label="Detail description" required value="${escapeHtml(component.description || "")}" placeholder="Product, material or work description">
       <details class="component-extra"><summary>Specifications, factors & notes</summary><div>
+        <label class="fixed-quantity-control" title="Restore original database quantity and keep it independent of the assembly quantity"><input type="checkbox" class="component-fixed-quantity"${component.fixed_quantity?' checked':''}> Fixed total</label>
 
         <label>Material factor<input class="component-material-factor" type="number" min="0" step="any" required value="${Number(component.material_factor ?? 1)}"></label>
         <label>Labour factor<input class="component-labor-factor" type="number" min="0" step="any" required value="${Number(component.labor_factor ?? 1)}"></label>
@@ -648,6 +651,8 @@ function readManualComponents() {
       size: $(".component-size", row).value.trim(),
       notes: $(".component-notes", row).value,
       quantity_per_unit: Number($(".component-ratio", row).value),
+      fixed_quantity: $(".component-fixed-quantity", row).checked ? 1 : 0,
+      source_quantity: original.source_quantity ?? original.quantity_per_unit ?? Number($(".component-ratio", row).value),
       uom: $(".component-uom", row).value.trim(),
       unit_material: workType === "installation_only" ? 0 : Number($(".component-material", row).value),
       material_factor: Number($(".component-material-factor", row).value),
@@ -688,10 +693,14 @@ function refreshManualPricing() {
   const rate = Number(project?.labor_rate ?? state.appSettings?.default_labor_rate ?? 120);
   const markup = Number(project?.material_markup ?? state.appSettings?.default_material_markup ?? .15);
   const overhead = Number(project?.overhead_markup ?? state.appSettings?.default_overhead_markup ?? .10);
+  const qty = Number($("#manual-quantity").value);
+  const estimateTotal=components.reduce((sum,c)=>{
+    const quantity=c.quantity_per_unit*(c.fixed_quantity?1:qty);
+    return sum+quantity*(c.unit_material*c.material_factor*(1+markup)+(c.unit_hours*rate+c.unit_labor_price)*c.labor_factor)*(1+overhead);
+  },0);
   const quotedUnit = (material * (1 + markup) + hours * rate + fixed) * (1 + overhead);
   const unit = escapeHtml($("#manual-uom").value || "unit");
-  const qty = Number($("#manual-quantity").value);
-  $("#manual-cost-preview").innerHTML = `<span>Base material / ${unit}<strong>${fmtMoney(material)}</strong></span><span>Labour / ${unit}<strong>${fmtNumber(hours)} hrs + ${fmtMoney(fixed)} fixed</strong></span><span>Quoted price / ${unit}<strong>${fmtMoney(quotedUnit)}</strong></span>${state.manualAddToEstimate ? `<span>Estimate total · ${fmtNumber(qty)} ${unit}<strong>${fmtMoney(quotedUnit * qty)}</strong></span>` : ""}<small>Preview uses ${fmtMoney(rate)}/hr, ${fmtNumber(markup * 100)}% material mark-up and ${fmtNumber(overhead * 100)}% final mark-up. ${state.manualAddToEstimate ? "Lighting fitting supply prices are saved only with this estimate." : "Existing estimates retain their saved prices."}</small>`;
+  $("#manual-cost-preview").innerHTML = `<span>Base material / ${unit}<strong>${fmtMoney(material)}</strong></span><span>Labour / ${unit}<strong>${fmtNumber(hours)} hrs + ${fmtMoney(fixed)} fixed</strong></span><span>Quoted price / ${unit}<strong>${fmtMoney(quotedUnit)}</strong></span>${state.manualAddToEstimate ? `<span>Estimate total · ${fmtNumber(qty)} ${unit}<strong>${fmtMoney(estimateTotal)}</strong></span>` : ""}<small>Preview uses ${fmtMoney(rate)}/hr, ${fmtNumber(markup * 100)}% material mark-up and ${fmtNumber(overhead * 100)}% final mark-up. ${state.manualAddToEstimate ? "Lighting fitting supply prices are saved only with this estimate." : "Existing estimates retain their saved prices."}</small>`;
 }
 
 function openManualDialog(addToEstimate = false, sourceItem = null, editExisting = false, lineId = null, quantityOverride = null) {
@@ -789,6 +798,7 @@ async function saveManualItem(event) {
     button.textContent = originalLabel;
   }
   $("#manual-dialog").close();
+  if(state.manualAddToEstimate&&!state.manualLineId){$("#smart-quantity").value="1";$("#quick-search-quantity").value="1";}
   toast(state.manualLineId ? "Estimate saved" : state.manualAddToEstimate ? "Estimate changes saved" : "Catalog changes saved for future use");
   // A rendering/refresh failure must not turn a successful write into a retry.
   try {
@@ -837,7 +847,7 @@ async function showCatalogDetail(itemId) {
   if(request!==state.catalogDetailRequest)return false;
   state.currentCatalogItem = item;
   $$(".catalog-result").forEach((row) => row.classList.toggle("active", Number(row.dataset.id) === Number(itemId)));
-  const componentRows = item.components.map((component) => `<tr><td>${componentLabel(component)}</td><td>${fmtNumber(component.quantity_per_unit, 4)}</td><td>${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
+  const componentRows = item.components.map((component) => `<tr><td>${componentLabel(component)}${component.fixed_quantity?'<small class="fixed-quantity-note">Fixed total quantity</small>':''}</td><td>${fmtNumber(component.quantity_per_unit, 4)}</td><td>${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
   const sources = item.occurrences.length ? item.occurrences.map((source) => `<span class="source-chip">${escapeHtml(source.project_name || source.file_name)} · ${escapeHtml(source.sheet_name || "")} · row ${source.source_row || "—"}</span>`).join("") : `<span class="source-chip">Manual catalog</span>`;
   const variants = (item.variants || []).map((variant) => `<a href="#/catalog/${variant.id}" class="variant-option${Number(variant.id) === Number(item.id) ? " active" : ""}" data-variant-id="${variant.id}"><span><strong>${escapeHtml(variant.specification || variant.name || "Saved option")}</strong><small>${escapeHtml(variant.source_file || "Manual catalog")} · ${variant.component_count} rows</small></span><span><b>${fmtMoney(variant.unit_material)}</b><small>${catalogLaborLabel(variant)}</small></span><em class="data-status ${escapeHtml(variant.data_status)}">${dataStatusLabel(variant.data_status)}</em></a>`).join("");
   $("#catalog-detail").classList.remove("empty-detail");
@@ -887,7 +897,7 @@ function hideCatalogHover(delay = 90) {
 function renderCatalogHover(item, target) {
   const preview = $("#catalog-hover-preview");
   const rows = (item.components || []).slice(0, 7).map((component) => `
-    <tr><td>${componentLabel(component)}</td><td>${fmtNumber(component.quantity_per_unit, 3)} ${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
+    <tr><td>${componentLabel(component)}${component.fixed_quantity?'<small class="fixed-quantity-note">Fixed total quantity</small>':''}</td><td>${fmtNumber(component.quantity_per_unit, 3)} ${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
   preview.innerHTML = `
     <div class="hover-preview-heading"><div><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${variantText(item)}</small></div><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></div>
     <div class="hover-totals"><span>Material / unit <strong>${fmtMoney(item.unit_material)}</strong></span><span>Labour / unit <strong>${catalogLaborLabel(item)}</strong></span></div>
@@ -1153,6 +1163,12 @@ function bindEvents() {
     refreshManualPricing();
   });
   $("#manual-components").addEventListener("change", (event) => {
+    if (event.target.matches('.component-fixed-quantity')) {
+      const row=event.target.closest('tr'),input=$('.component-ratio',row),original=JSON.parse(row.dataset.component||'{}');
+      if(event.target.checked){row.dataset.scaledRatio=input.value;input.value=original.source_quantity??original.quantity_per_unit??input.value;}
+      else input.value=row.dataset.scaledRatio??original.quantity_per_unit??input.value;
+      refreshManualPricing();
+    }
     if (event.target.matches(".component-labor-mode")) {
       const row = event.target.closest("tr");
       const input = $(".component-labor-value", row);

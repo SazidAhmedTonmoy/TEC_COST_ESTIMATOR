@@ -35,6 +35,18 @@ def initialize_options(conn):
         if 'is_supply_copy' not in {r['name'] for r in conn.execute(f'PRAGMA table_info({table})')}:
             conn.execute(f'ALTER TABLE {table} ADD COLUMN is_supply_copy INTEGER NOT NULL DEFAULT 0')
 
+    for table in ('catalog_components','project_line_components'):
+        if 'fixed_quantity' not in {r['name'] for r in conn.execute(f'PRAGMA table_info({table})')}:
+            conn.execute(f'ALTER TABLE {table} ADD COLUMN fixed_quantity INTEGER NOT NULL DEFAULT 0')
+    if 'source_quantity' not in {r['name'] for r in conn.execute('PRAGMA table_info(project_line_components)')}:
+        conn.execute('ALTER TABLE project_line_components ADD COLUMN source_quantity REAL')
+        # Match old snapshots conservatively; edited/unmatched rows retain their own allowance.
+        conn.execute("""UPDATE project_line_components SET source_quantity=COALESCE((
+            SELECT cc.source_quantity FROM catalog_components cc JOIN project_lines pl ON pl.catalog_item_id=cc.catalog_item_id
+            WHERE pl.id=project_line_components.project_line_id AND cc.line_order=project_line_components.line_order
+              AND cc.description=project_line_components.description AND cc.size=project_line_components.size
+            LIMIT 1),quantity_per_unit)""")
+
     cols={r['name'] for r in conn.execute('PRAGMA table_info(project_lines)')}
     for name in ('supply_quantity_override','supply_unit_cost_override'):
         if name not in cols:conn.execute(f'ALTER TABLE project_lines ADD COLUMN {name} REAL')

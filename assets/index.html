@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="/assets/theme.css">
   <link rel="stylesheet" href="/assets/responsive.css">
   <script src="/assets/mobile.js" defer></script>
+  <script src="/assets/file_drop.js" defer></script>
 </head>
 <body>
   <section id="login-screen" class="login-screen">
@@ -228,7 +229,7 @@
           <p id="light-price-status" role="status" class="helper-text"></p><div id="light-price-results"></div><div class="light-price-pages"><button id="light-price-prev" class="button secondary small" type="button">Previous</button><button id="light-price-next" class="button secondary small" type="button">Next</button></div>
         </section>
         <section class="panel hidden" id="light-price-detail" aria-label="Connected supplier prices"></section>
-        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Upload a connected Excel workbook or TLE quotation PDF. Existing quotes are skipped automatically.</p></div><form id="light-price-import-form"><label class="light-upload-file">Choose a quote file<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button class="button primary" type="submit">Import prices</button></form><p id="light-price-import-status" class="helper-text" role="status"></p></section>
+        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Upload a connected Excel workbook or TLE quotation PDF. Existing quotes are skipped automatically.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button class="button primary" type="submit">Import prices</button></form><p id="light-price-import-status" class="helper-text" role="status"></p></section>
       </section>
       <section id="imports-view" class="view">
         <div class="split-heading"><div><p class="eyebrow">Database growth</p><h2>Import future ConEst workbooks</h2><p>The importer reads every matching ConEst sheet, keeps source variants, and reports anything needing review.</p></div></div>
@@ -236,7 +237,7 @@
           <form id="import-form">
             <label class="drop-zone" id="drop-zone">
               <span class="drop-icon">⇧</span>
-              <strong>Choose a ConEst Excel workbook</strong>
+              <strong>Drop a workbook here or click to choose</strong>
               <span>.xlsx or .xlsm, up to 80 MB</span>
               <input id="import-file" type="file" accept=".xlsx,.xlsm" required>
             </label>
@@ -252,7 +253,7 @@
 </section>
 
       <section id="settings-view" class="view">
-        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">The latest two backup sets are kept automatically. Backups run daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
+        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">The latest backup set is kept automatically. Backups run daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
         <div class="split-heading"><div><p class="eyebrow">Application defaults</p><h2>Settings</h2><p>These values are used when a new estimate is created. Each project can override them.</p></div></div>
         <section class="panel settings-panel">
           <form id="app-settings-form" class="settings-grid">
@@ -314,7 +315,7 @@
         <label>Supplier<input id="manual-supplier" maxlength="1000"></label><label>Quote date<input type="date" id="manual-quote-date"></label><label>Price source / reference<input id="manual-price-source" maxlength="1000" placeholder="Supplier quote reference or budget allowance"></label>
       </div>
       <p id="manual-work-help" class="manual-note"></p>
-      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Every row scales with the estimate quantity.</span></div><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div>
+      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div>
       <div class="table-scroll"><table class="component-editor"><thead><tr><th>Description</th><th>Size / specification</th><th>Qty / 1</th><th>Unit</th><th>Product / material price</th><th>Labour basis</th><th>Labour hrs / price</th><th></th></tr></thead><tbody id="manual-components"></tbody></table></div>
       <p class="manual-note">A fixed labour price replaces hours × hourly rate. It adds no labour hours. Changing a unit changes its label; review quantities and prices for that unit.</p>
       <div id="manual-cost-preview" class="manual-cost-preview" aria-live="polite"></div>
@@ -394,7 +395,7 @@
   <button id="help-chat-button" class="help-chat-launch hidden" type="button" aria-haspopup="dialog">? <span>Help</span></button>
   <dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title">
     <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst guide</h2><p>Help with estimating, your catalogue and supplier prices</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
-    <p class="help-chat-notice">Uses the saved Gemini setting when enabled. Your question and selected catalogue, supplier-price and current-project data may be sent to Gemini. Read-only; answers never change your work.</p>
+    <p class="help-chat-notice">Uses the saved Gemini setting when enabled. Your question and selected catalogue, supplier-price and accessible project data may be sent to Gemini. Read-only; answers never change your work.</p>
     <div class="help-chat-starters"><button type="button" data-help-question="How do I search supplier quotes in Light price check?">Light price check</button><button type="button" data-help-question="How do I reorder categories?">Move categories</button><button type="button" data-help-question="What is this project's total?">Project total</button></div>
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Ask how to use the app, or find a catalogue item…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>

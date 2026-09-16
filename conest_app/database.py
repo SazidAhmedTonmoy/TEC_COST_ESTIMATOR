@@ -436,7 +436,7 @@ def initialize(path: str | Path | None = None) -> Path:
             conn.execute("ALTER TABLE users ADD COLUMN email TEXT NOT NULL DEFAULT ''")
         from .light_prices import ensure_schema
         ensure_schema(conn)
-        conn.execute('UPDATE schema_version SET version=20')
+        conn.execute('UPDATE schema_version SET version=21')
         conn.commit()
     from .lighting_migration import merge_legacy_prices
     merge_legacy_prices(target)

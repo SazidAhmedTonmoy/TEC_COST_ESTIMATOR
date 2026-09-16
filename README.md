@@ -1,4 +1,4 @@
-# TEC ConEst · v2.1
+# TEC ConEst · v2.2
 
 ### Electrical estimating, connected costs and team collaboration
 
@@ -7,7 +7,7 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 | Estimate | Collaborate | Operate |
 | :--- | :--- | :--- |
 | Reusable assemblies and item build-ups | Shared projects, notes and activity | One `conest_catalog.db` |
-| Lighting supply and installation costs | Teams, account roles and revisions | Automated deployment and two backups |
+| Lighting supply and installation costs | Teams, account roles and revisions | Automated deployment and one backup |
 | Connected Excel quantities and totals | Searchable supplier quotations | Desktop, mobile and dark mode |
 
 **Quick links:** [Start](#1-start-and-deploy) · [Daily use](#2-daily-use) · [Backups](#3-data-and-backups) · [Architecture](#4-architecture-and-pricing) · [Files](#5-file-guide) · [Release history](#6-release-history) · [Troubleshooting](#7-troubleshooting)
@@ -33,7 +33,7 @@ The included [.github/workflows/deploy-cpanel.yml](.github/workflows/deploy-cpan
 1. Update the files in your existing checkout, retaining its Git history and your production data.
 2. Review the changes, commit them and push to `main`.
 3. GitHub Actions installs requirements, checks Python syntax and runs the release tests.
-4. It connects over SSH, creates a consistent pre-deployment SQLite backup and removes backup sets older than the latest two.
+4. It connects over SSH, creates a consistent pre-deployment SQLite backup and removes backup sets older than the latest one.
 5. It uploads application code, installs requirements, restarts Passenger and checks `/api/health`.
 
 | GitHub secret | Purpose |
@@ -51,7 +51,7 @@ Stop the old app and back up its current main and lighting databases. Put the ol
 
 ## 2. Daily use
 
-### What changes in v2.1
+### Features included in v2.2
 
 | Area | Behaviour |
 | --- | --- |
@@ -60,7 +60,7 @@ Stop the old app and back up its current main and lighting databases. Put the ol
 | Settings | Backup and application-default panels share the available width. |
 | Component editor | Description, size, quantity, unit, material price, labour basis, labour value and delete action have balanced widths. Phones show labelled component cards. |
 | Save feedback | Errors appear inside the editor without losing entered values. A successful write is confirmed before screen refreshes, avoiding a misleading save failure if refresh fails. |
-| Backup retention | Only the latest two completed backup sets are kept in the active backup folder. |
+| Backup retention | Only the latest completed backup set is kept in the active backup folder. |
 
 ### Home, teams and projects
 The project board shows accessible projects, their status and deadlines. Use its search bar to locate a project. Team members can work on projects assigned to their team, and a project created by a user is shared with their team. Administrators can manage all projects, users, roles and teams. Newly created user projects appear for admin review. Completed projects from other teams are visible for reference; viewing permission does not automatically grant editing permission.
@@ -94,9 +94,9 @@ Copying a fitting component preserves its current price and marks it as another 
 
 | Choice in the estimate editor | Result |
 | --- | --- |
-| **Save this estimate only** — default for an existing item | Saves the edited name, size, components, quantity and prices to this project. The original catalogue item and other estimates are unchanged. |
+| **Save this estimate only** | Saves the edited name, size, components, quantity and prices to this project. The original catalogue item and other estimates are unchanged. |
 | **Update existing catalog item** | Updates the same catalogue ID for future use and saves the edit to this estimate. No new version is created. Fitting supply prices stay in the project. |
-| **Save as a new catalog item** | Creates a separate reusable item and updates/adds the estimate line. Lighting fitting supply prices are zero in the catalogue and retained in the estimate. |
+| **Save as a new catalog item** — default | Creates a separate reusable item and updates/adds the estimate line. Lighting fitting supply prices are zero in the catalogue and retained in the estimate. |
 
 A completely new manual item created while estimating is saved for future use automatically. If a catalogue source has since been deleted, its saved estimate can still be edited; choose a new catalogue item only when you want to make it reusable again. Work types include Assembly, Supply only, Installation only, Supply & installation, Relocation, Demolition, and Relocation and Demolition. Work-type controls remain in the full editor. Supply-only excludes labour; installation-only excludes material in this editor, so choose Assembly or Supply & installation if you need materials and labour in the build-up.
 
@@ -127,7 +127,7 @@ Presence information shows active project users. Revision numbers on project/lin
 Save tender revisions such as Original, Revision 1 or Final Submission to preserve a quotation snapshot. Compare revisions and export their Excel files. The revision creator or an administrator can delete a revision. Deleting a revision does not delete the current working estimate.
 
 ### Excel export
-The workbook has COST ESTIMATE and CONNECTED COST DETAIL sheets. The first shows project assumptions, scope totals and a separate Work Type Cost Summary. The detail sheet contains parent assemblies and their component build-ups. Pale gold input cells can be edited. Parent quantities drive component quantities; unit prices, project mark-ups and labour rate feed connected formulas. Parent categories feed the scope summary, and column O work types feed the work-type summary. Excel recalculates when opened in a compatible spreadsheet application. Parent Material / unit cells show separate, formula-linked Supply and Install values on two lines, while component material cells remain numeric inputs. These parent display cells are not extra amounts to add to the total. Assembly and component sizes have a separate Excel column; component descriptions use regular text. Reordered items and components export in their saved order. Zero quantities produce zero totals without division errors.
+The workbook has COST ESTIMATE and CONNECTED COST DETAIL sheets. The first shows project assumptions, scope totals and a separate Work Type Cost Summary. The detail sheet contains parent assemblies and their component build-ups. Pale gold input cells can be edited. Parent quantities drive component quantities; unit prices, project mark-ups and labour rate feed connected formulas. Parent categories feed the scope summary, and column O work types feed the work-type summary. Excel recalculates when opened in a compatible spreadsheet application. Parent Material / unit cells show separate, formula-linked Supply and Install values on two lines, while component material cells remain numeric inputs. These parent display cells are not extra amounts to add to the total. Assembly and component sizes have a separate Excel column; component descriptions use regular text. Reordered items and components export in their saved order. Zero parent quantities produce zero scaled allowances without division errors; explicitly fixed component quantities still apply.
 
 The exported workbook is an independent file: edits made in Excel do not automatically sync back into the website. Keep revisions in the app when you want to preserve a submitted quotation there.
 
@@ -153,17 +153,25 @@ Identical quote reference/date/content is skipped even when the same quote is up
 
 **One database from v2.0.** `conest_catalog.db` contains accounts, catalogue records, projects, estimate snapshots, settings and supplier quotes. All future imports write there. Main database backups include lighting prices, and restoring them restores lighting prices too. `CONEST_DB_PATH` selects the active file. The old lighting path is used only for the one-time deployment migration above.
 
+### Fixed component quantities and uploads
+
+Open **Specifications, factors & notes** and tick **Fixed total** to restore its original database quantity and stop it multiplying by the parent assembly quantity. For imported items, this uses the original workbook quantity; old estimate rows are matched to their source by order, description and size. Unmatched rows use their saved allowance. A fixed quantity applies even when the parent quantity is zero; set the component quantity to zero to exclude it. Material, labour, copies and connected Excel formulas use the same rule. Untick to use a per-item allowance again.
+
+After an item is added successfully, the search quantity returns to **1**. Failed adds keep your entered quantity. Both upload panels accept drag-and-drop or file selection; preview/import still requires pressing the existing button. Workbook imports accept XLSX/XLSM up to 80 MB; supplier quotes accept XLSX/PDF up to 30 MB.
+
+Help can read the current project and up to three other accessible projects matching a name in your question. It returns totals, hours/days and selected items; AI answers remain bounded by retrieved records. Other users’ private projects are excluded. The built-in guide also returns project facts without an AI key.
+
 ## 3. Data and backups
 
 **One active database:** `data/conest_catalog.db` contains catalogue records, projects, estimate snapshots, accounts, settings and supplier lighting prices. Passwords are stored as one-way hashes. Browser theme preferences stay in browser storage.
 
-### Latest two backup sets
+### Keep one current backup
 
 All routine app backups, supplier/catalogue import backups, restore safety backups, command-line backups and GitHub pre-deployment backups share `data/backups`. Each set contains a `.db` snapshot and, where present, its `.json` metadata. Retention uses file modification time, so different filename formats are ordered consistently. Older sets are deleted automatically after a successful new backup, at startup and when the backup list is refreshed. A failed backup does not trigger pruning of existing restore points.
 
 Use **App settings → Back up now**, or run `BACKUP_DATABASE.bat`. Download any backup you want to retain longer to a location outside the active backup folder. One-time migration archives and copies already downloaded elsewhere are not part of routine retention.
 
-Restore checks database integrity, relationships, schema compatibility and the presence of an active administrator. It takes a safety snapshot first and signs users out after restoring. The selected snapshot is loaded before retention removes older files, so restoring the older of the two backups is supported.
+Restore checks database integrity, relationships, schema compatibility and the presence of an active administrator. It takes a safety snapshot first and signs users out after restoring. The selected snapshot is loaded before retention removes older files, so the selected backup can be restored safely even when it is replaced by the safety snapshot.
 
 > [!NOTE]
 > Do not copy only the `.db` file while SQLite is actively writing. Use the backup function, which includes committed WAL transactions, or stop the server first. For rollback to older code, restore the corresponding pre-upgrade files together.
@@ -171,7 +179,7 @@ Restore checks database integrity, relationships, schema compatibility and the p
 | Location | Contents |
 | --- | --- |
 | `data/conest_catalog.db` | Live application data |
-| `data/backups/` | Latest two routine backup sets |
+| `data/backups/` | Latest routine backup set |
 | `data/migration_backups/` | One-time upgrade rollback snapshots |
 | `data/import_previews/` | Temporary catalogue import previews |
 | `.venv/` or `venv/` | Installed Python environment |
@@ -217,7 +225,7 @@ Search uses bounded shared read caching. Database generation triggers invalidate
 The release checks include 20 simultaneous authenticated clients and stale-write detection. This is a test scenario, not a guarantee for every host or workload. Keep one server process running and monitor large imports on the host.
 
 ### Backups and migrations
-Main-database daily backups are scheduled by the running server; there is no external scheduler when it is stopped. Imports and restores create protective backups. SQLite's backup API captures a consistent committed database, including WAL changes. Restore validates integrity and relationships and signs users out. The two latest completed backup sets are retained; older snapshots and their metadata are removed automatically. Migrations inspect schema/one-time markers so restarts do not repeatedly reset accounts. The application keeps legacy tables/code needed for compatible databases even when an old screen has been removed.
+Main-database daily backups are scheduled by the running server; there is no external scheduler when it is stopped. Imports and restores create protective backups. SQLite's backup API captures a consistent committed database, including WAL changes. Restore validates integrity and relationships and signs users out. The latest completed backup set is retained; older snapshots and their metadata are removed automatically. Migrations inspect schema/one-time markers so restarts do not repeatedly reset accounts. The application keeps legacy tables/code needed for compatible databases even when an old screen has been removed.
 
 ## 5. File guide
 
@@ -226,10 +234,11 @@ Main-database daily backups are scheduled by the running server; there is no ext
 
 | File | Responsibility |
 | --- | --- |
-| `.github/workflows/deploy-cpanel.yml` | Production CI/CD: validates Python and release tests, connects over SSH, backs up and retains two snapshots, uploads code while protecting production data, restarts Passenger and checks health. |
+| `.github/workflows/deploy-cpanel.yml` | Production CI/CD: validates Python and release tests, connects over SSH, backs up and retains one snapshot, uploads code while protecting production data, restarts Passenger and checks health. |
+| `assets/file_drop.js` | Validated drag-and-drop selection for workbook and supplier-price uploads; uses the existing import confirmation buttons. |
 | `assets/mobile.js` | Mobile menu state, keyboard dismissal and automatic closing after navigation. |
 | `assets/responsive.css` | Mobile layouts, aligned settings panels, component column sizing and visible dialog save errors. Loaded after both themes. |
-| `tests/test_release.py` | Automated date validation, two-backup retention and restore tests; used by GitHub Actions. |
+| `tests/test_release.py` | Automated date validation, one-backup retention and restore tests; used by GitHub Actions. |
 | `README.md` | This usage, architecture, maintenance and release guide. |
 | `app.py` | Server entry point, main API routes, request/error handling, import/export integration and server lifecycle. |
 | `requirements.txt` | Supported openpyxl and pdfplumber dependency ranges for installation. |
@@ -242,7 +251,7 @@ Main-database daily backups are scheduled by the running server; there is no ext
 | `assets/estimate_extras.js` | Password visibility, crew-day displays, the floating estimate total and bulk component expansion/collapse. |
 | `assets/light_prices.js` | Supplier search, paginated quote cards, connected component details and file uploads. |
 | `conest_app/light_prices.py` | Supplier table schema in the main database, workbook/PDF parsing, internal type connections, quantity-aware linked prices, duplicate detection and pre-import backups. |
-| `tools/backup_database.py` | Creates a consistent snapshot in `data/backups` using the same two-backup retention policy. |
+| `tools/backup_database.py` | Creates a consistent snapshot in `data/backups` using the same one-backup retention policy. |
 | `assets/theme.js` | Applies system or saved light/dark preference before painting the page; handles the accessible sidebar toggle and browser-local persistence. |
 | `assets/theme.css` | Navy dark surfaces, teal accents, readable controls, tables, dialogs, status colours and focus states. Static CSS overrides; no runtime dependency. |
 | `assets/index.html` | Main page, navigation, forms, tables and dialogs. |
@@ -306,7 +315,8 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 | **v1.19_Fixed** | Bulk controls now minimize/expand categories; adds a supplier filter, separate Supplier/Cat No detail columns, a clearer bottom upload panel, removes the database download button, and moves Light price check below Imports. Both database files are unchanged. |
 | **v1.20** | Uses the newly uploaded database; enlarges the floating total with hours/days, aligns scope totals/actions, adds new-project crew defaults, full-width profile with optional email and a password section, TEC home link, and persistent light/dark themes. |
 | **v2.0** | Unifies supplier-price tables and all application data in conest_catalog.db; adds a backed-up, transactional legacy migration for deployed servers; all backups now include supplier records. |
-| **v2.1** | Mobile menu, stacked deadline reminders and labelled estimate cards; floating +/− category control; equal settings widths; no past deadlines for new projects; latest-two backup retention across app, script and deployment; balanced eight-column component editor; visible modal errors and clearer save confirmation; reorganized documentation. |
+| **v2.1** | Mobile menu, stacked deadline reminders and labelled estimate cards; floating +/− category control; equal settings widths; no past deadlines for new projects; latest-one backup retention across app, script and deployment; balanced eight-column component editor; visible modal errors and clearer save confirmation; reorganized documentation; reset add quantity, drag-and-drop uploads, fixed component totals, and access-controlled project Help. |
+| **v2.2** | Moves Fixed total into each component’s expandable Specifications, factors & notes section; retains all previous estimating and data behavior. |
 
 ## 7. Troubleshooting
 
@@ -316,7 +326,7 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 | Catalogue save rejected | Read the alert inside the editor. Your inputs remain available. Check missing descriptions/units, invalid prices and work-type constraints. If repeated, retain the exact error text for diagnosis. |
 | Save succeeded, but the view did not refresh | Reload the page before saving again; the write has already completed. |
 | New project date rejected | Choose today or later. Check the server's date/time configuration if its calendar differs from yours. |
-| Older backup disappeared | The latest-two policy applies to the active backup folder. Keep longer-term copies elsewhere. |
+| Older backup disappeared | The single-backup policy applies to the active backup folder. Keep longer-term copies elsewhere. |
 | Changes missing after deployment | Verify the production database path and the preserved data directory. Do not overwrite the live database with a packaged snapshot. |
 | Excel formulas show no result yet | Open with automatic calculation enabled in a compatible spreadsheet application. The exporter writes formulas; it does not run Excel. |
 | Deployment fails | Open the failed GitHub Actions step; check repository secrets, SSH access and the existing Passenger setup. |

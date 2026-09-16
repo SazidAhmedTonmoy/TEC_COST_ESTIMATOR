@@ -17,10 +17,10 @@ def folder():
 
 
 def prune_backups(directory=None):
-    """Keep two completed snapshots, each with its optional metadata sidecar."""
+    """Keep one completed snapshot, each with its optional metadata sidecar."""
     with write_lock:
         files=sorted((p for p in (Path(directory) if directory is not None else folder()).glob('*.db') if p.is_file() and not p.is_symlink()),key=lambda p:(p.stat().st_mtime_ns,p.name),reverse=True)
-        for old in files[2:]:
+        for old in files[1:]:
             old.unlink(missing_ok=True);old.with_suffix('.json').unlink(missing_ok=True)
 
 
