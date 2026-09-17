@@ -263,6 +263,14 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
     name=clean_text(payload.get('name_snapshot',line['name_snapshot']))
     if not name or len(name)>500:raise ValueError('Estimate name must be 1–500 characters')
     extra={'name_snapshot':name}
+    if 'reference_name' in payload:
+        if not isinstance(payload['reference_name'], str):
+            raise ValueError('Reference name must be text')
+        reference=clean_text(payload['reference_name'])
+        if len(reference)>120:raise ValueError('Reference name must be 120 characters or fewer')
+        if reference and category not in LIGHTING_CATEGORIES:
+            raise ValueError('Lighting references apply only to Lighting and Emergency & Exit Lighting')
+        extra['reference_name']=reference
     if 'size_snapshot' in payload:
         size=clean_text(payload['size_snapshot'])
         if len(size)>250:raise ValueError('Size must be 250 characters or fewer')

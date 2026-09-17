@@ -79,7 +79,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/2.2"
+    server_version = "TECConEst/2.3"
 
     def setup(self):
         super().setup()
@@ -217,6 +217,18 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     with light_prices.connect() as source:
                         with sqlite3.connect(output) as target:source.backup(target)
                     self._send_file(output,'conest_catalog.db')
+                return
+            photo_match=re.fullmatch(r'/api/light-prices/(\d+)/photo',path)
+            if photo_match:
+                with self._read_connection() as conn:
+                    photo=conn.execute('SELECT mime,image FROM lighting_photos WHERE group_id=?',(int(photo_match[1]),)).fetchone()
+                if not photo:raise ApiError(404,'Light photo not found')
+                body=bytes(photo['image'])
+                self.send_response(200)
+                self.send_header('Content-Type',photo['mime'])
+                self.send_header('Content-Length',str(len(body)))
+                self.send_header('Cache-Control','private, no-store')
+                self._security_headers();self.end_headers();self.wfile.write(body)
                 return
             light_match=re.fullmatch(r'/api/light-prices/(\d+)',path)
             if light_match:
@@ -486,6 +498,13 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 return
             self._guard(path)
             payload = self._json_body()
+            light_match = re.fullmatch(r'/api/light-prices/(\d+)', path)
+            if light_match:
+                from conest_app import light_prices
+                with self._write_connection() as conn:
+                    item=light_prices.update(conn,int(light_match[1]),payload,self.user)
+                self._send_json({'success':True,'item':item})
+                return
             match = re.fullmatch(r"/api/projects/(\d+)", path)
             if match:
                 with self._write_connection() as conn:
@@ -499,7 +518,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if match:
                 with self._write_connection() as conn:
                     project = update_project_line(conn, int(match.group(1)), int(match.group(2)), payload)
-                    self._audit(conn, int(match.group(1)), 'Updated estimate item', 'Line ' + match.group(2) + ': ' + json.dumps({k: payload[k] for k in ('quantity', 'category_snapshot', 'notes', 'name_snapshot', 'size_snapshot', 'supply_quantity_override', 'supply_unit_cost_override') if k in payload}, ensure_ascii=False))
+                    self._audit(conn, int(match.group(1)), 'Updated estimate item', 'Line ' + match.group(2) + ': ' + json.dumps({k: payload[k] for k in ('quantity', 'category_snapshot', 'notes', 'name_snapshot', 'reference_name', 'size_snapshot', 'supply_quantity_override', 'supply_unit_cost_override') if k in payload}, ensure_ascii=False))
                     project = self._project_payload(conn, project)
                     conn.commit()
                 self._send_json({"success": True, **project})

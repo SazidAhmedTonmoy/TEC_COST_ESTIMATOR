@@ -4,12 +4,13 @@
   <script src="/assets/theme.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TEC ConEst</title>
+  <title>TEC ConEst v2.3</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg">
   <link rel="stylesheet" href="/assets/styles.css">
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/theme.css">
   <link rel="stylesheet" href="/assets/responsive.css">
+  <link rel="stylesheet" href="/assets/v23.css">
   <script src="/assets/mobile.js" defer></script>
   <script src="/assets/file_drop.js" defer></script>
 </head>
@@ -30,19 +31,19 @@
     <aside class="sidebar">
       <a class="brand brand-home" href="#/home" aria-label="TEC ConEst home">
         <div class="brand-mark" aria-hidden="true">TEC</div>
-        <div><strong>TEC ConEst</strong><span>Estimator</span></div>
+        <div><strong>TEC ConEst</strong><span>Estimator v2.3</span></div>
       </a>
       <button class="mobile-menu-button" id="mobile-menu-button" type="button" aria-expanded="false" aria-controls="main-navigation account-controls">☰ <span>Menu</span></button>
       <nav id="main-navigation" aria-label="Main navigation">
         <a class="nav-button active" data-view="home" href="#/home"><span>⌂</span> Home</a>
-        <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
         <a class="nav-button" data-view="calendar" href="#/calendar"><span>▤</span> Calendar</a>
+        <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
         <a class="nav-button" data-view="catalog" href="#/catalog"><span>⌕</span> Catalog</a>
-        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
         <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
         <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light price check</a>
-        <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
+        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
         <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
+        <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
       </nav>
       <div class="account-summary" id="account-controls"><strong id="account-name"></strong><span id="account-role"></span><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
       <div class="sidebar-footer">
@@ -58,7 +59,15 @@
           <h1 id="view-title">Home</h1>
         </div>
         <div class="topbar-actions">
-          <select id="project-select" aria-label="Current project"></select>
+          <select id="project-select" aria-label="Current project" tabindex="-1" aria-hidden="true"></select>
+          <div id="project-picker-wrap" class="project-picker-wrap hidden">
+            <button id="project-picker-button" type="button" class="button secondary" aria-haspopup="listbox" aria-expanded="false" aria-controls="project-picker-menu"><span id="project-picker-label">Choose a project</span><span aria-hidden="true">&#9662;</span></button>
+            <div id="project-picker-menu" class="project-picker-menu hidden">
+              <label class="project-picker-search">Find a project<input id="project-picker-search" type="search" autocomplete="off" placeholder="Name or client..."></label>
+              <small class="helper-text">Most recently updated first</small>
+              <div id="project-picker-options" class="project-picker-options" role="listbox" aria-label="Projects"></div>
+            </div>
+          </div>
           <div class="project-action-buttons">
             <button class="button secondary" id="new-project-button">New project</button>
             <button class="button secondary danger-text" id="delete-project-button">Delete project</button>
@@ -95,6 +104,7 @@
         <section class="panel calendar-panel">
           <div class="panel-heading"><div><p class="eyebrow">Submission deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-today" class="button secondary">Today</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
           <p class="helper-text calendar-note">Select a project to view its brief. Deadlines are shown as calendar dates.</p>
+          <div id="calendar-summary" class="calendar-summary" aria-live="polite"></div>
           <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid" aria-label="Project deadline calendar"></div></div>
           <div id="calendar-agenda" class="calendar-agenda"></div>
         </section>
@@ -222,14 +232,15 @@
       </section>
 
       <section class="view" id="light-prices-view">
+        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Upload a connected Excel workbook or TLE quotation PDF. Existing quotes are skipped automatically.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button class="button primary" type="submit">Import prices</button></form><p id="light-price-import-status" class="helper-text" role="status"></p></section>
         <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light price check</h2></div><span id="light-price-count" class="pill"></span></div>
-          <p class="helper-text">Search supplier, description, catalogue number or project. Prices are quoted supply prices in AUD, excluding GST. Open a result to see all connected parts and freight.</p>
-          <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Description, cat no or project…" autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
+          <p class="helper-text">Search by name, nickname, supplier, catalogue number or project. All prices are AUD excluding GST. Open a result here to see exactly which rows and totals make up its package price.</p>
+          <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Name, nickname, cat no or project..." autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
 
           <p id="light-price-status" role="status" class="helper-text"></p><div id="light-price-results"></div><div class="light-price-pages"><button id="light-price-prev" class="button secondary small" type="button">Previous</button><button id="light-price-next" class="button secondary small" type="button">Next</button></div>
         </section>
         <section class="panel hidden" id="light-price-detail" aria-label="Connected supplier prices"></section>
-        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Upload a connected Excel workbook or TLE quotation PDF. Existing quotes are skipped automatically.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button class="button primary" type="submit">Import prices</button></form><p id="light-price-import-status" class="helper-text" role="status"></p></section>
+
       </section>
       <section id="imports-view" class="view">
         <div class="split-heading"><div><p class="eyebrow">Database growth</p><h2>Import future ConEst workbooks</h2><p>The importer reads every matching ConEst sheet, keeps source variants, and reports anything needing review.</p></div></div>
@@ -330,6 +341,7 @@
   <button class="floating-search-button hidden" id="floating-search-button" type="button" aria-label="Search catalog and add an item" title="Search and add items">
     <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
   </button>
+  <button class="floating-search-button hidden" id="light-price-floating-search" type="button" aria-label="Go to light price search" title="Go to light price search"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m15.5 15.5 5 5" fill="none" stroke="currentColor" stroke-width="2"/></svg></button>
   <button class="floating-category-button hidden" id="toggle-all-categories" type="button" aria-label="Collapse all categories" title="Collapse all categories"><span aria-hidden="true">−</span></button>
   <button class="floating-bottom-button hidden" id="floating-bottom-button" type="button" title="Go to end of estimate" aria-label="Go to bottom of estimate">↓</button>
   <dialog id="quick-search-dialog" aria-labelledby="quick-search-title">
@@ -352,6 +364,11 @@
       <form id="project-workflow-form" class="workflow-form">
         <label>Scope of work<textarea id="brief-scope" rows="5" maxlength="20000"></textarea></label>
         <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="submitted">Submitted</option><option value="completed">Completed</option></select></label></div>
+        <fieldset class="project-outcome-fieldset"><legend>Project result <small>(optional)</small></legend>
+          <input id="brief-award-status" type="hidden" value="">
+          <div class="project-outcome-buttons"><button type="button" class="button secondary outcome-won" data-award-status="won" aria-pressed="false">&#10003; Won</button><button type="button" class="button secondary outcome-lost" data-award-status="lost" aria-pressed="false">&#10007; Lost</button><button type="button" class="text-button" data-award-status="">Clear result</button><span id="brief-award-label" class="helper-text">Not recorded</span></div>
+          <p class="helper-text">Independent of project progress. Leave blank until the tender outcome is known. Use Save project to apply.</p>
+        </fieldset>
         <fieldset class="admin-only assignment-fieldset"><legend>Assign teams</legend><p class="helper-text">Every current member of a selected team can view and work on this project.</p><div id="assignment-options"></div></fieldset>
         <div class="dialog-actions"><button id="brief-delete" type="button" class="button secondary danger-text">Delete project</button><a id="brief-open-estimate" class="button secondary" href="#/estimate">Open estimate</a><button id="brief-save" type="submit" class="button primary">Save project</button></div>
       </form>
@@ -367,7 +384,7 @@
       <p id="user-password-note" class="helper-text">The user chooses a new password at their next sign-in.</p>
       <label class="checkbox-label"><input id="user-active" type="checkbox" checked><span>Account is active</span></label>
       <p class="helper-text">Deactivated accounts lose access immediately. Their project history is preserved.</p>
-      <div class="dialog-actions"><button type="button" class="button secondary close-dialog">Cancel</button><button class="button primary" type="submit">Save user</button></div>
+      <div class="dialog-actions"><button id="delete-user-button" type="button" class="button secondary danger-text hidden">Delete account</button><button type="button" class="button secondary close-dialog">Cancel</button><button class="button primary" type="submit">Save user</button></div>
     </form>
   </dialog>
   <dialog id="team-dialog" aria-labelledby="team-dialog-title">
@@ -408,5 +425,6 @@
   <script src="/assets/help_chat.js" defer></script>
   <script src="/assets/estimate_extras.js" defer></script>
   <script src="/assets/light_prices.js" defer></script>
+  <script src="/assets/v23.js" defer></script>
 </body>
 </html>

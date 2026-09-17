@@ -151,6 +151,9 @@ function setView(name, load = true, remember = true) {
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
   syncCategoryToggle();
   $('#project-select').classList.toggle('hidden', name !== 'estimate');
+  $('#project-picker-wrap').classList.toggle('hidden', name !== 'estimate');
+  $('#light-price-floating-search').classList.toggle('hidden', name !== 'light-prices');
+  if(typeof closeProjectPicker==='function')closeProjectPicker();
   $('#delete-project-button').classList.toggle('hidden', name !== 'estimate');
   $('#new-project-button').classList.toggle('hidden', Boolean(state.user?.must_change_password));
   if (name === 'home') { renderHome(); if (load) loadDashboard().catch(error => toast(error.message,true)); }
@@ -195,6 +198,7 @@ function renderProjectSelect() {
   select.innerHTML = '<option value="">Choose a project</option>' + editable.map((project) => `<option value="${project.id}">${escapeHtml(project.name)}</option>`).join('');
   select.disabled = !editable.length;
   if (state.projectId) select.value = String(state.projectId);
+  if(typeof renderProjectPicker==='function')renderProjectPicker();
 }
 
 async function loadProject(projectId) {
@@ -351,10 +355,12 @@ function renderEstimateLine(line) {
             <div class="assembly-name-row"><span class="drag-handle" draggable="true" data-drag-kind="line" data-line-id="${line.id}" title="Drag item within this category">⠿</span><textarea class="line-estimate-name" data-line-id="${line.id}" rows="1" maxlength="500" aria-label="Estimate item name">${escapeHtml(line.display_name || cleanEstimateTitle(line.name_snapshot))}</textarea></div>
             <label class="line-category-label">Category<div class="category-editor" data-value="${escapeHtml(category)}"><textarea class="line-category" data-line-id="${line.id}" rows="1" maxlength="120" aria-label="Scope or category for ${escapeHtml(line.name_snapshot)}" title="Choose or type a category; saves when you leave this field">${escapeHtml(category)}</textarea><div class="category-suggestions hidden" aria-label="Suggested categories"></div></div></label>
           </div>
-          <div class="line-bottom-row">
+          <div class="line-bottom-row ${['Lighting','Emergency & Exit Lighting'].includes(category)?'has-light-reference':''}">
+            <div class="line-price-meta">
             ${line.has_supply_allowance?`<label class="compact-supply">Supply cost / unit<input class="line-supply-cost" data-line-id="${line.id}" type="number" min="0" step="any" value="${line.supply_unit_cost}" title="Supplier price for one fitting, before mark-ups. Saved only with this estimate."></label>`:''}
-            <span class="line-detail-count">${line.components.length} components</span>
-            <div class="assembly-actions"><button class="text-button edit-estimate-line" data-line-id="${line.id}">Edit item / components</button><button class="text-button copy-estimate-line" data-line-id="${line.id}">Copy item</button></div>
+            ${!['Lighting','Emergency & Exit Lighting'].includes(category)?`<span class="line-detail-count">${line.components.length} components</span>`:''}</div>
+            ${['Lighting','Emergency & Exit Lighting'].includes(category)?`<label class="compact-light-reference"><span>Ref.</span><input class="line-light-reference" data-line-id="${line.id}" type="text" maxlength="120" value="${escapeHtml(line.reference_name||'')}" placeholder="Light ref." aria-label="Project-only light reference" title="Project-only lighting reference (for example D1 or EX1). Not saved to the shared catalogue."></label>`:''}
+            <div class="assembly-actions"><button class="text-button edit-estimate-line" data-line-id="${line.id}">Edit item / components</button><button class="text-button copy-estimate-line" data-line-id="${line.id}">Copy item</button>${['Lighting','Emergency & Exit Lighting'].includes(category)?`<span class="line-detail-count">${line.components.length} components</span>`:''}</div>
           </div>
         </div></div></td>
       <td><input class="line-quantity" data-line-id="${line.id}" type="number" min="0" step="any" value="${Number(line.quantity)}" aria-label="Estimate quantity"><small class="line-unit">${escapeHtml(line.uom || "EA")}</small></td>
@@ -1097,11 +1103,11 @@ function bindEvents() {
   });
   $("#estimate-lines").addEventListener("change", (event) => {
     const field=event.target;
-    const key=field.matches('.line-estimate-size')?'size_snapshot':field.matches('.line-work-type')?'work_type_snapshot':field.matches('.line-estimate-name')?'name_snapshot':field.matches('.line-supply-quantity')?'supply_quantity_override':field.matches('.line-supply-cost')?'supply_unit_cost_override':null;
+    const key=field.matches('.line-light-reference')?'reference_name':field.matches('.line-estimate-size')?'size_snapshot':field.matches('.line-work-type')?'work_type_snapshot':field.matches('.line-estimate-name')?'name_snapshot':field.matches('.line-supply-quantity')?'supply_quantity_override':field.matches('.line-supply-cost')?'supply_unit_cost_override':null;
     if(key){
-      const value=['name_snapshot','work_type_snapshot','size_snapshot'].includes(key)?field.value:field.value===''?null:Number(field.value);
+      const value=['reference_name','name_snapshot','work_type_snapshot','size_snapshot'].includes(key)?field.value:field.value===''?null:Number(field.value);
       field.disabled=true;
-      api(`/api/projects/${state.projectId}/lines/${field.dataset.lineId}`,{method:'PATCH',body:{[key]:value}}).then(result=>{state.projectData=result;renderProject();}).catch(error=>{field.disabled=false;toast(error.message,true);});
+      api(`/api/projects/${state.projectId}/lines/${field.dataset.lineId}`,{method:'PATCH',body:{[key]:value,expected_revision:state.projectData.lines.find(l=>l.id===Number(field.dataset.lineId))?.revision}}).then(result=>{state.projectData=result;renderProject();}).catch(error=>{field.disabled=false;toast(error.message,true);});
     }
     if (event.target.matches(".line-category")) updateLineCategory(event.target.dataset.lineId, event.target.value).catch((error) => { toast(error.message, true); renderProject(); });
     if (event.target.matches(".line-quantity")) updateLineQuantity(event.target.dataset.lineId, event.target.value).catch((error) => toast(error.message, true));

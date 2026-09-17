@@ -1,4 +1,4 @@
-# TEC ConEst · v2.2
+# TEC ConEst · v2.3
 
 ### Electrical estimating, connected costs and team collaboration
 
@@ -14,6 +14,12 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 
 > [!IMPORTANT]
 > Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
+
+## v2.3 update
+
+This version adds monthly calendar estimates and project detail, optional Won/Lost results, safe admin account deletion, a four-project scrollable chooser, project-only lighting refs with same-cell Excel export, and an inline editable lighting-price library with explained totals, searchable nicknames and photos. The sidebar is reordered as requested.
+
+**Existing installation:** use the update-only ZIP, preserve your current data folder and follow [UPGRADE_v2.3.md](UPGRADE_v2.3.md). See [release notes](RELEASE_NOTES_v2.3.md) for calculation/storage definitions and [test report](TEST_REPORT_v2.3.md) for validation and limits. Pillow is now required for light photos; both startup launchers check it.
 
 ## 1. Start and deploy
 

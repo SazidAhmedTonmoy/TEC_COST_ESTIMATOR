@@ -22,8 +22,8 @@ def initialize_notes(conn):
 
 def list_notes(conn, project_id, user):
     require_project(conn,project_id,user,'view')
-    return [dict(r) for r in conn.execute('''SELECT n.id,n.body,n.created_at,u.name AS author_name,u.username
-        FROM project_notes n JOIN users u ON u.id=n.author_id WHERE n.project_id=? ORDER BY n.id DESC''',(project_id,))]
+    return [dict(r) for r in conn.execute('''SELECT n.id,n.body,n.created_at,COALESCE(n.author_name_snapshot,u.name) AS author_name,COALESCE(n.author_username_snapshot,u.username) AS username
+        FROM project_notes n LEFT JOIN users u ON u.id=n.author_id WHERE n.project_id=? ORDER BY n.id DESC''',(project_id,))]
 
 
 def add_note(conn, project_id, user, payload):
@@ -48,7 +48,7 @@ def delete_note(conn, project_id, note_id, user):
 
 def note_status(conn, project_id, user):
     require_project(conn,project_id,user,'view')
-    count=conn.execute('''SELECT COUNT(*) FROM project_notes n WHERE n.project_id=? AND n.author_id<>?
+    count=conn.execute('''SELECT COUNT(*) FROM project_notes n WHERE n.project_id=? AND (n.author_id IS NULL OR n.author_id<>?)
         AND NOT EXISTS(SELECT 1 FROM project_note_reads r WHERE r.note_id=n.id AND r.user_id=?)''',
         (project_id,user['id'],user['id'])).fetchone()[0]
     return {'unread_count':count}

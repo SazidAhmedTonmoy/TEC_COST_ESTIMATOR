@@ -1,0 +1,34 @@
+TEC ConEst v2.3 - update-only files
+
+Copy the CONTENTS of the update folder into your existing app folder.
+Preserve the entire live data folder. Read UPGRADE_v2.3.md first.
+
+No database, backup, QA data, environment or Git history is in the update ZIP.
+
+New / changed files:
+  README.md
+  RELEASE_NOTES_v2.3.md
+  START_TEC_SERVER.bat
+  TEST_REPORT_v2.3.md
+  UPGRADE_v2.3.md
+  app.py
+  assets/app.js
+  assets/index.html
+  assets/light_prices.js
+  assets/v23.css
+  assets/v23.js
+  assets/workspace.js
+  conest_app/__init__.py
+  conest_app/database.py
+  conest_app/exporter.py
+  conest_app/http_workspace.py
+  conest_app/light_prices.py
+  conest_app/productivity.py
+  conest_app/project_notes.py
+  conest_app/projects.py
+  conest_app/release_v23.py
+  conest_app/workspace.py
+  requirements.txt
+  run.sh
+  tests/test_v23.py
+  UPDATED_FILES_v2.3.txt

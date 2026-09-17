@@ -262,7 +262,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         detail_end = detail_start + len(components) - 1
 
         values = {
-            1: scope, 2: line.get("display_name") or line.get("name_snapshot"), 3:line.get("size_snapshot") or "",
+            1: scope, 2: (line.get("display_name") or line.get("name_snapshot") or "") + ("\nRef: " + line["reference_name"] if line.get("reference_name") else ""), 3:line.get("size_snapshot") or "",
             4: float(line.get("quantity") or 0), 5: f"=D{parent_row}",
             6: f'=IF(D{parent_row}=0,0,G{parent_row}/D{parent_row})', 7: f"=SUM(G{detail_start}:G{detail_end})",
             8: f'=IF(D{parent_row}=0,0,I{parent_row}/D{parent_row})', 9: f"=SUM(I{detail_start}:I{detail_end})",
@@ -272,6 +272,8 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         }
         for column, value in values.items():
             ws.cell(parent_row, column, value)
+            if column in (1, 2, 3, 14):
+                ws.cell(parent_row, column).data_type = "s"
         for cell in ws[parent_row][:14]:
             cell.fill = PatternFill("solid", fgColor=TEAL_LIGHT)
             cell.font = Font(name="Aptos", size=10, bold=True, color=DARK)
@@ -283,10 +285,10 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             ws.cell(parent_row, column).protection = Protection(locked=False)
         ws.cell(parent_row, 1).comment = Comment("Editable scope/category for the whole assembly. The COST ESTIMATE summary regroups automatically, including newly typed categories.", "User")
 
-        ws.cell(parent_row, 2).comment = Comment("Editable item name.", "User")
+        ws.cell(parent_row, 2).comment = Comment("Editable item name. A project-only lighting reference appears on the next line in this same cell; it is not a catalogue item.", "User")
         ws.cell(parent_row, 4).comment = Comment("Editable take-off quantity. All component rows below scale from this cell.", "User")
         ws.row_dimensions[parent_row].height = max(40, 15 * max(
-            len(textwrap.wrap(str(values.get(column, "")), width=width))
+            sum(max(1, len(textwrap.wrap(part, width=width))) for part in str(values.get(column, "")).split("\n"))
             for column, width in ((1, 25), (2, 47), (3, 20), (14, 26))) + 12)
 
         for offset, component in enumerate(components):

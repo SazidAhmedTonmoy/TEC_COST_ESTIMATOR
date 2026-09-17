@@ -34,6 +34,8 @@ function showLogin() {
   $$('dialog[open]').forEach(dialog => dialog.close());
   $('.app-shell').classList.add('hidden');
   $('#floating-search-button').classList.add('hidden');
+  $('#light-price-floating-search').classList.add('hidden');
+  if(typeof resetLightPrices==='function')resetLightPrices();
   $('#catalog-hover-preview').classList.add('hidden');
   $('#login-screen').classList.remove('hidden');
   $('#login-password').value = ''; $('#gemini-api-key').value = '';
@@ -92,7 +94,7 @@ function renderProjectBoard() {
   $('#project-board').innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
     <div class="project-card-heading"><div><p>${escapeHtml(p.client||'Client not set')}</p><h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div>${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':projectStatus(p)}</div>
     <p class="project-scope-excerpt">${escapeHtml(p.scope_of_work||'Add the scope of work in Manage project.')}</p>
-    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}</div>
+    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}${projectOutcome(p)}</div>
     <p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Existing project · creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p>
     <div class="project-card-footer"><span>${p.line_count||0} items · ${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</span><div><button type="button" class="text-button" data-project-brief="${p.id}">Manage project</button><button class="text-button" type="button" data-copy-project="${p.id}">Copy</button><a class="button secondary small" href="#/estimate/${p.id}" data-open-project="${p.id}">${p.can_edit?'Open estimate':'View estimate'}</a></div></div>
   </article>`).join('') : '<div class="board-empty"><h3>No projects here yet</h3><p>New projects are shared with your team automatically. You can also work on projects an administrator assigns to your team.</p></div>';
@@ -150,6 +152,7 @@ async function openProjectBrief(id) {
   $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span></div><p class="helper-text">Contributors: ${p.contributors?.length?p.contributors.map(u=>escapeHtml(u.name)).join(', '):'No recorded work yet'}</p>`;
   $('#brief-scope').value=p.scope_of_work||''; $('#brief-deadline').value=p.submission_deadline||''; $('#brief-status').value=p.status;
   $('#brief-scope').disabled=!p.can_manage; $('#brief-deadline').disabled=!p.can_manage;
+  $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(p.can_edit);
   $('#brief-status').disabled=!p.can_edit; $('#brief-save').disabled=!p.can_edit;
   $('#brief-save').classList.toggle('hidden',!p.can_edit);
   $('#brief-delete').classList.toggle('hidden',!p.can_delete);
@@ -161,7 +164,7 @@ async function openProjectBrief(id) {
 async function saveProjectWorkflow() {
   const p=workspaceState.briefProject;
   if(!p) throw new Error('Project no longer available');
-  const payload={status:$('#brief-status').value,expected_revision:p.revision};
+  const payload={status:$('#brief-status').value,award_status:$('#brief-award-status').value,expected_revision:p.revision};
   if(p.can_manage) {payload.scope_of_work=$('#brief-scope').value;payload.submission_deadline=$('#brief-deadline').value;}
   if(state.user.role==='admin') payload.team_ids=$$('#assignment-options input:checked').map(input=>Number(input.value));
   await api(`/api/projects/${p.id}/workflow`,{method:'PATCH',body:payload});
@@ -203,6 +206,9 @@ function openUserEditor(id=null) {
   const u=workspaceState.users.find(u=>u.id===Number(id));
   workspaceState.userId=u?.id||null;
   $('#user-form').reset();
+  $('#delete-user-button').classList.toggle('hidden',!u);
+  $('#delete-user-button').disabled=Boolean(u && u.id===state.user.id);
+  $('#delete-user-button').title=u?.id===state.user.id?'You cannot delete your own signed-in account':'Delete login; preserve projects, notes and history';
   $('#user-dialog-title').textContent=u?'Edit user':'Add user';
   $('#user-name').value=u?.name||''; $('#user-username').value=u?.username||'';
   $('#user-title').value=u?.job_title||''; $('#user-role').value=u?.role||'user';
@@ -333,7 +339,7 @@ function renderCalendar() {
   }
   $('#calendar-grid').innerHTML=html;
   const monthProjects=projects.filter(p=>p.submission_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
-  $('#calendar-agenda').innerHTML='<h3>This month</h3>'+(monthProjects.length?monthProjects.map(p=>`<button class="calendar-agenda-item" type="button" data-project-brief="${p.id}"><span>${dateLabel(p.submission_deadline)}</span><strong>${escapeHtml(p.name)}</strong>${projectStatus(p)}</button>`).join(''):'<p class="helper-text">No project deadlines this month.</p>');
+  renderCalendarSummary(monthProjects);
 }
 function bindWorkspaceEvents() {
   setInterval(async()=>{

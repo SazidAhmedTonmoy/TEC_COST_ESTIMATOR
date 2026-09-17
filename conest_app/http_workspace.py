@@ -175,6 +175,14 @@ class WorkspaceHTTP:
                 conn.commit()
             self._send_json({'success': True, 'user': user})
             return True
+        match = re.fullmatch(r'/api/users/(\d+)', path)
+        if match and method == 'DELETE':
+            from .release_v23 import delete_account
+            payload = self._json_body()
+            with self._write_connection() as conn:
+                result = delete_account(conn, int(match[1]), self.user, payload)
+            self._send_json({'success': True, **result})
+            return True
         if path == '/api/teams' and method == 'GET':
             with self._read_connection() as conn:
                 result = teams.list_teams(conn, self.user)

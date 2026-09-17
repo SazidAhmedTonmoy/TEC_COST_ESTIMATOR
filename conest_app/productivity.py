@@ -46,7 +46,7 @@ def save_revision(conn,pid,user,payload):
 
 def revisions(conn,pid,user):
     require_project(conn,pid,user,'view')
-    return [{**dict(r),'can_delete':user['role']=='admin' or r['created_by']==user['id']} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,u.name AS author,
+    return [{**dict(r),'can_delete':user['role']=='admin' or r['created_by']==user['id']} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
       json_extract(r.snapshot_json,'$.totals.quoted') AS quoted,
       json_extract(r.snapshot_json,'$.project.currency') AS currency
       FROM tender_revisions r LEFT JOIN users u ON u.id=r.created_by WHERE r.project_id=? ORDER BY r.id DESC''',(pid,))]
@@ -70,7 +70,7 @@ def revision_snapshot(conn,pid,rid,user):
 
 
 def compare_snapshots(before,after):
-    fields=('name_snapshot','size_snapshot','sort_order','category_snapshot','quantity','uom','work_type_snapshot','notes','quoted_total','supply_quantity_override','supply_unit_cost_override')
+    fields=('reference_name','name_snapshot','size_snapshot','sort_order','category_snapshot','quantity','uom','work_type_snapshot','notes','quoted_total','supply_quantity_override','supply_unit_cost_override')
     component_fields=('description','size','is_supply_copy','fixed_quantity','source_quantity','quantity_per_unit','uom','unit_material','material_factor','unit_hours','labor_factor','labor_pricing','unit_labor_price')
     old={r['id']:r for r in before['lines']};new={r['id']:r for r in after['lines']}
     changes=[]
@@ -159,7 +159,7 @@ def price_history(conn,item_id):
         if old==len(ids):break
     marks=','.join('?' for _ in ids)
     history=[]
-    for r in conn.execute(f'''SELECT h.*,u.name AS author FROM catalog_price_history h LEFT JOIN users u ON u.id=h.created_by
+    for r in conn.execute(f'''SELECT h.*,COALESCE(u.name,h.author_name_snapshot) AS author FROM catalog_price_history h LEFT JOIN users u ON u.id=h.created_by
       WHERE h.catalog_item_id IN ({marks}) ORDER BY h.id DESC''',tuple(ids)):
         row=dict(r);row['snapshot']=json.loads(row.pop('snapshot_json'));history.append(row)
     sources=[dict(r) for r in conn.execute(f'''SELECT DISTINCT s.file_name,s.sheet_name,s.imported_at FROM source_occurrences o

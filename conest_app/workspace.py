@@ -75,7 +75,7 @@ def decorate_project(conn, project, user):
     for column, output in [('owner_id', 'owner_name'), ('created_by', 'created_by_name'),
                            ('updated_by', 'updated_by_name'), ('completed_by', 'completed_by_name')]:
         row = conn.execute('SELECT name FROM users WHERE id=?', (result.get(column),)).fetchone()
-        result[output] = row[0] if row else None
+        result[output] = row[0] if row else result.get(column + '_name_snapshot')
     result['teams'] = [dict(r) for r in conn.execute('''SELECT t.id,t.name FROM project_teams p
         JOIN teams t ON t.id=p.team_id WHERE p.project_id=? ORDER BY t.name COLLATE NOCASE''', (result['id'],))]
     result['contributors'] = project_contributors(conn,result['id'])
@@ -135,7 +135,7 @@ def review_project(conn, project_id, user):
 
 def project_activity(conn, project_id, user):
     require_project(conn, project_id, user, 'view')
-    return [dict(r) for r in conn.execute('''SELECT a.id,a.action,a.details,a.created_at,a.team_name_snapshot,a.role_snapshot,u.name,u.username
+    return [dict(r) for r in conn.execute('''SELECT a.id,a.action,a.details,a.created_at,a.team_name_snapshot,a.role_snapshot,COALESCE(u.name,a.actor_name_snapshot) AS name,COALESCE(u.username,a.actor_username_snapshot) AS username
         FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
         WHERE a.project_id=? ORDER BY a.id DESC LIMIT 200''', (project_id,))]
 
@@ -143,7 +143,7 @@ def project_activity(conn, project_id, user):
 def update_workflow(conn, project_id, payload, user):
     project = require_project(conn, project_id, user)
     check_revision(project, payload)
-    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'expected_revision'}
+    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'expected_revision', 'award_status'}
     if set(payload) - allowed: raise ValueError('Unknown project workflow field')
     if 'team_ids' in payload and user['role'] != 'admin':
         raise AccessError(403, 'Only administrators can change project teams')
@@ -158,6 +158,13 @@ def update_workflow(conn, project_id, payload, user):
         except (ValueError, TypeError): raise ValueError('Submission deadline must be a valid date') from None
     status = payload.get('status', project['status'])
     if status not in STATUSES: raise ValueError('Invalid project status')
+    award = payload.get('award_status', project['award_status'])
+    if award not in ('', 'won', 'lost'):
+        raise ValueError('Choose Won, Lost or leave the project result unset')
+    if award != project['award_status']:
+        conn.execute('UPDATE projects SET award_status=?,award_updated_at=? WHERE id=?', (award, utc_now(), project_id))
+        record_activity(conn, project_id, user, 'Changed project result',
+                        f"{project['award_status'] or 'Not recorded'} -> {award or 'Not recorded'}")
     if 'team_ids' in payload:
         ids = payload['team_ids']
         if not isinstance(ids,list) or len(ids)>500 or any(type(i) is not int or i<=0 for i in ids):
@@ -190,10 +197,10 @@ def user_directory(conn):
 
 
 def project_contributors(conn, project_id):
-    return [dict(r) for r in conn.execute('''SELECT u.id,u.name,u.username,COUNT(*) AS actions,
+    return [dict(r) for r in conn.execute('''SELECT COALESCE(u.id,a.actor_id_snapshot) AS id,COALESCE(u.name,a.actor_name_snapshot,'Former user') AS name,COALESCE(u.username,a.actor_username_snapshot) AS username,COUNT(*) AS actions,
         MAX(a.created_at) AS last_activity,GROUP_CONCAT(DISTINCT a.team_name_snapshot) AS teams,
         MAX(CASE WHEN a.role_snapshot='admin' THEN 1 ELSE 0 END) AS admin_contribution
-        FROM project_activity a JOIN users u ON u.id=a.user_id
+        FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
         WHERE a.project_id=? AND a.action IN ('Created project','Updated estimate settings','Added estimate item',
         'Updated estimate item','Removed estimate item','Saved manual estimate item','Changed project status',
-        'Updated project brief','Added project note') GROUP BY u.id ORDER BY actions DESC,u.name''',(project_id,))]
+        'Updated project brief','Added project note','Changed project result') GROUP BY COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',(project_id,))]
