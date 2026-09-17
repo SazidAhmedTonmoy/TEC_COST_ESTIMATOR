@@ -5,6 +5,8 @@ function lightRate(value){return value===null||value===undefined?'Not priced':ne
 function lightQty(value){return value===null||value===undefined?'Not set':fmtNumber(value,4);}
 function lightPhotoURL(item){return `/api/light-prices/${item.id}/photo?v=${item.revision||0}`;}
 function resetLightPrices(){
+  if(typeof resetQuoteReview==='function')resetQuoteReview();
+  $('#light-price-import-form').reset();$('#light-price-import-status').textContent='';
   lightPriceState.request++;lightPriceState.detailRequest++;
   Object.assign(lightPriceState,{selected:null,item:null,results:[],editing:false,dirty:false,busy:false,photoDataUrl:null,removePhoto:false,photoLoading:false,photoReadId:(lightPriceState.photoReadId||0)+1});
   const box=$('#light-price-detail');box.classList.add('hidden');$('#light-prices-view').appendChild(box);box.innerHTML='';
@@ -200,11 +202,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(event.target.closest('[data-light-remove-photo]')){lightPriceState.photoReadId=(lightPriceState.photoReadId||0)+1;lightPriceState.photoLoading=false;lightPriceState.photoDataUrl=null;lightPriceState.removePhoto=true;renderLightPhotoPreview();markLightDirty();$('#light-photo-status').textContent='Photo will be removed when you save.';}
   });
   $('#light-price-floating-search').addEventListener('click',()=>{$('#light-price-search-form').scrollIntoView({behavior:'smooth',block:'center'});$('#light-price-search').focus({preventScroll:true});});
-  $('#light-price-import-form').addEventListener('submit',async event=>{
-    event.preventDefault();const file=$('#light-price-file').files[0];if(!file||lightPriceState.busy||!confirmLightDiscard())return;
-    const button=event.target.querySelector('button');button.disabled=true;$('#light-price-import-status').textContent='Reading and connecting quote rows...';
-    try{const body=new FormData();body.append('file',file);const report=await api('/api/light-prices/import',{method:'POST',body});$('#light-price-import-status').textContent=`Added ${report.quotes_added} quotes, ${report.groups_added} packages and ${report.lines_added} rows. ${report.quotes_skipped} existing quotes skipped; ${report.notes_excluded} note or unsupported rows excluded.`;lightPriceState.dirty=false;await loadLightPrices();event.target.reset();}catch(error){$('#light-price-import-status').textContent=error.message;}finally{button.disabled=false;}
-  });
   document.addEventListener('click',event=>{
     if(event.target.closest('.nav-button,.brand-home')&&!event.ctrlKey&&!event.metaKey&&state.view==='light-prices'&&lightPriceState.dirty&&!confirmLightDiscard()){event.preventDefault();event.stopImmediatePropagation();}
   },true);

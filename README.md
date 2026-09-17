@@ -1,3 +1,11 @@
+# Current update: TEC ConEst (internal release 2.3.1)
+
+Use `UPGRADE_v2.3.1.md` for this code-only update. The app now has automatic database upgrades, quotation duplicate review, contact numbers and profile photos; visible titles no longer show a version. See `RELEASE_NOTES_v2.3.1.md` and `TEST_REPORT_v2.3.1.md`.
+
+The source-only and incremental packages do not include a database. Preserve your existing runtime database and server configuration. Current upgrade instructions take precedence over historical release instructions below.
+
+---
+
 # TEC ConEst · v2.3
 
 ### Electrical estimating, connected costs and team collaboration

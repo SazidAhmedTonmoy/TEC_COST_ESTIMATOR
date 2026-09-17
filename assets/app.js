@@ -120,7 +120,8 @@ async function api(path, options = {}) {
   const result = contentType.includes("application/json") ? await response.json() : null;
   if (!response.ok || (result && result.success === false)) {
     if (response.status === 401 && path !== '/api/auth/login') showLogin();
-    const error = new Error(result?.error || result?.message || `Request failed (${response.status})`);
+    const fallback=response.status===413?'The server rejected the upload size. Its hosting limit may be lower than the app limit; try a smaller file.':[502,503,504].includes(response.status)?'The server is starting, busy or timed out. Wait briefly and try again.':response.status>=500?'The server returned an error before application details were available. Ask your administrator to check the hosting error log.':`Request failed (${response.status})`;
+    const error = new Error(result?.error || result?.message || fallback);
     error.status = response.status;
     throw error;
   }

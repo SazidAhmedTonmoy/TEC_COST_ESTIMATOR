@@ -20,6 +20,7 @@ function setAccount(user, token) {
   $$('.user-only').forEach(el=>el.classList.toggle('hidden',user.role==='admin'));
   if(user.role==='admin' && workspaceState.filter==='team') workspaceState.filter='all';
   $('#account-name').textContent = user.name;
+  if(typeof renderAccountAvatar==='function')renderAccountAvatar(user);
   $('#account-role').textContent = `${user.job_title || (user.role === 'admin' ? 'Administrator' : 'Estimator')} · ${user.role === 'admin' ? 'Admin' : 'User'}`;
   $('.app-shell').classList.remove('hidden');
   $('#login-screen').classList.add('hidden');
@@ -27,6 +28,7 @@ function setAccount(user, token) {
 }
 function showLogin() {
   if(typeof resetHelpChat==='function')resetHelpChat();
+  if(typeof clearProfilePhoto==='function')clearProfilePhoto();
   state.projectLoadRequest=(state.projectLoadRequest||0)+1;state.catalogDetailRequest=(state.catalogDetailRequest||0)+1;
   state.user = null; state.csrfToken = ''; state.projectId = null; state.projectData = null;
   state.projects = []; state.dashboard = null; state.appSettings = null; state.catalogCache.clear();
@@ -186,6 +188,8 @@ function renderProfile() {
   const u=state.user; if(!u) return;
   if(!u.must_change_password) loadMyTeam().catch(error=>{ $('#my-team-details').textContent=error.message; });
   $('#profile-form').reset();
+  $('#profile-contact').value=u.contact_number||'';
+  if(typeof resetProfilePhoto==='function')resetProfilePhoto(u);
   $('#profile-email').value=u.email||'';$('#profile-name').value=u.name; $('#profile-username').value=u.username;
   $('#profile-title').value=u.job_title; $('#profile-role').value=u.role==='admin'?'Admin':'User';
   $('#password-setup-note').classList.toggle('hidden',!u.must_change_password);
@@ -196,12 +200,21 @@ function renderProfile() {
 async function saveProfile() {
   const password=$('#profile-new-password').value;
   if (password!==$('#profile-confirm-password').value) throw new Error('The new passwords do not match');
-  const result=await api('/api/auth/profile',{method:'PATCH',body:{email:$('#profile-email').value,name:$('#profile-name').value,username:$('#profile-username').value,job_title:$('#profile-title').value,password,current_password:$('#profile-current-password').value}});
-  const setup=state.user.must_change_password;
-  setAccount(result.user,result.csrf_token);
-  if (setup) await enterWorkspace(result); else { renderProfile(); await loadDashboard(); }
-  toast('Profile saved');
+  if(profilePhotoState.reading)throw new Error('Please wait for the photo to finish loading, then save.');
+  const payload={email:$('#profile-email').value,contact_number:$('#profile-contact').value,name:$('#profile-name').value,username:$('#profile-username').value,job_title:$('#profile-title').value,password,current_password:$('#profile-current-password').value};
+  if(profilePhotoState.dataUrl)payload.photo_data_url=profilePhotoState.dataUrl;
+  else if(profilePhotoState.remove)payload.remove_photo=true;
+  const controls=$$('input,button', $('#profile-form')), previous=controls.map(el=>el.disabled);
+  profilePhotoState.busy=true;controls.forEach(el=>el.disabled=true);
+  try {
+    const result=await api('/api/auth/profile',{method:'PATCH',body:payload});
+    const setup=state.user.must_change_password;
+    setAccount(result.user,result.csrf_token);
+    if (setup) await enterWorkspace(result); else { renderProfile(); await loadDashboard(); }
+    toast('Profile saved');
+  } finally {profilePhotoState.busy=false;controls.forEach((el,i)=>el.disabled=previous[i]);renderProfilePhoto();}
 }
+
 function openUserEditor(id=null) {
   const u=workspaceState.users.find(u=>u.id===Number(id));
   workspaceState.userId=u?.id||null;
@@ -211,6 +224,7 @@ function openUserEditor(id=null) {
   $('#delete-user-button').title=u?.id===state.user.id?'You cannot delete your own signed-in account':'Delete login; preserve projects, notes and history';
   $('#user-dialog-title').textContent=u?'Edit user':'Add user';
   $('#user-name').value=u?.name||''; $('#user-username').value=u?.username||'';
+  $('#user-contact').value=u?.contact_number||'';
   $('#user-title').value=u?.job_title||''; $('#user-role').value=u?.role||'user';
   $('#user-team').innerHTML='<option value="">No team</option>'+workspaceState.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
   $('#user-team').value=u?.team_id||''; syncUserRole();
@@ -222,7 +236,7 @@ function openUserEditor(id=null) {
 }
 async function saveUser() {
   const id=workspaceState.userId;
-  const payload={name:$('#user-name').value,username:$('#user-username').value,job_title:$('#user-title').value,role:$('#user-role').value,team_id:$('#user-role').value==='admin'?null:Number($('#user-team').value)||null};
+  const payload={contact_number:$('#user-contact').value,name:$('#user-name').value,username:$('#user-username').value,job_title:$('#user-title').value,role:$('#user-role').value,team_id:$('#user-role').value==='admin'?null:Number($('#user-team').value)||null};
   if (id) payload.is_active=$('#user-active').checked;
   if ($('#user-password').value) payload.password=$('#user-password').value;
   await api(id?`/api/users/${id}`:'/api/users',{method:id?'PATCH':'POST',body:payload});

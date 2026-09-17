@@ -26,3 +26,9 @@ data/backups/
 *.dump
 *.sql.gz
 *.sql.zip
+
+# Private previews and code-managed upgrade safety snapshots
+venv/
+data/lighting_import_previews/
+data/upgrade_backups/
+*.upgrade.lock

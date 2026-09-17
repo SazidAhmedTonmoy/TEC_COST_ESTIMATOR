@@ -21,28 +21,24 @@ def ensure_schema(conn):
 
 @contextmanager
 def connect():
-    path=db_path();path.parent.mkdir(parents=True,exist_ok=True)
-    conn=sqlite3.connect(path,timeout=30);conn.row_factory=sqlite3.Row
-    conn.execute('PRAGMA foreign_keys=ON');conn.execute('PRAGMA busy_timeout=30000')
-    try:
-        ensure_schema(conn)
-        yield conn;conn.commit()
-    except:conn.rollback();raise
-    finally:conn.close()
+    # Use the same automatic migration path as every other application route.
+    from .database import connect as main_connect
+    with main_connect() as conn:
+        yield conn
 
 def clean(value):return re.sub(r'\s+',' ',str(value or '')).strip()
 def number(value):
-    if value is None or str(value).strip() in ('','-','—'):return None
+    if value is None or str(value).strip().upper() in ('','-','\u2014','\u2013','N/A','N.A.','NA','TBA','TBC','POA','NOT QUOTED','INCLUDED','$ -') :return None
     text=str(value).strip().replace(',','').replace('$','')
     try:
         d=Decimal(text)
-        if not d.is_finite():raise ValueError('Non-finite price or quantity')
+        if not d.is_finite() or abs(d)>Decimal('1e12'):raise ValueError('Price or quantity is outside the supported range')
         return float(d)
     except InvalidOperation:raise ValueError('Invalid price or quantity: '+text[:30])
 def date_text(value):
     if hasattr(value,'strftime'):return value.strftime('%Y-%m-%d')
     value=clean(value)
-    for fmt in ('%Y-%m-%d','%A, %d %B %Y','%d/%m/%Y','%d %B %Y'):
+    for fmt in ('%Y-%m-%d','%Y-%m-%d %H:%M:%S','%A, %d %B %Y','%d/%m/%Y','%d %B %Y'):
         try:return datetime.strptime(value,fmt).strftime('%Y-%m-%d')
         except ValueError:pass
     return value
@@ -73,7 +69,10 @@ def parse_xlsx(content):
     wb=load_workbook(io.BytesIO(content),data_only=True,read_only=True)
     try:
         if 'All Items' not in wb.sheetnames:raise ValueError('Use a connected price workbook with an All Items sheet')
-        rows=wb['All Items'].iter_rows(values_only=True);headers=next(rows)
+        if wb['All Items'].max_row and wb['All Items'].max_row > 50000:
+            raise ValueError('Split the workbook into sheets with at most 50,000 rows')
+        rows=wb['All Items'].iter_rows(values_only=True);headers=next(rows, None)
+        if not headers:raise ValueError('The All Items sheet is empty')
         needed={'Project','Quote Ref','Quote Date','Supplier','Qty','Cat No','Description','Unit Ex GST','Total Ex GST'}
         if not needed.issubset(set(headers)):raise ValueError('The All Items sheet is missing required quote columns')
         quotes=OrderedDict();excluded=0
@@ -95,34 +94,9 @@ def parse_xlsx(content):
     finally:wb.close()
 
 def parse_pdf(content,filename):
-    import pdfplumber
-    quote=dict(reference='',project='',quote_date='',source=filename,total_ex=None,lines=[]);excluded=0
-    with pdfplumber.open(io.BytesIO(content)) as pdf:
-        if len(pdf.pages)>100:raise ValueError('Upload a quote of at most 100 pages')
-        text=pdf.pages[0].extract_text() or ''
-        ref=re.search(r'REF:\s*([A-Z0-9-]+)',text,re.I)
-        if not ref:raise ValueError('No supported TLE quote reference found; scanned PDFs need OCR first')
-        quote['reference']=ref[1]
-        dat=re.search(r'DATE:\s*(.*?)\s*PROJECT:',text,re.I)
-        quote['quote_date']=date_text(dat[1]) if dat else ''
-        for page_no,page in enumerate(pdf.pages,1):
-            for table in page.extract_tables():
-                active=False
-                for row_no,row in enumerate(table,1):
-                    if len(row)!=12:continue
-                    if clean(row[0])=='TO:' and page_no==1:quote['project']=clean(row[3])
-                    if clean(row[0])=='ITEM' and clean(row[4]).upper()=='CAT NO':active=True;continue
-                    if not active:continue
-                    if not any(clean(x) for x in row[:10]):
-                        if row[10]:quote['total_ex']=number(row[10])
-                        continue
-                    values=dict(zip(['Item','Type','Supplier','Qty','Cat No','Description','ETA','Unit Ex GST','GST','Unit Inc GST','Total Ex GST','Total Inc GST'],row));values['PDF Page']=page_no
-                    line=normal_line(values,page_no*1000+row_no)
-                    if line:quote['lines'].append(line)
-                    else:excluded+=1
-        if not quote['lines']:raise ValueError('No supported price rows found; use a text-based TLE quotation PDF')
-        if not quote['project']:quote['project']=quote['reference']
-    return [quote],excluded
+    from .quotation_parser import parse_pdf as parse
+    return parse(content, filename)
+
 
 def group_lines(lines):
     groups=OrderedDict();previous=None
@@ -144,33 +118,50 @@ def quote_digest(quote):
     return hashlib.sha256(json.dumps(data,sort_keys=True,ensure_ascii=False).encode()).hexdigest()
 
 def import_content(filename,content):
-    if len(content)>30*1024*1024:raise ValueError('Upload a file smaller than 30 MB')
-    suffix=Path(filename).suffix.lower()
-    quotes,excluded=parse_xlsx(content) if suffix=='.xlsx' else parse_pdf(content,filename) if suffix=='.pdf' else (_ for _ in ()).throw(ValueError('Upload XLSX or PDF'))
-    return save_quotes(quotes,excluded)
+    # Programmatic helper; browser imports always use preview -> confirmation.
+    from .quotation_parser import parse_content
+    quotes, excluded = parse_content(filename, content)
+    return save_quotes(quotes, excluded)
+
+
+def insert_quote(conn, quote, digest, canonical_hash=None, file_hash=None):
+    qid=conn.execute('INSERT INTO quotes(reference,project,quote_date,source,content_hash,imported_at,total_ex,canonical_hash,file_sha256) VALUES(?,?,?,?,?,?,?,?,?)',
+        (quote['reference'],quote['project'],quote['quote_date'],quote['source'],digest,datetime.now().isoformat(),quote['total_ex'],canonical_hash,file_hash)).lastrowid
+    group_count = line_count = 0
+    for typ,members in group_lines(quote['lines']).items():
+        primary=members[0];search=' '.join([quote['project'],quote['reference']]+[str(l.get(k) or '') for l in members for k in ('supplier','cat_no','description')]).casefold()
+        gid=conn.execute('INSERT INTO groups(quote_id,type_code,base_qty,description,supplier,cat_no,search_text,source_group) VALUES(?,?,?,?,?,?,?,?)',
+            (qid,typ,primary['quantity'],primary['description'],primary['supplier'],primary['cat_no'],search,primary.get('source_group',''))).lastrowid
+        for index,line in enumerate(members):
+            keys=('item_no','type_raw','type_effective','supplier','quantity','cat_no','description','raw_description','unit_ex','total_ex','status','page','source_row','connection_basis','source_values')
+            conn.execute('INSERT INTO lines(group_id,line_order,'+','.join(keys)+') VALUES('+','.join('?' for _ in range(len(keys)+2))+')',(gid,index,*(line.get(k) for k in keys)))
+        group_count+=1;line_count+=len(members)
+    return qid, group_count, line_count
+
 
 def save_quotes(quotes,excluded=0):
+    from .lighting_imports import canonical_digest, classify_quotes
     report={'quotes_added':0,'quotes_skipped':0,'groups_added':0,'lines_added':0,'notes_excluded':excluded}
-    with LOCK,connect() as conn:
-        pending=[]
-        for quote in quotes:
-            digest=quote_digest(quote)
-            if conn.execute('SELECT 1 FROM quotes WHERE reference=? AND quote_date=? AND content_hash=?',(quote['reference'],quote['quote_date'],digest)).fetchone():report['quotes_skipped']+=1
-            else:pending.append((quote,digest))
-        if pending and conn.execute('SELECT COUNT(*) FROM quotes').fetchone()[0]:
+    with LOCK:
+        # Backup outside a write transaction: the backup connection must never
+        # wait on a writer that is itself waiting for the backup to finish.
+        with connect() as check:
+            preview = classify_quotes(check, quotes)
+            pending = [q for q, p in zip(quotes, preview) if p['status'] != 'identical']
+            have_data = check.execute('SELECT COUNT(*) FROM quotes').fetchone()[0]
+        if pending and have_data:
             from .backups import create_backup
             create_backup('before-import')
-        for quote,digest in pending:
-            qid=conn.execute('INSERT INTO quotes(reference,project,quote_date,source,content_hash,imported_at,total_ex) VALUES(?,?,?,?,?,?,?)',(quote['reference'],quote['project'],quote['quote_date'],quote['source'],digest,datetime.now().isoformat(),quote['total_ex'])).lastrowid
-            for typ,members in group_lines(quote['lines']).items():
-                primary=members[0];search=' '.join([quote['project'],quote['reference']]+[str(l.get(k) or '') for l in members for k in ('supplier','cat_no','description')]).casefold()
-                gid=conn.execute('INSERT INTO groups(quote_id,type_code,base_qty,description,supplier,cat_no,search_text,source_group) VALUES(?,?,?,?,?,?,?,?)',(qid,typ,primary['quantity'],primary['description'],primary['supplier'],primary['cat_no'],search,primary['source_group'])).lastrowid
-                for index,line in enumerate(members):
-                    keys=('item_no','type_raw','type_effective','supplier','quantity','cat_no','description','raw_description','unit_ex','total_ex','status','page','source_row','connection_basis','source_values')
-                    conn.execute('INSERT INTO lines(group_id,line_order,'+','.join(keys)+') VALUES('+','.join('?' for _ in range(len(keys)+2))+')',(gid,index,*(line[k] for k in keys)))
-                report['groups_added']+=1;report['lines_added']+=len(members)
-            report['quotes_added']+=1
+        with connect() as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            for quote in quotes:
+                # Recheck inside the writer transaction for concurrent imports.
+                if classify_quotes(conn, [quote])[0]['status'] == 'identical':
+                    report['quotes_skipped'] += 1; continue
+                _, groups, lines = insert_quote(conn, quote, quote_digest(quote), canonical_digest(quote))
+                report['quotes_added'] += 1; report['groups_added'] += groups; report['lines_added'] += lines
     return report
+
 
 def _lighting_extensions(conn):
     from .release_v23 import add_columns
@@ -315,37 +306,8 @@ def _positive(value, label):
 
 
 def _prepare_photo(data_url):
-    """Decode/re-encode locally, discard metadata, reject active content and huge images."""
-    import base64, binascii, warnings
-    from PIL import Image, ImageOps, UnidentifiedImageError
-    if not isinstance(data_url, str) or len(data_url) > 17 * 1024 * 1024:
-        raise ValueError('Choose an image smaller than 12 MB')
-    match = re.fullmatch(r'data:image/(?:png|jpeg|webp|gif|bmp);base64,([A-Za-z0-9+/=\r\n]+)', data_url)
-    if not match:
-        raise ValueError('Use a PNG, JPEG, WebP, GIF or BMP image, not an image link or SVG')
-    try:
-        content = base64.b64decode(match[1], validate=True)
-        if len(content) > 12 * 1024 * 1024:
-            raise ValueError('Choose an image smaller than 12 MB')
-        with warnings.catch_warnings():
-            warnings.simplefilter('error', Image.DecompressionBombWarning)
-            with Image.open(io.BytesIO(content)) as image:
-                if image.width * image.height > 20_000_000:
-                    raise ValueError('Image is too large; use at most 20 megapixels')
-                if image.format not in ('PNG', 'JPEG', 'WEBP', 'GIF', 'BMP'):
-                    raise ValueError('Unsupported image format')
-                image.seek(0)
-                image = ImageOps.exif_transpose(image)
-                image.thumbnail((1600,1600))
-                alpha = image.mode in ('RGBA','LA') or 'transparency' in image.info
-                output = io.BytesIO()
-                image.convert('RGBA' if alpha else 'RGB').save(output, format='PNG' if alpha else 'JPEG', **({} if alpha else {'quality':88}))
-                encoded = output.getvalue()
-                if len(encoded) > 4 * 1024 * 1024:
-                    raise ValueError('Image is too detailed; resize it before uploading')
-                return ('image/png' if alpha else 'image/jpeg'), encoded
-    except (binascii.Error, UnidentifiedImageError, OSError, Image.DecompressionBombError, Image.DecompressionBombWarning) as exc:
-        raise ValueError('Image could not be read safely; choose a smaller PNG, JPEG or WebP image') from exc
+    from .images import prepare_image
+    return prepare_image(data_url)
 
 
 def update(conn, ident, payload, user):

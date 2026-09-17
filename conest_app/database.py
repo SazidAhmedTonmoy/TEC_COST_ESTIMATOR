@@ -32,7 +32,7 @@ class ManagedConnection(sqlite3.Connection):
             self.close()
 
 
-def connect(path: str | Path | None = None) -> sqlite3.Connection:
+def _raw_connect(path: str | Path | None = None) -> sqlite3.Connection:
     target = Path(path) if path else database_path()
     target.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(target, timeout=30, factory=ManagedConnection)
@@ -40,6 +40,12 @@ def connect(path: str | Path | None = None) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 30000")
     return conn
+
+
+def connect(path: str | Path | None = None) -> sqlite3.Connection:
+    # Bootstrap also runs for Passenger/WSGI imports, not just app.py main().
+    from .auto_upgrade import ensure_database
+    return _raw_connect(ensure_database(path))
 
 
 @contextmanager
@@ -353,6 +359,11 @@ def refresh_catalog_index(conn: sqlite3.Connection) -> dict[str, int]:
 
 
 def initialize(path: str | Path | None = None) -> Path:
+    from .auto_upgrade import ensure_database
+    return ensure_database(path)
+
+
+def _initialize_schema(path: str | Path | None = None) -> Path:
     target = Path(path) if path else database_path()
     with connect(target) as conn:
         conn.execute('PRAGMA journal_mode = WAL')
@@ -441,6 +452,9 @@ def initialize(path: str | Path | None = None) -> Path:
         conn.commit()
     from .lighting_migration import merge_legacy_prices
     merge_legacy_prices(target)
+    with connect(target) as conn:
+        from .release_v231 import initialize_v231
+        initialize_v231(conn)
     from .backups import prune_backups
     prune_backups(target.parent/'backups')
     return target

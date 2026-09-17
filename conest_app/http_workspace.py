@@ -55,7 +55,7 @@ class WorkspaceHTTP:
         mutation = self.command not in ('GET', 'HEAD')
         if mutation and not hmac.compare_digest(self.headers.get('X-CSRF-Token', ''), accounts.csrf_token(self.session_token)):
             raise accounts.AccessError(403, 'Your session changed. Refresh the page and try again.')
-        if self.user['must_change_password'] and path not in ('/api/auth/session', '/api/auth/profile', '/api/auth/logout'):
+        if self.user['must_change_password'] and path not in ('/api/auth/session', '/api/auth/profile', '/api/auth/profile/photo', '/api/auth/logout'):
             raise accounts.AccessError(403, 'Choose a new password in My profile to finish setting up your account')
         admin_required = (path.startswith('/api/users') or (path.startswith('/api/teams') and mutation)
                           or path == '/api/settings/saved-key' or (path.startswith('/api/settings') and mutation)
@@ -142,6 +142,18 @@ class WorkspaceHTTP:
                 conn.execute('DELETE FROM sessions WHERE token_hash=?', (accounts.token_digest(self.session_token),))
             self._set_session('')
             self._send_json({'success': True})
+            return True
+        if path == '/api/auth/profile/photo' and method == 'GET':
+            with self._read_connection() as conn:
+                photo = conn.execute('SELECT mime,image FROM user_avatars WHERE user_id=?', (self.user['id'],)).fetchone()
+            if not photo:
+                raise accounts.AccessError(404, 'Profile photo not found')
+            body = bytes(photo['image'])
+            self.send_response(200)
+            self.send_header('Content-Type', photo['mime'])
+            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Cache-Control', 'private, no-store')
+            self._security_headers(); self.end_headers(); self.wfile.write(body)
             return True
         if path == '/api/auth/profile' and method == 'PATCH':
             payload = self._json_body()

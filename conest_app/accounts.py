@@ -47,7 +47,7 @@ def verify_password(password, encoded):
 
 def public_user(row):
     result={key: row[key] for key in PUBLIC_FIELDS}
-    for key in ('team_id','team_name','email'):
+    for key in ('team_id','team_name','email','contact_number','avatar_version','has_avatar'):
         if key in row.keys():result[key]=row[key]
     return result
 
@@ -97,6 +97,22 @@ def validate_identity(payload, current=None):
     return username, name, job_title
 
 
+
+def validate_contact(value):
+    if not isinstance(value, str):
+        raise ValueError('Contact number must be text')
+    value = value.strip()
+    if len(value) > 50 or (value and (not re.fullmatch(r'[0-9+(). #xXeEtT/-]+', value) or not re.search(r'\d', value))):
+        raise ValueError('Enter a contact number of up to 50 characters, including a country code or extension, or leave it blank')
+    return value
+
+
+def validate_email(value):
+    value = str(value or '').strip()
+    if value and (len(value) > 254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', value)):
+        raise ValueError('Enter a valid email address or leave Email blank')
+    return value
+
 def create_user(conn, payload):
     from .teams import validate_team
     username, name, job_title = validate_identity(payload)
@@ -104,11 +120,13 @@ def create_user(conn, payload):
     if role not in ('admin', 'user'):
         raise ValueError('Choose admin or user')
     team_id=validate_team(conn,role,payload.get('team_id'))
+    contact = validate_contact(payload.get('contact_number', ''))
+    email = validate_email(payload.get('email', ''))
     encoded = password_hash(payload.get('password'))
     now = utc_now()
     cursor = conn.execute('''INSERT INTO users(username,name,job_title,password_hash,role,created_at,updated_at)
                              VALUES (?,?,?,?,?,?,?)''', (username, name, job_title, encoded, role, now, now))
-    conn.execute('UPDATE users SET team_id=? WHERE id=?',(team_id,cursor.lastrowid))
+    conn.execute('UPDATE users SET team_id=?,contact_number=?,email=? WHERE id=?',(team_id,contact,email,cursor.lastrowid))
     return public_user(conn.execute('SELECT * FROM users WHERE id=?', (cursor.lastrowid,)).fetchone())
 
 
@@ -120,9 +138,16 @@ def edit_user(conn, target_id, payload, actor, admin=False):
     if not admin and (target_id != actor['id'] or any(k in payload for k in ('role', 'is_active', 'must_change_password','team_id'))):
         raise AccessError(403, 'You can only edit your own profile')
     username, name, title = validate_identity(payload, current)
-    email=str(payload.get('email',current['email']) or '').strip()
-    if email and (len(email)>254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email)):
-        raise ValueError('Enter a valid email address or leave Email blank')
+    email = validate_email(payload.get('email', current['email']))
+    contact = validate_contact(payload.get('contact_number', current['contact_number']))
+    if type(payload.get('remove_photo', False)) is not bool:
+        raise ValueError('Invalid Remove photo selection')
+    if payload.get('photo_data_url') and payload.get('remove_photo'):
+        raise ValueError('Choose a new photo or remove the current photo, not both')
+    photo = None
+    if payload.get('photo_data_url'):
+        from .images import prepare_image
+        photo = prepare_image(payload['photo_data_url'], max_side=512, max_mb=8, square=True)
     password = payload.get('password')
     if not admin and (password or username != current['username']):
         if not verify_password(payload.get('current_password'), current['password_hash']):
@@ -146,7 +171,15 @@ def edit_user(conn, target_id, payload, actor, admin=False):
                  (username, name, title, encoded, role, int(active), must_change, utc_now(), target_id))
     if password or role != current['role'] or active != current['is_active'] or username != current['username']:
         conn.execute('DELETE FROM sessions WHERE user_id=?', (target_id,))
-    conn.execute('UPDATE users SET team_id=?,email=? WHERE id=?',(team_id,email,target_id))
+    conn.execute('UPDATE users SET team_id=?,email=?,contact_number=? WHERE id=?',(team_id,email,contact,target_id))
+    if photo:
+        conn.execute("""INSERT INTO user_avatars(user_id,mime,image,updated_at) VALUES (?,?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET mime=excluded.mime,image=excluded.image,updated_at=excluded.updated_at""",
+            (target_id, *photo, utc_now()))
+        conn.execute('UPDATE users SET avatar_version=avatar_version+1,has_avatar=1 WHERE id=?', (target_id,))
+    elif payload.get('remove_photo'):
+        conn.execute('DELETE FROM user_avatars WHERE user_id=?', (target_id,))
+        conn.execute('UPDATE users SET avatar_version=avatar_version+1,has_avatar=0 WHERE id=?', (target_id,))
     return public_user(conn.execute('SELECT * FROM users WHERE id=?', (target_id,)).fetchone())
 
 

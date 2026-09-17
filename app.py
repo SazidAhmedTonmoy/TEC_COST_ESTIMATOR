@@ -79,7 +79,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/2.3"
+    server_version = "TECConEst/2.3.1"
 
     def setup(self):
         super().setup()
@@ -185,8 +185,15 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         if isinstance(exc, sqlite3.OperationalError) and ("locked" in str(exc) or "busy" in str(exc)):
             self._send_json({"success": False, "error": "The database is busy. Please retry shortly."}, 503)
             return
+        from conest_app.auto_upgrade import UpgradeError
+        from conest_app.quotation_parser import ImportDependencyError
+        if isinstance(exc, (UpgradeError, ImportDependencyError)):
+            self._send_json({"success": False, "error": str(exc)}, 503)
+            return
+        reference = uuid.uuid4().hex[:12]
+        print(f"TEC ConEst server error reference: {reference}", flush=True)
         traceback.print_exc()
-        self._send_json({"success": False, "error": "Unexpected server error"}, 500)
+        self._send_json({"success": False, "error": f"The server could not complete this request. Error reference: {reference}. Ask your administrator to check the server log.", "error_reference": reference}, 500)
 
     def do_GET(self) -> None:  # noqa: N802
         try:
@@ -204,7 +211,9 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 self._send_file(ASSETS / relative)
                 return
             if path == "/api/health":
-                self._send_json({"success": True, "status": "ok"})
+                with connect() as conn:
+                    schema = conn.execute('SELECT version FROM schema_version').fetchone()[0]
+                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.3.1"})
                 return
             if path == '/api/light-prices':
                 from conest_app import light_prices
@@ -348,10 +357,27 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if self._productivity_route(path) or self._workspace_route(path):
                 return
             self._guard(path)
+            if path == '/api/light-prices/preview':
+                from conest_app import lighting_imports
+                if not IMPORT_SLOTS.acquire(blocking=False):
+                    raise ApiError(429, 'Other quotation files are being checked. Please retry shortly.')
+                try:
+                    filename, content = self._multipart_file()
+                    result = lighting_imports.create_preview(filename, content, self.user,
+                        lambda conn: self._authorize_connection(conn, path))
+                    self._send_json({'success': True, **result})
+                finally:
+                    IMPORT_SLOTS.release()
+                return
             if path == '/api/light-prices/import':
-                from conest_app import light_prices
-                filename,content=self._multipart_file()
-                self._send_json({'success':True,**light_prices.import_content(filename,content)});return
+                from conest_app import lighting_imports
+                if 'multipart/form-data' in self.headers.get('Content-Type', '').lower():
+                    raise ApiError(409, 'Quotation imports now require a review. Refresh this page, choose the file, and click Check quotation before importing.')
+                payload = self._json_body()
+                result = lighting_imports.commit_preview(payload.get('preview_id'), payload.get('selected'), self.user,
+                    lambda conn: self._authorize_connection(conn, path))
+                self._send_json({'success': True, **result})
+                return
             tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|lines/(\d+)/(copy|components/reorder|components/(\d+)/copy))',path)
             if tools_match:
                 from conest_app import estimate_tools
@@ -589,6 +615,14 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if self._productivity_route(path) or self._workspace_route(path):
                 return
             self._guard(path)
+            preview_match = re.fullmatch(r'/api/light-prices/previews/([a-f0-9]{32})', path)
+            if preview_match:
+                from conest_app import lighting_imports
+                with self._read_connection() as conn:
+                    lighting_imports.cancel_preview(preview_match[1], self.user)
+                self._send_json({'success': True})
+                return
+
             payload = self._json_body()
             catalog_match = re.fullmatch(r"/api/catalog/(\d+)", path)
             if catalog_match:

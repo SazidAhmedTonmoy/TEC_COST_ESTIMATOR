@@ -61,18 +61,8 @@ jobs:
           chmod 600 ~/.ssh/tec_conest_deploy_key
           ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-      - name: Back up production SQLite database
-        run: |
-          set -euo pipefail
-          PORT="${SSH_PORT:-22}"
-
-          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
-            "APP='$DEPLOY_PATH'; \
-             cd \"\$APP\"; \
-             mkdir -p data/backups; \
-             PY=\"\$APP/venv/bin/python\"; \
-             if [ ! -x \"\$PY\" ]; then PY=python3.11; fi; \
-             \"\$PY\" -c 'import sqlite3, datetime, pathlib; src=pathlib.Path(\"data/conest_catalog.db\"); stamp=datetime.datetime.now().strftime(\"%Y%m%d_%H%M%S\"); dst=pathlib.Path(\"data/backups\") / f\"predeploy_{stamp}.db\"; print(f\"Backing up {src} -> {dst}\"); assert src.is_file(); s=sqlite3.connect(src); d=sqlite3.connect(dst); s.backup(d); assert d.execute(\"PRAGMA integrity_check\").fetchone()[0] == \"ok\"; d.close(); s.close(); snapshots=sorted(dst.parent.glob(\"*.db\"), key=lambda p: (p.stat().st_mtime_ns, p.name), reverse=True); [(p.unlink(), p.with_suffix(\".json\").unlink(missing_ok=True)) for p in snapshots[1:] if not p.is_symlink()]'"
+      # The application creates a protected SQLite snapshot immediately before
+      # migrating the REAL runtime database. No deployment step copies a .db.
 
       - name: Upload application code
         run: |
@@ -82,6 +72,12 @@ jobs:
           rsync -az --delete \
             -e "ssh -i ~/.ssh/tec_conest_deploy_key -p $PORT" \
             --exclude '.git/' \
+            --exclude '.env' \
+            --exclude '.env.*' \
+            --exclude '*.db' \
+            --exclude '*.db-*' \
+            --exclude '*.db.*' \
+            --exclude '*.sqlite*' \
             --exclude '.github/' \
             --exclude '.well-known/' \
             --exclude '.htaccess' \
@@ -111,15 +107,24 @@ jobs:
           ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
             "set -e; \
              cd '$DEPLOY_PATH'; \
-             if [ -x venv/bin/pip ]; then venv/bin/pip install -r requirements.txt; else python3.11 -m pip install --user -r requirements.txt; fi; \
+             sh tools/install_runtime.sh; \
              mkdir -p tmp; \
              touch tmp/restart.txt; \
              echo 'Passenger restart requested.'"
 
-      - name: Verify production health
+      - name: Verify automatic migration and production health
         run: |
           set -euo pipefail
-          sleep 3
-          RESPONSE="$(curl -fsS --retry 12 --retry-delay 5 --retry-all-errors "$SITE_URL/api/health")"
+          for ATTEMPT in $(seq 1 18); do
+            RESPONSE="$(curl -fsS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health" || true)"
+            if printf '%s' "$RESPONSE" | python -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r.get("status")=="ok" and r.get("release")=="2.3.1" and r.get("schema_version")==24 else 1)' 2>/dev/null; then
+              echo "$RESPONSE"
+              echo 'Updated code is serving traffic and the runtime database has migrated.'
+              exit 0
+            fi
+            echo "Waiting for the updated Passenger worker and database (attempt $ATTEMPT/18)."
+            sleep 5
+          done
           echo "$RESPONSE"
-          echo "$RESPONSE" | grep -q '"status"[[:space:]]*:[[:space:]]*"ok"'
+          echo 'Updated application or automatic database migration is not ready. Check Passenger logs.' >&2
+          exit 1

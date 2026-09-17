@@ -104,6 +104,11 @@ def delete_account(conn, target_id, actor, payload):
             if fk['table'] != 'users':
                 continue
             field = fk['from']
+            if fk['on_delete'].upper() == 'CASCADE':
+                # Private dependent rows (for example profile photos) must be
+                # deleted, not reassigned by setting a nullable PRIMARY KEY NULL.
+                conn.execute(f'DELETE FROM "{table}" WHERE "{field}"=?', (target_id,))
+                continue
             if cols[field]['notnull']:
                 if conn.execute(f'SELECT 1 FROM "{table}" WHERE "{field}"=? LIMIT 1', (target_id,)).fetchone():
                     raise ValueError('A required account reference must be reassigned before deletion')

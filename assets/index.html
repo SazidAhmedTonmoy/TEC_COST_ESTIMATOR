@@ -4,13 +4,14 @@
   <script src="/assets/theme.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TEC ConEst v2.3</title>
+  <title>TEC ConEst</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg">
   <link rel="stylesheet" href="/assets/styles.css">
   <link rel="stylesheet" href="/assets/workspace.css">
   <link rel="stylesheet" href="/assets/theme.css">
   <link rel="stylesheet" href="/assets/responsive.css">
   <link rel="stylesheet" href="/assets/v23.css">
+  <link rel="stylesheet" href="/assets/v231.css">
   <script src="/assets/mobile.js" defer></script>
   <script src="/assets/file_drop.js" defer></script>
 </head>
@@ -31,7 +32,7 @@
     <aside class="sidebar">
       <a class="brand brand-home" href="#/home" aria-label="TEC ConEst home">
         <div class="brand-mark" aria-hidden="true">TEC</div>
-        <div><strong>TEC ConEst</strong><span>Estimator v2.3</span></div>
+        <div><strong>TEC ConEst</strong><span>Estimator</span></div>
       </a>
       <button class="mobile-menu-button" id="mobile-menu-button" type="button" aria-expanded="false" aria-controls="main-navigation account-controls">☰ <span>Menu</span></button>
       <nav id="main-navigation" aria-label="Main navigation">
@@ -45,7 +46,7 @@
         <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
       </nav>
-      <div class="account-summary" id="account-controls"><strong id="account-name"></strong><span id="account-role"></span><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
+      <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><strong id="account-name"></strong><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
       <div class="sidebar-footer">
         <span class="status-dot"></span>
         <span id="system-status">Checking database…</span>
@@ -120,10 +121,18 @@
         <section class="panel profile-panel"><div class="panel-heading"><div><p class="eyebrow">Your account</p><h2>My profile</h2></div></div>
           <p id="password-setup-note" class="setup-note hidden">Choose a new password to finish setting up your account. Enter your starter password as the current password.</p>
           <form id="profile-form" class="settings-grid">
+            <div id="profile-photo-area" class="profile-photo-area span-full">
+              <button id="profile-photo-ring" class="profile-photo-ring" type="button" aria-label="Upload or change profile photo" aria-describedby="profile-photo-help"><span id="profile-photo-preview"></span><span class="profile-photo-change" aria-hidden="true">&#9998;</span></button>
+              <input id="profile-photo-file" class="avatar-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Choose a profile photo" tabindex="-1">
+              <strong>Profile photo</strong>
+              <p id="profile-photo-help" class="helper-text">Drop a photo on the ring, or upload an image.<br>PNG, JPG, WebP, GIF or BMP &middot; up to 8 MB</p>
+              <div class="profile-photo-actions"><button id="profile-upload-photo" class="button secondary small" type="button">Upload / change photo</button><button id="profile-remove-photo" class="button secondary small" type="button">Use initials</button></div>
+              <p id="profile-photo-status" class="helper-text" role="status">Your name initials are used when no photo is set.</p>
+            </div>
             <label>Name<input id="profile-name" required maxlength="120" autocomplete="name"></label>
             <label>Username<input id="profile-username" required minlength="3" maxlength="64" autocomplete="username" pattern="[A-Za-z0-9_.-]+"></label>
             <label>Job title<input id="profile-title" maxlength="120" autocomplete="organization-title"></label>
-            <label>Email <span class="optional-label">(optional)</span><input id="profile-email" type="email" maxlength="254" autocomplete="email"></label><label>Role<input id="profile-role" disabled></label>
+            <label>Email <span class="optional-label">(optional)</span><input id="profile-email" type="email" maxlength="254" autocomplete="email"></label><label>Contact no. <span class="optional-label">(optional)</span><input id="profile-contact" type="tel" maxlength="50" autocomplete="tel" placeholder="e.g. +61 4xx xxx xxx"></label><label>Role<input id="profile-role" disabled></label>
             <fieldset class="profile-security span-full"><legend>Password &amp; security</legend><div class="settings-grid">
             <label>Current password<span class="password-field"><input id="profile-current-password" type="password" autocomplete="current-password" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-current-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
             <label>New password<span class="password-field"><input id="profile-new-password" type="password" autocomplete="new-password" minlength="8" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-new-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
@@ -232,7 +241,7 @@
       </section>
 
       <section class="view" id="light-prices-view">
-        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Upload a connected Excel workbook or TLE quotation PDF. Existing quotes are skipped automatically.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button class="button primary" type="submit">Import prices</button></form><p id="light-price-import-status" class="helper-text" role="status"></p></section>
+        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Choose a connected Excel workbook or TLE quotation PDF. Check for existing quotations, review the results, then confirm what to save.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button id="light-price-check-button" class="button primary" type="submit">Check quotation</button></form><p id="light-price-import-status" class="helper-text" role="status"></p><section id="light-import-review" class="light-import-review hidden" aria-label="Quotation review"></section></section>
         <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light price check</h2></div><span id="light-price-count" class="pill"></span></div>
           <p class="helper-text">Search by name, nickname, supplier, catalogue number or project. All prices are AUD excluding GST. Open a result here to see exactly which rows and totals make up its package price.</p>
           <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Name, nickname, cat no or project..." autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
@@ -377,7 +386,7 @@
   </dialog>
   <dialog id="user-dialog" aria-labelledby="user-dialog-title">
     <form id="user-form" class="dialog-card"><div class="dialog-heading"><h2 id="user-dialog-title">Add user</h2><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
-      <label>Name<input id="user-name" required maxlength="120"></label><label>Username<input id="user-username" required minlength="3" maxlength="64" autocomplete="off" pattern="[A-Za-z0-9_.-]+"></label><label>Job title<input id="user-title" maxlength="120"></label>
+      <label>Name<input id="user-name" required maxlength="120"></label><label>Username<input id="user-username" required minlength="3" maxlength="64" autocomplete="off" pattern="[A-Za-z0-9_.-]+"></label><label>Job title<input id="user-title" maxlength="120"></label><label>Contact no. <span class="optional-label">(optional)</span><input id="user-contact" type="tel" maxlength="50" autocomplete="off"></label>
       <label>Role<select id="user-role"><option value="user">User</option><option value="admin">Admin</option></select></label>
       <label>Team<select id="user-team"></select></label><p id="user-team-note" class="helper-text"></p>
       <label id="user-password-label">Temporary password<span class="password-field"><input id="user-password" type="password" minlength="8" maxlength="256" autocomplete="new-password"><button type="button" class="key-toggle" data-password-target="user-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
@@ -426,5 +435,7 @@
   <script src="/assets/estimate_extras.js" defer></script>
   <script src="/assets/light_prices.js" defer></script>
   <script src="/assets/v23.js" defer></script>
+  <script src="/assets/profile.js" defer></script>
+  <script src="/assets/quotation_import.js" defer></script>
 </body>
 </html>
