@@ -3,18 +3,20 @@
 Catalogue sheets are grouped into uploaded files. Lighting receipts retain the
 actual uploaded filename (which can differ from a workbook's Source PDF column).
 Older quote records without receipts remain legacy sources, not invented upload
-events. Their uploader was explicitly confirmed by the customer as Md Sazid Ahmed
-Tonmoy. Recorded upload receipts and their uploaders are never overwritten. Raw
-supplier/catalogue files are not exposed or promised here.
+events. The customer confirmed that every unrecorded uploader, for catalogue and
+lighting imports alike, is Md Sazid Ahmed Tonmoy. Apply this attribution before
+search and ownership filters; preserve every recorded name and do not write to
+the database. Raw supplier/catalogue files are not exposed or promised here.
 """
 from __future__ import annotations
 import json
 from .accounts import AccessError
 
-# Customer-confirmed attribution applies only to the receipt-less legacy branch.
-# Match the exact named account, not the similarly named Tonmoy_1 account. The
-# historical name remains visible when that account is absent; no grant/account
-# or fabricated upload receipt is created, and history reads remain read-only.
+# Customer-confirmed attribution covers ALL missing uploaders, including catalogue
+# sources and lighting receipts, not only receipt-less lighting sources. Match the
+# exact named account, not the similarly named Tonmoy_1 account. The historical
+# name remains visible when that account is absent; no grant/account or fabricated
+# upload receipt is created, and history reads remain read-only.
 _LEGACY_UPLOADER = ('Md Sazid Ahmed Tonmoy', 'Tonmoy')
 
 _HISTORY_SQL = """
@@ -26,7 +28,7 @@ WITH legacy_identity(name,username) AS (VALUES (?,?)), legacy_uploader AS (
     SELECT q.id,COUNT(DISTINCT g.id) AS items,COUNT(l.id) AS components
     FROM quotes q LEFT JOIN groups g ON g.quote_id=q.id LEFT JOIN lines l ON l.group_id=g.id
     GROUP BY q.id
-), history AS (
+), raw_history AS (
     SELECT 'catalog:'||MIN(s.id) AS id,'catalog' AS kind,s.file_name AS filename,
         MAX(s.imported_at) AS imported_at,s.imported_by AS uploader_id,
         COALESCE(u.name,'Not recorded') AS uploader_name,COALESCE(u.username,'') AS username,
@@ -51,6 +53,19 @@ WITH legacy_identity(name,username) AS (VALUES (?,?)), legacy_uploader AS (
     WHERE NOT EXISTS (SELECT 1 FROM lighting_import_receipts r WHERE r.file_sha256=q.file_sha256
         AND q.file_sha256 IS NOT NULL AND q.file_sha256<>'')
     GROUP BY q.source,COALESCE(NULLIF(q.file_sha256,''),q.source),SUBSTR(q.imported_at,1,10)
+), resolved_history AS (
+    SELECT h.*,
+        CASE WHEN h.uploader_name IS NULL OR
+            LOWER(TRIM(h.uploader_name, ' '||CHAR(9)||CHAR(10)||CHAR(13))) IN ('','not recorded')
+            THEN 1 ELSE 0 END AS missing_uploader
+    FROM raw_history h
+), history AS (
+    SELECT h.id,h.kind,h.filename,h.imported_at,
+        CASE WHEN h.missing_uploader THEN lu.id ELSE h.uploader_id END AS uploader_id,
+        CASE WHEN h.missing_uploader THEN lu.name ELSE h.uploader_name END AS uploader_name,
+        CASE WHEN h.missing_uploader THEN lu.username ELSE h.username END AS username,
+        h.sheets,h.quotes,h.items,h.components,h.references_text,h.projects_text,h.report_json,h.legacy
+    FROM resolved_history h CROSS JOIN legacy_uploader lu
 )
 """
 
