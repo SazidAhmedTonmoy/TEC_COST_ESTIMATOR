@@ -60,9 +60,13 @@ def permissions(conn, project, user):
         (project['id'], user['id'])).fetchone())
     admin = active and actor['role'] == 'admin'
     owner = active and project['owner_id'] == user['id']
-    editable = bool(admin or owner or assigned)
+    individual = active and bool(conn.execute(
+        'SELECT 1 FROM project_user_access WHERE project_id=? AND user_id=?',
+        (project['id'], user['id'])).fetchone())
+    editable = bool(admin or owner or assigned or individual)
     return {'can_view': active, 'can_edit': editable, 'can_manage': bool(admin or owner),
-            'can_delete': bool(admin or owner), 'is_assigned': bool(assigned), 'is_owner': bool(owner)}
+            'can_delete': bool(admin or owner), 'is_assigned': bool(assigned or individual),
+            'is_team_assigned': bool(assigned), 'is_individually_assigned': bool(individual), 'is_owner': bool(owner)}
 
 
 def require_project(conn, project_id, user, mode='edit'):
@@ -70,7 +74,7 @@ def require_project(conn, project_id, user, mode='edit'):
     access = permissions(conn, project, user)
     if not access['can_view']: raise AccessError(404, 'Project not found')
     if not access['can_' + mode]:
-        message = ('This project is read-only for you. Only its owner, assigned team members or an administrator can edit it.'
+        message = ('This project is read-only for you. Only its owner, assigned team members, individually assigned users or an administrator can edit it.'
                    if mode == 'edit' else 'Only the project creator or an administrator can do this')
         raise AccessError(403, message)
     return project
@@ -85,6 +89,9 @@ def decorate_project(conn, project, user):
         result[output] = row[0] if row else result.get(column + '_name_snapshot')
     result['teams'] = [dict(r) for r in conn.execute('''SELECT t.id,t.name FROM project_teams p
         JOIN teams t ON t.id=p.team_id WHERE p.project_id=? ORDER BY t.name COLLATE NOCASE''', (result['id'],))]
+    result['individual_users'] = [dict(r) for r in conn.execute('''SELECT u.id,u.name,u.username,u.is_active,t.name AS team_name
+        FROM project_user_access a JOIN users u ON u.id=a.user_id LEFT JOIN teams t ON t.id=u.team_id
+        WHERE a.project_id=? ORDER BY u.name COLLATE NOCASE,u.id''', (result['id'],))]
     result['contributors'] = project_contributors(conn,result['id'])
     # Legacy publication records remain in the database for preservation only.
     result.pop('published_at', None)
@@ -156,13 +163,53 @@ def project_activity(conn, project_id, user, before_id=None, limit=200):
         WHERE a.project_id=?""" + condition + ' ORDER BY a.id DESC LIMIT ?', values)]
 
 
+def _validate_access_ids(conn, ids, kind, project):
+    if not isinstance(ids, list) or len(ids) > 500 or any(type(i) is not int or i <= 0 for i in ids):
+        raise ValueError('Choose valid project ' + ('teams' if kind == 'team' else 'users'))
+    chosen = set(ids)
+    for uid in chosen:
+        if kind == 'team':
+            if not conn.execute('SELECT 1 FROM teams WHERE id=?', (uid,)).fetchone():
+                raise ValueError('Team not found')
+        else:
+            member = conn.execute('SELECT is_active,role FROM users WHERE id=?', (uid,)).fetchone()
+            if not member:
+                raise ValueError('User not found')
+            # Keep existing inactive grants visible/removable; never grant new
+            # access to an inactive account. Reactivation remains admin-only.
+            existing = conn.execute('SELECT 1 FROM project_user_access WHERE project_id=? AND user_id=?', (project['id'],uid)).fetchone()
+            if not member['is_active'] and not existing:
+                raise ValueError('Only active users can be assigned to a project')
+            if member['role'] == 'admin' or uid == project['owner_id']:
+                if not existing:
+                    raise ValueError('The owner and administrators already have full project access')
+    return chosen
+
+
+def project_access_options(conn, project_id, user):
+    """A minimal, project-scoped assignment directory; not admin account access."""
+    project = require_project(conn, project_id, user, 'manage')
+    teams = [dict(r) for r in conn.execute("""SELECT t.id,t.name,COUNT(u.id) AS active_members
+        FROM teams t LEFT JOIN users u ON u.team_id=t.id AND u.is_active=1 AND u.role='user'
+        GROUP BY t.id ORDER BY t.name COLLATE NOCASE""")]
+    users = [dict(r) for r in conn.execute("""SELECT u.id,u.name,u.username,u.team_id,u.is_active,t.name AS team_name
+        FROM users u LEFT JOIN teams t ON t.id=u.team_id
+        WHERE (u.is_active=1 AND u.role='user' AND u.id<>?) OR u.id IN
+            (SELECT user_id FROM project_user_access WHERE project_id=?)
+        ORDER BY u.name COLLATE NOCASE,u.id""", (project['owner_id'],project_id))]
+    return {'teams':teams, 'users':users}
+
+
 def update_workflow(conn, project_id, payload, user):
     project = require_project(conn, project_id, user)
     check_revision(project, payload)
-    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'expected_revision', 'award_status'}
+    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status'}
     if set(payload) - allowed: raise ValueError('Unknown project workflow field')
-    if 'team_ids' in payload and user['role'] != 'admin':
-        raise AccessError(403, 'Only administrators can change project teams')
+    if {'team_ids', 'user_ids'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
+        raise AccessError(403, 'Only the project owner or an administrator can change project access')
+    # Validate all requested grants before performing any mutation.
+    chosen_teams = _validate_access_ids(conn, payload['team_ids'], 'team', project) if 'team_ids' in payload else None
+    chosen_users = _validate_access_ids(conn, payload['user_ids'], 'user', project) if 'user_ids' in payload else None
     if {'scope_of_work', 'submission_deadline'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
         raise AccessError(403, 'Only the project creator or an administrator can change its brief')
     scope = payload.get('scope_of_work', project['scope_of_work'])
@@ -182,12 +229,7 @@ def update_workflow(conn, project_id, payload, user):
         record_activity(conn, project_id, user, 'Changed project result',
                         f"{project['award_status'] or 'Not recorded'} -> {award or 'Not recorded'}")
     if 'team_ids' in payload:
-        ids = payload['team_ids']
-        if not isinstance(ids,list) or len(ids)>500 or any(type(i) is not int or i<=0 for i in ids):
-            raise ValueError('Choose valid teams')
-        ids = set(ids)
-        for team_id in ids:
-            if not conn.execute('SELECT 1 FROM teams WHERE id=?', (team_id,)).fetchone(): raise ValueError('Team not found')
+        ids = chosen_teams
         previous = {r[0] for r in conn.execute('SELECT team_id FROM project_teams WHERE project_id=?',(project_id,))}
         if ids != previous:
             conn.execute('DELETE FROM project_teams WHERE project_id=?', (project_id,))
@@ -195,6 +237,16 @@ def update_workflow(conn, project_id, payload, user):
                 conn.execute('INSERT INTO project_teams VALUES (?,?,?,?)', (project_id,team_id,user['id'],utc_now()))
             names = [conn.execute('SELECT name FROM teams WHERE id=?',(i,)).fetchone()[0] for i in sorted(ids)]
             record_activity(conn,project_id,user,'Changed project teams',', '.join(names) or 'No team assigned')
+    if chosen_users is not None:
+        previous = {r[0] for r in conn.execute('SELECT user_id FROM project_user_access WHERE project_id=?', (project_id,))}
+        if chosen_users != previous:
+            conn.execute('DELETE FROM project_user_access WHERE project_id=?', (project_id,))
+            for uid in sorted(chosen_users):
+                conn.execute('INSERT INTO project_user_access VALUES (?,?,?,?)', (project_id,uid,user['id'],utc_now()))
+            added = [conn.execute('SELECT name FROM users WHERE id=?',(uid,)).fetchone()[0] for uid in sorted(chosen_users-previous)]
+            removed = [conn.execute('SELECT name FROM users WHERE id=?',(uid,)).fetchone()[0] for uid in sorted(previous-chosen_users)]
+            detail = '; '.join(part for part in [('Added: '+', '.join(added)) if added else '', ('Removed: '+', '.join(removed)) if removed else ''] if part)
+            record_activity(conn,project_id,user,'Changed individual project access',detail)
     completed_at, completed_by = project['completed_at'], project['completed_by']
     if status != project['status']:
         completed_at = utc_now() if status=='completed' else None

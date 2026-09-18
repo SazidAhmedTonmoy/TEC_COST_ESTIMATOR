@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="/assets/v23.css">
   <link rel="stylesheet" href="/assets/v231.css">
   <link rel="stylesheet" href="/assets/v232.css">
+  <link rel="stylesheet" href="/assets/v233.css">
   <script src="/assets/mobile.js" defer></script>
   <script src="/assets/file_drop.js" defer></script>
 </head>
@@ -41,8 +42,8 @@
         <a class="nav-button" data-view="calendar" href="#/calendar"><span>▤</span> Calendar</a>
         <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
         <a class="nav-button" data-view="catalog" href="#/catalog"><span>⌕</span> Catalog</a>
-        <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
         <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light price check</a>
+        <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
         <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
         <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
@@ -123,18 +124,17 @@
           <p id="password-setup-note" class="setup-note hidden">Choose a new password to finish setting up your account. Enter your starter password as the current password.</p>
           <form id="profile-form" class="settings-grid">
             <div id="profile-photo-area" class="profile-photo-area span-full">
-              <button id="profile-photo-ring" class="profile-photo-ring" type="button" aria-label="Upload or change profile photo" aria-describedby="profile-photo-help"><span id="profile-photo-preview"></span><span class="profile-photo-change" aria-hidden="true">&#9998;</span></button>
+              <button id="profile-photo-ring" class="profile-photo-ring" type="button" aria-label="Upload or change profile photo"><span id="profile-photo-preview"></span><span class="profile-photo-change" aria-hidden="true">&#9998;</span></button>
               <input id="profile-photo-file" class="avatar-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Choose a profile photo" tabindex="-1">
-              <strong>Profile photo</strong>
-              <p id="profile-photo-help" class="helper-text">Drop a photo on the ring, or upload an image.<br>Saving a new photo replaces the previous photo; no photo history is kept.<br>PNG, JPG, WebP, GIF or BMP &middot; up to 8 MB</p>
+              <strong>Profile Photo</strong>
               <div class="profile-photo-actions"><button id="profile-upload-photo" class="button secondary small" type="button">Upload / change photo</button><button id="profile-remove-photo" class="button secondary small" type="button">Use initials</button></div>
-              <p id="profile-photo-status" class="helper-text" role="status">Your name initials are used when no photo is set.</p>
+              <p id="profile-photo-status" class="helper-text" role="status"></p>
             </div>
             <label>Name<input id="profile-name" required maxlength="120" autocomplete="name"></label>
             <label>Username<input id="profile-username" required minlength="3" maxlength="64" autocomplete="username" pattern="[A-Za-z0-9_.-]+"></label>
             <label>Job title<input id="profile-title" maxlength="120" autocomplete="organization-title"></label>
             <label>Email <span class="optional-label">(optional)</span><input id="profile-email" type="email" maxlength="254" autocomplete="email"></label><label>Contact no. <span class="optional-label">(optional)</span><input id="profile-contact" type="tel" maxlength="50" autocomplete="tel" placeholder="e.g. +61 4xx xxx xxx"></label><label>Role<input id="profile-role" disabled></label>
-            <fieldset class="profile-security span-full"><legend>Password &amp; security</legend><div class="settings-grid">
+            <fieldset class="profile-security span-full"><legend>Password &amp; Security</legend><div class="settings-grid">
             <label>Current password<span class="password-field"><input id="profile-current-password" type="password" autocomplete="current-password" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-current-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
             <label>New password<span class="password-field"><input id="profile-new-password" type="password" autocomplete="new-password" minlength="8" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-new-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
             <label>Confirm new password<span class="password-field"><input id="profile-confirm-password" type="password" autocomplete="new-password" minlength="8" maxlength="256"><button type="button" class="key-toggle" data-password-target="profile-confirm-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
@@ -242,7 +242,7 @@
       </section>
 
       <section class="view" id="light-prices-view">
-        <section class="panel light-price-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Choose a connected Excel workbook or TLE quotation PDF. Check for existing quotations, review the results, then confirm what to save.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button id="light-price-check-button" class="button primary" type="submit">Check quotation</button></form><p id="light-price-import-status" class="helper-text" role="status"></p><section id="light-import-review" class="light-import-review hidden" aria-label="Quotation review"></section></section>
+
         <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light price check</h2></div><span id="light-price-count" class="pill"></span></div>
           <p class="helper-text">Search by name, nickname, supplier, catalogue number or project. All prices are AUD excluding GST. Open a result here to see exactly which rows and totals make up its package price.</p>
           <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Name, nickname, cat no or project..." autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
@@ -253,25 +253,18 @@
 
       </section>
       <section id="imports-view" class="view">
-        <div class="split-heading"><div><p class="eyebrow">Database growth</p><h2>Import future ConEst workbooks</h2><p>The importer reads every matching ConEst sheet, keeps source variants, and reports anything needing review.</p></div></div>
-        <section class="panel upload-panel">
+        <div class="imports-toolbar"><p class="helper-text">Upload catalogue workbooks and supplier quotations.</p><button id="import-history-button" type="button" class="button secondary" aria-haspopup="dialog" aria-controls="import-history-dialog" title="See uploaded catalogue and lighting files"><span class="info-circle" aria-hidden="true">i</span> Upload history</button></div>
+        <section class="panel import-upload" aria-labelledby="workbook-upload-title">
+          <div><p class="eyebrow">Database growth</p><h2 id="workbook-upload-title">Import future ConEst workbooks</h2><p class="helper-text">Choose a workbook, review matching ConEst sheets, then confirm the items to save.</p></div>
           <form id="import-form">
-            <label class="drop-zone" id="drop-zone">
-              <span class="drop-icon">⇧</span>
-              <strong>Drop a workbook here or click to choose</strong>
-              <span>.xlsx or .xlsm, up to 80 MB</span>
-              <input id="import-file" type="file" accept=".xlsx,.xlsm" required>
-            </label>
+            <label class="workbook-upload-file" id="drop-zone"><strong>Drop a workbook here or click to choose</strong><input id="import-file" type="file" accept=".xlsx,.xlsm" required><small>XLSX or XLSM &middot; up to 80 MB</small></label>
             <button class="button primary" type="submit">Preview workbook</button>
           </form>
-          <div id="import-progress" class="progress-message hidden"></div>
+          <div id="import-progress" class="progress-message hidden" role="status"></div>
           <div id="import-preview" class="hidden"></div>
         </section>
-        <section class="panel">
-          <div class="panel-heading"><div><p class="eyebrow">Audit trail</p><h2>Imported sheets</h2></div><span class="pill" id="source-count">0 sheets</span></div>
-          <div class="table-scroll"><table class="data-table"><thead><tr><th>File / sheet</th><th>Project</th><th>Format</th><th>Rows</th><th>Assemblies</th><th>Components</th><th>Review</th></tr></thead><tbody id="source-rows"></tbody></table></div>
-        </section>
-</section>
+        <section class="panel light-price-upload import-upload" aria-labelledby="light-upload-title"><div><p class="eyebrow">Grow your price library</p><h2 id="light-upload-title">Add supplier prices</h2><p class="helper-text">Choose a connected Excel workbook or TLE quotation PDF. Check for existing quotations, review the results, then confirm what to save.</p></div><form id="light-price-import-form"><label class="light-upload-file">Drop a quote here or click to choose<input id="light-price-file" type="file" accept=".xlsx,.pdf" required><small>XLSX or PDF · up to 30 MB</small></label><button id="light-price-check-button" class="button primary" type="submit">Check quotation</button></form><p id="light-price-import-status" class="helper-text" role="status"></p><section id="light-import-review" class="light-import-review hidden" aria-label="Quotation review"></section></section>
+      </section>
 
       <section id="settings-view" class="view">
         <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">The latest backup set is kept automatically. Backups run daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
@@ -368,6 +361,15 @@
   </dialog>
 
   <aside id="catalog-hover-preview" class="catalog-hover-preview hidden" aria-live="polite"></aside>
+  <dialog id="import-history-dialog" aria-labelledby="import-history-title">
+    <div class="dialog-card import-history-card"><div class="dialog-heading"><div><p class="eyebrow">Your imported files</p><h2 id="import-history-title">Upload history</h2></div><button type="button" class="icon-button close-dialog" aria-label="Close upload history">&times;</button></div>
+      <form id="import-history-search-form" class="import-history-filters"><label class="history-search-label">Search uploads<input id="import-history-search" type="search" maxlength="200" placeholder="File, sheet, quote, project or person..." autocomplete="off"></label><label>Library<select id="import-history-kind"><option value="all">All libraries</option><option value="catalog">Catalogue</option><option value="lighting">Light prices</option></select></label><label>Uploaded by<select id="import-history-who"><option value="all">All uploads</option><option value="me">My uploads</option></select></label><button type="submit" class="button primary">Search</button></form>
+      <p id="import-history-status" class="helper-text" role="status"></p><div id="import-history-results" class="import-history-results"></div>
+      <div class="import-history-pagination"><button id="import-history-prev" type="button" class="button secondary small" disabled>Previous</button><span id="import-history-page"></span><button id="import-history-next" type="button" class="button secondary small" disabled>Next</button></div>
+      <p class="helper-text history-footnote">History shows saved import records. Previews that were cancelled are not listed. Older records may not identify the uploader.</p>
+    </div>
+  </dialog>
+
   <dialog id="project-brief-dialog" aria-labelledby="brief-title">
     <div class="dialog-card project-brief-card"><div class="dialog-heading"><div><p class="eyebrow" id="brief-client"></p><h2 id="brief-title"></h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
       <div id="brief-summary"></div>
@@ -379,7 +381,7 @@
           <div class="project-outcome-buttons"><button type="button" class="button secondary outcome-won" data-award-status="won" aria-pressed="false">&#10003; Won</button><button type="button" class="button secondary outcome-lost" data-award-status="lost" aria-pressed="false">&#10007; Lost</button><button type="button" class="text-button" data-award-status="">Clear result</button><span id="brief-award-label" class="helper-text">Not recorded</span></div>
           <p class="helper-text">Independent of project progress. Leave blank until the tender outcome is known. Use Save project to apply.</p>
         </fieldset>
-        <fieldset class="admin-only assignment-fieldset"><legend>Assign teams</legend><p class="helper-text">Selected team members can edit this project. Other active users can view it but cannot change it.</p><div id="assignment-options"></div></fieldset>
+        <fieldset id="project-access-fieldset" class="assignment-fieldset"><legend>Project access</legend><p class="helper-text">The owner and admins have full control. Assign teams or individual users to edit this project; everyone else remains read-only. Save project to apply.</p><div class="project-access-columns"><section><h4>Assign teams</h4><div id="assignment-options" class="access-options"></div></section><section><h4>Individual edit access</h4><input id="assignment-user-search" type="search" maxlength="120" placeholder="Search name, username or team..." aria-label="Search users to assign"><div id="individual-assignment-options" class="access-options"></div><p id="assignment-user-empty" class="helper-text hidden">No users match your search.</p></section></div><p class="helper-text">Individual access does not change a user's team or give permission to delete this project or manage its access.</p></fieldset>
         <div class="dialog-actions"><button id="brief-delete" type="button" class="button secondary danger-text">Delete project</button><a id="brief-open-estimate" class="button secondary" href="#/estimate">Open estimate</a><button id="brief-save" type="submit" class="button primary">Save project</button></div>
       </form>
       <section id="activity-section"><h3>Project activity</h3><p class="helper-text">Shows retained recorded updates. Use Load older updates to see earlier entries; unrecorded historical changes cannot be reconstructed.</p><div id="project-contributors" class="contributor-list"></div><h4>Activity history</h4><div id="project-activity"></div></section>
@@ -440,5 +442,6 @@
   <script src="/assets/v23.js" defer></script>
   <script src="/assets/profile.js" defer></script>
   <script src="/assets/quotation_import.js" defer></script>
+  <script src="/assets/import_history.js" defer></script>
 </body>
 </html>

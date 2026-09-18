@@ -1,0 +1,58 @@
+/* Shared upload panels, on-demand file history and project access management. */
+.imports-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.imports-toolbar .helper-text{margin:0}
+.info-circle{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1.5px solid currentColor;border-radius:50%;font-size:13px;font-weight:800;margin-right:7px}
+.import-upload{border-top:3px solid var(--teal);margin-bottom:22px}
+.import-upload h2{margin-top:4px}
+.import-upload>form{display:flex;align-items:center;gap:20px;margin-top:18px}
+.import-upload>form>button{flex-shrink:0;white-space:nowrap}
+.import-upload .workbook-upload-file,.import-upload .light-upload-file{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;padding:16px;border:1px dashed var(--line);border-radius:10px;background:var(--surface)}
+.import-upload input[type="file"]{display:block;max-width:100%;min-width:0;border:0;padding:0;background:transparent;font-size:13px;line-height:1.5}
+.import-upload input[type="file"]::file-selector-button{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:8px 12px;margin-right:12px;color:var(--ink);cursor:pointer}
+.import-upload label>strong{font-size:14px}
+.import-upload label>small{color:var(--muted);font-size:12px;font-weight:400}
+.import-upload .drop-active{outline:2px solid var(--teal);outline-offset:2px}
+.import-upload #import-progress{margin:12px 0 0}
+.import-upload #light-price-import-status:empty{display:none}
+#profile-photo-status:empty{display:none}
+.project-access-columns{display:grid;grid-template-columns:1fr 1.15fr;gap:20px}
+.project-access-columns section{min-width:0}
+.project-access-columns h4{margin:2px 0 12px}
+.access-options{max-height:280px;overflow-y:auto;overscroll-behavior:contain;padding:2px;display:flex;flex-direction:column;gap:8px}
+.access-options .checkbox-label{padding:10px;border:1px solid var(--line);border-radius:8px;display:flex;gap:10px;align-items:flex-start;margin:0}
+.access-options .checkbox-label.hidden{display:none}
+.access-options input[type="checkbox"]{flex:0 0 auto;margin-top:3px}
+.access-options small{display:block;color:var(--muted);font-size:11px;margin-top:4px;overflow-wrap:anywhere}
+#assignment-user-search{margin-bottom:10px}
+#project-access-fieldset.hidden{display:none}
+#import-history-dialog{width:min(1000px,calc(100vw - 28px));max-height:92vh;max-height:92dvh;background:var(--surface);color:var(--ink)}
+#import-history-dialog .dialog-card{max-width:none;padding:24px}
+.import-history-filters{display:grid;grid-template-columns:minmax(180px,1fr) 145px 145px auto;gap:12px;align-items:end;margin:18px 0 10px}
+.import-history-filters label{min-width:0}
+.import-history-filters input,.import-history-filters select{width:100%;min-width:0}
+.import-history-results{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.upload-history-entry{border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+.upload-history-entry h3{font-size:15px;margin:12px 0 8px;overflow-wrap:anywhere}
+.upload-history-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.upload-history-heading time{font-size:11px;color:var(--muted)}
+.upload-library{display:inline-flex;border:1px solid var(--line);border-radius:99px;padding:4px 8px;font-size:11px;font-weight:700}
+.upload-history-counts{font-size:12px;color:var(--muted);margin:0 0 8px;line-height:1.6}
+.upload-history-entry .helper-text{font-size:12px;margin:6px 0}
+.upload-history-entry details{font-size:12px;margin-top:10px;overflow-wrap:anywhere}
+.upload-history-entry summary{cursor:pointer;font-weight:600}
+.upload-history-entry details p{line-height:1.6}
+.import-history-pagination{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px;font-size:12px}
+.history-footnote{font-size:12px;margin-bottom:0}
+.history-empty{grid-column:1/-1;padding:28px 14px;text-align:center;color:var(--muted)}
+@media(max-width:750px){
+  .imports-toolbar{align-items:flex-start}.imports-toolbar .helper-text{font-size:12px}
+  .imports-toolbar>button{flex-shrink:0;font-size:12px}
+  .import-upload>form{align-items:stretch;flex-direction:column;gap:12px}
+  .import-upload>form>button{align-self:flex-start}
+  .project-access-columns{grid-template-columns:1fr}
+  .import-history-filters{grid-template-columns:1fr 1fr}
+  .import-history-filters .history-search-label{grid-column:1/-1}
+  .import-history-filters>button{grid-column:1/-1}
+  .import-history-results{grid-template-columns:1fr}
+  #import-history-dialog .dialog-card{padding:16px}
+}

@@ -12,10 +12,12 @@ const ctx={document:{addEventListener:()=>{}},$:(s)=>elements[s],state:{projects
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/v23.js'),'utf8'),ctx);
 vm.runInContext('renderCalendarSummary(state.projects)',ctx);
 const html=elements['#calendar-summary'].innerHTML, table=elements['#calendar-agenda'].innerHTML;
+const ordered=['Projects due this month','Total estimate / quoted value','Total material cost','Labour allowance','Total labour price'];
+for(let i=1;i<ordered.length;i++){assert.ok(html.indexOf(ordered[i-1])>=0);assert.ok(html.indexOf(ordered[i-1])<html.indexOf(ordered[i]), 'Calendar order: '+ordered[i]);}
 assert.match(html,/Total material cost/);assert.match(html,/Total labour price/);
 assert.match(html,/AUD \$120\.00/);assert.match(html,/AUD \$90\.00/);
 assert.match(html,/USD USD\s*7\.00/);assert.match(html,/USD USD\s*9\.00/);
 assert.doesNotMatch(html,/999,999|Cost before overhead/);
 assert.match(table,/Material cost/);assert.match(table,/Labour price/);assert.match(table,/AUD \$120\.00/);
 ctx.state.projects=[];vm.runInContext('renderCalendarSummary([])',ctx);assert.match(elements['#calendar-agenda'].innerHTML,/No project deadlines/);
-console.log('Calendar checks passed: material/labour engine keys, mixed currencies, no direct-cost card, table totals and empty month.');
+console.log('Calendar checks passed: requested metric order, material/labour engine keys, mixed currencies, no direct-cost card, table totals and empty month.');

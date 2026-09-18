@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 24
-MIGRATION_KEY = 'v2.3.1-import-profile-auto-upgrade'
+CURRENT_SCHEMA = 25
+MIGRATION_KEY = 'v2.3.3-project-access'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ def _process_lock(path, timeout=120):
             release()
 
 
-def _status(path):
+def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
     if not path.is_file() or path.stat().st_size == 0:
         return False, None
     from .database import _raw_connect
@@ -83,7 +83,7 @@ def _status(path):
         version = int(row[0]) if row else 0
         if version > CURRENT_SCHEMA:
             raise UpgradeError('This database belongs to newer application code. Deploy the matching newer code; do not downgrade the database.')
-        if version != CURRENT_SCHEMA or 'app_migrations' not in tables:
+        if version != expected_version or 'app_migrations' not in tables:
             return False, version
         required = {
             'users': {'contact_number', 'avatar_version', 'has_avatar'},
@@ -92,12 +92,14 @@ def _status(path):
             'groups': {'nickname', 'revision'},
         }
         present = {'user_avatars', 'lighting_import_receipts', 'lighting_photos', 'account_deletions'} <= tables
+        if expected_version >= 25:
+            required['project_user_access'] = {'project_id', 'user_id', 'granted_by', 'granted_at'}
         present = present and all(table in tables and fields <= {r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')}
                                   for table, fields in required.items())
         # app_migrations uses a release-specific first-column name; positional
         # lookup avoids changing historical schemas just for bookkeeping.
         first = next(iter(conn.execute('PRAGMA table_info(app_migrations)')))[1]
-        marker = conn.execute(f'SELECT 1 FROM app_migrations WHERE "{first}"=?', (MIGRATION_KEY,)).fetchone()
+        marker = conn.execute(f'SELECT 1 FROM app_migrations WHERE "{first}"=?', (migration_key,)).fetchone()
         return bool(present and marker), version
 
 
@@ -160,7 +162,14 @@ def ensure_database(path=None):
                 _local.paths = paths | {key}
                 try:
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
-                    _initialize_schema(target)
+                    # A complete schema-24 installation needs only the new
+                    # access table, not another run of historical backfills.
+                    if previous == 24 and _status(target, 24, 'v2.3.1-import-profile-auto-upgrade')[0]:
+                        from .release_v233 import initialize_v233
+                        with _raw_connect(target) as conn:
+                            initialize_v233(conn)
+                    else:
+                        _initialize_schema(target)
                     with _raw_connect(target) as conn:
                         if conn.execute('PRAGMA quick_check').fetchone()[0] != 'ok' or conn.execute('PRAGMA foreign_key_check').fetchone():
                             raise UpgradeError('Database verification failed after the upgrade. The pre-upgrade backup was retained.')

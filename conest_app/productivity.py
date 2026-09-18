@@ -47,19 +47,20 @@ def save_revision(conn,pid,user,payload):
 def revisions(conn,pid,user):
     project = require_project(conn,pid,user,'view')
     from .workspace import permissions
-    editable = permissions(conn,project,user)['can_edit']
-    return [{**dict(r),'can_delete':editable and (user['role']=='admin' or r['created_by']==user['id'])} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
+    access = permissions(conn,project,user)
+    return [{**dict(r),'can_delete':access['can_edit'] and (access['can_manage'] or r['created_by']==user['id'])} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
       json_extract(r.snapshot_json,'$.totals.quoted') AS quoted,
       json_extract(r.snapshot_json,'$.project.currency') AS currency
       FROM tender_revisions r LEFT JOIN users u ON u.id=r.created_by WHERE r.project_id=? ORDER BY r.id DESC''',(pid,))]
 
 
 def delete_revision(conn,pid,rid,user):
-    require_project(conn,pid,user,'edit')
+    project=require_project(conn,pid,user,'edit')
+    from .workspace import permissions
     row=conn.execute('SELECT created_by,label FROM tender_revisions WHERE project_id=? AND id=?',(pid,rid)).fetchone()
     if not row:raise LookupError('Tender revision not found')
-    if user['role']!='admin' and row['created_by']!=user['id']:
-        raise AccessError(403,'Only the revision creator or an administrator can delete it')
+    if not permissions(conn,project,user)['can_manage'] and row['created_by']!=user['id']:
+        raise AccessError(403,'Only the project owner, revision creator or an administrator can delete it')
     conn.execute('DELETE FROM tender_revisions WHERE project_id=? AND id=?',(pid,rid))
     record_activity(conn,pid,user,'Deleted tender revision',row['label'],touch=False)
 

@@ -100,7 +100,7 @@ class WorkspaceHTTP:
 
     def _workspace_route(self, path):
         if not (path.startswith('/api/auth/') or path.startswith('/api/users') or path.startswith('/api/teams')
-                or re.fullmatch(r'/api/projects/\d+/(workflow|activity|review|notes(?:/(?:\d+|status|read))?)', path)):
+                or re.fullmatch(r'/api/projects/\d+/(workflow|activity|review|access-options|notes(?:/(?:\d+|status|read))?)', path)):
             return False
         self._guard(path)
         method = self.command
@@ -212,6 +212,12 @@ class WorkspaceHTTP:
             with self._write_connection() as conn:
                 result = teams.save_team(conn, payload, self.user, int(match[1]) if match else None)
             self._send_json({'success': True, 'team': result}, 201 if method == 'POST' else 200)
+            return True
+        match = re.fullmatch(r'/api/projects/(\d+)/access-options', path)
+        if match and method == 'GET':
+            with self._read_connection() as conn:
+                result = workspace.project_access_options(conn, int(match[1]), self.user)
+            self._send_json({'success': True, **result})
             return True
         match = re.fullmatch(r'/api/projects/(\d+)/review', path)
         if match and method == 'POST':

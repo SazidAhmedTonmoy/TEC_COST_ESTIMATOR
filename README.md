@@ -1,6 +1,6 @@
-# Current update: TEC ConEst (internal release 2.3.2)
+# Current update: TEC ConEst (internal release 2.3.3)
 
-Use `UPGRADE_v2.3.2.md` for this code-only update. It adds company-wide read-only project visibility, grounded project/catalogue/lighting Help, single-current-photo replacement, and separate calendar material/labour totals. Visible titles remain versionless. See `RELEASE_NOTES_v2.3.2.md` and `TEST_REPORT_v2.3.2.md`.
+Use `UPGRADE_v2.3.3.md` for this code-only update. Project owners can assign teams and individual editors; Imports combines catalogue and supplier upload tools with searchable on-demand file history. Calendar cards and profile labels are updated. Existing company-wide read-only visibility, Help, photo replacement and estimate calculations remain. The database upgrades itself to schema 25; neither source package contains a database. Visible titles remain versionless. See `RELEASE_NOTES_v2.3.3.md` and `TEST_REPORT_v2.3.3.md`.
 
 The source-only and incremental packages do not include a database. Preserve your existing runtime database and server configuration. Current upgrade instructions take precedence over historical release instructions below.
 
@@ -77,7 +77,7 @@ Stop the old app and back up its current main and lighting databases. Put the ol
 | Backup retention | Only the latest completed backup set is kept in the active backup folder. |
 
 ### Home, teams and projects
-The project board shows accessible projects, their status and deadlines. Use its search bar to locate a project. Team members can work on projects assigned to their team, and a project created by a user is shared with their team. Administrators can manage all projects, users, roles and teams. Newly created user projects appear for admin review. All active signed-in users can view every company project in every status, including other teams' notes, revisions and recorded activity. Only the owner, assigned team members or administrators may change project content. Viewing does not grant editing permission.
+The project board shows accessible projects, their status and deadlines. Use its search bar to locate a project. Team members can work on projects assigned to their team, and a project created by a user is shared with their team. Administrators can manage all projects, users, roles and teams. Newly created user projects appear for admin review. All active signed-in users can view every company project in every status, including other teams' notes, revisions and recorded activity. Only the owner, assigned team members, individually assigned users or administrators may change project content. Owners and administrators control project deletion and assignment of existing teams or individual editors; this does not grant account-administration permissions. Viewing does not grant editing permission.
 
 My profile contains personal details and team membership. Administrators can rename teams, change members, promote or demote users, and activate/deactivate accounts through management screens. The deadline calendar and homepage reminders help identify approaching and overdue submissions. The activity record attributes project changes to users.
 

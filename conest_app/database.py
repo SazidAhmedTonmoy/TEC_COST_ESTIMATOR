@@ -455,6 +455,8 @@ def _initialize_schema(path: str | Path | None = None) -> Path:
     with connect(target) as conn:
         from .release_v231 import initialize_v231
         initialize_v231(conn)
+        from .release_v233 import initialize_v233
+        initialize_v233(conn)
     from .backups import prune_backups
     prune_backups(target.parent/'backups')
     return target

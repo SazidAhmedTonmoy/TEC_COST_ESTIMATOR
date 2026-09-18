@@ -146,7 +146,7 @@ function setView(name, load = true, remember = true) {
   if(remember && typeof rememberPage==='function') rememberPage(name);
   $$(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
-  const titles = { 'light-prices':'Light price check', home: 'Home', calendar: 'Deadline calendar', users: 'Manage users', profile: 'My profile', estimate: "Build estimate", catalog: "Catalog Explorer", imports: "Import workbooks", settings: "Application settings" };
+  const titles = { 'light-prices':'Light price check', home: 'Home', calendar: 'Deadline calendar', users: 'Manage users', profile: 'My profile', estimate: "Build estimate", catalog: "Catalog Explorer", imports: "Imports", settings: "Application settings" };
   $("#view-title").textContent = titles[name] || "TEC ConEst";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
@@ -163,7 +163,7 @@ function setView(name, load = true, remember = true) {
   if (load && name === 'users') loadUsers().catch(error => toast(error.message,true));
   if (load && name === "catalog") loadCatalog();
   if (load && name === "light-prices") loadLightPrices().catch(error=>toast(error.message,true));
-  if (load && name === "imports") loadImports();
+  if (load && name === "imports") loadImports().catch(error=>toast(error.message,true));
   if (load && name === "settings") {loadSettings(); if(typeof loadBackups==='function')loadBackups().catch(error=>toast(error.message,true));}
 }
 
@@ -936,10 +936,7 @@ function queueCatalogHover(target) {
 }
 
 async function loadImports() {
-  const sourcesResult = await api("/api/imports");
-  const sources = sourcesResult.sources;
-  $("#source-count").textContent = `${sources.length} sheets`;
-  $("#source-rows").innerHTML = sources.map((source) => `<tr><td class="file-cell"><strong>${escapeHtml(source.file_name)}</strong><small>${escapeHtml(source.sheet_name)}</small></td><td>${escapeHtml(source.project_name || "—")}</td><td>${escapeHtml(source.import_format)}</td><td>${source.row_count.toLocaleString()}</td><td>${source.assembly_count.toLocaleString()}</td><td>${source.component_count.toLocaleString()}</td><td>${source.warning_count || "—"}</td></tr>`).join("");
+  if (typeof refreshUploadHistory === 'function' && $('#import-history-dialog')?.open) await refreshUploadHistory();
 }
 
 async function importWorkbook(event) {
@@ -1219,7 +1216,7 @@ function bindEvents() {
     if (event.target.closest(".detail-edit-add")) openManualDialog(true, state.currentCatalogItem);
   });
   $("#import-form").addEventListener("submit", importWorkbook);
-  $("#import-file").addEventListener("change", (event) => { if (event.target.files[0]) $("#drop-zone strong").textContent = event.target.files[0].name; });
+  $("#import-file").addEventListener("change", (event) => { if (event.target.files[0]) { $("#import-progress").textContent = "File selected. Click Preview workbook to continue."; $("#import-progress").classList.remove("hidden"); } });
   $("#app-settings-form").addEventListener("submit", (event) => saveSettings(event).catch((error) => toast(error.message, true)));
   $("#test-llm-button").addEventListener("click", () => testGemini());
   $("#clear-llm-key-button").addEventListener("click", () => clearGeminiKey().catch((error) => toast(error.message, true)));

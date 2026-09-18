@@ -1,7 +1,9 @@
 """Schema 24: optional profile fields and reviewed quotation imports."""
 from .release_v23 import add_columns
 from .utils import utc_now
-from .auto_upgrade import CURRENT_SCHEMA, MIGRATION_KEY
+# Historical migrations keep their own marker/version. Later migrations run last.
+CURRENT_SCHEMA = 24
+MIGRATION_KEY = 'v2.3.1-import-profile-auto-upgrade'
 
 
 def initialize_v231(conn):

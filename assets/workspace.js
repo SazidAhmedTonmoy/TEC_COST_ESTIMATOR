@@ -29,6 +29,7 @@ function setAccount(user, token) {
 function showLogin() {
   if(typeof resetHelpChat==='function')resetHelpChat();
   if(typeof clearProfilePhoto==='function')clearProfilePhoto();
+  if(typeof resetUploadHistory==='function')resetUploadHistory();
   state.projectLoadRequest=(state.projectLoadRequest||0)+1;state.catalogDetailRequest=(state.catalogDetailRequest||0)+1;
   state.user = null; state.csrfToken = ''; state.projectId = null; state.projectData = null;
   state.projects = []; state.dashboard = null; state.appSettings = null; state.catalogCache.clear();
@@ -62,6 +63,7 @@ async function submitWithButton(event, action) {
   finally { if (button) button.disabled = false; }
 }
 
+function individualNames(project) { return (project.individual_users||[]).map(u=>u.name+(u.is_active?'':' (inactive)')).join(', '); }
 function teamNames(project) { return (project.teams || []).map(t=>t.name).join(', ') || 'No team assigned'; }
 function inReviewQueue(project) { return state.user?.role === 'admin' && project.needs_admin_review; }
 function renderHome() {
@@ -99,7 +101,7 @@ function renderProjectBoard() {
     <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
     <p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Existing project · creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p>
     <div class="project-card-footer"><span>${p.line_count||0} items · ${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</span><div><button type="button" class="text-button" data-project-brief="${p.id}">${p.can_edit?'Manage project':'View project & activity'}</button><button class="text-button" type="button" data-copy-project="${p.id}">Copy</button><a class="button secondary small" href="#/estimate/${p.id}" data-open-project="${p.id}">${p.can_edit?'Open estimate':'View estimate'}</a></div></div>
-  </article>`).join('') : '<div class="board-empty"><h3>No projects here yet</h3><p>New projects are shared with your team automatically. You can also work on projects an administrator assigns to your team.</p></div>';
+  </article>`).join('') : '<div class="board-empty"><h3>No projects here yet</h3><p>New projects are shared with your team automatically. A project owner or administrator can also assign your team or give you individual edit access.</p></div>';
 }
 function renderGroupedEstimate(lines) {
   let category = null;
@@ -111,7 +113,7 @@ function renderGroupedEstimate(lines) {
   }).join('');
 }
 function renderEstimateBrief(project) {
-  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; outside your assigned team'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button><button class="button secondary" type="button" data-refresh-estimate="${project.id}">Refresh estimate</button></div>` : '';
+  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button><button class="button secondary" type="button" data-refresh-estimate="${project.id}">Refresh estimate</button></div>` : '';
 }
 async function reviewOpenedProject(project) {
   if (state.user.role==='admin' && project.needs_admin_review) {
@@ -146,19 +148,23 @@ async function openProjectBrief(id) {
   const request=++workspaceState.briefRequest;
   const result=await api(`/api/projects/${Number(id)}`);
   const p=await reviewOpenedProject(result.project);
-  const [teams,history]=await Promise.all([state.user.role==='admin'?loadTeams():Promise.resolve([]),api(`/api/projects/${p.id}/activity`)]);
+  const [access,history]=await Promise.all([p.can_manage?api(`/api/projects/${p.id}/access-options`):Promise.resolve({teams:[],users:[]}),api(`/api/projects/${p.id}/activity`)]);
   if(request!==workspaceState.briefRequest) return;
   workspaceState.briefId=p.id; workspaceState.briefProject=p;
   $('#brief-open-estimate').href=`#/estimate/${p.id}`;
   $('#brief-title').textContent=p.name; $('#brief-client').textContent=p.client||'Manage project';
-  $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span></div><p class="helper-text">Contributors: ${p.contributors?.length?p.contributors.map(u=>escapeHtml(u.name)).join(', '):'No recorded work yet'}</p>`;
+  $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Contributors: ${p.contributors?.length?p.contributors.map(u=>escapeHtml(u.name)).join(', '):'No recorded work yet'}</p>`;
   $('#brief-scope').value=p.scope_of_work||''; $('#brief-deadline').value=p.submission_deadline||''; $('#brief-status').value=p.status;
   $('#brief-scope').disabled=!p.can_manage; $('#brief-deadline').disabled=!p.can_manage;
   $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(p.can_edit);
   $('#brief-status').disabled=!p.can_edit; $('#brief-save').disabled=!p.can_edit;
   $('#brief-save').classList.toggle('hidden',!p.can_edit);
   $('#brief-delete').classList.toggle('hidden',!p.can_delete);
-  $('#assignment-options').innerHTML=teams.map(t=>`<label class="checkbox-label"><input type="checkbox" value="${t.id}" ${(p.teams||[]).some(a=>a.id===t.id)?'checked':''}><span>${escapeHtml(t.name)}<small>${t.members.filter(m=>m.is_active).length} active members</small></span></label>`).join('')||'<p class="helper-text">Create a team in Manage users.</p>';
+  $('#project-access-fieldset').classList.toggle('hidden',!p.can_manage);
+  $('#assignment-options').innerHTML=access.teams.map(t=>`<label class="checkbox-label"><input type="checkbox" value="${t.id}" ${(p.teams||[]).some(a=>a.id===t.id)?'checked':''}><span>${escapeHtml(t.name)}<small>${t.active_members} active members</small></span></label>`).join('')||'<p class="helper-text">No teams available.</p>';
+  $('#assignment-user-search').value='';
+  $('#individual-assignment-options').innerHTML=access.users.map(u=>`<label class="checkbox-label" data-access-user data-search="${escapeHtml((u.name+' '+u.username+' '+(u.team_name||'')).toLowerCase())}"><input type="checkbox" value="${u.id}" ${(p.individual_users||[]).some(a=>a.id===u.id)?'checked':''}><span>${escapeHtml(u.name)}${u.is_active?'':' (inactive)'}<small>${escapeHtml(u.username)} &middot; ${escapeHtml(u.team_name||'No team')}</small></span></label>`).join('')||'<p class="helper-text">No users available for individual assignment.</p>';
+  $('#assignment-user-empty').classList.add('hidden');
   $('#project-contributors').innerHTML=history.contributors?.length?'<h4>Project contributors</h4>'+history.contributors.map(c=>`<article class="contributor-card"><strong>${escapeHtml(c.name)}</strong><span>${escapeHtml(c.teams || (c.admin_contribution?'Administrator':'Historical team not recorded'))}</span><small>${c.actions} recorded actions · Last contribution ${new Date(c.last_activity).toLocaleString('en-AU')}</small></article>`).join(''):'<p class="helper-text">No contributions recorded yet.</p>';
   renderProjectActivity(history);
   if(!$('#project-brief-dialog').open) $('#project-brief-dialog').showModal();
@@ -196,13 +202,13 @@ async function refreshReadOnlyBrief() {
     if(!dialog.open||pid!==workspaceState.briefId||request!==workspaceState.briefRequest)return;
     const p=result.project,old=workspaceState.briefProject;
     // Permission changes need to rebuild disabled controls from server truth.
-    if(p.can_edit!==old.can_edit){await openProjectBrief(pid);return;}
+    if(p.can_edit!==old.can_edit||p.can_manage!==old.can_manage||p.can_delete!==old.can_delete){await openProjectBrief(pid);return;}
     workspaceState.briefProject=p;
     $('#brief-title').textContent=p.name;
     $('#brief-client').textContent=p.client||'View project';
     $('#brief-scope').value=p.scope_of_work||'';$('#brief-deadline').value=p.submission_deadline||'';$('#brief-status').value=p.status;
     $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(false);
-    $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span></div><p class="helper-text">Read-only &middot; latest saved project information.</p>`;
+    $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Read-only &middot; latest saved project information.</p>`;
     const next=workspaceState.activityNext,oldRows=workspaceState.activityRows||[];
     // Do not skip events if more than one page arrived between refreshes.
     const newestPage=history.activity,oldTop=oldRows[0]?.id;
@@ -217,7 +223,10 @@ async function saveProjectWorkflow() {
   if(!p) throw new Error('Project no longer available');
   const payload={status:$('#brief-status').value,award_status:$('#brief-award-status').value,expected_revision:p.revision};
   if(p.can_manage) {payload.scope_of_work=$('#brief-scope').value;payload.submission_deadline=$('#brief-deadline').value;}
-  if(state.user.role==='admin') payload.team_ids=$$('#assignment-options input:checked').map(input=>Number(input.value));
+  if(p.can_manage) {
+    payload.team_ids=$$('#assignment-options input:checked').map(input=>Number(input.value));
+    payload.user_ids=$$('#individual-assignment-options input:checked').map(input=>Number(input.value));
+  }
   await api(`/api/projects/${p.id}/workflow`,{method:'PATCH',body:payload});
   $('#project-brief-dialog').close(); await loadDashboard();
   if(state.view==='calendar') renderCalendar(); toast('Project updated');
@@ -437,6 +446,13 @@ function bindWorkspaceEvents() {
   });
   $('#profile-form').addEventListener('submit',event=>submitWithButton(event,saveProfile));
   $('#user-form').addEventListener('submit',event=>submitWithButton(event,saveUser));
+  $('#assignment-user-search').addEventListener('input',()=>{
+    const term=$('#assignment-user-search').value.trim().toLowerCase();
+    const choices=$$('#individual-assignment-options [data-access-user]');
+    choices.forEach(el=>el.classList.toggle('hidden',!el.dataset.search.includes(term)));
+    $('#assignment-user-empty').classList.toggle('hidden',!choices.length||choices.some(el=>!el.classList.contains('hidden')));
+  });
+  $('#assignment-user-search').addEventListener('keydown',event=>{if(event.key==='Enter')event.preventDefault();});
   $('#project-workflow-form').addEventListener('submit',event=>submitWithButton(event,saveProjectWorkflow));
   $('#team-form').addEventListener('submit',event=>submitWithButton(event,saveTeam));
   $('#add-team').addEventListener('click',()=>openTeamEditor());

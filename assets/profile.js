@@ -25,7 +25,7 @@ function clearProfilePhoto(){
 function resetProfilePhoto(user){
   clearProfilePhoto();
   renderProfilePhoto();
-  $('#profile-photo-status').textContent=user.has_avatar?'Only your current photo is kept. Saving a replacement removes the previous photo from the live database.':'Your name initials are used when no photo is set.';
+  $('#profile-photo-status').textContent='';
 }
 function renderProfilePhoto(){
   const user={...state.user,name:$('#profile-name').value||state.user?.name};
