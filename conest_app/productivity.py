@@ -45,15 +45,17 @@ def save_revision(conn,pid,user,payload):
 
 
 def revisions(conn,pid,user):
-    require_project(conn,pid,user,'view')
-    return [{**dict(r),'can_delete':user['role']=='admin' or r['created_by']==user['id']} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
+    project = require_project(conn,pid,user,'view')
+    from .workspace import permissions
+    editable = permissions(conn,project,user)['can_edit']
+    return [{**dict(r),'can_delete':editable and (user['role']=='admin' or r['created_by']==user['id'])} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
       json_extract(r.snapshot_json,'$.totals.quoted') AS quoted,
       json_extract(r.snapshot_json,'$.project.currency') AS currency
       FROM tender_revisions r LEFT JOIN users u ON u.id=r.created_by WHERE r.project_id=? ORDER BY r.id DESC''',(pid,))]
 
 
 def delete_revision(conn,pid,rid,user):
-    require_project(conn,pid,user,'view')
+    require_project(conn,pid,user,'edit')
     row=conn.execute('SELECT created_by,label FROM tender_revisions WHERE project_id=? AND id=?',(pid,rid)).fetchone()
     if not row:raise LookupError('Tender revision not found')
     if user['role']!='admin' and row['created_by']!=user['id']:
@@ -89,6 +91,7 @@ def compare_snapshots(before,after):
 
 
 def heartbeat(conn,pid,user,payload):
+    from .workspace import permissions
     project=require_project(conn,pid,user,'view')
     tab=payload.get('tab_id','')
     if not isinstance(tab,str) or not 1<=len(tab)<=100:raise ValueError('Invalid browser tab identifier')
@@ -105,7 +108,8 @@ def heartbeat(conn,pid,user,payload):
         except AccessError:continue
         people.append(actor)
     editor=conn.execute('SELECT name FROM users WHERE id=?',(project['updated_by'],)).fetchone()
-    return {'people':people,'revision':project['revision'],'updated_by':editor[0] if editor else None,'updated_at':project['updated_at']}
+    return {'people':people,'revision':project['revision'],'updated_by':editor[0] if editor else None,'updated_at':project['updated_at'],
+            'can_edit': permissions(conn,project,user)['can_edit']}
 
 
 def reminders(conn,user):

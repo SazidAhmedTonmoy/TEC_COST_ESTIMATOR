@@ -25,7 +25,16 @@ async function pollPresence(){
     }
     if(pid){
       const result=await api(`/api/projects/${pid}/presence`,{method:'POST',body:{tab_id:productivityState.tab}});
-      if(state.user?.id===uid&&state.projectId===pid){productivityState.presenceProject=pid;productivityState.presence=result;renderCollaboration();}
+      if(state.user?.id===uid&&state.projectId===pid){
+        productivityState.presenceProject=pid;productivityState.presence=result;
+        const project=state.projectData?.project;
+        const permissionChanged=typeof result.can_edit==='boolean'&&result.can_edit!==project?.can_edit;
+        const changed=result.revision>Number(project?.revision||0);
+        if((permissionChanged||(!project?.can_edit&&changed))&&!$('dialog[open]')){
+          const scroll=window.scrollY;await loadProject(pid);window.scrollTo({top:scroll,behavior:'instant'});
+        }
+        renderCollaboration();
+      }
     }
   }finally{productivityState.busy=false;}
 }

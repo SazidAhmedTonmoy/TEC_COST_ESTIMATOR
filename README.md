@@ -1,6 +1,6 @@
-# Current update: TEC ConEst (internal release 2.3.1)
+# Current update: TEC ConEst (internal release 2.3.2)
 
-Use `UPGRADE_v2.3.1.md` for this code-only update. The app now has automatic database upgrades, quotation duplicate review, contact numbers and profile photos; visible titles no longer show a version. See `RELEASE_NOTES_v2.3.1.md` and `TEST_REPORT_v2.3.1.md`.
+Use `UPGRADE_v2.3.2.md` for this code-only update. It adds company-wide read-only project visibility, grounded project/catalogue/lighting Help, single-current-photo replacement, and separate calendar material/labour totals. Visible titles remain versionless. See `RELEASE_NOTES_v2.3.2.md` and `TEST_REPORT_v2.3.2.md`.
 
 The source-only and incremental packages do not include a database. Preserve your existing runtime database and server configuration. Current upgrade instructions take precedence over historical release instructions below.
 
@@ -77,7 +77,7 @@ Stop the old app and back up its current main and lighting databases. Put the ol
 | Backup retention | Only the latest completed backup set is kept in the active backup folder. |
 
 ### Home, teams and projects
-The project board shows accessible projects, their status and deadlines. Use its search bar to locate a project. Team members can work on projects assigned to their team, and a project created by a user is shared with their team. Administrators can manage all projects, users, roles and teams. Newly created user projects appear for admin review. Completed projects from other teams are visible for reference; viewing permission does not automatically grant editing permission.
+The project board shows accessible projects, their status and deadlines. Use its search bar to locate a project. Team members can work on projects assigned to their team, and a project created by a user is shared with their team. Administrators can manage all projects, users, roles and teams. Newly created user projects appear for admin review. All active signed-in users can view every company project in every status, including other teams' notes, revisions and recorded activity. Only the owner, assigned team members or administrators may change project content. Viewing does not grant editing permission.
 
 My profile contains personal details and team membership. Administrators can rename teams, change members, promote or demote users, and activate/deactivate accounts through management screens. The deadline calendar and homepage reminders help identify approaching and overdue submissions. The activity record attributes project changes to users.
 
@@ -173,7 +173,7 @@ Open **Specifications, factors & notes** and tick **Fixed total** to restore its
 
 After an item is added successfully, the search quantity returns to **1**. Failed adds keep your entered quantity. Both upload panels accept drag-and-drop or file selection; preview/import still requires pressing the existing button. Workbook imports accept XLSX/XLSM up to 80 MB; supplier quotes accept XLSX/PDF up to 30 MB.
 
-Help can read the current project and up to three other accessible projects matching a name in your question. It returns totals, hours/days and selected items; AI answers remain bounded by retrieved records. Other users’ private projects are excluded. The built-in guide also returns project facts without an AI key.
+Help reads live saved project estimates, notes, revisions and recorded activity; catalogue components/allowances; and lighting-quote components/prices. Search by name, ID, catalogue number or lighting nickname, or ask about the open record. Source links open the matching record. Data lookups use application calculations and do not need an AI key. Optional Gemini is used only for how-to guidance; retrieved business records are not sent to it. Answers never edit your work. Result limits are stated and a missing price is not represented as a complete price.
 
 ## 3. Data and backups
 

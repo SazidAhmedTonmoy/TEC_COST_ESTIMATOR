@@ -96,9 +96,9 @@ function renderProjectBoard() {
   $('#project-board').innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
     <div class="project-card-heading"><div><p>${escapeHtml(p.client||'Client not set')}</p><h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div>${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':projectStatus(p)}</div>
     <p class="project-scope-excerpt">${escapeHtml(p.scope_of_work||'Add the scope of work in Manage project.')}</p>
-    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}${projectOutcome(p)}</div>
+    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
     <p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Existing project · creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p>
-    <div class="project-card-footer"><span>${p.line_count||0} items · ${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</span><div><button type="button" class="text-button" data-project-brief="${p.id}">Manage project</button><button class="text-button" type="button" data-copy-project="${p.id}">Copy</button><a class="button secondary small" href="#/estimate/${p.id}" data-open-project="${p.id}">${p.can_edit?'Open estimate':'View estimate'}</a></div></div>
+    <div class="project-card-footer"><span>${p.line_count||0} items · ${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</span><div><button type="button" class="text-button" data-project-brief="${p.id}">${p.can_edit?'Manage project':'View project & activity'}</button><button class="text-button" type="button" data-copy-project="${p.id}">Copy</button><a class="button secondary small" href="#/estimate/${p.id}" data-open-project="${p.id}">${p.can_edit?'Open estimate':'View estimate'}</a></div></div>
   </article>`).join('') : '<div class="board-empty"><h3>No projects here yet</h3><p>New projects are shared with your team automatically. You can also work on projects an administrator assigns to your team.</p></div>';
 }
 function renderGroupedEstimate(lines) {
@@ -111,7 +111,7 @@ function renderGroupedEstimate(lines) {
   }).join('');
 }
 function renderEstimateBrief(project) {
-  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only completed project'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">Manage project & activity</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">Add Note<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button><button class="button secondary" type="button" data-refresh-estimate="${project.id}">Refresh estimate</button></div>` : '';
+  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; outside your assigned team'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button><button class="button secondary" type="button" data-refresh-estimate="${project.id}">Refresh estimate</button></div>` : '';
 }
 async function reviewOpenedProject(project) {
   if (state.user.role==='admin' && project.needs_admin_review) {
@@ -160,8 +160,57 @@ async function openProjectBrief(id) {
   $('#brief-delete').classList.toggle('hidden',!p.can_delete);
   $('#assignment-options').innerHTML=teams.map(t=>`<label class="checkbox-label"><input type="checkbox" value="${t.id}" ${(p.teams||[]).some(a=>a.id===t.id)?'checked':''}><span>${escapeHtml(t.name)}<small>${t.members.filter(m=>m.is_active).length} active members</small></span></label>`).join('')||'<p class="helper-text">Create a team in Manage users.</p>';
   $('#project-contributors').innerHTML=history.contributors?.length?'<h4>Project contributors</h4>'+history.contributors.map(c=>`<article class="contributor-card"><strong>${escapeHtml(c.name)}</strong><span>${escapeHtml(c.teams || (c.admin_contribution?'Administrator':'Historical team not recorded'))}</span><small>${c.actions} recorded actions · Last contribution ${new Date(c.last_activity).toLocaleString('en-AU')}</small></article>`).join(''):'<p class="helper-text">No contributions recorded yet.</p>';
-  $('#project-activity').innerHTML=history.activity.length?history.activity.map(a=>`<article class="activity-entry"><strong>${escapeHtml(a.name||'Former user')} · ${escapeHtml(a.action)}</strong><small>${escapeHtml(a.team_name_snapshot || (a.role_snapshot==='admin'?'Administrator':'Historical team not recorded'))} · ${new Date(a.created_at).toLocaleString('en-AU')}</small>${a.details?`<p>${escapeHtml(a.details)}</p>`:''}</article>`).join(''):'<p class="helper-text">No activity recorded yet.</p>';
+  renderProjectActivity(history);
   if(!$('#project-brief-dialog').open) $('#project-brief-dialog').showModal();
+}
+function renderProjectActivity(history, append=false) {
+  const old=append?(workspaceState.activityRows||[]):[];
+  workspaceState.activityRows=[...new Map([...old,...history.activity].map(a=>[a.id,a])).values()].sort((a,b)=>b.id-a.id);
+  workspaceState.activityNext=history.next_before_id;
+  workspaceState.activityTotal=history.total_activity;
+  const rows=workspaceState.activityRows;
+  $('#project-activity').innerHTML=rows.length?rows.map(a=>`<article class="activity-entry"><strong>${escapeHtml(a.name||'Former user')} &middot; ${escapeHtml(a.action)}</strong><small>${escapeHtml(a.team_name_snapshot||(a.role_snapshot==='admin'?'Administrator':'Historical team not recorded'))} &middot; ${new Date(a.created_at).toLocaleString('en-AU')}</small>${a.details?`<p>${escapeHtml(a.details)}</p>`:''}</article>`).join(''):'<p class="helper-text">No activity recorded yet.</p>';
+  let footer=$('#activity-pagination');
+  if(!footer){footer=document.createElement('div');footer.id='activity-pagination';$('#project-activity').after(footer);}
+  renderActivityPagination();
+}
+function renderActivityPagination() {
+  const footer=$('#activity-pagination');if(!footer)return;
+  footer.innerHTML=`<span>${(workspaceState.activityRows||[]).length} of ${workspaceState.activityTotal||0} recorded updates</span>${workspaceState.activityNext?'<button class="button secondary small" type="button" data-older-activity>Load older updates</button>':''}`;
+}
+async function loadOlderProjectActivity(button) {
+  const pid=workspaceState.briefId,cursor=workspaceState.activityNext,request=workspaceState.briefRequest;
+  if(!cursor||workspaceState.activityLoading)return;
+  workspaceState.activityLoading=true;button.disabled=true;
+  try {
+    const history=await api(`/api/projects/${pid}/activity?before_id=${cursor}`);
+    if(pid===workspaceState.briefId&&request===workspaceState.briefRequest)renderProjectActivity(history,true);
+  } finally {workspaceState.activityLoading=false;button.disabled=false;}
+}
+async function refreshReadOnlyBrief() {
+  const dialog=$('#project-brief-dialog'),pid=workspaceState.briefId,request=workspaceState.briefRequest;
+  if(!dialog.open||workspaceState.briefProject?.can_edit||workspaceState.briefSyncBusy||workspaceState.activityLoading)return;
+  workspaceState.briefSyncBusy=true;
+  try {
+    const [result,history]=await Promise.all([api(`/api/projects/${pid}`),api(`/api/projects/${pid}/activity`)]);
+    if(!dialog.open||pid!==workspaceState.briefId||request!==workspaceState.briefRequest)return;
+    const p=result.project,old=workspaceState.briefProject;
+    // Permission changes need to rebuild disabled controls from server truth.
+    if(p.can_edit!==old.can_edit){await openProjectBrief(pid);return;}
+    workspaceState.briefProject=p;
+    $('#brief-title').textContent=p.name;
+    $('#brief-client').textContent=p.client||'View project';
+    $('#brief-scope').value=p.scope_of_work||'';$('#brief-deadline').value=p.submission_deadline||'';$('#brief-status').value=p.status;
+    $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(false);
+    $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span></div><p class="helper-text">Read-only &middot; latest saved project information.</p>`;
+    const next=workspaceState.activityNext,oldRows=workspaceState.activityRows||[];
+    // Do not skip events if more than one page arrived between refreshes.
+    const newestPage=history.activity,oldTop=oldRows[0]?.id;
+    const gap=oldTop&&newestPage.length===200&&newestPage[newestPage.length-1].id>oldTop;
+    if(gap){renderProjectActivity(history);return;}
+    const added=newestPage.some(a=>!oldRows.some(b=>a.id===b.id));
+    if(added){renderProjectActivity(history,true);workspaceState.activityNext=next;renderActivityPagination();}
+  } finally {workspaceState.briefSyncBusy=false;}
 }
 async function saveProjectWorkflow() {
   const p=workspaceState.briefProject;
@@ -307,19 +356,23 @@ async function loadProjectNotes() {
   const id=workspaceState.notesProjectId, request=++workspaceState.notesRequest;
   const result=await api(`/api/projects/${id}/notes`);
   if(request!==workspaceState.notesRequest || id!==workspaceState.notesProjectId) return;
+  $('#notes-form').classList.toggle('hidden',!result.can_edit);
+  $('#notes-readonly').classList.toggle('hidden',Boolean(result.can_edit));
   renderProjectNotes(result.notes);
   await acknowledgeDisplayedNotes(id,result.notes);
 }
 function renderProjectNotes(notes) {
-  $('#project-notes-list').innerHTML=notes.length?notes.map(n=>`<article class="shared-note"><header><div><strong>${escapeHtml(n.author_name)}</strong><small>${new Date(n.created_at).toLocaleString('en-AU')}</small></div><button type="button" class="button secondary small danger-text" data-remove-note="${n.id}">Remove</button></header><p>${escapeHtml(n.body)}</p></article>`).join(''):'<p class="helper-text">No notes yet. Add the first reminder for this project.</p>';
+  $('#project-notes-list').innerHTML=notes.length?notes.map(n=>`<article class="shared-note"><header><div><strong>${escapeHtml(n.author_name)}</strong><small>${new Date(n.created_at).toLocaleString('en-AU')}</small></div>${n.can_delete?`<button type="button" class="button secondary small danger-text" data-remove-note="${n.id}">Remove</button>`:''}</header><p>${escapeHtml(n.body)}</p></article>`).join(''):'<p class="helper-text">No project notes yet.</p>';
 }
 async function openProjectNotes(id) {
   workspaceState.notesProjectId=Number(id); $('#notes-form').reset();
-  const project=state.projects.find(p=>p.id===Number(id)) || state.projectData?.project;
+  const project=state.projectData?.project?.id===Number(id)?state.projectData.project:state.projects.find(p=>p.id===Number(id));
+  $('#notes-form').classList.toggle('hidden',!project?.can_edit);
+  $('#notes-readonly').classList.toggle('hidden',Boolean(project?.can_edit));
   $('#notes-title').textContent=project?.name||'Important notes';
   $('#project-notes-list').textContent='Loading notes…';
   if(!$('#notes-dialog').open) $('#notes-dialog').showModal();
-  await loadProjectNotes(); $('#note-body').focus();
+  await loadProjectNotes(); if(project?.can_edit)$('#note-body').focus();
 }
 async function saveProjectNote() {
   const id=workspaceState.notesProjectId;
@@ -364,6 +417,7 @@ function bindWorkspaceEvents() {
       else if(state.view==='estimate' && state.projectId) await refreshNoteBadge(state.projectId);
     } catch(_) {} finally {workspaceState.notesSyncBusy=false;}
   },15000);
+  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden)refreshReadOnlyBrief().catch(()=>{});},15000);
   $('#refresh-my-team').addEventListener('click',()=>loadMyTeam().catch(error=>toast(error.message,true)));
   $('#notes-form').addEventListener('submit',event=>submitWithButton(event,saveProjectNote));
   $('#refresh-notes').addEventListener('click',()=>loadProjectNotes().catch(error=>toast(error.message,true)));
@@ -397,6 +451,8 @@ function bindWorkspaceEvents() {
   $('#calendar-next').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()+1,1);renderCalendar();});
   $('#calendar-today').addEventListener('click',()=>{workspaceState.month=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderCalendar();});
   document.addEventListener('click',event=>{
+    const older=event.target.closest('[data-older-activity]');
+    if(older)loadOlderProjectActivity(older).catch(error=>toast(error.message,true));
     const note=event.target.closest('[data-project-notes]');
     if(note) openProjectNotes(note.dataset.projectNotes).catch(error=>toast(error.message,true));
     const removeNote=event.target.closest('[data-remove-note]');

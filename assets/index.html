@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/assets/responsive.css">
   <link rel="stylesheet" href="/assets/v23.css">
   <link rel="stylesheet" href="/assets/v231.css">
+  <link rel="stylesheet" href="/assets/v232.css">
   <script src="/assets/mobile.js" defer></script>
   <script src="/assets/file_drop.js" defer></script>
 </head>
@@ -125,7 +126,7 @@
               <button id="profile-photo-ring" class="profile-photo-ring" type="button" aria-label="Upload or change profile photo" aria-describedby="profile-photo-help"><span id="profile-photo-preview"></span><span class="profile-photo-change" aria-hidden="true">&#9998;</span></button>
               <input id="profile-photo-file" class="avatar-file-input" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Choose a profile photo" tabindex="-1">
               <strong>Profile photo</strong>
-              <p id="profile-photo-help" class="helper-text">Drop a photo on the ring, or upload an image.<br>PNG, JPG, WebP, GIF or BMP &middot; up to 8 MB</p>
+              <p id="profile-photo-help" class="helper-text">Drop a photo on the ring, or upload an image.<br>Saving a new photo replaces the previous photo; no photo history is kept.<br>PNG, JPG, WebP, GIF or BMP &middot; up to 8 MB</p>
               <div class="profile-photo-actions"><button id="profile-upload-photo" class="button secondary small" type="button">Upload / change photo</button><button id="profile-remove-photo" class="button secondary small" type="button">Use initials</button></div>
               <p id="profile-photo-status" class="helper-text" role="status">Your name initials are used when no photo is set.</p>
             </div>
@@ -378,10 +379,10 @@
           <div class="project-outcome-buttons"><button type="button" class="button secondary outcome-won" data-award-status="won" aria-pressed="false">&#10003; Won</button><button type="button" class="button secondary outcome-lost" data-award-status="lost" aria-pressed="false">&#10007; Lost</button><button type="button" class="text-button" data-award-status="">Clear result</button><span id="brief-award-label" class="helper-text">Not recorded</span></div>
           <p class="helper-text">Independent of project progress. Leave blank until the tender outcome is known. Use Save project to apply.</p>
         </fieldset>
-        <fieldset class="admin-only assignment-fieldset"><legend>Assign teams</legend><p class="helper-text">Every current member of a selected team can view and work on this project.</p><div id="assignment-options"></div></fieldset>
+        <fieldset class="admin-only assignment-fieldset"><legend>Assign teams</legend><p class="helper-text">Selected team members can edit this project. Other active users can view it but cannot change it.</p><div id="assignment-options"></div></fieldset>
         <div class="dialog-actions"><button id="brief-delete" type="button" class="button secondary danger-text">Delete project</button><a id="brief-open-estimate" class="button secondary" href="#/estimate">Open estimate</a><button id="brief-save" type="submit" class="button primary">Save project</button></div>
       </form>
-      <section id="activity-section"><h3>Project activity</h3><p class="helper-text">New activity is tracked from this version onward.</p><div id="project-contributors" class="contributor-list"></div><h4>Activity history</h4><div id="project-activity"></div></section>
+      <section id="activity-section"><h3>Project activity</h3><p class="helper-text">Shows retained recorded updates. Use Load older updates to see earlier entries; unrecorded historical changes cannot be reconstructed.</p><div id="project-contributors" class="contributor-list"></div><h4>Activity history</h4><div id="project-activity"></div></section>
     </div>
   </dialog>
   <dialog id="user-dialog" aria-labelledby="user-dialog-title">
@@ -406,9 +407,9 @@
   </dialog>
   <dialog id="notes-dialog" aria-labelledby="notes-title"><div class="dialog-card">
     <div class="dialog-heading"><div><p class="eyebrow">Shared project notes</p><h2 id="notes-title">Important notes</h2></div><button type="button" class="icon-button close-dialog" aria-label="Close">×</button></div>
-    <p class="helper-text">Everyone with access to this project can add a note or remove one that is no longer needed. Each note shows its author and date.</p>
+    <p class="helper-text">All active users can read project notes. Only project editors can add a note or remove one that is no longer needed. Each note shows its author and date.</p>
     <form id="notes-form"><label>Add note<textarea id="note-body" rows="4" maxlength="10000" required placeholder="Important assumptions, reminders or coordination items…"></textarea></label><div class="dialog-actions"><button type="button" class="button secondary" id="refresh-notes">Refresh notes</button><button type="submit" class="button primary">Add note</button></div></form>
-    <div id="project-notes-list" aria-live="polite"></div>
+    <p id="notes-readonly" class="helper-text hidden">Read-only: you can read project notes, but only project editors can add or remove them.</p><div id="project-notes-list" aria-live="polite"></div>
   </div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <dialog id="revision-dialog" class="productivity-dialog"><div class="dialog-heading"><h2>Tender revisions</h2><button class="button secondary" data-close="revision-dialog">Close</button></div>
@@ -420,11 +421,13 @@
   <button type="button" id="floating-estimate-total" class="floating-estimate-total hidden" title="Return to estimate totals"></button>
   <button id="help-chat-button" class="help-chat-launch hidden" type="button" aria-haspopup="dialog">? <span>Help</span></button>
   <dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title">
-    <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst guide</h2><p>Help with estimating, your catalogue and supplier prices</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
-    <p class="help-chat-notice">Uses the saved Gemini setting when enabled. Your question and selected catalogue, supplier-price and accessible project data may be sent to Gemini. Read-only; answers never change your work.</p>
-    <div class="help-chat-starters"><button type="button" data-help-question="How do I search supplier quotes in Light price check?">Light price check</button><button type="button" data-help-question="How do I reorder categories?">Move categories</button><button type="button" data-help-question="What is this project's total?">Project total</button></div>
+    <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst help</h2><p>Ask about projects, catalogue components and saved lighting quotations</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
+    <p class="help-chat-notice">Live project, catalogue and lighting-price lookups need no AI key. Optional how-to guidance sends your question to Gemini using the saved setting; no retrieved library records are sent. Read-only; answers never change your work.</p>
+    <label class="help-search-scope" for="help-chat-scope">Look in <select id="help-chat-scope"><option value="auto">Auto / current page</option><option value="project">Projects</option><option value="catalog">Catalogue</option><option value="light">Light prices</option><option value="guide">How to use the app</option></select></label>
+    <p id="help-chat-context" class="helper-text"></p>
+    <div class="help-chat-starters"><button type="button" data-help-question="Summarise this project and its latest updates">Project summary</button><button type="button" data-help-question="Show this project's material and labour totals">Cost breakdown</button><button type="button" data-help-question="Show components and rates for this catalogue item">Catalogue details</button><button type="button" data-help-question="Explain the price and included components for this light">Light price details</button></div>
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
-    <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Ask how to use the app, or find a catalogue item…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
+    <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
   <script src="/assets/app.js" defer></script>
   <script src="/assets/workspace.js" defer></script>

@@ -50,14 +50,19 @@ def check_revision(record, payload):
 
 
 def permissions(conn, project, user):
-    assigned = bool(conn.execute('''SELECT 1 FROM project_teams p JOIN users u ON u.team_id=p.team_id
+    # Read access is company-wide for signed-in active accounts. Write access
+    # remains project-specific and uses LIVE account/team membership, not flags
+    # from the browser or a stale session snapshot.
+    actor = conn.execute('SELECT role,is_active FROM users WHERE id=?', (user['id'],)).fetchone()
+    active = bool(actor and actor['is_active'])
+    assigned = active and bool(conn.execute('''SELECT 1 FROM project_teams p JOIN users u ON u.team_id=p.team_id
         WHERE p.project_id=? AND u.id=? AND u.role='user' AND u.is_active=1''',
         (project['id'], user['id'])).fetchone())
-    admin = user['role'] == 'admin'
-    owner = project['owner_id'] == user['id']
-    editable = admin or owner or assigned
-    return {'can_view': editable or project['status']=='completed', 'can_edit': editable, 'can_manage': admin or owner,
-            'can_delete': admin or owner, 'is_assigned': assigned, 'is_owner': owner}
+    admin = active and actor['role'] == 'admin'
+    owner = active and project['owner_id'] == user['id']
+    editable = bool(admin or owner or assigned)
+    return {'can_view': active, 'can_edit': editable, 'can_manage': bool(admin or owner),
+            'can_delete': bool(admin or owner), 'is_assigned': bool(assigned), 'is_owner': bool(owner)}
 
 
 def require_project(conn, project_id, user, mode='edit'):
@@ -65,7 +70,9 @@ def require_project(conn, project_id, user, mode='edit'):
     access = permissions(conn, project, user)
     if not access['can_view']: raise AccessError(404, 'Project not found')
     if not access['can_' + mode]:
-        raise AccessError(403, 'Only the project creator or an administrator can do this')
+        message = ('This project is read-only for you. Only its owner, assigned team members or an administrator can edit it.'
+                   if mode == 'edit' else 'Only the project creator or an administrator can do this')
+        raise AccessError(403, message)
     return project
 
 
@@ -87,10 +94,10 @@ def decorate_project(conn, project, user):
 
 def visible_projects(conn, user):
     from .projects import calculate_project
-    rows = conn.execute('''SELECT p.* FROM projects p WHERE ?='admin' OR p.owner_id=? OR p.status='completed'
-        OR EXISTS(SELECT 1 FROM project_teams t JOIN users u ON u.team_id=t.team_id
-            WHERE t.project_id=p.id AND u.id=? AND u.role='user' AND u.is_active=1)
-        ORDER BY p.updated_at DESC,p.id DESC''', (user['role'], user['id'], user['id'])).fetchall()
+    actor = conn.execute('SELECT is_active FROM users WHERE id=?', (user['id'],)).fetchone()
+    if not actor or not actor['is_active']:
+        raise AccessError(403, 'An active account is required')
+    rows = conn.execute('SELECT p.* FROM projects p ORDER BY p.updated_at DESC,p.id DESC').fetchall()
     result = []
     for row in rows:
         project = decorate_project(conn, row, user)
@@ -133,11 +140,20 @@ def review_project(conn, project_id, user):
     return decorate_project(conn, get_project(conn, project_id), user)
 
 
-def project_activity(conn, project_id, user):
+def project_activity(conn, project_id, user, before_id=None, limit=200):
+    """Read every retained event through stable ID-keyset pagination."""
     require_project(conn, project_id, user, 'view')
-    return [dict(r) for r in conn.execute('''SELECT a.id,a.action,a.details,a.created_at,a.team_name_snapshot,a.role_snapshot,COALESCE(u.name,a.actor_name_snapshot) AS name,COALESCE(u.username,a.actor_username_snapshot) AS username
+    if before_id is not None and (type(before_id) is not int or before_id <= 0):
+        raise ValueError('Choose a valid activity cursor')
+    if type(limit) is not int or not 1 <= limit <= 200:
+        raise ValueError('Activity page size must be between 1 and 200')
+    condition = ' AND a.id < ?' if before_id is not None else ''
+    values = [project_id] + ([before_id] if before_id is not None else []) + [limit]
+    return [dict(r) for r in conn.execute("""SELECT a.id,a.action,a.details,a.created_at,
+        a.team_name_snapshot,a.role_snapshot,COALESCE(u.name,a.actor_name_snapshot,'Former user') AS name,
+        COALESCE(u.username,a.actor_username_snapshot) AS username
         FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
-        WHERE a.project_id=? ORDER BY a.id DESC LIMIT 200''', (project_id,))]
+        WHERE a.project_id=?""" + condition + ' ORDER BY a.id DESC LIMIT ?', values)]
 
 
 def update_workflow(conn, project_id, payload, user):

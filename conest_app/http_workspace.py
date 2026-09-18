@@ -4,7 +4,7 @@ import os
 import re
 from http.cookies import SimpleCookie
 from contextlib import contextmanager
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from . import accounts, workspace, teams, project_notes
 from .database import connect, write_lock
@@ -65,8 +65,12 @@ class WorkspaceHTTP:
         match = re.match(r'^/api/projects/(\d+)(?:/|$)', path)
         if match:
             mode = 'delete' if self.command == 'DELETE' and path == f'/api/projects/{match[1]}' else 'edit'
-            if (self.command=='POST' and re.fullmatch(r'/api/projects/\d+/copy',path)) or path.endswith('/presence') or (self.command=='DELETE' and re.fullmatch(r'/api/projects/\d+/revisions/\d+',path)): mode='view'
-            if self.command in ('GET','HEAD') or re.fullmatch(r'/api/projects/\d+/notes(?:/(?:\d+|status|read))?',path): mode='view'
+            # Presence and personal note-read receipts are viewer-local state.
+            # Notes, revisions and every estimate/workflow mutation require edit.
+            if (self.command=='POST' and re.fullmatch(r'/api/projects/\d+/copy',path)) or path.endswith('/presence'):
+                mode='view'
+            if self.command in ('GET','HEAD') or (self.command=='POST' and path.endswith('/notes/read')):
+                mode='view'
             workspace.require_project(conn, int(match[1]), self.user, mode)
 
     @contextmanager
@@ -122,7 +126,9 @@ class WorkspaceHTTP:
             elif method=='DELETE' and nid is not None:
                 with self._write_connection() as conn: notes=project_notes.delete_note(conn,pid,nid,self.user)
             else: raise accounts.AccessError(404,'Route not found')
-            self._send_json({'success':True,'notes':notes},201 if method=='POST' else 200)
+            with self._read_connection() as conn:
+                access = workspace.permissions(conn, workspace.get_project(conn,pid), self.user)
+            self._send_json({'success':True,'notes':notes,'can_edit':access['can_edit']},201 if method=='POST' else 200)
             return True
         if path == '/api/auth/login' and method == 'POST':
             payload = self._json_body()
@@ -224,10 +230,21 @@ class WorkspaceHTTP:
             return True
         match = re.fullmatch(r'/api/projects/(\d+)/activity', path)
         if match and method == 'GET':
+            query = parse_qs(urlparse(self.path).query)
+            cursor_text = query.get('before_id', [None])[0]
+            try:
+                cursor = int(cursor_text) if cursor_text is not None else None
+            except (ValueError, TypeError):
+                raise ValueError('Choose a valid activity cursor') from None
+            pid = int(match[1])
             with self._read_connection() as conn:
-                activity = workspace.project_activity(conn, int(match[1]), self.user)
-                contributors = workspace.project_contributors(conn,int(match[1]))
-            self._send_json({'success': True, 'activity': activity, 'contributors':contributors})
+                activity = workspace.project_activity(conn, pid, self.user, before_id=cursor)
+                contributors = workspace.project_contributors(conn, pid)
+                total = conn.execute('SELECT COUNT(*) FROM project_activity WHERE project_id=?', (pid,)).fetchone()[0]
+                more = bool(activity and conn.execute('SELECT 1 FROM project_activity WHERE project_id=? AND id<? LIMIT 1',
+                    (pid, activity[-1]['id'])).fetchone())
+            self._send_json({'success': True, 'activity': activity, 'contributors':contributors,
+                             'total_activity':total, 'next_before_id':activity[-1]['id'] if more else None})
             return True
         raise accounts.AccessError(404, 'Route not found')
 

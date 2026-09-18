@@ -172,15 +172,35 @@ def edit_user(conn, target_id, payload, actor, admin=False):
     if password or role != current['role'] or active != current['is_active'] or username != current['username']:
         conn.execute('DELETE FROM sessions WHERE user_id=?', (target_id,))
     conn.execute('UPDATE users SET team_id=?,email=?,contact_number=? WHERE id=?',(team_id,email,contact,target_id))
-    if photo:
-        conn.execute("""INSERT INTO user_avatars(user_id,mime,image,updated_at) VALUES (?,?,?,?)
-            ON CONFLICT(user_id) DO UPDATE SET mime=excluded.mime,image=excluded.image,updated_at=excluded.updated_at""",
-            (target_id, *photo, utc_now()))
-        conn.execute('UPDATE users SET avatar_version=avatar_version+1,has_avatar=1 WHERE id=?', (target_id,))
-    elif payload.get('remove_photo'):
-        conn.execute('DELETE FROM user_avatars WHERE user_id=?', (target_id,))
-        conn.execute('UPDATE users SET avatar_version=avatar_version+1,has_avatar=0 WHERE id=?', (target_id,))
+    if photo or payload.get('remove_photo'):
+        _replace_profile_photo(conn, target_id, photo)
     return public_user(conn.execute('SELECT * FROM users WHERE id=?', (target_id,)).fetchone())
+
+
+def _replace_profile_photo(conn, user_id, photo):
+    """Keep just the new avatar in the live database, with rollback on failure.
+
+    secure_delete clears removed table content; historical backups/journals
+    are outside this operation. Do not VACUUM or delete backup files on upload.
+    """
+    previous = int(conn.execute('PRAGMA secure_delete').fetchone()[0])
+    conn.execute('PRAGMA secure_delete=ON')
+    conn.execute('SAVEPOINT replace_profile_photo')
+    try:
+        conn.execute('DELETE FROM user_avatars WHERE user_id=?', (user_id,))
+        if photo:
+            conn.execute('INSERT INTO user_avatars(user_id,mime,image,updated_at) VALUES (?,?,?,?)',
+                         (user_id, *photo, utc_now()))
+        conn.execute('UPDATE users SET avatar_version=avatar_version+1,has_avatar=? WHERE id=?',
+                     (int(bool(photo)), user_id))
+        conn.execute('RELEASE replace_profile_photo')
+    except Exception:
+        conn.execute('ROLLBACK TO replace_profile_photo')
+        conn.execute('RELEASE replace_profile_photo')
+        raise
+    finally:
+        # The value came from SQLite, never from a request.
+        conn.execute('PRAGMA secure_delete=' + str(previous))
 
 
 def start_session(conn, user_id):

@@ -62,7 +62,7 @@ class ReleaseTests(unittest.TestCase):
    update_project_line(c,pid,line['id'],{'quantity':0})
    self.assertEqual(calculate_project(c,pid)['lines'][0]['components'][1]['scaled_quantity'],4)
 
- def test_help_only_returns_accessible_named_projects(self):
+ def test_help_company_projects_are_readable_but_others_are_not_editable(self):
   from conest_app.help_chat import prepare_context,answer_context
   from conest_app.accounts import AccessError
   with connect() as c:
@@ -72,10 +72,12 @@ class ReleaseTests(unittest.TestCase):
    c.execute('UPDATE projects SET owner_id=? WHERE id=?',(user['id'],visible))
    prepared=prepare_context(c,user,{'question':'What is the total for Orchid project?'})
    names=[p['name'] for p in prepared[1]['matching_projects']]
-   self.assertIn('Orchid office',names);self.assertNotIn('Orchid private',names)
+   self.assertIn('Orchid office',names);self.assertIn('Orchid private',names)
    with patch('conest_app.help_chat.assistant._api_key',return_value=''):
-    reply=answer_context(prepared)['answer'];self.assertIn('Orchid office',reply);self.assertNotIn('Orchid private',reply)
-   with self.assertRaises(AccessError):prepare_context(c,user,{'question':'Total?','project_id':hidden})
+    reply=answer_context(prepared)['answer'];self.assertIn('Orchid office',reply);self.assertIn('Orchid private',reply)
+   from conest_app.workspace import require_project
+   prepare_context(c,user,{'question':'Total?','project_id':hidden})
+   with self.assertRaises(AccessError):require_project(c,hidden,user,'edit')
 
  def test_failed_backup_keeps_previous_snapshot(self):
   previous=backups.create_backup()

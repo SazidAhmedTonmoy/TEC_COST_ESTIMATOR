@@ -1,5 +1,5 @@
 """Shared, attributed project notes."""
-from .workspace import require_project, record_activity
+from .workspace import require_project, record_activity, permissions
 from .utils import utc_now
 
 
@@ -21,13 +21,14 @@ def initialize_notes(conn):
 
 
 def list_notes(conn, project_id, user):
-    require_project(conn,project_id,user,'view')
-    return [dict(r) for r in conn.execute('''SELECT n.id,n.body,n.created_at,COALESCE(n.author_name_snapshot,u.name) AS author_name,COALESCE(n.author_username_snapshot,u.username) AS username
+    project = require_project(conn,project_id,user,'view')
+    editable = permissions(conn, project, user)['can_edit']
+    return [{**dict(r), 'can_delete': editable} for r in conn.execute('''SELECT n.id,n.body,n.created_at,COALESCE(n.author_name_snapshot,u.name) AS author_name,COALESCE(n.author_username_snapshot,u.username) AS username
         FROM project_notes n LEFT JOIN users u ON u.id=n.author_id WHERE n.project_id=? ORDER BY n.id DESC''',(project_id,))]
 
 
 def add_note(conn, project_id, user, payload):
-    require_project(conn,project_id,user,'view')
+    require_project(conn,project_id,user,'edit')
     body=payload.get('body')
     if not isinstance(body,str) or not 1<=len(body.strip())<=10000:
         raise ValueError('Enter a note of 1 to 10,000 characters')
@@ -38,7 +39,7 @@ def add_note(conn, project_id, user, payload):
 
 
 def delete_note(conn, project_id, note_id, user):
-    require_project(conn,project_id,user,'view')
+    require_project(conn,project_id,user,'edit')
     note=conn.execute('SELECT id FROM project_notes WHERE id=? AND project_id=?',(note_id,project_id)).fetchone()
     if not note:raise LookupError('Note not found')
     conn.execute('DELETE FROM project_notes WHERE id=?',(note_id,))
