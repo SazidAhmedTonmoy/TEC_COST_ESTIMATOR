@@ -282,6 +282,7 @@ function openUserEditor(id=null) {
   $('#delete-user-button').title=u?.id===state.user.id?'You cannot delete your own signed-in account':'Delete login; preserve projects, notes and history';
   $('#user-dialog-title').textContent=u?'Edit user':'Add user';
   $('#user-name').value=u?.name||''; $('#user-username').value=u?.username||'';
+  $('#user-email').value=u?.email||'';
   $('#user-contact').value=u?.contact_number||'';
   $('#user-title').value=u?.job_title||''; $('#user-role').value=u?.role||'user';
   $('#user-team').innerHTML='<option value="">No team</option>'+workspaceState.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
@@ -294,7 +295,7 @@ function openUserEditor(id=null) {
 }
 async function saveUser() {
   const id=workspaceState.userId;
-  const payload={contact_number:$('#user-contact').value,name:$('#user-name').value,username:$('#user-username').value,job_title:$('#user-title').value,role:$('#user-role').value,team_id:$('#user-role').value==='admin'?null:Number($('#user-team').value)||null};
+  const payload={email:$('#user-email').value,contact_number:$('#user-contact').value,name:$('#user-name').value,username:$('#user-username').value,job_title:$('#user-title').value,role:$('#user-role').value,team_id:$('#user-role').value==='admin'?null:Number($('#user-team').value)||null};
   if (id) payload.is_active=$('#user-active').checked;
   if ($('#user-password').value) payload.password=$('#user-password').value;
   await api(id?`/api/users/${id}`:'/api/users',{method:id?'PATCH':'POST',body:payload});

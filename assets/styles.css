@@ -32,6 +32,18 @@ body {
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
+/* Numeric fields are typed, not clicked up/down. Keep number validation and
+   decimal support; the delegated wheel guard in app.js prevents scroll steps. */
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 236px minmax(0, 1fr); }
 
 .sidebar {

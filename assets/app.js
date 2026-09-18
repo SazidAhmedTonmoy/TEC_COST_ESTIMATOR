@@ -26,6 +26,18 @@ const state = {
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
+// Remove number-field focus before the browser can interpret a wheel gesture
+// as a step. Keep native scrolling (including inside dialogs) and zoom intact.
+// Delegation also covers estimate/component rows added after page load.
+document.addEventListener("wheel", (event) => {
+  const field = event.target;
+  if (event.ctrlKey || !event.deltaY) return;
+  if (field instanceof HTMLInputElement && field.type === "number"
+      && field === document.activeElement) {
+    field.blur();
+  }
+}, { capture: true, passive: true });
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -729,7 +741,7 @@ function openManualDialog(addToEstimate = false, sourceItem = null, editExisting
   $('#manual-assembly-size').value=sourceItem?.assembly_size || '';
   $('#manual-save-mode-label').classList.toggle('hidden',!addToEstimate||!sourceItem);
   $('#manual-save-mode').innerHTML=(sourceItem?'<option value="estimate">Save this estimate only</option>':'')+(sourceItem?.id?'<option value="update">Update existing catalog item</option>':'')+'<option value="new">Save as a new catalog item</option>';
-  $('#manual-save-mode').value='new';
+  $('#manual-save-mode').value=addToEstimate && sourceItem ? 'estimate' : 'new';
   $("#manual-description").value = sourceItem?.description || "";
   $("#manual-uom").value = sourceItem?.base_uom || "EA";
   state.manualBaseUom = $("#manual-uom").value;

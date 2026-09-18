@@ -2,15 +2,27 @@
 
 Catalogue sheets are grouped into uploaded files. Lighting receipts retain the
 actual uploaded filename (which can differ from a workbook's Source PDF column).
-Older quote records without receipts are labelled as legacy sources, not invented
-upload events. Raw supplier/catalogue files are not exposed or promised here.
+Older quote records without receipts remain legacy sources, not invented upload
+events. Their uploader was explicitly confirmed by the customer as Md Sazid Ahmed
+Tonmoy. Recorded upload receipts and their uploaders are never overwritten. Raw
+supplier/catalogue files are not exposed or promised here.
 """
 from __future__ import annotations
 import json
 from .accounts import AccessError
 
+# Customer-confirmed attribution applies only to the receipt-less legacy branch.
+# Match the exact named account, not the similarly named Tonmoy_1 account. The
+# historical name remains visible when that account is absent; no grant/account
+# or fabricated upload receipt is created, and history reads remain read-only.
+_LEGACY_UPLOADER = ('Md Sazid Ahmed Tonmoy', 'Tonmoy')
+
 _HISTORY_SQL = """
-WITH quote_counts AS (
+WITH legacy_identity(name,username) AS (VALUES (?,?)), legacy_uploader AS (
+    SELECT u.id,i.name,i.username FROM legacy_identity i
+    LEFT JOIN users u ON u.username=i.username COLLATE NOCASE
+        AND TRIM(u.name)=i.name COLLATE NOCASE
+), quote_counts AS (
     SELECT q.id,COUNT(DISTINCT g.id) AS items,COUNT(l.id) AS components
     FROM quotes q LEFT JOIN groups g ON g.quote_id=q.id LEFT JOIN lines l ON l.group_id=g.id
     GROUP BY q.id
@@ -33,9 +45,9 @@ WITH quote_counts AS (
     FROM lighting_import_receipts r LEFT JOIN users u ON u.id=r.user_id
     UNION ALL
     SELECT 'legacy-lighting:'||MIN(q.id),'lighting',COALESCE(NULLIF(q.source,''),'Source not recorded'),
-        MAX(q.imported_at),NULL,'Not recorded','',0,COUNT(q.id),SUM(c.items),SUM(c.components),
+        MAX(q.imported_at),lu.id,lu.name,lu.username,0,COUNT(q.id),SUM(c.items),SUM(c.components),
         COALESCE(GROUP_CONCAT(DISTINCT q.reference),''),COALESCE(GROUP_CONCAT(DISTINCT q.project),''),'',1
-    FROM quotes q JOIN quote_counts c ON c.id=q.id
+    FROM quotes q JOIN quote_counts c ON c.id=q.id CROSS JOIN legacy_uploader lu
     WHERE NOT EXISTS (SELECT 1 FROM lighting_import_receipts r WHERE r.file_sha256=q.file_sha256
         AND q.file_sha256 IS NOT NULL AND q.file_sha256<>'')
     GROUP BY q.source,COALESCE(NULLIF(q.file_sha256,''),q.source),SUBSTR(q.imported_at,1,10)
@@ -63,7 +75,7 @@ def list_uploads(conn, user, query):
         raise ValueError('Choose valid upload history filters')
     if not 1<=limit<=100 or not 0<=offset<=10000000:
         raise ValueError('Choose a valid upload history page')
-    clauses, values = [], []
+    clauses, values = [], list(_LEGACY_UPLOADER)
     if kind!='all':
         clauses.append('kind=?');values.append(kind)
     if who=='me':
