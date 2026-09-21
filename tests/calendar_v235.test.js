@@ -12,7 +12,7 @@ ctx.state.projects=[{id:1,name:'Saturday tender',client:'A\nB',status:'draft',su
 vm.runInContext('renderCalendar()',ctx);
 const html=elements['#calendar-grid'].innerHTML;
 assert.equal((html.match(/calendar-weekday is-weekend/g)||[]).length,2);
-assert.match(html,/is-weekend[^>]*>Sat<small>Weekend/);assert.match(html,/is-weekend[^>]*>Sun<small>Weekend/);
+assert.match(html,/is-weekend[^>]*>Sat<\/div>/);assert.match(html,/is-weekend[^>]*>Sun<\/div>/);assert.doesNotMatch(html,/<small>Weekend/);
 const days=[...html.matchAll(/<div class="calendar-day ([^"]*)"><time datetime="([^"]+)"[^>]*>/g)];
 assert.equal(days.length,35);
 for(const [,classes,key] of days){

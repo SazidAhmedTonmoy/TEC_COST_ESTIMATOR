@@ -430,7 +430,7 @@ function renderCalendar() {
   const offset=(new Date(y,m,1).getDay()+6)%7;
   const dayCount=new Date(y,m+1,0).getDate();
   const cells=Math.ceil((offset+dayCount)/7)*7;
-  let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div class="calendar-weekday ${i>=5?'is-weekend':''}">${d}${i>=5?'<small>Weekend</small>':''}</div>`).join('');
+  let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div class="calendar-weekday ${i>=5?'is-weekend':''}">${d}</div>`).join('');
   const projects=state.projects.filter(p=>p.submission_deadline);
   for(let i=0;i<cells;i++) {
     const day=new Date(y,m,i-offset+1), key=localDateKey(day);

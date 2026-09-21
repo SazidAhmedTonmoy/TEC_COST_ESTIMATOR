@@ -115,3 +115,24 @@ input,select,textarea{border-radius:11px}
  .project-sort-label{flex:1}.project-sort-label select{width:100%;min-width:0}
  .project-view-label select{width:100px}
 }
+
+/* Icon-only native menus: click/tap or use keyboard to choose an option. */
+.project-board-tools .project-sort-label,
+.project-board-tools .project-view-label{
+ position:relative;display:inline-flex;align-items:center;justify-content:center;
+ width:40px;height:40px;min-width:40px;flex:0 0 40px;
+ border:1px solid var(--line);border-radius:11px;color:var(--ink);
+ background:var(--workspace-well);cursor:pointer;
+}
+.project-board-tools .project-sort-label:hover,
+.project-board-tools .project-view-label:hover{background:var(--workspace-soft)}
+.project-board-tools .project-sort-label:focus-within,
+.project-board-tools .project-view-label:focus-within{outline:2px solid var(--teal);outline-offset:2px}
+.project-board-tools .project-sort-label select,
+.project-board-tools .project-view-label select{
+ position:absolute;inset:0;width:100%;height:100%;min-height:0;margin:0;
+ opacity:0;cursor:pointer;
+}
+.project-board-tools .project-sort-label svg,
+.project-board-tools .project-view-label svg{pointer-events:none}
+@media(max-width:700px){#home-view #project-search{flex:1 1 0;min-width:0}}
