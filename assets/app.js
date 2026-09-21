@@ -158,7 +158,7 @@ function setView(name, load = true, remember = true) {
   if(remember && typeof rememberPage==='function') rememberPage(name);
   $$(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
-  const titles = { 'light-prices':'Light price check', home: 'Home', calendar: 'Deadline calendar', users: 'Manage users', profile: 'My profile', estimate: "Build estimate", catalog: "Catalog Explorer", imports: "Imports", settings: "Application settings" };
+  const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline calendar', users: 'Manage users', profile: 'My profile', estimate: "Build estimate", catalog: "Catalog Explorer", imports: "Imports", settings: "Application settings" };
   $("#view-title").textContent = titles[name] || "TEC ConEst";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
@@ -247,7 +247,7 @@ function renderProject() {
   $("#metric-quoted").textContent = fmtMoney(totals.quoted, project.currency);
   $("#estimate-line-count").textContent = `${lines.length} assembl${lines.length === 1 ? "y" : "ies"}`;
   $("#project-name").value = project.name || "";
-  $("#project-client").value = project.client || "";
+  $("#project-builders").value = projectBuilders(project).join("\n");
   $("#project-currency").value = project.currency || "AUD";
   $("#project-material-markup").value = Number(project.material_markup || 0) * 100;
   $("#project-labour-rate").value = Number(project.labor_rate || 0);
@@ -256,6 +256,7 @@ function renderProject() {
   $('#delete-project-button').disabled = !available || !project.can_delete;
   renderGroupedEstimate(lines);
   renderEstimateBrief(project);
+  $("#project-builders").disabled = !available || !project.can_manage;
   renderScopeBreakdown(data);
   if(typeof renderCollaboration==='function')renderCollaboration();
   if(project.id) refreshNoteBadge(project.id).catch(()=>{});
@@ -580,7 +581,6 @@ async function saveProjectSettings(event) {
   event.preventDefault();
   const payload = {
     name: $("#project-name").value,
-    client: $("#project-client").value,
     currency: $("#project-currency").value,
     material_markup: Number($("#project-material-markup").value || 0) / 100,
     labor_rate: Number($("#project-labour-rate").value || 0),
@@ -588,6 +588,8 @@ async function saveProjectSettings(event) {
     hours_per_day: Number($("#project-hours-per-day").value || 8),
     crew_size: Number($("#project-crew-size").value || 2),
   };
+  if (state.projectData?.project.can_manage) payload.builders = $("#project-builders").value.split(/\r?\n/);
+  payload.expected_revision = state.projectData?.project.revision;
   const result = await api(`/api/projects/${state.projectId}`, { method: "PATCH", body: payload });
   state.projectData = result;
   await loadDashboard();
@@ -600,7 +602,7 @@ async function createNewProject(event) {
   const settings = state.appSettings || await loadSettings(false);
   const payload = {
     name: $("#new-project-name").value,
-    client: $("#new-project-client").value,
+    builders: readBuilderEditor("new-project-builders"),
     scope_of_work: $('#new-project-scope').value,
     submission_deadline: $('#new-project-deadline').value,
     currency: settings.currency || "AUD",
@@ -614,6 +616,7 @@ async function createNewProject(event) {
   state.projectId = result.project.id;
   $("#project-dialog").close();
   $("#new-project-form").reset();
+  renderBuilderEditor("new-project-builders", []);
   await loadDashboard();
   setView('estimate', false);
   toast(state.user.role==='user' && state.user.team_id ? "Project created and shared with your team" : "New estimate created");

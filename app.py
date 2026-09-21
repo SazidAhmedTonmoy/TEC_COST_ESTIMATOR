@@ -79,7 +79,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/2.3.3"
+    server_version = "TECConEst/2.3.5"
 
     def setup(self):
         super().setup()
@@ -213,7 +213,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/health":
                 with connect() as conn:
                     schema = conn.execute('SELECT version FROM schema_version').fetchone()[0]
-                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.3.3"})
+                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.3.5"})
                 return
             if path == '/api/light-prices':
                 from conest_app import light_prices
@@ -540,6 +540,15 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             match = re.fullmatch(r"/api/projects/(\d+)", path)
             if match:
                 with self._write_connection() as conn:
+                    # Builders belong to the project brief, managed by its owner/admin.
+                    # A cached old form may still send the unchanged client field.
+                    if 'builders' in payload or 'client' in payload:
+                        from conest_app.builders import stored_builders, read_builders
+                        from conest_app.workspace import require_project
+                        current = get_project(conn, int(match.group(1)))
+                        value = stored_builders(payload, current)
+                        if read_builders({'client': value}) != read_builders(current):
+                            require_project(conn, int(match.group(1)), self.user, 'manage')
                     project = update_project(conn, int(match.group(1)), payload)
                     self._audit(conn, int(match.group(1)), 'Updated estimate settings')
                     project = self._project_payload(conn, project)

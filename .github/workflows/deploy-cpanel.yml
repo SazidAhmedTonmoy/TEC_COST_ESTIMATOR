@@ -117,7 +117,7 @@ jobs:
           set -euo pipefail
           for ATTEMPT in $(seq 1 18); do
             RESPONSE="$(curl -fsS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health" || true)"
-            if printf '%s' "$RESPONSE" | python -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r.get("status")=="ok" and r.get("release")=="2.3.3" and r.get("schema_version")==25 else 1)' 2>/dev/null; then
+            if printf '%s' "$RESPONSE" | python -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r.get("status")=="ok" and r.get("release")=="2.3.5" and r.get("schema_version")==25 else 1)' 2>/dev/null; then
               echo "$RESPONSE"
               echo 'Updated code is serving traffic and the runtime database has migrated.'
               exit 0

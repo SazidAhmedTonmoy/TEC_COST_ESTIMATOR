@@ -8,6 +8,7 @@ from typing import Any
 
 from .catalog import create_manual_catalog_item, update_manual_catalog_item, _validated_components, get_catalog_item, record_selection, _nonnegative
 from .utils import as_float, clean_text, utc_now
+from .builders import project_with_builders, stored_builders
 from .taxonomy import scope_sort_key
 from .workspace import check_revision
 from .estimate_options import display_title, supply_component, LIGHTING_CATEGORIES
@@ -28,7 +29,7 @@ def list_projects(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     ).fetchall()
     result = []
     for row in rows:
-        project = dict(row)
+        project = project_with_builders(row)
         totals = calculate_project(conn, int(row["id"]), include_components=False)["totals"]
         project["totals"] = totals
         result.append(project)
@@ -67,7 +68,7 @@ def create_project(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[st
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             name,
-            clean_text(payload.get("client")),
+            stored_builders(payload),
             clean_text(payload.get("currency") or "AUD")[:8],
             max(0.0, as_float(payload.get("material_markup"), 0.15)),
             max(0.0, as_float(payload.get("labor_rate"), 120.0)),
@@ -84,6 +85,7 @@ def create_project(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[st
 def update_project(conn: sqlite3.Connection, project_id: int, payload: dict[str, Any]) -> dict[str, Any]:
     current = dict(_project_row(conn, project_id))
     check_revision(current, payload)
+    builders = stored_builders(payload, current)
     current.update(payload)
     crew,hours=crew_plan(current)
     name = clean_text(current.get("name"))
@@ -94,7 +96,7 @@ def update_project(conn: sqlite3.Connection, project_id: int, payload: dict[str,
            overhead_markup=?, notes=?, updated_at=? WHERE id=?""",
         (
             name,
-            clean_text(current.get("client")),
+            builders,
             clean_text(current.get("currency") or "AUD")[:8],
             max(0.0, as_float(current.get("material_markup"), 0.15)),
             max(0.0, as_float(current.get("labor_rate"), 120.0)),
@@ -325,7 +327,7 @@ def delete_project_line(conn: sqlite3.Connection, project_id: int, line_id: int)
 def calculate_project(
     conn: sqlite3.Connection, project_id: int, include_components: bool = True
 ) -> dict[str, Any]:
-    project = dict(_project_row(conn, project_id))
+    project = project_with_builders(_project_row(conn, project_id))
     material_markup = float(project["material_markup"])
     labor_rate = float(project["labor_rate"])
     overhead_markup = float(project["overhead_markup"])

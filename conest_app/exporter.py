@@ -155,7 +155,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     ws.row_dimensions[1].height = 44
     metadata = [
         ("A2", "PROJECT", "B2:F2", project["name"]),
-        ("G2", "CLIENT", "H2:K2", project.get("client") or ""),
+        ("G2", "BUILDERS", "H2:K2", "\n".join(project.get("builders") or [])),
         ("L2", "CURRENCY", "M2:N2", "=C7"),
     ]
     for label_cell, label, value_range, value in metadata:
@@ -163,10 +163,11 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         ws[label_cell].font = Font(name="Aptos", size=10, bold=True, color=GRAY_600)
         ws[label_cell].alignment = Alignment(vertical="center")
         cell = _merge_value(ws, value_range, value, size=10.5)
-        if label in {"PROJECT", "CLIENT"}:
+        if label in {"PROJECT", "BUILDERS"}:
             cell.fill = PatternFill("solid", fgColor=CREAM)
             cell.font = Font(name="Aptos", size=10.5, color=INPUT_BLUE)
             cell.protection = Protection(locked=False)
+            cell.data_type = "s"  # Builder/project names are text, never formulas.
     _merge_value(
         ws,
         "A3:J3",
@@ -552,6 +553,8 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     overview.print_area=f'A1:N{row}'
     detail.print_area=f'A1:O{total_row}'
 
+    builder_lines = sum(max(1, (len(name) + 39) // 40) for name in project.get('builders') or [])
+    overview.row_dimensions[2].height = max(overview.row_dimensions[2].height or 30, min(409, 16 * builder_lines + 12))
     wb.save(output)
     return output
 

@@ -28,8 +28,9 @@ Create a project with New project. On Estimate search for a catalogue item, set 
 Lighting and Emergency & Exit Lighting supply cost is per fitting, before project markups. Ref. belongs only to a project line and exports under the item name in the same Excel cell. Saving a reusable lighting catalogue omits the project fitting price and reference.
 Drag dotted handles to reorder categories/items. Category + and - collapse/expand. Fixed quantity components do not scale with the parent quantity. Crew working days = total hours divided by hours/person/day and crew size.
 Material totals include project material markup. Labour price includes hours times the project labour rate plus fixed labour allowances. Quoted total = (material + labour) times (1 + overhead markup). GST is excluded. The calendar totals projects whose submission deadlines fall in the displayed month, using current estimates. It shows material, labour and quoted values separately by currency.
+Each project may have no builders, one builder or multiple builders. Add/remove Builders below Scope of Work in Manage project. Existing client names are kept as builder names. Saturday and Sunday are marked as weekends; deadlines on these dates still count.
 Manage project & activity shows status, optional Won/Lost result, deadline, teams, contributors and activity. Notes and revisions are viewable by everyone with an active account; only editors may add notes or save revisions. Original revisions remain available for comparison/export.
-Light price check searches supplier, catalogue number, description, nickname, quote or project. Expand a result in place to see included/excluded components. Connected unit price = included resolved component totals divided by the pricing/base quantity. Each component uses its selected quoted-total or quantity-times-rate mode. Missing included prices or a zero base quantity means no complete connected unit price. Quotation prices are historical supplier prices in AUD excluding GST, not guaranteed current offers.
+Light Price searches supplier, catalogue number, description, nickname, quote or project. Expand a result in place to see included/excluded components. Connected unit price = included resolved component totals divided by the pricing/base quantity. Each component uses its selected quoted-total or quantity-times-rate mode. Missing included prices or a zero base quantity means no complete connected unit price. Quotation prices are historical supplier prices in AUD excluding GST, not guaranteed current offers.
 Imports contains the ConEst workbook uploader followed by Add supplier prices. Add supplier prices uses Check quotation, Review, then Import selected. The Upload history info button opens searchable catalogue and light-price file history; it is not permanently displayed on the page. Identical quotes are skipped; changed quotes require confirmation. Supported sources are connected XLSX or text-based TLE PDF quotations. PDF support must be installed in the Python environment used by the web server. A shell environment may differ from Passenger's environment.
 Catalog records are reusable material/hours/fixed-labour allowances, not fully marked-up project prices. Select a record to view its components or edit it. Existing projects keep saved snapshots when a catalogue item changes.
 My profile contains contact details and a centered photo ring. Choose or drop a photo and Save profile. Saving a replacement removes the former photo from the live avatar table; Use initials removes the current photo. Existing backups are not rewritten. One current photo is stored per account.
@@ -38,8 +39,9 @@ Admins manage accounts, teams and backups. The application automatically upgrade
 TIPS = [
     (('photo', 'avatar', 'picture'), 'Open My profile, choose or drop a photo on the circular ring, then Save profile. The new photo replaces the old one in the live database. Use initials removes the current photo.'),
     (('read-only', 'team', 'permission'), 'All active users can view all projects. Editing is limited to the owner, assigned team members, individually assigned users and administrators. Ask the project owner or an administrator to assign your team or give you individual edit access.'),
-    (('light price', 'supplier quote', 'quotation'), 'Open Light price check. Search by supplier, catalogue number, description, nickname or project. Expand a result to see quantities, rates, included components and the connected-price calculation. Open Imports and use Add supplier prices below the ConEst workbook upload to check and import new quotations.'),
-    (('calendar', 'calender'), 'Calendar uses submission deadlines in the displayed month. Material includes material markup; labour includes hourly and fixed allowances. Quoted value includes overhead. GST is excluded and different currencies are not added together.'),
+    (('light price', 'supplier quote', 'quotation'), 'Open Light Price. Search by supplier, catalogue number, description, nickname or project. Expand a result to see quantities, rates, included components and the connected-price calculation. Open Imports and use Add supplier prices below the ConEst workbook upload to check and import new quotations.'),
+    (('builder',), 'Open Manage project. Below Scope of Work, add a separate row for each builder, remove names or leave the section empty, then Save project. The project owner or an administrator manages these names.'),
+    (('calendar', 'calender'), 'Saturday and Sunday are weekends. Deadlines on weekends stay visible and count in totals. Calendar uses submission deadlines in the displayed month. Material includes material markup; labour includes hourly and fixed allowances. Quoted value includes overhead. GST is excluded and different currencies are not added together.'),
     (('ref.', 'reference'), 'Enter Ref. beneath Category on a lighting estimate line. The reference stays with that project and exports below the item name in the same Excel cell; it is not saved to the shared catalogue.'),
     (('crew', 'working day'), 'Set Crew size and Hours / person / day in project settings. Working days = total labour hours / hours per person per day / crew size. This changes the time plan, not the estimate cost.'),
     (('reorder', 'drag', 'category'), 'Drag the dotted category or item handle, or use the category up/down arrows. The category + and - buttons expand/collapse it. Change Category on a line to move it to another category.'),
@@ -52,7 +54,7 @@ TIPS = [
     (('backup',), 'Administrators manage backups in App settings. A restore replaces current data, so verify the selected backup and protect newer work first.'),
 ]
 STOP = set('''a an the is are was were be been being of for to in on at by from as how what which who when where can could would should i we my me you your our us please find show list search tell give get about do does did have has had database available saved record records this that these those its it s and or with all another other total totals estimate estimates project projects catalog catalogue item items price prices cost costs light lights supplier quote quotation quotes quotations detail details component components rate rates material materials labour labor hours hour quantity quantities qty many much number name called named know want need check explain include includes included including breakdown summary summarise summarize latest recent update updates activity status deadline due month won lost result results note notes revision revisions current selected matching per unit units contains contain worth using value values more there anything anything's'''.split())
-STOP.update({'company', 'progress'})
+STOP.update({'company', 'progress', 'builder', 'builders'})
 FOLLOW_WORDS = {'this', 'that', 'it', 'its', 'those', 'same', 'more', 'and'}
 
 
@@ -107,7 +109,7 @@ def project_facts(conn, pid, question, user=None):
         require_project(conn, pid, user, 'view')
     data = calculate_project(conn, pid, include_components=False)
     project = decorate_project(conn, data['project'], user) if user is not None else data['project']
-    fields = ('id', 'name', 'client', 'currency', 'material_markup', 'labor_rate', 'overhead_markup',
+    fields = ('id', 'name', 'builders', 'currency', 'material_markup', 'labor_rate', 'overhead_markup',
               'scope_of_work', 'status', 'submission_deadline', 'award_status', 'updated_at', 'revision',
               'can_edit', 'owner_name', 'created_by_name', 'updated_by_name', 'teams')
     facts = {k: project.get(k) for k in fields}
@@ -220,7 +222,7 @@ def prepare_context(conn, user, payload):
         if re.search(r'\b(how (do|can|should) i|how to|where (do|can) i)\b', lower): scope = 'guide'
         elif re.search(r'\b(catalog|catalogue)\b', lower): scope = 'catalog'
         elif re.search(r'\b(light(?:ing)? prices?|supplier|quotations?|quotes?|nickname)\b', lower): scope = 'light'
-        elif re.search(r'\b(projects?|estimates?|deadline|activity|updates?|notes?|revisions?)\b', lower) or named: scope = 'project'
+        elif re.search(r'\b(projects?|estimates?|builders?|deadline|activity|updates?|notes?|revisions?)\b', lower) or named: scope = 'project'
         elif follow_id and (not terms or set(_tokens(question)) & FOLLOW_WORDS): scope = follow['kind']
         elif payload.get('page') in ('estimate', 'catalog', 'light-prices'):
             scope = {'estimate': 'project', 'catalog': 'catalog', 'light-prices': 'light'}[payload['page']]
@@ -316,6 +318,7 @@ def _project_answer(p, lower, brief=False):
     teams = ', '.join(t['name'] for t in p.get('teams') or []) or 'No team assigned'
     lines = [f"{p['name']} (project #{p['id']})" + (' - read-only for you' if not p.get('can_edit') else ''),
         f"Status: {STATUS.get(p['status'], p['status'])}. Result: {p.get('award_status') or 'Not recorded'}. Deadline: {p.get('submission_deadline') or 'Not set'}.",
+        f"Builders: {', '.join(p.get('builders') or []) or 'None assigned'}.",
         f"Quoted estimate: {_money(totals['quoted'], currency)} ex GST."]
     if brief:
         return '\n'.join(lines)

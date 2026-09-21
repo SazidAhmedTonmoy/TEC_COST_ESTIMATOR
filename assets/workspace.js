@@ -88,7 +88,7 @@ function renderProjectBoard() {
   const filter = workspaceState.filter;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   const projects = state.projects.filter(p=>{
-    if (!(p.name+' '+(p.client||'')+' '+(p.created_by_name||'')+' '+teamNames(p)+' '+(p.contributors||[]).map(c=>c.name).join(' ')).toLowerCase().includes(term)) return false;
+    if (!(p.name+' '+builderText(p)+' '+(p.created_by_name||'')+' '+teamNames(p)+' '+(p.contributors||[]).map(c=>c.name).join(' ')).toLowerCase().includes(term)) return false;
     if (filter==='new') return inReviewQueue(p);
     if (filter==='team') return p.is_assigned;
     if (filter==='mine') return p.is_owner;
@@ -96,8 +96,8 @@ function renderProjectBoard() {
     return true;
   });
   $('#project-board').innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
-    <div class="project-card-heading"><div><p>${escapeHtml(p.client||'Client not set')}</p><h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div>${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':projectStatus(p)}</div>
-    <p class="project-scope-excerpt">${escapeHtml(p.scope_of_work||'Add the scope of work in Manage project.')}</p>
+    <div class="project-card-heading"><div><p>${escapeHtml(builderText(p, 'No builder assigned'))}</p><h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div>${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':projectStatus(p)}</div>
+    <p class="project-scope-excerpt">${escapeHtml(p.scope_of_work||'Add the Scope of Work in Manage project.')}</p>
     <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
     <p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Existing project · creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p>
     <div class="project-card-footer"><span>${p.line_count||0} items · ${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</span><div><button type="button" class="text-button" data-project-brief="${p.id}">${p.can_edit?'Manage project':'View project & activity'}</button><button class="text-button" type="button" data-copy-project="${p.id}">Copy</button><a class="button secondary small" href="#/estimate/${p.id}" data-open-project="${p.id}">${p.can_edit?'Open estimate':'View estimate'}</a></div></div>
@@ -152,9 +152,10 @@ async function openProjectBrief(id) {
   if(request!==workspaceState.briefRequest) return;
   workspaceState.briefId=p.id; workspaceState.briefProject=p;
   $('#brief-open-estimate').href=`#/estimate/${p.id}`;
-  $('#brief-title').textContent=p.name; $('#brief-client').textContent=p.client||'Manage project';
+  $('#brief-title').textContent=p.name; $('#brief-client').textContent=builderText(p, 'Manage project');
   $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Contributors: ${p.contributors?.length?p.contributors.map(u=>escapeHtml(u.name)).join(', '):'No recorded work yet'}</p>`;
   $('#brief-scope').value=p.scope_of_work||''; $('#brief-deadline').value=p.submission_deadline||''; $('#brief-status').value=p.status;
+  renderBuilderEditor('brief-builders', projectBuilders(p), p.can_manage);
   $('#brief-scope').disabled=!p.can_manage; $('#brief-deadline').disabled=!p.can_manage;
   $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(p.can_edit);
   $('#brief-status').disabled=!p.can_edit; $('#brief-save').disabled=!p.can_edit;
@@ -205,7 +206,8 @@ async function refreshReadOnlyBrief() {
     if(p.can_edit!==old.can_edit||p.can_manage!==old.can_manage||p.can_delete!==old.can_delete){await openProjectBrief(pid);return;}
     workspaceState.briefProject=p;
     $('#brief-title').textContent=p.name;
-    $('#brief-client').textContent=p.client||'View project';
+    $('#brief-client').textContent=builderText(p, 'View project');
+    renderBuilderEditor('brief-builders', projectBuilders(p), false);
     $('#brief-scope').value=p.scope_of_work||'';$('#brief-deadline').value=p.submission_deadline||'';$('#brief-status').value=p.status;
     $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(false);
     $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Read-only &middot; latest saved project information.</p>`;
@@ -222,7 +224,7 @@ async function saveProjectWorkflow() {
   const p=workspaceState.briefProject;
   if(!p) throw new Error('Project no longer available');
   const payload={status:$('#brief-status').value,award_status:$('#brief-award-status').value,expected_revision:p.revision};
-  if(p.can_manage) {payload.scope_of_work=$('#brief-scope').value;payload.submission_deadline=$('#brief-deadline').value;}
+  if(p.can_manage) {payload.scope_of_work=$('#brief-scope').value;payload.builders=readBuilderEditor('brief-builders');payload.submission_deadline=$('#brief-deadline').value;}
   if(p.can_manage) {
     payload.team_ids=$$('#assignment-options input:checked').map(input=>Number(input.value));
     payload.user_ids=$$('#individual-assignment-options input:checked').map(input=>Number(input.value));
@@ -407,12 +409,13 @@ function renderCalendar() {
   const offset=(new Date(y,m,1).getDay()+6)%7;
   const dayCount=new Date(y,m+1,0).getDate();
   const cells=Math.ceil((offset+dayCount)/7)*7;
-  let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="calendar-weekday">${d}</div>`).join('');
+  let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div class="calendar-weekday ${i>=5?'is-weekend':''}">${d}${i>=5?'<small>Weekend</small>':''}</div>`).join('');
   const projects=state.projects.filter(p=>p.submission_deadline);
   for(let i=0;i<cells;i++) {
     const day=new Date(y,m,i-offset+1), key=localDateKey(day);
     const items=projects.filter(p=>p.submission_deadline===key);
-    html+=`<div class="calendar-day ${day.getMonth()!==m?'outside-month':''} ${key===localDateKey()?'is-today':''}"><time datetime="${key}">${day.getDate()}</time>${items.map(p=>`<button class="calendar-event ${p.status==='completed'?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" title="${escapeHtml(p.name)} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}</button>`).join('')}</div>`;
+    const weekend=day.getDay()===0||day.getDay()===6;
+    html+=`<div class="calendar-day ${weekend?'is-weekend':''} ${day.getMonth()!==m?'outside-month':''} ${key===localDateKey()?'is-today':''}"><time datetime="${key}" aria-label="${escapeHtml(dateLabel(key))}${weekend?', weekend':''}">${day.getDate()}</time>${items.map(p=>`<button class="calendar-event ${p.status==='completed'?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" title="${escapeHtml(p.name)} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}</button>`).join('')}</div>`;
   }
   $('#calendar-grid').innerHTML=html;
   const monthProjects=projects.filter(p=>p.submission_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));

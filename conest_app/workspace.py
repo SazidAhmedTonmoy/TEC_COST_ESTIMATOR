@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 from .accounts import AccessError, public_user
 from .utils import utc_now
+from .builders import project_with_builders, stored_builders
 
 STATUSES = ('draft', 'in_progress', 'submitted', 'completed')
 
@@ -81,7 +82,7 @@ def require_project(conn, project_id, user, mode='edit'):
 
 
 def decorate_project(conn, project, user):
-    result = dict(project)
+    result = project_with_builders(project)
     result.update(permissions(conn, result, user))
     for column, output in [('owner_id', 'owner_name'), ('created_by', 'created_by_name'),
                            ('updated_by', 'updated_by_name'), ('completed_by', 'completed_by_name')]:
@@ -203,17 +204,18 @@ def project_access_options(conn, project_id, user):
 def update_workflow(conn, project_id, payload, user):
     project = require_project(conn, project_id, user)
     check_revision(project, payload)
-    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status'}
+    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status', 'builders'}
     if set(payload) - allowed: raise ValueError('Unknown project workflow field')
     if {'team_ids', 'user_ids'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
         raise AccessError(403, 'Only the project owner or an administrator can change project access')
     # Validate all requested grants before performing any mutation.
     chosen_teams = _validate_access_ids(conn, payload['team_ids'], 'team', project) if 'team_ids' in payload else None
     chosen_users = _validate_access_ids(conn, payload['user_ids'], 'user', project) if 'user_ids' in payload else None
-    if {'scope_of_work', 'submission_deadline'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
+    if {'scope_of_work', 'submission_deadline', 'builders'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
         raise AccessError(403, 'Only the project creator or an administrator can change its brief')
+    builders = stored_builders(payload, project)
     scope = payload.get('scope_of_work', project['scope_of_work'])
-    if not isinstance(scope, str) or len(scope)>20000: raise ValueError('Scope of work must be text of up to 20,000 characters')
+    if not isinstance(scope, str) or len(scope)>20000: raise ValueError('Scope of Work must be text of up to 20,000 characters')
     deadline = payload.get('submission_deadline', project['submission_deadline']) or None
     if deadline:
         try:
@@ -224,6 +226,9 @@ def update_workflow(conn, project_id, payload, user):
     award = payload.get('award_status', project['award_status'])
     if award not in ('', 'won', 'lost'):
         raise ValueError('Choose Won, Lost or leave the project result unset')
+    if builders != (project['client'] or ''):
+        conn.execute('UPDATE projects SET client=? WHERE id=?', (builders, project_id))
+        record_activity(conn, project_id, user, 'Updated project builders', builders or 'No builder assigned')
     if award != project['award_status']:
         conn.execute('UPDATE projects SET award_status=?,award_updated_at=? WHERE id=?', (award, utc_now(), project_id))
         record_activity(conn, project_id, user, 'Changed project result',
@@ -271,4 +276,4 @@ def project_contributors(conn, project_id):
         FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
         WHERE a.project_id=? AND a.action IN ('Created project','Updated estimate settings','Added estimate item',
         'Updated estimate item','Removed estimate item','Saved manual estimate item','Changed project status',
-        'Updated project brief','Added project note','Changed project result') GROUP BY COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',(project_id,))]
+        'Updated project brief','Updated project builders','Added project note','Changed project result') GROUP BY COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',(project_id,))]

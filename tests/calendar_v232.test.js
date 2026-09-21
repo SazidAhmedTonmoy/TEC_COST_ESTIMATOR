@@ -9,7 +9,7 @@ const ctx={document:{addEventListener:()=>{}},$:(s)=>elements[s],state:{projects
  statusNames:{draft:'Not started',in_progress:'In progress',submitted:'Submitted',completed:'Completed'},
  escapeHtml:s=>String(s),fmtMoney:(n,c)=>new Intl.NumberFormat('en-AU',{style:'currency',currency:c||'AUD'}).format(n||0),
  fmtNumber:n=>String(n),localDateKey:()=> '2026-09-01',dateLabel:s=>s,teamNames:()=>'',projectStatus:()=>'',console};
-vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/v23.js'),'utf8'),ctx);
+vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/builders.js'),'utf8'),ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/v23.js'),'utf8'),ctx);
 vm.runInContext('renderCalendarSummary(state.projects)',ctx);
 const html=elements['#calendar-summary'].innerHTML, table=elements['#calendar-agenda'].innerHTML;
 const ordered=['Projects due this month','Total estimate / quoted value','Total material cost','Labour allowance','Total labour price'];

@@ -1,26 +1,27 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script src="/assets/theme.js"></script>
+  <script src="/assets/theme.js?v=2.3.5"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg">
-  <link rel="stylesheet" href="/assets/styles.css">
-  <link rel="stylesheet" href="/assets/workspace.css">
-  <link rel="stylesheet" href="/assets/theme.css">
-  <link rel="stylesheet" href="/assets/responsive.css">
-  <link rel="stylesheet" href="/assets/v23.css">
-  <link rel="stylesheet" href="/assets/v231.css">
-  <link rel="stylesheet" href="/assets/v232.css">
-  <link rel="stylesheet" href="/assets/v233.css">
-  <script src="/assets/mobile.js" defer></script>
-  <script src="/assets/file_drop.js" defer></script>
+  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.3.5">
+  <link rel="stylesheet" href="/assets/styles.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/workspace.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/theme.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/responsive.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/v23.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/v231.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/v232.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/v233.css?v=2.3.5">
+  <link rel="stylesheet" href="/assets/v235.css?v=2.3.5">
+  <script src="/assets/mobile.js?v=2.3.5" defer></script>
+  <script src="/assets/file_drop.js?v=2.3.5" defer></script>
 </head>
 <body>
   <section id="login-screen" class="login-screen">
     <form id="login-form" class="login-card">
-      <img src="/assets/tec-mark.svg" width="64" height="64" alt="TEC">
+      <img src="/assets/tec-mark.svg?v=2.3.5" width="64" height="64" alt="TEC">
       <p class="eyebrow">TEC ConEst</p><h1>Your estimating workspace</h1>
       <p class="login-intro">Sign in to manage projects and build estimates.</p>
       <label>Username<input id="login-username" autocomplete="username" required maxlength="64" autofocus></label>
@@ -42,10 +43,10 @@
         <a class="nav-button" data-view="calendar" href="#/calendar"><span>▤</span> Calendar</a>
         <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
         <a class="nav-button" data-view="catalog" href="#/catalog"><span>⌕</span> Catalog</a>
-        <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light price check</a>
+        <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light Price</a>
         <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
-        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
         <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
+        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
       </nav>
       <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><strong id="account-name"></strong><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
@@ -66,7 +67,7 @@
           <div id="project-picker-wrap" class="project-picker-wrap hidden">
             <button id="project-picker-button" type="button" class="button secondary" aria-haspopup="listbox" aria-expanded="false" aria-controls="project-picker-menu"><span id="project-picker-label">Choose a project</span><span aria-hidden="true">&#9662;</span></button>
             <div id="project-picker-menu" class="project-picker-menu hidden">
-              <label class="project-picker-search">Find a project<input id="project-picker-search" type="search" autocomplete="off" placeholder="Name or client..."></label>
+              <label class="project-picker-search">Find a project<input id="project-picker-search" type="search" autocomplete="off" placeholder="Name or builder..."></label>
               <small class="helper-text">Most recently updated first</small>
               <div id="project-picker-options" class="project-picker-options" role="listbox" aria-label="Projects"></div>
             </div>
@@ -106,7 +107,7 @@
       <section id="calendar-view" class="view">
         <section class="panel calendar-panel">
           <div class="panel-heading"><div><p class="eyebrow">Submission deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-today" class="button secondary">Today</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
-          <p class="helper-text calendar-note">Select a project to view its brief. Deadlines are shown as calendar dates.</p>
+          <p class="helper-text calendar-note">Select a project to view its brief. Deadlines are shown as calendar dates. <span class="calendar-weekend-key">Saturday &amp; Sunday: weekend</span></p>
           <div id="calendar-summary" class="calendar-summary" aria-live="polite"></div>
           <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid" aria-label="Project deadline calendar"></div></div>
           <div id="calendar-agenda" class="calendar-agenda"></div>
@@ -163,7 +164,7 @@
           </div>
           <form id="project-settings-form" class="settings-grid compact">
             <label>Project name<input id="project-name" required></label>
-            <label>Client<input id="project-client"></label>
+            <label>Builders<textarea id="project-builders" rows="2" maxlength="20000" placeholder="Optional; one builder per line"></textarea></label>
             <label>Currency<input id="project-currency" maxlength="8"></label>
             <label>Material mark-up %<input id="project-material-markup" type="number" min="0" step="0.1"></label>
             <label>Labour rate / hr<input id="project-labour-rate" type="number" min="0" step="0.01"></label>
@@ -243,7 +244,7 @@
 
       <section class="view" id="light-prices-view">
 
-        <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light price check</h2></div><span id="light-price-count" class="pill"></span></div>
+        <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light Price</h2></div><span id="light-price-count" class="pill"></span></div>
           <p class="helper-text">Search by name, nickname, supplier, catalogue number or project. All prices are AUD excluding GST. Open a result here to see exactly which rows and totals make up its package price.</p>
           <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Name, nickname, cat no or project..." autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
 
@@ -308,8 +309,12 @@
     <form id="new-project-form" method="dialog" class="dialog-card">
       <div class="dialog-heading"><div><p class="eyebrow">New workspace</p><h2>Create estimate</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
       <label>Project name<input id="new-project-name" required placeholder="Project or tender name"></label>
-      <label>Client<input id="new-project-client" placeholder="Optional"></label>
-      <label>Scope of work<textarea id="new-project-scope" rows="4" maxlength="20000" placeholder="Describe the electrical works to be estimated"></textarea></label>
+      <label>Scope of Work<textarea id="new-project-scope" rows="4" maxlength="20000" placeholder="Describe the electrical works to be estimated"></textarea></label>
+      <fieldset id="new-project-builders" class="builder-editor" data-builder-editor>
+        <legend>Builders <span class="optional-label">(optional)</span></legend>
+        <div class="builder-rows" data-builder-rows></div>
+        <button class="button secondary small" type="button" data-builder-add>+ Add builder</button>
+      </fieldset>
       <label>Submission deadline<input id="new-project-deadline" type="date"></label>
       <p class="helper-text">User-created projects are automatically shared with their team and sent to the admin review queue. Admins can assign teams in Manage project.</p>
       <div class="dialog-actions"><button class="button secondary close-dialog" type="button">Cancel</button><button class="button primary" type="submit">Create project</button></div>
@@ -374,7 +379,12 @@
     <div class="dialog-card project-brief-card"><div class="dialog-heading"><div><p class="eyebrow" id="brief-client"></p><h2 id="brief-title"></h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
       <div id="brief-summary"></div>
       <form id="project-workflow-form" class="workflow-form">
-        <label>Scope of work<textarea id="brief-scope" rows="5" maxlength="20000"></textarea></label>
+        <label>Scope of Work<textarea id="brief-scope" rows="5" maxlength="20000"></textarea></label>
+      <fieldset id="brief-builders" class="builder-editor" data-builder-editor>
+        <legend>Builders <span class="optional-label">(optional)</span></legend>
+        <div class="builder-rows" data-builder-rows></div>
+        <button class="button secondary small" type="button" data-builder-add>+ Add builder</button>
+      </fieldset>
         <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="submitted">Submitted</option><option value="completed">Completed</option></select></label></div>
         <fieldset class="project-outcome-fieldset"><legend>Project result <small>(optional)</small></legend>
           <input id="brief-award-status" type="hidden" value="">
@@ -431,17 +441,18 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.js" defer></script>
-  <script src="/assets/workspace.js" defer></script>
-  <script src="/assets/productivity.js" defer></script>
-  <script src="/assets/estimate_workspace.js" defer></script>
-  <script src="/assets/navigation.js" defer></script>
-  <script src="/assets/help_chat.js" defer></script>
-  <script src="/assets/estimate_extras.js" defer></script>
-  <script src="/assets/light_prices.js" defer></script>
-  <script src="/assets/v23.js" defer></script>
-  <script src="/assets/profile.js" defer></script>
-  <script src="/assets/quotation_import.js" defer></script>
-  <script src="/assets/import_history.js" defer></script>
+  <script src="/assets/builders.js?v=2.3.5" defer></script>
+  <script src="/assets/app.js?v=2.3.5" defer></script>
+  <script src="/assets/workspace.js?v=2.3.5" defer></script>
+  <script src="/assets/productivity.js?v=2.3.5" defer></script>
+  <script src="/assets/estimate_workspace.js?v=2.3.5" defer></script>
+  <script src="/assets/navigation.js?v=2.3.5" defer></script>
+  <script src="/assets/help_chat.js?v=2.3.5" defer></script>
+  <script src="/assets/estimate_extras.js?v=2.3.5" defer></script>
+  <script src="/assets/light_prices.js?v=2.3.5" defer></script>
+  <script src="/assets/v23.js?v=2.3.5" defer></script>
+  <script src="/assets/profile.js?v=2.3.5" defer></script>
+  <script src="/assets/quotation_import.js?v=2.3.5" defer></script>
+  <script src="/assets/import_history.js?v=2.3.5" defer></script>
 </body>
 </html>
