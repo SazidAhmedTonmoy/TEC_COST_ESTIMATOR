@@ -1,27 +1,28 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script src="/assets/theme.js?v=2.3.5"></script>
+  <script src="/assets/theme.js?v=2.3.6"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.3.5">
-  <link rel="stylesheet" href="/assets/styles.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/workspace.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/theme.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/responsive.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/v23.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/v231.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/v232.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/v233.css?v=2.3.5">
-  <link rel="stylesheet" href="/assets/v235.css?v=2.3.5">
-  <script src="/assets/mobile.js?v=2.3.5" defer></script>
-  <script src="/assets/file_drop.js?v=2.3.5" defer></script>
+  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.3.6">
+  <link rel="stylesheet" href="/assets/styles.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/workspace.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/theme.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/responsive.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/v23.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/v231.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/v232.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/v233.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/v235.css?v=2.3.6">
+  <link rel="stylesheet" href="/assets/v236.css?v=2.3.6">
+  <script src="/assets/mobile.js?v=2.3.6" defer></script>
+  <script src="/assets/file_drop.js?v=2.3.6" defer></script>
 </head>
 <body>
   <section id="login-screen" class="login-screen">
     <form id="login-form" class="login-card">
-      <img src="/assets/tec-mark.svg?v=2.3.5" width="64" height="64" alt="TEC">
+      <img src="/assets/tec-mark.svg?v=2.3.6" width="64" height="64" alt="TEC">
       <p class="eyebrow">TEC ConEst</p><h1>Your estimating workspace</h1>
       <p class="login-intro">Sign in to manage projects and build estimates.</p>
       <label>Username<input id="login-username" autocomplete="username" required maxlength="64" autofocus></label>
@@ -46,8 +47,8 @@
         <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light Price</a>
         <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
         <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
-        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage users</a>
-        <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App settings</a>
+        <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage Users</a>
+        <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App Settings</a>
       </nav>
       <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><strong id="account-name"></strong><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
       <div class="sidebar-footer">
@@ -81,33 +82,29 @@
       </header>
 
       <section id="home-view" class="view active">
-        <div class="workspace-welcome"><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div><button id="refresh-home" class="button secondary">Refresh projects</button></div>
+        <div class="workspace-welcome"><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div></div>
         <div id="home-metrics" class="metric-grid home-metrics"></div>
         <div class="home-grid">
           <section class="panel portfolio-panel">
-            <div id="deadline-notifications" class="deadline-notifications" aria-live="polite"></div>
-            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Your project board</h2></div><input id="project-search" type="search" placeholder="Project, builder, estimator or team" aria-label="Search projects"></div>
+            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Your project board</h2></div><div class="project-board-tools"><input id="project-search" type="search" placeholder="Search projects, builders or people" aria-label="Search projects"><label class="project-view-label"><span>View</span><select id="project-view-style" aria-label="Project view style"><option value="cards">Cards</option><option value="list">List</option><option value="compact">Compact</option></select></label></div></div>
             <div class="project-tabs" id="project-tabs" role="group" aria-label="Filter projects">
               <button type="button" data-filter="all" class="active">All projects</button>
-              <button type="button" data-filter="new" class="admin-only">Newly added</button>
               <button type="button" data-filter="draft">Not started</button>
               <button type="button" data-filter="in_progress">In progress</button>
               <button type="button" data-filter="submitted">Submitted</button>
               <button type="button" class="user-only" data-filter="team">My team</button>
-              <button type="button" data-filter="mine">Created by me</button>
               <button type="button" data-filter="completed">Completed</button>
             </div>
             <div id="project-board" class="project-board"></div>
             <div id="portfolio-value" class="portfolio-value"></div>
           </section>
-          <aside class="panel deadline-panel"><div class="panel-heading"><div><p class="eyebrow">Keep on schedule</p><h2>Next deadlines</h2></div></div><div id="deadline-agenda"></div><a id="open-calendar" class="button secondary" href="#/calendar">Open calendar</a></aside>
+          <aside class="panel deadline-panel"><div class="panel-heading"><div><p class="eyebrow">Keep on Schedule</p><h2>Deadlines & reminders</h2></div></div><div id="deadline-agenda" aria-live="polite"></div><a id="open-calendar" class="button secondary" href="#/calendar">Open calendar</a></aside>
         </div>
       </section>
 
       <section id="calendar-view" class="view">
         <section class="panel calendar-panel">
-          <div class="panel-heading"><div><p class="eyebrow">Submission deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-today" class="button secondary">Today</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
-          <p class="helper-text calendar-note">Select a project to view its brief. Deadlines are shown as calendar dates. <span class="calendar-weekend-key">Saturday &amp; Sunday: weekend</span></p>
+          <div class="panel-heading"><div><p class="eyebrow">Submission deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
           <div id="calendar-summary" class="calendar-summary" aria-live="polite"></div>
           <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid" aria-label="Project deadline calendar"></div></div>
           <div id="calendar-agenda" class="calendar-agenda"></div>
@@ -115,7 +112,7 @@
       </section>
 
       <section id="users-view" class="view">
-        <div class="split-heading"><div><p class="eyebrow">Team administration</p><h2>People and access</h2><p>Create accounts, change roles and manage team membership. Admins have access to all projects.</p></div><button class="button primary" id="add-user">+ Add user</button></div>
+        <div class="split-heading"><div><p class="eyebrow">Team administration</p><h2>People and Access</h2><p>Create accounts, change roles and manage team membership. Admins have access to all projects.</p></div><button class="button primary" id="add-user">+ Add user</button></div>
         <section class="panel"><div class="table-scroll"><table class="data-table users-table"><thead><tr><th>Person</th><th>Username</th><th>Role</th><th>Team</th><th>Status</th><th>Actions</th></tr></thead><tbody id="user-rows"></tbody></table></div></section>
         <section class="panel teams-panel"><div class="panel-heading"><div><h2>Teams</h2><p class="helper-text">Each user belongs to one team. Team changes take effect immediately.</p></div><button class="button secondary" id="add-team">+ Add team</button></div><div id="team-cards" class="team-cards"></div></section>
       </section>
@@ -377,7 +374,7 @@
 
   <dialog id="project-brief-dialog" aria-labelledby="brief-title">
     <div class="dialog-card project-brief-card"><div class="dialog-heading"><div><p class="eyebrow" id="brief-client"></p><h2 id="brief-title"></h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
-      <div id="brief-summary"></div>
+      <div class="brief-overview"><div id="brief-summary"></div><a id="brief-open-estimate" class="button primary" href="#/estimate">Open Estimate</a></div>
       <form id="project-workflow-form" class="workflow-form">
         <label>Scope of Work<textarea id="brief-scope" rows="5" maxlength="20000"></textarea></label>
       <fieldset id="brief-builders" class="builder-editor" data-builder-editor>
@@ -392,7 +389,7 @@
           <p class="helper-text">Independent of project progress. Leave blank until the tender outcome is known. Use Save project to apply.</p>
         </fieldset>
         <fieldset id="project-access-fieldset" class="assignment-fieldset"><legend>Project access</legend><p class="helper-text">The owner and admins have full control. Assign teams or individual users to edit this project; everyone else remains read-only. Save project to apply.</p><div class="project-access-columns"><section><h4>Assign teams</h4><div id="assignment-options" class="access-options"></div></section><section><h4>Individual edit access</h4><input id="assignment-user-search" type="search" maxlength="120" placeholder="Search name, username or team..." aria-label="Search users to assign"><div id="individual-assignment-options" class="access-options"></div><p id="assignment-user-empty" class="helper-text hidden">No users match your search.</p></section></div><p class="helper-text">Individual access does not change a user's team or give permission to delete this project or manage its access.</p></fieldset>
-        <div class="dialog-actions"><button id="brief-delete" type="button" class="button secondary danger-text">Delete project</button><a id="brief-open-estimate" class="button secondary" href="#/estimate">Open estimate</a><button id="brief-save" type="submit" class="button primary">Save project</button></div>
+        <div class="dialog-actions"><button id="brief-delete" type="button" class="button secondary danger-text">Delete project</button><button id="brief-save" type="submit" class="button primary">Save project</button></div>
       </form>
       <section id="activity-section"><h3>Project activity</h3><p class="helper-text">Shows retained recorded updates. Use Load older updates to see earlier entries; unrecorded historical changes cannot be reconstructed.</p><div id="project-contributors" class="contributor-list"></div><h4>Activity history</h4><div id="project-activity"></div></section>
     </div>
@@ -441,18 +438,18 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/builders.js?v=2.3.5" defer></script>
-  <script src="/assets/app.js?v=2.3.5" defer></script>
-  <script src="/assets/workspace.js?v=2.3.5" defer></script>
-  <script src="/assets/productivity.js?v=2.3.5" defer></script>
-  <script src="/assets/estimate_workspace.js?v=2.3.5" defer></script>
-  <script src="/assets/navigation.js?v=2.3.5" defer></script>
-  <script src="/assets/help_chat.js?v=2.3.5" defer></script>
-  <script src="/assets/estimate_extras.js?v=2.3.5" defer></script>
-  <script src="/assets/light_prices.js?v=2.3.5" defer></script>
-  <script src="/assets/v23.js?v=2.3.5" defer></script>
-  <script src="/assets/profile.js?v=2.3.5" defer></script>
-  <script src="/assets/quotation_import.js?v=2.3.5" defer></script>
-  <script src="/assets/import_history.js?v=2.3.5" defer></script>
+  <script src="/assets/builders.js?v=2.3.6" defer></script>
+  <script src="/assets/app.js?v=2.3.6" defer></script>
+  <script src="/assets/workspace.js?v=2.3.6" defer></script>
+  <script src="/assets/productivity.js?v=2.3.6" defer></script>
+  <script src="/assets/estimate_workspace.js?v=2.3.6" defer></script>
+  <script src="/assets/navigation.js?v=2.3.6" defer></script>
+  <script src="/assets/help_chat.js?v=2.3.6" defer></script>
+  <script src="/assets/estimate_extras.js?v=2.3.6" defer></script>
+  <script src="/assets/light_prices.js?v=2.3.6" defer></script>
+  <script src="/assets/v23.js?v=2.3.6" defer></script>
+  <script src="/assets/profile.js?v=2.3.6" defer></script>
+  <script src="/assets/quotation_import.js?v=2.3.6" defer></script>
+  <script src="/assets/import_history.js?v=2.3.6" defer></script>
 </body>
 </html>

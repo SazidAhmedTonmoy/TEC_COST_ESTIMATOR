@@ -79,7 +79,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/2.3.5"
+    server_version = "TECConEst/2.3.6"
 
     def setup(self):
         super().setup()
@@ -213,7 +213,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/health":
                 with connect() as conn:
                     schema = conn.execute('SELECT version FROM schema_version').fetchone()[0]
-                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.3.5"})
+                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.3.6"})
                 return
             if path == '/api/light-prices':
                 from conest_app import light_prices

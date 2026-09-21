@@ -4,8 +4,8 @@ async function loadReminders(){
   const uid=state.user?.id,request=++productivityState.reminderRequest;
   const result=await api('/api/reminders');
   if(uid!==state.user?.id||request!==productivityState.reminderRequest)return;
-  const rows=result.reminders,unread=rows.filter(r=>!r.read).length;
-  $('#deadline-notifications').innerHTML=rows.length?`<details ${unread?'open':''}><summary>Deadline reminders · ${unread} new</summary>${rows.map(r=>`<div class="reminder ${r.stage==='overdue'?'overdue-text':''}"><button class="text-button" data-project-brief="${r.project_id}">${escapeHtml(r.name)}</button><span>${r.days<0?`${-r.days} days overdue`:r.days===0?'Due today':`Due in ${r.days} days`} · ${dateLabel(r.deadline)}</span>${r.read?'<small>Seen</small>':`<button class="button secondary small" data-read-reminder="${escapeHtml(r.key)}">Mark seen</button>`}</div>`).join('')}</details>`:'';
+  workspaceState.reminderRows=result.reminders;
+  renderSchedule();
 }
 function renderCollaboration(){
   const data=productivityState.presence,pid=state.projectId,box=$('#collaboration-status');

@@ -1,12 +1,4 @@
-# Current update: TEC ConEst (internal release 2.3.3)
-
-Use `UPGRADE_v2.3.3.md` for this code-only update. Project owners can assign teams and individual editors; Imports combines catalogue and supplier upload tools with searchable on-demand file history. Calendar cards and profile labels are updated. Existing company-wide read-only visibility, Help, photo replacement and estimate calculations remain. The database upgrades itself to schema 25; neither source package contains a database. Visible titles remain versionless. See `RELEASE_NOTES_v2.3.3.md` and `TEST_REPORT_v2.3.3.md`.
-
-The source-only and incremental packages do not include a database. Preserve your existing runtime database and server configuration. Current upgrade instructions take precedence over historical release instructions below.
-
----
-
-# TEC ConEst · v2.3
+# TEC ConEst · v2.3.6
 
 ### Electrical estimating, connected costs and team collaboration
 
@@ -22,6 +14,16 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 
 > [!IMPORTANT]
 > Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
+
+## Current release · v2.3.6
+
+A simpler project workspace with Cards, List and Compact views beside search. Each account remembers its view. Keep on Schedule combines upcoming deadlines and unread reminders in one place. Project cards emphasize status, deadline, value and Open Estimate; secondary details expand when needed.
+
+New Project is available only on Build Estimate. Redundant refresh controls and board tabs are removed, while Newly added badges remain. The Manage Project dialog puts Open Estimate beside its summary. Rounded cards, clearer spacing and responsive controls work with both themes.
+
+**Updating v2.3.5:** extract the changed-files ZIP into your existing app folder, replacing matching files. The full ZIP contains the complete application source. Both packages omit runtime data and Git history; keep your existing `data/` folder, server configuration and repository. Restart the app after updating. This release keeps database schema 25 and reports `2.3.6` at `/api/health`.
+
+Validation: run `node tests/workspace_v236.test.js` and the existing calendar tests. The new interface stylesheet is `assets/v236.css`. Historical release instructions below apply only to their named versions.
 
 ## v2.3 update
 
@@ -331,6 +333,9 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 | **v2.0** | Unifies supplier-price tables and all application data in conest_catalog.db; adds a backed-up, transactional legacy migration for deployed servers; all backups now include supplier records. |
 | **v2.1** | Mobile menu, stacked deadline reminders and labelled estimate cards; floating +/− category control; equal settings widths; no past deadlines for new projects; latest-one backup retention across app, script and deployment; balanced eight-column component editor; visible modal errors and clearer save confirmation; reorganized documentation; reset add quantity, drag-and-drop uploads, fixed component totals, and access-controlled project Help. |
 | **v2.2** | Moves Fixed total into each component’s expandable Specifications, factors & notes section; retains all previous estimating and data behavior. |
+
+| **v2.3–v2.3.5** | Monthly calendar totals, project outcomes and access, unified import history, profile and supplier photos, optional builders, and weekend calendar styling. |
+| **v2.3.6** | Simplified project board with three remembered views, integrated schedule reminders, estimate-only creation, clearer page titles and prominent Open Estimate access. |
 
 ## 7. Troubleshooting
 

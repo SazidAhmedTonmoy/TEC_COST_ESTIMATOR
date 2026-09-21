@@ -158,7 +158,7 @@ function setView(name, load = true, remember = true) {
   if(remember && typeof rememberPage==='function') rememberPage(name);
   $$(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
-  const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline calendar', users: 'Manage users', profile: 'My profile', estimate: "Build estimate", catalog: "Catalog Explorer", imports: "Imports", settings: "Application settings" };
+  const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline Calendar', users: 'Manage Users', profile: 'My profile', estimate: "Build Estimate", catalog: "Catalog Explorer", imports: "Imports", settings: "Application Settings" };
   $("#view-title").textContent = titles[name] || "TEC ConEst";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
@@ -168,7 +168,7 @@ function setView(name, load = true, remember = true) {
   $('#light-price-floating-search').classList.toggle('hidden', name !== 'light-prices');
   if(typeof closeProjectPicker==='function')closeProjectPicker();
   $('#delete-project-button').classList.toggle('hidden', name !== 'estimate');
-  $('#new-project-button').classList.toggle('hidden', Boolean(state.user?.must_change_password));
+  $('#new-project-button').classList.toggle('hidden', name !== 'estimate' || Boolean(state.user?.must_change_password));
   if (name === 'home') { renderHome(); if (load) loadDashboard().catch(error => toast(error.message,true)); }
   if (name === 'calendar') { renderCalendar(); if (load) loadDashboard().then(renderCalendar).catch(error => toast(error.message,true)); }
   if (name === 'profile') renderProfile();

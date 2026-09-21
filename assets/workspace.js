@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { filter: 'all', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', submitted: 'Submitted', completed: 'Completed' };
 
 function localDateKey(date = new Date()) {
@@ -16,7 +16,11 @@ function projectStatus(project) {
   return `<span class="project-status status-${escapeHtml(project.status)}">${escapeHtml(statusNames[project.status] || project.status)}</span>`;
 }
 function setAccount(user, token) {
+  const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
+  if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';
+    try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list','compact'].includes(saved))workspaceState.boardView=saved;}catch(_){}
+  }
   $$('.user-only').forEach(el=>el.classList.toggle('hidden',user.role==='admin'));
   if(user.role==='admin' && workspaceState.filter==='team') workspaceState.filter='all';
   $('#account-name').textContent = user.name;
@@ -71,37 +75,45 @@ function renderHome() {
   const projects = state.projects;
   $('#welcome-name').textContent = `Welcome, ${state.user.name}`;
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key && !inReviewQueue(p)).length,key]);
-  if (state.user.role==='admin') metrics.unshift(['Newly added',projects.filter(inReviewQueue).length,'new']);
+  const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key).length,key]);
   $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='submitted'?'Sent for review or approval':'Finished project archive'}</small></button>`).join('');
-  $('#home-metrics').classList.toggle('five-metrics',state.user.role==='admin');
+  $('#home-metrics').classList.remove('five-metrics');
   renderProjectBoard();
   if(typeof loadReminders==='function')loadReminders().catch(()=>{});
-  const due = projects.filter(p=>p.submission_deadline && isOpenProject(p)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
-  $('#deadline-agenda').innerHTML = due.length ? due.slice(0,8).map(p=>`<button class="deadline-item ${isOverdue(p)?'overdue':''}" type="button" data-project-brief="${p.id}"><span>${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span><strong>${escapeHtml(p.name)}</strong><small>${escapeHtml(teamNames(p))}</small></button>`).join('') : '<p class="board-empty">No pending deadlines. Add a deadline in Manage project.</p>';
+  renderSchedule();
   const values = new Map();
   projects.filter(p=>p.status!=='completed').forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.quoted||0)));
   $('#portfolio-value').textContent = values.size ? 'Active estimate value: '+[...values].map(([currency,value])=>`${currency} ${fmtMoney(value,currency)}`).join(' · ') : '';
 }
+function renderSchedule(){
+  const reminders=new Map(workspaceState.reminderRows.map(row=>[row.project_id,row]));
+  const due=state.projects.filter(p=>p.submission_deadline&&isOpenProject(p)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
+  const render=p=>{
+    const reminder=reminders.get(p.id),days=reminder?.days;
+    const timing=days===undefined?(isOverdue(p)?'Overdue':''):days<0?`${-days} day${days===-1?'':'s'} overdue`:days===0?'Due today':`Due in ${days} day${days===1?'':'s'}`;
+    return `<article class="schedule-item ${isOverdue(p)?'overdue':''}"><div class="schedule-date">${dateLabel(p.submission_deadline)}${reminder&&!reminder.read?'<span class="schedule-new">New</span>':''}</div><button type="button" class="text-button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button>${timing?`<small class="${isOverdue(p)?'overdue-text':''}">${timing}</small>`:''}${reminder&&!reminder.read?`<button type="button" class="schedule-seen text-button" data-read-reminder="${escapeHtml(reminder.key)}">Mark seen</button>`:''}</article>`;
+  };
+  $('#deadline-agenda').innerHTML=due.length?due.slice(0,5).map(render).join('')+(due.length>5?`<details class="schedule-more"><summary>${due.length-5} more deadlines</summary>${due.slice(5).map(render).join('')}</details>`:''):'<p class="board-empty">You’re up to date. No pending deadlines.</p>';
+}
 function renderProjectBoard() {
   const term = $('#project-search').value.trim().toLowerCase();
-  const filter = workspaceState.filter;
+  const filter = ['all','team',...Object.keys(statusNames)].includes(workspaceState.filter)?workspaceState.filter:'all';
+  workspaceState.filter=filter;
+  const board=$('#project-board');board.dataset.view=workspaceState.boardView;$('#project-view-style').value=workspaceState.boardView;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   const projects = state.projects.filter(p=>{
     if (!(p.name+' '+builderText(p)+' '+(p.created_by_name||'')+' '+teamNames(p)+' '+(p.contributors||[]).map(c=>c.name).join(' ')).toLowerCase().includes(term)) return false;
-    if (filter==='new') return inReviewQueue(p);
     if (filter==='team') return p.is_assigned;
-    if (filter==='mine') return p.is_owner;
-    if (statusNames[filter]) return p.status===filter && !inReviewQueue(p);
+    if (statusNames[filter]) return p.status===filter;
     return true;
   });
-  $('#project-board').innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
-    <div class="project-card-heading"><div><p>${escapeHtml(builderText(p, 'No builder assigned'))}</p><h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div>${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':projectStatus(p)}</div>
-    <p class="project-scope-excerpt">${escapeHtml(p.scope_of_work||'Add the Scope of Work in Manage project.')}</p>
-    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${inReviewQueue(p)?projectStatus(p):''}${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
-    <p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Existing project · creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p>
-    <div class="project-card-footer"><span>${p.line_count||0} items · ${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</span><div><button type="button" class="text-button" data-project-brief="${p.id}">${p.can_edit?'Manage project':'View project & activity'}</button><button class="text-button" type="button" data-copy-project="${p.id}">Copy</button><a class="button secondary small" href="#/estimate/${p.id}" data-open-project="${p.id}">${p.can_edit?'Open estimate':'View estimate'}</a></div></div>
-  </article>`).join('') : '<div class="board-empty"><h3>No projects here yet</h3><p>New projects are shared with your team automatically. A project owner or administrator can also assign your team or give you individual edit access.</p></div>';
+  board.innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
+    <div class="project-card-heading"><div>${builderText(p)?`<p>${escapeHtml(builderText(p))}</p>`:''}<h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div><div class="project-badges">${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':''}${projectStatus(p)}</div></div>
+    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
+    <div class="project-card-footer"><span>${p.line_count||0} items <strong>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</strong></span><a class="button primary small" href="#/estimate/${p.id}" data-open-project="${p.id}">Open Estimate</a></div>
+    <details class="project-more"><summary>Project details</summary>${p.scope_of_work?`<p class="project-scope-excerpt">${escapeHtml(p.scope_of_work)}</p>`:''}<p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p><div class="project-more-actions"><button type="button" class="button secondary small" data-project-brief="${p.id}">${p.can_edit?'Manage Project':'View Project'}</button><button class="button secondary small" type="button" data-copy-project="${p.id}">Copy Project</button></div></details>
+  </article>`).join('') : '<div class="board-empty"><h3>No matching projects</h3><p>Try a different search or status. Create a project from Build Estimate.</p></div>';
+
 }
 function renderGroupedEstimate(lines) {
   let category = null;
@@ -113,7 +125,7 @@ function renderGroupedEstimate(lines) {
   }).join('');
 }
 function renderEstimateBrief(project) {
-  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button><button class="button secondary" type="button" data-refresh-estimate="${project.id}">Refresh estimate</button></div>` : '';
+  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button></div>` : '';
 }
 async function reviewOpenedProject(project) {
   if (state.user.role==='admin' && project.needs_admin_review) {
@@ -464,12 +476,16 @@ function bindWorkspaceEvents() {
   $('#brief-delete').addEventListener('click',()=>deleteManagedProject().catch(error=>toast(error.message,true)));
   $('#add-user').addEventListener('click',()=>openUserEditor());
   $('#project-search').addEventListener('input',renderProjectBoard);
-  $('#refresh-home').addEventListener('click',()=>refreshBoard().catch(error=>toast(error.message,true)));
+  $('#project-view-style').addEventListener('change',event=>{
+    const value=event.target.value;if(!['cards','list','compact'].includes(value))return;
+    workspaceState.boardView=value;
+    try{localStorage.setItem('conest-project-view-'+state.user.id,value);}catch(_){}
+    renderProjectBoard();
+  });
   $('#open-calendar').addEventListener('click',event=>{if(event.currentTarget.tagName!=='A')setView('calendar');});
   $('#brief-open-estimate').addEventListener('click',event=>{ if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return; $('#project-brief-dialog').close(); if(event.currentTarget.tagName!=='A')openProject(workspaceState.briefId).catch(error=>toast(error.message,true)); });
   $('#calendar-prev').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()-1,1);renderCalendar();});
   $('#calendar-next').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()+1,1);renderCalendar();});
-  $('#calendar-today').addEventListener('click',()=>{workspaceState.month=new Date(new Date().getFullYear(),new Date().getMonth(),1);renderCalendar();});
   document.addEventListener('click',event=>{
     const older=event.target.closest('[data-older-activity]');
     if(older)loadOlderProjectActivity(older).catch(error=>toast(error.message,true));
