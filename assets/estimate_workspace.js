@@ -47,10 +47,8 @@ async function deleteSearchItem(id){
   await loadDashboard();toast('Catalog item deleted; saved estimates are preserved.');
 }
 async function copyProject(id){
-  const result=await api(`/api/projects/${id}`),project=result.project;
-  const name=prompt('Name for the copied project',`${project.name} — Copy`);if(!name?.trim())return;
-  const copy=await api(`/api/projects/${id}/copy`,{method:'POST',body:{name:name.trim(),expected_revision:project.revision}});
-  await loadDashboard();setView('estimate',false,false);await loadProject(copy.project.id);toast('Project copied. Set its new deadline in Manage project.');
+  const result=await api(`/api/projects/${Number(id)}`);
+  openProjectForm(result.project);
 }
 function moveId(ids,id,target,after){const result=ids.filter(x=>x!==id),at=result.indexOf(target);result.splice(at+(after?1:0),0,id);return result;}
 

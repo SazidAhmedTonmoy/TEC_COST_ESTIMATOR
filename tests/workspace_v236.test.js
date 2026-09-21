@@ -26,3 +26,13 @@ vm.runInContext('workspaceState.reminderRows[0].read=true;renderSchedule()',ctx)
 assert.doesNotMatch(element('#deadline-agenda').innerHTML,/Mark seen/);
 assert.match(element('#deadline-agenda').innerHTML,/New &lt;project>/);
 console.log('v2.3.6 workspace checks passed: status visibility, views, search, links, escaping and merged reminders.');
+
+element('#project-search').value='';
+vm.runInContext("workspaceState.filter='all';workspaceState.boardSort='name';renderProjectBoard()",ctx);
+assert.ok(element('#project-board').innerHTML.indexOf('Finished')<element('#project-board').innerHTML.indexOf('New &lt;project>'));
+vm.runInContext("workspaceState.boardSort='name-desc';renderProjectBoard()",ctx);
+assert.ok(element('#project-board').innerHTML.indexOf('Finished')>element('#project-board').innerHTML.indexOf('New &lt;project>'));
+ctx.state.projects[1].submission_deadline='';
+vm.runInContext("workspaceState.boardSort='deadline';renderProjectBoard()",ctx);
+assert.ok(element('#project-board').innerHTML.indexOf('Finished')>element('#project-board').innerHTML.indexOf('New &lt;project>'));
+console.log('Sort checks passed, including undated projects last.');

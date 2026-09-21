@@ -17,9 +17,9 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 
 ## Current release · v2.3.6
 
-A simpler project workspace with Cards, List and Compact views beside search. Each account remembers its view. Keep on Schedule combines upcoming deadlines and unread reminders in one place. Project cards emphasize status, deadline, value and Open Estimate; secondary details expand when needed.
+A simpler project workspace with Cards, List and Compact views beside search. Each account remembers its view and sort order. Explorer-style View and Sort controls offer name, deadline, creation and update ordering. Keep on Schedule combines upcoming deadlines and unread reminders in one place. Project cards emphasize status, deadline, value and Open Estimate; secondary details expand when needed.
 
-New Project is available only on Build Estimate. Redundant refresh controls and board tabs are removed, while Newly added badges remain. The Manage Project dialog puts Open Estimate beside its summary. Rounded cards, clearer spacing and responsive controls work with both themes.
+Copy Project opens an editable form with a blank deadline, preserving the source estimate’s items and rates. Import Files and My Profile use consistent labels, and the team refresh control is removed. New Project is available only on Build Estimate. Redundant refresh controls and board tabs are removed, while Newly added badges remain. The Manage Project dialog puts Open Estimate beside its summary. Rounded cards, clearer spacing and responsive controls work with both themes.
 
 **Updating v2.3.5:** extract the changed-files ZIP into your existing app folder, replacing matching files. The full ZIP contains the complete application source. Both packages omit runtime data and Git history; keep your existing `data/` folder, server configuration and repository. Restart the app after updating. This release keeps database schema 25 and reports `2.3.6` at `/api/health`.
 

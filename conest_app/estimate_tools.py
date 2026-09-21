@@ -74,9 +74,14 @@ def copy_project(conn,pid,user,payload):
     source=require_project(conn,pid,user,'view');check_revision(source,payload)
     name=clean_text(payload.get('name') or source['name']+' — Copy')
     if not name or len(name)>500:raise ValueError('Project name must be 1–500 characters')
-    new=create_project(conn,{**dict(source),'name':name})['project']['id']
+    deadline=payload.get('submission_deadline') or ''
+    scope=payload.get('scope_of_work',source['scope_of_work'])
+    if not isinstance(scope,str) or len(scope)>20000:raise ValueError('Scope of Work must be text of up to 20,000 characters')
+    details={**dict(source),'name':name,'submission_deadline':deadline}
+    if 'builders' in payload:details['builders']=payload['builders']
+    new=create_project(conn,details)['project']['id']
     register_project(conn,new,user)
-    conn.execute('UPDATE projects SET scope_of_work=?,scope_order=?,crew_size=?,hours_per_day=? WHERE id=?',(source['scope_of_work'],source['scope_order'],source['crew_size'],source['hours_per_day'],new))
+    conn.execute('UPDATE projects SET scope_of_work=?,scope_order=?,crew_size=?,hours_per_day=?,submission_deadline=? WHERE id=?',(scope,source['scope_order'],source['crew_size'],source['hours_per_day'],deadline,new))
     for line in conn.execute('SELECT * FROM project_lines WHERE project_id=? ORDER BY sort_order,id',(pid,)).fetchall():
         new_line=insert_copy(conn,'project_lines',line,{'project_id':new,'revision':0,'created_at':utc_now(),'updated_at':utc_now()})
         for row in conn.execute('SELECT * FROM project_line_components WHERE project_line_id=?',(line['id'],)).fetchall():

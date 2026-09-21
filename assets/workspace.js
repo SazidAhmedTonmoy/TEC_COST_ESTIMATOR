@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', boardSort: 'recent', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', submitted: 'Submitted', completed: 'Completed' };
 
 function localDateKey(date = new Date()) {
@@ -18,7 +18,8 @@ function projectStatus(project) {
 function setAccount(user, token) {
   const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
-  if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';
+  if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='recent';
+    try{const saved=localStorage.getItem('conest-project-sort-'+user.id);if(['recent','name','name-desc','deadline','newest'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
     try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list','compact'].includes(saved))workspaceState.boardView=saved;}catch(_){}
   }
   $$('.user-only').forEach(el=>el.classList.toggle('hidden',user.role==='admin'));
@@ -106,6 +107,14 @@ function renderProjectBoard() {
     if (filter==='team') return p.is_assigned;
     if (statusNames[filter]) return p.status===filter;
     return true;
+  });
+  const sort=workspaceState.boardSort;
+  $('#project-sort').value=sort;
+  projects.sort((a,b)=>{
+    if(sort==='name'||sort==='name-desc')return (sort==='name'?1:-1)*a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});
+    if(sort==='deadline')return (a.submission_deadline||'9999').localeCompare(b.submission_deadline||'9999')||a.name.localeCompare(b.name);
+    const key=sort==='newest'?'created_at':'updated_at';
+    return (b[key]||'').localeCompare(a[key]||'')||b.id-a.id;
   });
   board.innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
     <div class="project-card-heading"><div>${builderText(p)?`<p>${escapeHtml(builderText(p))}</p>`:''}<h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div><div class="project-badges">${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':''}${projectStatus(p)}</div></div>
@@ -443,7 +452,7 @@ function bindWorkspaceEvents() {
     } catch(_) {} finally {workspaceState.notesSyncBusy=false;}
   },15000);
   setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden)refreshReadOnlyBrief().catch(()=>{});},15000);
-  $('#refresh-my-team').addEventListener('click',()=>loadMyTeam().catch(error=>toast(error.message,true)));
+
   $('#notes-form').addEventListener('submit',event=>submitWithButton(event,saveProjectNote));
   $('#refresh-notes').addEventListener('click',()=>loadProjectNotes().catch(error=>toast(error.message,true)));
   setInterval(()=>{
@@ -476,6 +485,12 @@ function bindWorkspaceEvents() {
   $('#brief-delete').addEventListener('click',()=>deleteManagedProject().catch(error=>toast(error.message,true)));
   $('#add-user').addEventListener('click',()=>openUserEditor());
   $('#project-search').addEventListener('input',renderProjectBoard);
+  $('#project-sort').addEventListener('change',event=>{
+    const value=event.target.value;if(!['recent','name','name-desc','deadline','newest'].includes(value))return;
+    workspaceState.boardSort=value;
+    try{localStorage.setItem('conest-project-sort-'+state.user.id,value);}catch(_){}
+    renderProjectBoard();
+  });
   $('#project-view-style').addEventListener('change',event=>{
     const value=event.target.value;if(!['cards','list','compact'].includes(value))return;
     workspaceState.boardView=value;

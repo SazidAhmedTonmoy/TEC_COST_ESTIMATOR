@@ -158,7 +158,7 @@ function setView(name, load = true, remember = true) {
   if(remember && typeof rememberPage==='function') rememberPage(name);
   $$(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
-  const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline Calendar', users: 'Manage Users', profile: 'My profile', estimate: "Build Estimate", catalog: "Catalog Explorer", imports: "Imports", settings: "Application Settings" };
+  const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline Calendar', users: 'Manage Users', profile: 'My Profile', estimate: "Build Estimate", catalog: "Catalog Explorer", imports: "Import Files", settings: "Application Settings" };
   $("#view-title").textContent = titles[name] || "TEC ConEst";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
@@ -597,6 +597,19 @@ async function saveProjectSettings(event) {
   toast("Project rates updated; all totals recalculated");
 }
 
+let projectCopySource=null;
+function openProjectForm(source=null){
+  projectCopySource=source;
+  $('#new-project-form').reset();
+  $('#new-project-name').value=source?`${source.name} — Copy`:'';
+  $('#new-project-scope').value=source?.scope_of_work||'';
+  renderBuilderEditor('new-project-builders',source?projectBuilders(source):[]);
+  $('#new-project-deadline').min=localDateKey();
+  $('#new-project-deadline').value='';
+  $('#project-form-title').textContent=source?'Copy Estimate':'Create Estimate';
+  $('#project-form-submit').textContent=source?'Create copy':'Create project';
+  $('#project-dialog').showModal();
+}
 async function createNewProject(event) {
   event.preventDefault();
   const settings = state.appSettings || await loadSettings(false);
@@ -612,13 +625,19 @@ async function createNewProject(event) {
     hours_per_day: Number(settings.default_hours_per_day || 8),
     overhead_markup: Number(settings.default_overhead_markup || .10),
   };
-  const result = await api("/api/projects", { method: "POST", body: payload });
+  const source=projectCopySource;
+  const result = await api(source?`/api/projects/${source.id}/copy`:"/api/projects", { method: "POST", body: source?{
+    name:payload.name,builders:payload.builders,scope_of_work:payload.scope_of_work,
+    submission_deadline:payload.submission_deadline,expected_revision:source.revision
+  }:payload });
+  projectCopySource=null;
   state.projectId = result.project.id;
   $("#project-dialog").close();
   $("#new-project-form").reset();
   renderBuilderEditor("new-project-builders", []);
   await loadDashboard();
   setView('estimate', false);
+  if(source){await loadProject(result.project.id);toast('Project copied');return;}
   toast(state.user.role==='user' && state.user.team_id ? "Project created and shared with your team" : "New estimate created");
 }
 
@@ -1148,10 +1167,7 @@ function bindEvents() {
     $("#quick-search-dialog").close();
     openManualDialog(true, null, false, null, Number($("#quick-search-quantity").value || 1));
   });
-  $("#new-project-button").addEventListener("click", () => {
-    const now=new Date(),today=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    $('#new-project-deadline').min=today;$('#project-dialog').showModal();
-  });
+  $("#new-project-button").addEventListener("click", () => openProjectForm());
   $("#new-project-form").addEventListener("submit", (event) => submitWithButton(event, () => createNewProject(event)));
   $$(".close-dialog").forEach((button) => button.addEventListener("click", () => {
     if (button.closest("dialog").id === "manual-dialog" && state.manualSaving) return;

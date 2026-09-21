@@ -1,28 +1,28 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script src="/assets/theme.js?v=2.3.6"></script>
+  <script src="/assets/theme.js?v=2.3.6-r2"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.3.6">
-  <link rel="stylesheet" href="/assets/styles.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/workspace.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/theme.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/responsive.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/v23.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/v231.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/v232.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/v233.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/v235.css?v=2.3.6">
-  <link rel="stylesheet" href="/assets/v236.css?v=2.3.6">
-  <script src="/assets/mobile.js?v=2.3.6" defer></script>
-  <script src="/assets/file_drop.js?v=2.3.6" defer></script>
+  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/styles.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/workspace.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/theme.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/responsive.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/v23.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/v231.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/v232.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/v233.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/v235.css?v=2.3.6-r2">
+  <link rel="stylesheet" href="/assets/v236.css?v=2.3.6-r2">
+  <script src="/assets/mobile.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/file_drop.js?v=2.3.6-r2" defer></script>
 </head>
 <body>
   <section id="login-screen" class="login-screen">
     <form id="login-form" class="login-card">
-      <img src="/assets/tec-mark.svg?v=2.3.6" width="64" height="64" alt="TEC">
+      <img src="/assets/tec-mark.svg?v=2.3.6-r2" width="64" height="64" alt="TEC">
       <p class="eyebrow">TEC ConEst</p><h1>Your estimating workspace</h1>
       <p class="login-intro">Sign in to manage projects and build estimates.</p>
       <label>Username<input id="login-username" autocomplete="username" required maxlength="64" autofocus></label>
@@ -45,8 +45,8 @@
         <a class="nav-button" data-view="estimate" href="#/estimate"><span>▦</span> Estimate</a>
         <a class="nav-button" data-view="catalog" href="#/catalog"><span>⌕</span> Catalog</a>
         <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light Price</a>
-        <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Imports</a>
-        <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My profile</a>
+        <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Import</a>
+        <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My Profile</a>
         <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage Users</a>
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App Settings</a>
       </nav>
@@ -86,7 +86,7 @@
         <div id="home-metrics" class="metric-grid home-metrics"></div>
         <div class="home-grid">
           <section class="panel portfolio-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Your project board</h2></div><div class="project-board-tools"><input id="project-search" type="search" placeholder="Search projects, builders or people" aria-label="Search projects"><label class="project-view-label"><span>View</span><select id="project-view-style" aria-label="Project view style"><option value="cards">Cards</option><option value="list">List</option><option value="compact">Compact</option></select></label></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Your project board</h2></div><div class="project-board-tools"><input id="project-search" type="search" placeholder="Search projects, builders or people" aria-label="Search projects"><label class="project-sort-label" title="Sort projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><select id="project-sort" aria-label="Sort projects"><option value="recent">Sort: Latest updated</option><option value="name">Sort: Name A–Z</option><option value="name-desc">Sort: Name Z–A</option><option value="deadline">Sort: Deadline</option><option value="newest">Sort: Newest created</option></select></label><label class="project-view-label" title="Project view"><span>View</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg><select id="project-view-style" aria-label="Project view style"><option value="cards">Cards</option><option value="list">List</option><option value="compact">Compact</option></select></label></div></div>
             <div class="project-tabs" id="project-tabs" role="group" aria-label="Filter projects">
               <button type="button" data-filter="all" class="active">All projects</button>
               <button type="button" data-filter="draft">Not started</button>
@@ -118,7 +118,7 @@
       </section>
 
       <section id="profile-view" class="view">
-        <section class="panel profile-panel"><div class="panel-heading"><div><p class="eyebrow">Your account</p><h2>My profile</h2></div></div>
+        <section class="panel profile-panel"><div class="panel-heading"><div><p class="eyebrow">Your account</p><h2>My Profile</h2></div></div>
           <p id="password-setup-note" class="setup-note hidden">Choose a new password to finish setting up your account. Enter your starter password as the current password.</p>
           <form id="profile-form" class="settings-grid">
             <div id="profile-photo-area" class="profile-photo-area span-full">
@@ -141,7 +141,7 @@
             <div class="form-actions span-full"><button class="button primary" type="submit">Save profile</button></div>
           </form>
         </section>
-        <section class="panel profile-panel profile-team-panel"><div class="panel-heading"><div><p class="eyebrow">Your colleagues</p><h2 id="profile-team-title">My team</h2></div><button class="button secondary" id="refresh-my-team">Refresh team</button></div><div id="my-team-details"></div></section>
+        <section class="panel profile-panel profile-team-panel"><div class="panel-heading"><div><p class="eyebrow">Your colleagues</p><h2 id="profile-team-title">My team</h2></div></div><div id="my-team-details"></div></section>
       </section>
 
       <section id="estimate-view" class="view">
@@ -304,7 +304,7 @@
 
   <dialog id="project-dialog">
     <form id="new-project-form" method="dialog" class="dialog-card">
-      <div class="dialog-heading"><div><p class="eyebrow">New workspace</p><h2>Create estimate</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+      <div class="dialog-heading"><div><p class="eyebrow">New workspace</p><h2 id="project-form-title">Create Estimate</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
       <label>Project name<input id="new-project-name" required placeholder="Project or tender name"></label>
       <label>Scope of Work<textarea id="new-project-scope" rows="4" maxlength="20000" placeholder="Describe the electrical works to be estimated"></textarea></label>
       <fieldset id="new-project-builders" class="builder-editor" data-builder-editor>
@@ -314,7 +314,7 @@
       </fieldset>
       <label>Submission deadline<input id="new-project-deadline" type="date"></label>
       <p class="helper-text">User-created projects are automatically shared with their team and sent to the admin review queue. Admins can assign teams in Manage project.</p>
-      <div class="dialog-actions"><button class="button secondary close-dialog" type="button">Cancel</button><button class="button primary" type="submit">Create project</button></div>
+      <div class="dialog-actions"><button class="button secondary close-dialog" type="button">Cancel</button><button class="button primary" type="submit" id="project-form-submit">Create project</button></div>
     </form>
   </dialog>
 
@@ -438,18 +438,18 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/builders.js?v=2.3.6" defer></script>
-  <script src="/assets/app.js?v=2.3.6" defer></script>
-  <script src="/assets/workspace.js?v=2.3.6" defer></script>
-  <script src="/assets/productivity.js?v=2.3.6" defer></script>
-  <script src="/assets/estimate_workspace.js?v=2.3.6" defer></script>
-  <script src="/assets/navigation.js?v=2.3.6" defer></script>
-  <script src="/assets/help_chat.js?v=2.3.6" defer></script>
-  <script src="/assets/estimate_extras.js?v=2.3.6" defer></script>
-  <script src="/assets/light_prices.js?v=2.3.6" defer></script>
-  <script src="/assets/v23.js?v=2.3.6" defer></script>
-  <script src="/assets/profile.js?v=2.3.6" defer></script>
-  <script src="/assets/quotation_import.js?v=2.3.6" defer></script>
-  <script src="/assets/import_history.js?v=2.3.6" defer></script>
+  <script src="/assets/builders.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/app.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/workspace.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/productivity.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/estimate_workspace.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/navigation.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/help_chat.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/estimate_extras.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/light_prices.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/v23.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/profile.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/quotation_import.js?v=2.3.6-r2" defer></script>
+  <script src="/assets/import_history.js?v=2.3.6-r2" defer></script>
 </body>
 </html>
