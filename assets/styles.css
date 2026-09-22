@@ -1908,3 +1908,6 @@ input,select,textarea{border-radius:11px}
 #metric-person-days{font-weight:700}
 #project-settings-form{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:700px){#project-settings-form{grid-template-columns:minmax(0,1fr)}}
+
+#app-settings-form{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:700px){#app-settings-form{grid-template-columns:minmax(0,1fr)}}

@@ -570,9 +570,12 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/settings":
                 allowed = {
                     "default_material_markup", "default_labor_rate", "default_overhead_markup",
+                    "default_labor_hours_markup", "default_save_mode",
                     "currency", "llm_model", "llm_enabled", "default_crew_size", "default_hours_per_day"
                 }
                 values = {key: value for key, value in payload.items() if key in allowed}
+                if "default_save_mode" in values and values["default_save_mode"] not in ("estimate", "update", "new"):
+                    raise ValueError("Choose a valid default save destination")
                 from conest_app.projects import crew_plan
                 if 'default_crew_size' in values or 'default_hours_per_day' in values:
                     crew,hours=crew_plan({'crew_size':values.get('default_crew_size',2),'hours_per_day':values.get('default_hours_per_day',8)})

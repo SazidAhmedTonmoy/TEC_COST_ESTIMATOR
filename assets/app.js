@@ -800,7 +800,7 @@ function openManualDialog(addToEstimate = false, sourceItem = null, editExisting
   $('#manual-assembly-size').value=sourceItem?.assembly_size || '';
   $('#manual-save-mode-label').classList.toggle('hidden',!addToEstimate||!sourceItem);
   $('#manual-save-mode').innerHTML=(sourceItem?'<option value="estimate">Save this estimate only</option>':'')+(sourceItem?.id?'<option value="update">Update existing catalog item</option>':'')+'<option value="new">Save as a new catalog item</option>';
-  $('#manual-save-mode').value=addToEstimate && sourceItem ? 'estimate' : 'new';
+  $('#manual-save-mode').value=defaultSaveMode(addToEstimate, sourceItem);
   $("#manual-description").value = sourceItem?.description || "";
   $("#manual-uom").value = sourceItem?.base_uom || "EA";
   state.manualBaseUom = $("#manual-uom").value;
@@ -1029,10 +1029,17 @@ async function importWorkbook(event) {
   }
 }
 
+function defaultSaveMode(addToEstimate, sourceItem) {
+  if (!addToEstimate || !sourceItem) return 'new';
+  const preferred=state.appSettings?.default_save_mode || 'estimate';
+  return ['estimate','new'].includes(preferred) || (preferred==='update' && sourceItem.id) ? preferred : 'estimate';
+}
+
 async function loadSettings(render = true) {
   const result = await api("/api/settings");
   state.appSettings = result.settings;
   if (render) {
+    $("#default-save-mode").value=result.settings.default_save_mode || "estimate";
     $("#default-hours-markup").value=Number(result.settings.default_labor_hours_markup||0)*100;
     $("#default-material-markup").value = Number(result.settings.default_material_markup || .15) * 100;
     $("#default-labour-rate").value = result.settings.default_labor_rate || 120;
@@ -1064,6 +1071,7 @@ async function loadSettings(render = true) {
 async function saveSettings(event) {
   event.preventDefault();
   const payload = {
+    default_save_mode: $("#default-save-mode").value,
     default_labor_hours_markup: Number($("#default-hours-markup").value || 0) / 100,
     default_material_markup: Number($("#default-material-markup").value || 0) / 100,
     default_labor_rate: Number($("#default-labour-rate").value || 0),

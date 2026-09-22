@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import io
+import gzip
+from wsgiref.util import is_hop_by_hop
 import os
 import sys
 import threading
@@ -95,10 +97,13 @@ def _request_bytes(environ):
     host = environ.get('HTTP_HOST') or environ.get('SERVER_NAME') or 'tec-const.ampecportal.com'
     headers.append(('Host', host))
 
+    connection_tokens={v.strip().lower() for v in environ.get('HTTP_CONNECTION','').split(',')}
     for key, value in environ.items():
         if not key.startswith('HTTP_') or key == 'HTTP_HOST':
             continue
         name = key[5:].replace('_', '-').title()
+        if is_hop_by_hop(name) or name.lower() in connection_tokens:
+            continue
         headers.append((name, str(value)))
 
     if environ.get('CONTENT_TYPE'):
@@ -147,18 +152,61 @@ def application(environ, start_response):
     parts = status_line.split(' ', 2)
     status = (parts[1] + ' ' + (parts[2] if len(parts) > 2 else '')).strip()
 
-    response_headers = []
+    parsed_headers = []
     for line in lines[1:]:
         if b':' not in line:
             continue
         name, value = line.split(b':', 1)
-        header_name = name.decode('latin-1').strip()
-        if header_name.lower() in {'connection', 'transfer-encoding'}:
-            continue
-        response_headers.append((header_name, value.decode('latin-1').strip()))
-
+        parsed_headers.append((name.decode('latin-1').strip(), value.decode('latin-1').strip()))
+    status_code = int(parts[1])
+    response_headers, body = prepare_response(environ, status_code, parsed_headers, body)
+    response_headers.append(('X-ConEst-Adapter','2.4-r4'))
     response_headers.append(('Server-Timing',f'app;dur={(time.perf_counter()-started)*1000:.1f}'))
     start_response(status, response_headers)
     if environ.get('REQUEST_METHOD', 'GET').upper() == 'HEAD':
         return [b'']
     return [body]
+
+
+def accepts_gzip(value):
+    accepted = {}
+    for entry in value.lower().split(','):
+        coding, *parameters = entry.strip().split(';')
+        quality = 1.0
+        for parameter in parameters:
+            key, sep, raw = parameter.strip().partition('=')
+            if key == 'q' and sep:
+                try: quality = float(raw)
+                except ValueError: quality = 0.0
+        accepted[coding] = quality
+    return accepted.get('gzip', accepted.get('*', 0)) > 0
+
+
+def prepare_response(environ, status, headers, body):
+    # Passenger owns HTTP transport. Never forward hop-by-hop headers or a
+    # stale body length from the internal HTTP/1.1 adapter to the web server.
+    connection_tokens={token.strip().lower() for name,value in headers
+                       if name.lower()=='connection' for token in value.split(',')}
+    headers=[(name,value) for name,value in headers
+             if not is_hop_by_hop(name) and name.lower() not in connection_tokens
+             and name.lower() not in {'content-length','status'}]
+    metadata={name.lower():value for name,value in headers}
+    path=environ.get('PATH_INFO','')
+    eligible=(status==200 and environ.get('REQUEST_METHOD','GET').upper() in {'GET','HEAD'}
+              and (path.startswith('/api/projects/') or path.startswith('/api/catalog/'))
+              and metadata.get('content-type','').startswith('application/json')
+              and 'content-encoding' not in metadata and len(body)>=2048)
+    if eligible:
+        vary={v.strip().lower() for v in metadata.get('vary','').split(',') if v.strip()}
+        if '*' not in vary and 'accept-encoding' not in vary:
+            headers.append(('Vary','Accept-Encoding'))
+        if accepts_gzip(environ.get('HTTP_ACCEPT_ENCODING','')):
+            compressed=gzip.compress(body,compresslevel=4,mtime=0)
+            if len(compressed)<len(body):
+                body=compressed
+                headers.append(('Content-Encoding','gzip'))
+    if status in (204,304) or 100<=status<200:
+        body=b''
+    else:
+        headers.append(('Content-Length',str(len(body))))
+    return headers,body

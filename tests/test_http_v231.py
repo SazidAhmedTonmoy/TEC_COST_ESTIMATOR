@@ -68,6 +68,20 @@ class HttpPatchTests(unittest.TestCase):
             return status,data
         finally:client.close()
 
+    def test_app_defaults_save_destination_and_hours_markup(self):
+        status,result=self.request('GET','/api/settings')
+        self.assertEqual(result['settings']['default_save_mode'],'estimate')
+        for mode in ('update','new','estimate'):
+            status,result=self.request('PATCH','/api/settings',{'default_save_mode':mode,'default_labor_hours_markup':.125})
+            self.assertEqual(status,200,result)
+            status,result=self.request('GET','/api/settings')
+            self.assertEqual(result['settings']['default_save_mode'],mode)
+            self.assertEqual(float(result['settings']['default_labor_hours_markup']),.125)
+        status,result=self.request('PATCH','/api/settings',{'default_save_mode':'invalid'})
+        self.assertEqual(status,400)
+        status,result=self.request('PATCH','/api/settings',{'default_labor_hours_markup':-1})
+        self.assertEqual(status,400)
+
     def upload(self,filename='tle_standard.pdf',content=None,path='/api/light-prices/preview'):
         boundary='----test-fixture-boundary-231'
         content=content if content is not None else (FIXTURES/filename).read_bytes()

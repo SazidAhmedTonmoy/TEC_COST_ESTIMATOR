@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.e238982fdbcf.css">
+  <link rel="stylesheet" href="/assets/styles.40dc534e95db.css">
 </head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -259,13 +259,14 @@
         <div class="split-heading"><div><p class="eyebrow">Application defaults</p><h2>Settings</h2><p>These values are used when a new estimate is created. Each project can override them.</p></div></div>
         <section class="panel settings-panel">
           <form id="app-settings-form" class="settings-grid">
-            <label>Default material mark-up %<input id="default-material-markup" type="number" min="0" step="0.1"></label>
-            <label>Default labour hour mark-up %<input id="default-hours-markup" type="number" min="0" max="10000" step="0.1" value="0"></label>
             <label>Default labour rate / hr<input id="default-labour-rate" type="number" min="0" step="0.01"></label>
-            <label>Default final mark-up %<input id="default-overhead-markup" type="number" min="0" step="0.1"></label>
-            <label>Default currency<input id="default-currency" maxlength="8"></label>
             <label>Default hours / person / day<input id="default-hours-per-day" type="number" min="0.01" max="24" step="0.01" required></label>
             <label>Default crew size<input id="default-crew-size" type="number" min="1" max="5000" step="1" required></label>
+            <label>Default material mark-up %<input id="default-material-markup" type="number" min="0" step="0.1"></label>
+            <label>Default labour hour mark-up %<input id="default-hours-markup" type="number" min="0" max="10000" step="0.1" value="0"></label>
+            <label>Default final mark-up %<input id="default-overhead-markup" type="number" min="0" step="0.1"></label>
+            <label>Default currency<input id="default-currency" maxlength="8"></label>
+            <label>Save changes to<select id="default-save-mode"><option value="estimate">Save this estimate only</option><option value="update">Update existing catalog item</option><option value="new">Save as a new catalog item</option></select></label>
 
             <div class="ai-settings-card span-full">
               <div class="ai-settings-heading">
@@ -429,6 +430,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.49c4306bbc61.js" defer></script>
+  <script src="/assets/app.4b8f1b3646fb.js" defer></script>
 </body>
 </html>

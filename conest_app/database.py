@@ -252,6 +252,7 @@ DEFAULT_SETTINGS = {
     "default_hours_per_day": "8",
     "default_labor_rate": "120",
     "default_labor_hours_markup": "0",
+    "default_save_mode": "estimate",
     "default_overhead_markup": "0.10",
     "currency": "AUD",
     "llm_provider": "gemini",
@@ -467,6 +468,7 @@ def _initialize_schema(path: str | Path | None = None) -> Path:
 
 def get_settings(conn: sqlite3.Connection, include_secrets: bool = False) -> dict[str, str]:
     settings = {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM settings")}
+    settings.setdefault("default_save_mode", "estimate")
     if not include_secrets:
         for key in SECRET_SETTING_KEYS:
             settings.pop(key, None)

@@ -17,6 +17,10 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 
 ## Current release · v2.4
 
+Latest update (r4): App Settings now controls the default “Save changes to” destination: estimate only (initial default), update catalog, or new catalog item. The dialog still lets the user override it, and falls back safely when no original catalog item exists. Defaults use the requested three-row order. The server now accepts and persists default labour-hour markup; the previous settings allowlist inadvertently omitted it.
+
+The r4 Passenger adapter compresses large GET project/catalog JSON when the browser accepts gzip, maintains the actual transmitted Content-Length, and strips connection-specific transport headers before returning to Passenger. Responses include `X-ConEst-Adapter: 2.4-r4` and `Server-Timing`. Replace passenger_wsgi.py in cPanel and restart Passenger; the deployment workflow intentionally preserves that file. These measures reduce transfers and prevent forwarding invalid transport headers, but do not establish or fix every possible Apache, network or browser-extension cause of HTTP/2 resets. No production performance result is claimed. No additional schema migration is required for the new default.
+
 Labour hour mark-up is stored as a fraction (10% = 0.1). Adjusted hourly labour = base hours × (1 + labour-hour markup). Labour cost, person-days, crew working days and quoted totals use adjusted hours; fixed labour prices are unaffected. Excel exposes the linked control in COST ESTIMATE!F7. Application Settings supplies the default for new projects. Existing project values default to zero.
 
 The browser loads one CSS bundle and one deferred application bundle, with content-based filenames. Edit the source JS files or assets/styles.css, then run `python tools/build_frontend.py` before deployment. Old version-specific CSS files have been consolidated. Required historical database migrations remain. assets/.htaccess enables long-lived caching and compression when Apache serves assets directly; the Python server also caches fingerprinted bundles.
