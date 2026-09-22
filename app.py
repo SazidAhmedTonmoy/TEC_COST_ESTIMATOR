@@ -125,7 +125,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quoted}")
         else:
             # Only versioned public assets are cached; HTML and exports stay fresh.
-            versioned_asset = path.parent == ASSETS and path.suffix != '.html' and 'v=2.4' in self.path
+            versioned_asset = path.parent == ASSETS and path.suffix != '.html' and ('v=2.4' in self.path or re.fullmatch(r'(?:app|styles|theme)\.[a-f0-9]{12}\.(?:js|css)', path.name))
             self.send_header("Cache-Control", "public, max-age=31536000, immutable" if versioned_asset else "no-cache")
         self._security_headers()
         self.end_headers()
@@ -287,6 +287,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         category=category,
                         include_incomplete=include_incomplete,
                         group_variants=group_variants,
+                        recent_first=query.get("recent_first", ["0"])[0] == "1",
                     )
                 self._send_json({"success": True, "query": term, "results": results})
                 return
@@ -577,6 +578,9 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     crew,hours=crew_plan({'crew_size':values.get('default_crew_size',2),'hours_per_day':values.get('default_hours_per_day',8)})
                     if 'default_crew_size' in values:values['default_crew_size']=crew
                     if 'default_hours_per_day' in values:values['default_hours_per_day']=hours
+                if "default_labor_hours_markup" in values:
+                    from conest_app.projects import labor_hours_markup
+                    values["default_labor_hours_markup"]=labor_hours_markup(values["default_labor_hours_markup"])
                 selected_model = clean_text(values.get("llm_model"))
                 if selected_model and selected_model not in FREE_TIER_GEMINI_MODELS:
                     raise ValueError("Select a supported free-tier Gemini model")

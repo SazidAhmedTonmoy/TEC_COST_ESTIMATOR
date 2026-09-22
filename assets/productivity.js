@@ -15,7 +15,7 @@ function renderCollaboration(){
   box.innerHTML=`<span>${others.length?`Also viewing: ${others.map(p=>escapeHtml(p.name)).join(', ')}`:'You are the only active viewer'}</span>${changed?`<div class="change-alert">${escapeHtml(data.updated_by||'A colleague')} updated this estimate. Your unsaved fields are kept. <button class="button secondary small" data-refresh-estimate="${pid}">Review latest changes</button></div>`:''}`;
 }
 async function pollPresence(){
-  if(productivityState.busy||!state.user||state.user.must_change_password||document.hidden)return;
+  if(state.apiPendingCount||productivityState.busy||!state.user||state.user.must_change_password||document.hidden)return;
   const pid=state.view==='estimate'?state.projectId:null,uid=state.user.id;
   productivityState.busy=true;
   try{
@@ -117,5 +117,5 @@ function bindProductivityEvents(){
     }catch(error){toast(error.message,true);target.disabled=false;}
   });
   setInterval(()=>pollPresence().catch(()=>{}),10000);
-  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden&&state.view==='home')loadReminders().catch(()=>{});},30000);
+  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden&&!state.apiPendingCount&&state.view==='home')loadReminders().catch(()=>{});},30000);
 }

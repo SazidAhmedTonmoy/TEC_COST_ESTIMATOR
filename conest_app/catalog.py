@@ -5,6 +5,7 @@ import sqlite3
 import math
 from difflib import SequenceMatcher
 from typing import Any
+from types import MappingProxyType
 from uuid import uuid4
 
 from .database import refresh_catalog_index
@@ -161,20 +162,13 @@ def catalog_overview(conn: sqlite3.Connection) -> dict[str, Any]:
     }
 
 
+class _ImmutableRows(tuple):
+    def __deepcopy__(self, memo):
+        return self
+
+
 @catalog_read_cache
-def search_catalog(
-    conn: sqlite3.Connection,
-    query: str,
-    limit: int = 20,
-    *,
-    category: str = "",
-    include_incomplete: bool = False,
-    group_variants: bool = True,
-) -> list[dict[str, Any]]:
-    query = clean_text(query)
-    normalized = normalize_text(query)
-    category = clean_text(category)
-    limit = max(1, min(int(limit or 20), 100))
+def _search_rows(conn):
     rows = conn.execute(
         """SELECT ci.id, ci.assembly_size, ci.code, ci.name, ci.description, ci.phase, ci.subphase, ci.scope,
                   ci.base_quantity, ci.base_uom, ci.source_type, ci.search_text, ci.is_manual,
@@ -189,13 +183,27 @@ def search_catalog(
            WHERE ci.is_active = 1
            GROUP BY ci.id"""
     ).fetchall()
-    aliases: dict[int, list[tuple[str, float, str]]] = {}
-    for alias in conn.execute(
-        "SELECT catalog_item_id, normalized_alias, weight, source FROM catalog_aliases"
-    ):
-        aliases.setdefault(int(alias["catalog_item_id"]), []).append(
-            (alias["normalized_alias"], float(alias["weight"]), alias["source"])
-        )
+    return _ImmutableRows(MappingProxyType(dict(row)) for row in rows)
+
+
+def search_catalog(
+    conn: sqlite3.Connection,
+    query: str,
+    limit: int = 20,
+    *,
+    category: str = "",
+    include_incomplete: bool = False,
+    group_variants: bool = True,
+    recent_first: bool = False,
+) -> list[dict[str, Any]]:
+    query = clean_text(query)
+    normalized = normalize_text(query)
+    category = clean_text(category)
+    limit = max(1, min(int(limit or 20), 100))
+    rows = _search_rows(conn)
+    recent = {int(row[0]): row[1] for row in conn.execute(
+        "SELECT catalog_item_id, MAX(created_at) FROM project_lines WHERE catalog_item_id IS NOT NULL GROUP BY catalog_item_id"
+    )} if recent_first else {}
     tokens = normalized.split()
     content_sizes: dict[str, dict[str, int]] = {}
     for row in rows:
@@ -227,8 +235,8 @@ def search_catalog(
             row = candidate[2]
             key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"])
             current = best_by_content.get(key)
-            rank = (row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
-            if current is None or rank > (current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
+            rank = (recent.get(int(row["id"]), ""), row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
+            if current is None or rank > (recent.get(int(current[2]["id"]), ""), current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
                 best_by_content[key] = candidate
         scored = list(best_by_content.values())
 
@@ -243,10 +251,13 @@ def search_catalog(
                 -item[1],
             )
         )
+    if recent_first:
+        scored.sort(key=lambda item: recent.get(int(item[2]["id"]), ""), reverse=True)
     results: list[dict[str, Any]] = []
     for score, quality, row, alias_source in scored[:limit]:
         item = dict(row)
         item.pop("search_text", None)
+        if recent_first: item["last_used_at"] = recent.get(int(row["id"]), "")
         item["score"] = round(score, 2)
         item["quality_score"] = round(quality, 2)
         item["matched_by_learning"] = alias_source == "selection"

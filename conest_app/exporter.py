@@ -189,12 +189,12 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         ("A7:B7", "Currency", "C7", currency, "@"),
         ("D5:E5", "Labour rate / hr", "F5", float(project["labor_rate"]), money),
         ("D6:E6", "Hrs / person / day", "F6", float(project.get("hours_per_day",8)), '0.00" hrs"'),
-        ("D7:E7", "Rate basis", "F7", "Hours / fixed" if has_fixed_labor else "Per hour", "@"),
+        ("D7:E7", "Labour hour mark-up", "F7", float(project.get("labor_hours_markup",0)), percent),
         ("G5:H5", "Crew size", "I5", int(project.get("crew_size",2)), "0"),
         ("G6:H6", "Crew hrs / day", "I6", "=I5*F6", "0.00"),
         ("G7:H7", "Working days", "I7", "=IF(I6=0,0,M7/I6)", days),
     )
-    editable = {"C5", "C6", "F5", "F6", "I5"}
+    editable = {"C5", "C6", "F5", "F6", "F7", "I5"}
     for label_range, label, value_cell, value, number_format in settings_rows:
         _merge_value(ws, label_range, label, fill=GRAY_100, size=10, bold=True, border=border)
         cell = ws[value_cell]
@@ -313,7 +313,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             ws.cell(row, 6, max(0.0, float(component.get("unit_material") or 0.0)))
             ws.cell(row, 7, f"=E{row}*F{row}*{_safe_formula_factor(component.get('material_factor'))}*(1+{settings_ref}$C$5)")
             ws.cell(row, 8, max(0.0, float(component.get("unit_hours") or 0.0)))
-            ws.cell(row, 9, f"=E{row}*H{row}*{_safe_formula_factor(component.get('labor_factor'))}")
+            ws.cell(row, 9, f"=E{row}*H{row}*{_safe_formula_factor(component.get('labor_factor'))}*(1+{settings_ref}$F$7)")
             ws.cell(row, 10, f"=I{row}*{settings_ref}$F$5")
             if component.get("labor_pricing") == "fixed":
                 ws.cell(row, 8, float(component.get("unit_labor_price") or 0))
@@ -324,7 +324,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 labor_base=str(ratio) if component.get('fixed_quantity') else f'$D${parent_row}*{ratio}'
                 if component.get('labor_pricing')=='fixed':ws.cell(row,10,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}')
                 else:
-                    ws.cell(row,9,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}')
+                    ws.cell(row,9,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}*(1+{settings_ref}$F$7)')
             ws.cell(row, 11, f"=G{row}+J{row}")
             ws.cell(row, 12, f"=K{row}*(1+{settings_ref}$C$6)")
             ws.cell(row, 14, " · ".join(filter(None, [
@@ -479,7 +479,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         return rule
 
     settings_validation = nonnegative_validation(overview)
-    for address in ("C5", "C6", "F5", "F6", "I5"):
+    for address in ("C5", "C6", "F5", "F6", "F7", "I5"):
         settings_validation.add(overview[address])
     detail_validation = nonnegative_validation(detail)
     for line, parent_row in line_parent_rows:

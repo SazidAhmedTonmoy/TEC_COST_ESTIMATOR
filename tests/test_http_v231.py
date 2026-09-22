@@ -33,7 +33,7 @@ class HttpPatchTests(unittest.TestCase):
         self.cookie='';self.csrf=''
         # First request, not an explicit initialize(), must prepare the database.
         status,health=self.request('GET','/api/health')
-        self.assertEqual((status,health['schema_version']),(200,25))
+        self.assertEqual((status,health['schema_version']),(200,26))
         with connect() as conn:
             row=conn.execute("SELECT * FROM users WHERE role='admin' LIMIT 1").fetchone()
             self.username=row['username']; self.user_id=row['id']
@@ -126,7 +126,7 @@ class HttpPatchTests(unittest.TestCase):
         self.assertIn(b'<title>TEC ConEst</title>',html)
         self.assertIn(b'id="profile-contact"',html)
         self.assertNotIn(b'ESTIMATOR V2.3',html.upper())
-        for filename in ('v231.css','profile.js','quotation_import.js'):
+        for filename in ('styles.css','profile.js','quotation_import.js'):
             status,data=self.request('GET','/assets/'+filename);self.assertEqual(status,200,filename)
 
 

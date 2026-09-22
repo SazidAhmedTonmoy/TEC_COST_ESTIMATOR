@@ -113,7 +113,24 @@ async function fetchCatalogItem(itemId) {
   }
 }
 
-async function api(path, options = {}) {
+const pendingApiReads=new Map();
+let apiGeneration=0;
+async function api(path,options={}){
+  const readOnly=['GET','HEAD'].includes((options.method||'GET').toUpperCase());
+  const key=readOnly&&!options.signal?`${state.csrfToken}:${apiGeneration}:${path}`:null;
+  if(key&&pendingApiReads.has(key))return structuredClone(await pendingApiReads.get(key));
+  if(!readOnly)apiGeneration++;
+  state.apiPendingCount=(state.apiPendingCount||0)+1;
+  const request=apiRequest(path,options);
+  if(key)pendingApiReads.set(key,request);
+  try{return structuredClone(await request);}
+  finally{
+    state.apiPendingCount=Math.max(0,(state.apiPendingCount||1)-1);
+    if(key)pendingApiReads.delete(key);
+    if(!readOnly)apiGeneration++;
+  }
+}
+async function apiRequest(path, options = {}) {
   const config = { ...options, headers: { ...(options.headers || {}) } };
   config.credentials = 'same-origin';
   config.headers['X-ConEst-Request'] = '1';
@@ -129,15 +146,11 @@ async function api(path, options = {}) {
   }
   const readOnly=['GET','HEAD'].includes((config.method||'GET').toUpperCase());
   let response,result;
-  for(let attempt=0;attempt<(readOnly?2:1);attempt++){
+  for(let attempt=0;attempt<1;attempt++){
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),readOnly?30000:120000);
+    const timer=setTimeout(()=>controller.abort(),readOnly?90000:120000);
     try {
       response=await fetch(path,{...config,signal:config.signal||controller.signal});
-      if(readOnly&&attempt===0&&[502,503,504].includes(response.status)){
-        await response.body?.cancel();
-        clearTimeout(timer);await new Promise(resolve=>setTimeout(resolve,400));continue;
-      }
       const contentType=response.headers.get('content-type')||'';
       if(response.ok&&!contentType.includes('application/json'))throw new Error('The server returned an unexpected response. Refresh or try again shortly.');
       result=contentType.includes('application/json')?await response.json():null;
@@ -145,7 +158,6 @@ async function api(path, options = {}) {
     }catch(error){
       if(config.signal?.aborted)throw error;
       const connectionError=error instanceof TypeError||error.name==='AbortError';
-      if(connectionError&&readOnly&&attempt===0){clearTimeout(timer);await new Promise(resolve=>setTimeout(resolve,400));continue;}
       if(connectionError)throw new Error(readOnly?'Connection interrupted or the server took too long. Check your connection and try again.':'Connection interrupted while saving. The change may have reached the server. Reload and check before submitting again.');
       if(error instanceof SyntaxError)throw new Error('The server returned an incomplete response. Reload to check the latest saved information.');
       throw error;
@@ -271,6 +283,7 @@ function renderProject() {
   $("#project-name").value = project.name || "";
   $("#project-builders").value = projectBuilders(project).join("\n");
   $("#project-currency").value = project.currency || "AUD";
+  $("#project-hours-markup").value=Number(project.labor_hours_markup||0)*100;
   $("#project-material-markup").value = Number(project.material_markup || 0) * 100;
   $("#project-labour-rate").value = Number(project.labor_rate || 0);
   $("#project-overhead-markup").value = Number(project.overhead_markup || 0) * 100;
@@ -351,7 +364,7 @@ async function runQuickSearch() {
   const box = $("#quick-search-results");
   if (!query) { box.innerHTML = `<p class="helper-text">Type an item title to find it.</p>`; return; }
   box.innerHTML = `<p class="helper-text">Searching…</p>`;
-  const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=20`);
+  const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=20&recent_first=1`);
   if (request !== state.quickSearchRequest) return;
   box.innerHTML = result.results.length ? result.results.map((item) => `<article class="quick-search-result"><div><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small><small>Material ${fmtMoney(item.unit_material)} · Labour ${catalogLaborLabel(item)}</small></div><div><button class="button primary small quick-add" type="button" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-unit="${escapeHtml(item.base_uom || "EA")}">Add</button><button class="text-button quick-edit-add" type="button" data-id="${item.id}">Edit & add</button></div></article>`).join("") : `<p class="helper-text">No matching item. Try another search or add a manual item.</p>`;
 }
@@ -466,7 +479,7 @@ async function loadSmartSuggestions() {
     .replace(/^\s*\d+(?:\.\d+)?\s*[x×]\s*/i, "")
     .trim() || text;
   try {
-    const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=8`);
+    const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=8&recent_first=1`);
     if (requestId !== suggestionRequestId || input.value.trim() !== text) return;
     renderSmartSuggestions(result.results || []);
   } catch (_) {
@@ -604,6 +617,7 @@ async function saveProjectSettings(event) {
   const payload = {
     name: $("#project-name").value,
     currency: $("#project-currency").value,
+    labor_hours_markup: Number($("#project-hours-markup").value || 0) / 100,
     material_markup: Number($("#project-material-markup").value || 0) / 100,
     labor_rate: Number($("#project-labour-rate").value || 0),
     overhead_markup: Number($("#project-overhead-markup").value || 0) / 100,
@@ -640,6 +654,7 @@ async function createNewProject(event) {
     builders: readBuilderEditor("new-project-builders"),
     scope_of_work: $('#new-project-scope').value,
     submission_deadline: $('#new-project-deadline').value,
+    labor_hours_markup: Number(settings.default_labor_hours_markup || 0),
     currency: settings.currency || "AUD",
     material_markup: Number(settings.default_material_markup || .15),
     labor_rate: Number(settings.default_labor_rate || 120),
@@ -1018,6 +1033,7 @@ async function loadSettings(render = true) {
   const result = await api("/api/settings");
   state.appSettings = result.settings;
   if (render) {
+    $("#default-hours-markup").value=Number(result.settings.default_labor_hours_markup||0)*100;
     $("#default-material-markup").value = Number(result.settings.default_material_markup || .15) * 100;
     $("#default-labour-rate").value = result.settings.default_labor_rate || 120;
     $("#default-overhead-markup").value = Number(result.settings.default_overhead_markup || .10) * 100;
@@ -1048,6 +1064,7 @@ async function loadSettings(render = true) {
 async function saveSettings(event) {
   event.preventDefault();
   const payload = {
+    default_labor_hours_markup: Number($("#default-hours-markup").value || 0) / 100,
     default_material_markup: Number($("#default-material-markup").value || 0) / 100,
     default_labor_rate: Number($("#default-labour-rate").value || 0),
     default_overhead_markup: Number($("#default-overhead-markup").value || 0) / 100,

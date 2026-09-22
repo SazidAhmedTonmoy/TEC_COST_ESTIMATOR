@@ -85,7 +85,7 @@ def compare_snapshots(before,after):
         if a and b and parts(a)!=parts(b):delta['components']={'before':parts(a),'after':parts(b)}
         if delta:changes.append({'line_id':key,'name':(b or a)['name_snapshot'],'kind':kind,'fields':delta})
     settings={f:{'before':before['project'].get(f),'after':after['project'].get(f)} for f in
-        ('name','client','currency','material_markup','labor_rate','overhead_markup','notes','scope_of_work','submission_deadline')
+        ('name','client','currency','material_markup','labor_rate','labor_hours_markup','overhead_markup','notes','scope_of_work','submission_deadline')
         if before['project'].get(f)!=after['project'].get(f)}
     return {'changes':changes,'settings':settings,'before_totals':before['totals'],'after_totals':after['totals'],
       'before_currency':before['project']['currency'],'after_currency':after['project']['currency']}

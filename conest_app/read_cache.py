@@ -34,12 +34,16 @@ def catalog_read_cache(function):
         except (sqlite3.OperationalError,OSError,TypeError):
             return function(conn,*args,**kwargs)
         key=(filename,stat.st_ino,stat.st_mtime_ns,generation,function.__name__,args,tuple(sorted(kwargs.items())))
-        # One computation serves simultaneous identical requests. A bounded
-        # cache avoids retaining results for every catalogue revision forever.
+        # Never hold the global cache lock during SQL work. A slow search
+        # must not block unrelated catalogue reads in another request.
         with _lock:
-            if key not in _cache:
-                _cache[key]=function(conn,*args,**kwargs)
-                if len(_cache)>128:_cache.popitem(last=False)
+            if key in _cache:
+                _cache.move_to_end(key)
+                return deepcopy(_cache[key])
+        value=function(conn,*args,**kwargs)
+        with _lock:
+            _cache[key]=value
             _cache.move_to_end(key)
-            return deepcopy(_cache[key])
+            if len(_cache)>128:_cache.popitem(last=False)
+            return deepcopy(value)
     return cached

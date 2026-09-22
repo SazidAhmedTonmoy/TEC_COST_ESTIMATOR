@@ -51,6 +51,13 @@ def crew_plan(payload):
     return int(crew),hours
 
 
+def labor_hours_markup(value):
+    try: result=float(value)
+    except (TypeError,ValueError):raise ValueError('Labour hour mark-up must be a non-negative percentage')
+    if not math.isfinite(result) or result<0 or result>100:raise ValueError('Labour hour mark-up must be between 0% and 10,000%')
+    return result
+
+
 def create_project(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[str, Any]:
     deadline=payload.get('submission_deadline')
     if deadline:
@@ -61,6 +68,7 @@ def create_project(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[st
     name = clean_text(payload.get("name") or "New Estimate")
     now = utc_now()
     defaults=dict(conn.execute('SELECT key,value FROM settings'))
+    hours_markup=labor_hours_markup(payload.get('labor_hours_markup',defaults.get('default_labor_hours_markup',0)))
     crew,hours=crew_plan({'crew_size':defaults.get('default_crew_size',2),'hours_per_day':defaults.get('default_hours_per_day',8),**payload})
     cursor = conn.execute(
         """INSERT INTO projects
@@ -78,7 +86,7 @@ def create_project(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[st
             now,
         ),
     )
-    conn.execute('UPDATE projects SET crew_size=?,hours_per_day=? WHERE id=?',(crew,hours,int(cursor.lastrowid)))
+    conn.execute('UPDATE projects SET crew_size=?,hours_per_day=?,labor_hours_markup=? WHERE id=?',(crew,hours,hours_markup,int(cursor.lastrowid)))
     return calculate_project(conn, int(cursor.lastrowid))
 
 
@@ -88,6 +96,7 @@ def update_project(conn: sqlite3.Connection, project_id: int, payload: dict[str,
     builders = stored_builders(payload, current)
     current.update(payload)
     crew,hours=crew_plan(current)
+    hours_markup=labor_hours_markup(current.get("labor_hours_markup",0))
     name = clean_text(current.get("name"))
     if not name:
         raise ValueError("Project name is required")
@@ -106,7 +115,7 @@ def update_project(conn: sqlite3.Connection, project_id: int, payload: dict[str,
             project_id,
         ),
     )
-    conn.execute('UPDATE projects SET crew_size=?,hours_per_day=? WHERE id=?',(crew,hours,project_id))
+    conn.execute('UPDATE projects SET crew_size=?,hours_per_day=?,labor_hours_markup=? WHERE id=?',(crew,hours,hours_markup,project_id))
     return calculate_project(conn, project_id)
 
 
@@ -330,6 +339,7 @@ def calculate_project(
     project = project_with_builders(_project_row(conn, project_id))
     material_markup = float(project["material_markup"])
     labor_rate = float(project["labor_rate"])
+    hours_factor = 1 + float(project.get("labor_hours_markup",0))
     overhead_markup = float(project["overhead_markup"])
     lines: list[dict[str, Any]] = []
     total_material = 0.0
@@ -369,7 +379,7 @@ def calculate_project(
             material = raw_material * (1 + material_markup)
             labor_qty=(1 if component.get("fixed_quantity") else line_qty)*float(component["quantity_per_unit"])
             fixed = component["labor_pricing"] == "fixed"
-            hours = 0.0 if fixed else labor_qty * float(component["unit_hours"]) * float(component["labor_factor"])
+            hours = 0.0 if fixed else labor_qty * float(component["unit_hours"]) * float(component["labor_factor"]) * hours_factor
             labor = (labor_qty * float(component["unit_labor_price"]) * float(component["labor_factor"])) if fixed else hours * labor_rate
             grand = material + labor
             component.update(

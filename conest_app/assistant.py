@@ -230,8 +230,9 @@ def _optional_llm_rerank(
 
 def interpret_request(conn: sqlite3.Connection, text: str, limit: int = 12) -> dict[str, Any]:
     query, quantity = parse_quantity_and_query(text)
-    candidates = search_catalog(conn, query, limit=max(limit, 12))
+    candidates = search_catalog(conn, query, limit=max(limit, 12), recent_first=True)
     candidates, method = _optional_llm_rerank(conn, query, candidates)
+    candidates.sort(key=lambda item: item.get("last_used_at", ""), reverse=True)
     return {
         "original": clean_text(text),
         "query": query,

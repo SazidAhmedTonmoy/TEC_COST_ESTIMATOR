@@ -1,8 +1,6 @@
 function updateEstimateExtras(data){
   const project=data.project||{},plan=data.crew_plan||{};
   $('#project-hours-per-day').value=project.hours_per_day||8;$('#project-crew-size').value=project.crew_size||2;
-  $('#crew-hours-per-day').textContent=fmtNumber(plan.crew_hours_per_day||16);
-  $('#crew-working-days').textContent=fmtNumber(plan.working_days||0)+' days';
   let days=$('#metric-person-days');if(!days){days=document.createElement('small');days.id='metric-person-days';$('#metric-hours').after(days);}
   days.textContent=`${fmtNumber(plan.person_days||0)} person-days · ${fmtNumber(plan.working_days||0)} crew working days`;
   $('#floating-estimate-total').textContent=`Quoted total · ${fmtMoney(data.totals?.quoted||0,project.currency)}\n${fmtNumber(data.totals?.hours||0)} hrs · ${fmtNumber(plan.working_days||0)} crew days`; 

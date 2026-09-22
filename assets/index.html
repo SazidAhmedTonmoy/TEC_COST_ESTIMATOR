@@ -1,30 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <script src="/assets/theme.js?v=2.4-r2"></script>
+  <script src="/assets/theme.da7cbbad66f9.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/styles.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/workspace.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/theme.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/responsive.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/v23.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/v231.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/v232.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/v233.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/v235.css?v=2.4-r2">
-  <link rel="stylesheet" href="/assets/v236.css?v=2.4-r2">
-  <script src="/assets/mobile.js?v=2.4-r2" defer></script>
-  <script src="/assets/file_drop.js?v=2.4-r2" defer></script>
-<link rel="stylesheet" href="/assets/v24.css?v=2.4-r2">
+  <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
+  <link rel="stylesheet" href="/assets/styles.e238982fdbcf.css">
 </head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
   <section id="login-screen" class="login-screen">
     <form id="login-form" class="login-card">
-      <img src="/assets/tec-mark.svg?v=2.4-r2" width="64" height="64" alt="TEC">
+      <img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC">
       <p class="eyebrow">TEC ConEst</p><h1>Your estimating workspace</h1>
       <p class="login-intro">Sign in to manage projects and build estimates.</p>
       <label>Username<input id="login-username" autocomplete="username" required maxlength="64" autofocus></label>
@@ -165,12 +153,12 @@
             <label>Project name<input id="project-name" required></label>
             <label>Builders<textarea id="project-builders" rows="2" maxlength="20000" placeholder="Optional; one builder per line"></textarea></label>
             <label>Currency<input id="project-currency" maxlength="8"></label>
-            <label>Material mark-up %<input id="project-material-markup" type="number" min="0" step="0.1"></label>
             <label>Labour rate / hr<input id="project-labour-rate" type="number" min="0" step="0.01"></label>
-            <label>Final mark-up %<input id="project-overhead-markup" type="number" min="0" step="0.1"></label>
             <label>Hours / person / day<input id="project-hours-per-day" type="number" min="0.25" max="24" step="0.25" required></label>
             <label>Crew size<input id="project-crew-size" type="number" min="1" max="5000" step="1" required></label>
-            <div class="crew-plan-result"><span>Crew hours / day <b id="crew-hours-per-day">16</b></span><span>Working days <b id="crew-working-days">0</b></span><small>Based on recorded labour hours.</small></div>
+            <label>Material mark-up %<input id="project-material-markup" type="number" min="0" step="0.1"></label>
+            <label>Labour hour mark-up %<input id="project-hours-markup" type="number" min="0" max="10000" step="0.1" value="0"></label>
+            <label>Final mark-up %<input id="project-overhead-markup" type="number" min="0" step="0.1"></label>
             <div class="form-actions"><button class="button primary" type="submit">Save project settings</button></div>
           </form>
         </section>
@@ -272,6 +260,7 @@
         <section class="panel settings-panel">
           <form id="app-settings-form" class="settings-grid">
             <label>Default material mark-up %<input id="default-material-markup" type="number" min="0" step="0.1"></label>
+            <label>Default labour hour mark-up %<input id="default-hours-markup" type="number" min="0" max="10000" step="0.1" value="0"></label>
             <label>Default labour rate / hr<input id="default-labour-rate" type="number" min="0" step="0.01"></label>
             <label>Default final mark-up %<input id="default-overhead-markup" type="number" min="0" step="0.1"></label>
             <label>Default currency<input id="default-currency" maxlength="8"></label>
@@ -440,18 +429,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/builders.js?v=2.4-r2" defer></script>
-  <script src="/assets/app.js?v=2.4-r2" defer></script>
-  <script src="/assets/workspace.js?v=2.4-r2" defer></script>
-  <script src="/assets/productivity.js?v=2.4-r2" defer></script>
-  <script src="/assets/estimate_workspace.js?v=2.4-r2" defer></script>
-  <script src="/assets/navigation.js?v=2.4-r2" defer></script>
-  <script src="/assets/help_chat.js?v=2.4-r2" defer></script>
-  <script src="/assets/estimate_extras.js?v=2.4-r2" defer></script>
-  <script src="/assets/light_prices.js?v=2.4-r2" defer></script>
-  <script src="/assets/v23.js?v=2.4-r2" defer></script>
-  <script src="/assets/profile.js?v=2.4-r2" defer></script>
-  <script src="/assets/quotation_import.js?v=2.4-r2" defer></script>
-  <script src="/assets/import_history.js?v=2.4-r2" defer></script>
+  <script src="/assets/app.49c4306bbc61.js" defer></script>
 </body>
 </html>

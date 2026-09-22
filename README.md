@@ -17,9 +17,17 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 
 ## Current release · v2.4
 
-Refresh restores the requested page behind a neutral loading screen. Startup requests run concurrently, background board updates skip unchanged data, reminders avoid estimate calculations, and component reads use one query per project. Versioned static assets can be reused from the browser cache. The duplicate profile heading is removed. Read requests recover once from transient network/gateway failures; saves are never automatically retried. Startup failures show a retry screen without treating them as logout. Project Board adds total-cost ordering within currency groups and offers Cards/List views. Database schema remains 25.
+Labour hour mark-up is stored as a fraction (10% = 0.1). Adjusted hourly labour = base hours × (1 + labour-hour markup). Labour cost, person-days, crew working days and quoted totals use adjusted hours; fixed labour prices are unaffected. Excel exposes the linked control in COST ESTIMATE!F7. Application Settings supplies the default for new projects. Existing project values default to zero.
 
-Apply the changed-files ZIP over the latest v2.3.6 code and restart the app. Keep your production data folder. The health endpoint reports `2.4`. Validation: 111 Python regression tests plus startup, request-recovery, board sorting and calendar checks. On the supplied four-project snapshot, calculation queries fell from 254 to 12 with byte-equivalent serialized results. This measures database work, not production hosting latency.
+The browser loads one CSS bundle and one deferred application bundle, with content-based filenames. Edit the source JS files or assets/styles.css, then run `python tools/build_frontend.py` before deployment. Old version-specific CSS files have been consolidated. Required historical database migrations remain. assets/.htaccess enables long-lived caching and compression when Apache serves assets directly; the Python server also caches fingerprinted bundles.
+
+Replace passenger_wsgi.py manually in cPanel (the deployment workflow preserves it), then restart Passenger. It keeps an idle SQLite connection between requests and adds Server-Timing so application time can be distinguished from hosting/queue time in browser Network timings. The root .htaccess and production data remain untouched. These changes reduce repeated requests and database work; production hosting latency still requires verification after deployment.
+
+Estimate searches prioritize matching catalog items most recently added to saved estimates, including existing usage history. Catalog Explorer keeps its normal ordering.
+
+Refresh restores the requested page behind a neutral loading screen. Startup requests run concurrently, background board updates skip unchanged data, reminders avoid estimate calculations, and component reads use one query per project. Versioned static assets can be reused from the browser cache. The duplicate profile heading is removed. Identical pending reads share one request; neither reads nor saves are automatically replayed after failure. Background polls pause during foreground requests. Startup failures show a retry screen without treating them as logout. Project Board adds total-cost ordering within currency groups and offers Cards/List views. Schema 26 adds labour-hour markup, defaulting existing estimates to 0%.
+
+Apply this changed-files ZIP over the previous v2.4 package and restart the app. Keep your production data folder. The health endpoint reports `2.4`. Regression checks cover startup, network failures, board sorting, calendar and Excel formulas. On the supplied four-project snapshot, calculation queries fell from 254 to 12 with byte-equivalent serialized results. This measures database work, not production hosting latency.
 
 ## Previous release · v2.3.6
 
@@ -343,7 +351,7 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 | **v2.3–v2.3.5** | Monthly calendar totals, project outcomes and access, unified import history, profile and supplier photos, optional builders, and weekend calendar styling. |
 | **v2.3.6** | Simplified project board with three remembered views, integrated schedule reminders, estimate-only creation, clearer page titles and prominent Open Estimate access. |
 
-| **v2.4** | Direct refresh restoration, safe read-request recovery, lighter background updates, batched component queries, browser asset caching and total-cost sorting. |
+| **v2.4** | Direct refresh restoration, shared read requests, lighter background updates, batched component queries, browser asset caching and total-cost sorting. |
 
 ## 7. Troubleshooting
 

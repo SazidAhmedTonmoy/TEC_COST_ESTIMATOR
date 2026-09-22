@@ -251,6 +251,7 @@ DEFAULT_SETTINGS = {
     "default_crew_size": "2",
     "default_hours_per_day": "8",
     "default_labor_rate": "120",
+    "default_labor_hours_markup": "0",
     "default_overhead_markup": "0.10",
     "currency": "AUD",
     "llm_provider": "gemini",
@@ -457,6 +458,8 @@ def _initialize_schema(path: str | Path | None = None) -> Path:
         initialize_v231(conn)
         from .release_v233 import initialize_v233
         initialize_v233(conn)
+        from .release_v24_hours import initialize_hours
+        initialize_hours(conn)
     from .backups import prune_backups
     prune_backups(target.parent/'backups')
     return target

@@ -472,19 +472,19 @@ function renderCalendar() {
 }
 function bindWorkspaceEvents() {
   setInterval(async()=>{
-    if(!state.user || state.user.must_change_password || document.hidden || workspaceState.notesSyncBusy) return;
+    if(!state.user || state.user.must_change_password || document.hidden || state.apiPendingCount || workspaceState.notesSyncBusy) return;
     workspaceState.notesSyncBusy=true;
     try {
       if($('#notes-dialog').open) await loadProjectNotes();
       else if(state.view==='estimate' && state.projectId) await refreshNoteBadge(state.projectId);
     } catch(_) {} finally {workspaceState.notesSyncBusy=false;}
   },15000);
-  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden)refreshReadOnlyBrief().catch(()=>{});},15000);
+  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden&&!state.apiPendingCount)refreshReadOnlyBrief().catch(()=>{});},15000);
 
   $('#notes-form').addEventListener('submit',event=>submitWithButton(event,saveProjectNote));
   $('#refresh-notes').addEventListener('click',()=>loadProjectNotes().catch(error=>toast(error.message,true)));
   setInterval(()=>{
-    if(state.user && !state.user.must_change_password && ['home','calendar'].includes(state.view) && !document.hidden && !$('dialog[open]')) refreshBoard().catch(()=>{});
+    if(state.user && !state.user.must_change_password && ['home','calendar'].includes(state.view) && !document.hidden && !state.apiPendingCount && !$('dialog[open]')) refreshBoard().catch(()=>{});
   },30000);
   $('#login-form').addEventListener('submit',event=>submitWithButton(event,async()=>{
     $('#login-error').textContent='';

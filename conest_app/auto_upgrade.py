@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 25
-MIGRATION_KEY = 'v2.3.3-project-access'
+CURRENT_SCHEMA = 26
+MIGRATION_KEY = 'v2.4-labor-hours'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -94,6 +94,7 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
         present = {'user_avatars', 'lighting_import_receipts', 'lighting_photos', 'account_deletions'} <= tables
         if expected_version >= 25:
             required['project_user_access'] = {'project_id', 'user_id', 'granted_by', 'granted_at'}
+        if expected_version >= 26:required['projects'] = {'labor_hours_markup'}
         present = present and all(table in tables and fields <= {r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')}
                                   for table, fields in required.items())
         # app_migrations uses a release-specific first-column name; positional
@@ -164,10 +165,15 @@ def ensure_database(path=None):
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
-                    if previous == 24 and _status(target, 24, 'v2.3.1-import-profile-auto-upgrade')[0]:
+                    if previous == 25 and _status(target,25,'v2.3.3-project-access')[0]:
+                        from .release_v24_hours import initialize_hours
+                        with _raw_connect(target) as conn:initialize_hours(conn)
+                    elif previous == 24 and _status(target, 24, 'v2.3.1-import-profile-auto-upgrade')[0]:
                         from .release_v233 import initialize_v233
                         with _raw_connect(target) as conn:
                             initialize_v233(conn)
+                            from .release_v24_hours import initialize_hours
+                            initialize_hours(conn)
                     else:
                         _initialize_schema(target)
                     with _raw_connect(target) as conn:
