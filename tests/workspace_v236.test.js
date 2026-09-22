@@ -10,7 +10,7 @@ vm.runInContext("workspaceState.filter='draft';renderProjectBoard()",ctx);
 assert.match(element('#project-board').innerHTML,/Newly added/);
 assert.match(element('#project-board').innerHTML,/New &lt;project>/);
 assert.doesNotMatch(element('#project-board').innerHTML,/Finished/);
-for(const view of ['cards','list','compact']){
+for(const view of ['cards','list']){
  vm.runInContext(`workspaceState.boardView='${view}';renderProjectBoard()`,ctx);
  assert.equal(element('#project-board').dataset.view,view);
  assert.match(element('#project-board').innerHTML,/href="#\/estimate\/1"/);
@@ -36,3 +36,10 @@ ctx.state.projects[1].submission_deadline='';
 vm.runInContext("workspaceState.boardSort='deadline';renderProjectBoard()",ctx);
 assert.ok(element('#project-board').innerHTML.indexOf('Finished')>element('#project-board').innerHTML.indexOf('New &lt;project>'));
 console.log('Sort checks passed, including undated projects last.');
+
+ctx.state.projects[0].totals={quoted:100};ctx.state.projects[1].totals={quoted:500};
+vm.runInContext("workspaceState.boardSort='cost-high';renderProjectBoard()",ctx);
+assert.ok(element('#project-board').innerHTML.indexOf('Finished')<element('#project-board').innerHTML.indexOf('New &lt;project>'));
+vm.runInContext("workspaceState.boardSort='cost-low';renderProjectBoard()",ctx);
+assert.ok(element('#project-board').innerHTML.indexOf('Finished')>element('#project-board').innerHTML.indexOf('New &lt;project>'));
+console.log('Total-cost ordering checks passed.');

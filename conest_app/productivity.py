@@ -115,7 +115,7 @@ def heartbeat(conn,pid,user,payload):
 
 def reminders(conn,user):
     today=date.today();result=[]
-    for p in visible_projects(conn,user):
+    for p in visible_projects(conn,user,include_totals=False):
         if not p['can_edit'] or p['status'] in ('submitted','completed') or not p['submission_deadline']:continue
         days=(date.fromisoformat(p['submission_deadline'])-today).days
         if days>7:continue

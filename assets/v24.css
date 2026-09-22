@@ -1,0 +1,5 @@
+
+#startup-screen{display:none;position:fixed;inset:0;place-items:center;background:var(--canvas,#f4f7f9);color:var(--ink,#193346);z-index:9999}
+.app-loading #startup-screen{display:grid}.app-loading #login-screen,.app-loading #authenticated-app{display:none!important}
+
+#startup-screen>div{max-width:480px;padding:24px;text-align:center}

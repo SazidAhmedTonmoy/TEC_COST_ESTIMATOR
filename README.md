@@ -1,4 +1,4 @@
-# TEC ConEst · v2.3.6
+# TEC ConEst · v2.4
 
 ### Electrical estimating, connected costs and team collaboration
 
@@ -15,7 +15,13 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 > [!IMPORTANT]
 > Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
 
-## Current release · v2.3.6
+## Current release · v2.4
+
+Refresh restores the requested page behind a neutral loading screen. Startup requests run concurrently, background board updates skip unchanged data, reminders avoid estimate calculations, and component reads use one query per project. Versioned static assets can be reused from the browser cache. The duplicate profile heading is removed. Read requests recover once from transient network/gateway failures; saves are never automatically retried. Startup failures show a retry screen without treating them as logout. Project Board adds total-cost ordering within currency groups and offers Cards/List views. Database schema remains 25.
+
+Apply the changed-files ZIP over the latest v2.3.6 code and restart the app. Keep your production data folder. The health endpoint reports `2.4`. Validation: 111 Python regression tests plus startup, request-recovery, board sorting and calendar checks. On the supplied four-project snapshot, calculation queries fell from 254 to 12 with byte-equivalent serialized results. This measures database work, not production hosting latency.
+
+## Previous release · v2.3.6
 
 A simpler project workspace with Cards, List and Compact views beside search. Each account remembers its view and sort order. Explorer-style View and Sort controls offer name, deadline, creation and update ordering. Keep on Schedule combines upcoming deadlines and unread reminders in one place. Project cards emphasize status, deadline, value and Open Estimate; secondary details expand when needed.
 
@@ -336,6 +342,8 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 
 | **v2.3–v2.3.5** | Monthly calendar totals, project outcomes and access, unified import history, profile and supplier photos, optional builders, and weekend calendar styling. |
 | **v2.3.6** | Simplified project board with three remembered views, integrated schedule reminders, estimate-only creation, clearer page titles and prominent Open Estimate access. |
+
+| **v2.4** | Direct refresh restoration, safe read-request recovery, lighter background updates, batched component queries, browser asset caching and total-cost sorting. |
 
 ## 7. Troubleshooting
 

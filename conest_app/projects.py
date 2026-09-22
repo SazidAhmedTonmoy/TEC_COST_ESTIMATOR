@@ -340,6 +340,10 @@ def calculate_project(
     line_rows = conn.execute(
         "SELECT * FROM project_lines WHERE project_id = ? ORDER BY sort_order, id", (project_id,)
     ).fetchall()
+    # Fetch all components once, instead of issuing one query per estimate line.
+    component_groups = {}
+    for row in conn.execute("SELECT c.* FROM project_line_components c JOIN project_lines l ON l.id=c.project_line_id WHERE l.project_id=? ORDER BY c.project_line_id,c.line_order,c.id", (project_id,)):
+        component_groups.setdefault(row['project_line_id'], []).append(row)
     for line_row in line_rows:
         line = dict(line_row)
         line_qty = float(line["quantity"])
@@ -348,10 +352,7 @@ def calculate_project(
         line_hours = 0.0
         line_labor = 0.0
         line_fixed_labor = 0.0
-        component_rows = conn.execute(
-            "SELECT * FROM project_line_components WHERE project_line_id = ? ORDER BY line_order, id",
-            (line["id"],),
-        ).fetchall()
+        component_rows = component_groups.get(line['id'], [])
         supply=supply_component(line.get('category_snapshot'),[dict(c) for c in component_rows])
         supply_id=supply['id'] if supply else None
         supply_material=0.0

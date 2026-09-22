@@ -100,7 +100,7 @@ def decorate_project(conn, project, user):
     return result
 
 
-def visible_projects(conn, user):
+def visible_projects(conn, user, include_totals=True):
     from .projects import calculate_project
     actor = conn.execute('SELECT is_active FROM users WHERE id=?', (user['id'],)).fetchone()
     if not actor or not actor['is_active']:
@@ -109,8 +109,9 @@ def visible_projects(conn, user):
     result = []
     for row in rows:
         project = decorate_project(conn, row, user)
-        project['totals'] = calculate_project(conn, project['id'], include_components=False)['totals']
-        project['line_count'] = project['totals']['line_count']
+        if include_totals:
+            project['totals'] = calculate_project(conn, project['id'], include_components=False)['totals']
+            project['line_count'] = project['totals']['line_count']
         result.append(project)
     return result
 

@@ -79,7 +79,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = "TECConEst/2.3.6"
+    server_version = "TECConEst/2.4"
 
     def setup(self):
         super().setup()
@@ -124,7 +124,9 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             quoted = quote(download_name)
             self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quoted}")
         else:
-            self.send_header("Cache-Control", "no-cache")
+            # Only versioned public assets are cached; HTML and exports stay fresh.
+            versioned_asset = path.parent == ASSETS and path.suffix != '.html' and 'v=2.4' in self.path
+            self.send_header("Cache-Control", "public, max-age=31536000, immutable" if versioned_asset else "no-cache")
         self._security_headers()
         self.end_headers()
         self.wfile.write(body)
@@ -213,7 +215,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/health":
                 with connect() as conn:
                     schema = conn.execute('SELECT version FROM schema_version').fetchone()[0]
-                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.3.6"})
+                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": "2.4"})
                 return
             if path == '/api/light-prices':
                 from conest_app import light_prices

@@ -19,8 +19,8 @@ function setAccount(user, token) {
   const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
   if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='recent';
-    try{const saved=localStorage.getItem('conest-project-sort-'+user.id);if(['recent','name','name-desc','deadline','newest'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
-    try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list','compact'].includes(saved))workspaceState.boardView=saved;}catch(_){}
+    try{const saved=localStorage.getItem('conest-project-sort-'+user.id);if(['recent','name','name-desc','deadline','newest','cost-high','cost-low'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
+    try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list'].includes(saved))workspaceState.boardView=saved;}catch(_){}
   }
   $$('.user-only').forEach(el=>el.classList.toggle('hidden',user.role==='admin'));
   if(user.role==='admin' && workspaceState.filter==='team') workspaceState.filter='all';
@@ -32,6 +32,7 @@ function setAccount(user, token) {
   $$('.admin-only').forEach(element => element.classList.toggle('hidden',user.role !== 'admin' || Boolean(user.must_change_password)));
 }
 function showLogin() {
+  document.body.classList.remove('app-loading');
   if(typeof resetHelpChat==='function')resetHelpChat();
   if(typeof clearProfilePhoto==='function')clearProfilePhoto();
   if(typeof resetUploadHistory==='function')resetUploadHistory();
@@ -49,15 +50,26 @@ function showLogin() {
   $('#login-password').value = ''; $('#gemini-api-key').value = '';
 }
 async function enterWorkspace(result) {
-  setAccount(result.user, result.csrf_token);
-  if (state.user.must_change_password) { setView('profile',false); return; }
-  await loadSettings(false);
-  await loadDashboard();
-  if(typeof restorePage==='function')await restorePage(); else setView('home',false);
+  document.body.classList.add('app-loading');
+  try {
+    setAccount(result.user, result.csrf_token);
+    if (state.user.must_change_password) { setView('profile',false); return; }
+    await Promise.all([loadSettings(false),loadDashboard(false)]);
+    if(typeof restorePage==='function')await restorePage(); else setView('home',false);
+  } finally {document.body.classList.remove('app-loading');}
 }
 async function bootWorkspace() {
+  document.body.classList.add('app-loading');
+  $('#startup-message').textContent='Loading your workspace…';
+  $('#startup-retry').classList.add('hidden');
   try { await enterWorkspace(await api('/api/auth/session')); }
-  catch(error) { showLogin(); if (error.status !== 401) $('#login-error').textContent = error.message; }
+  catch(error) {
+    if(error.status===401){showLogin();return;}
+    // A temporary network/server fault does not mean the session expired.
+    document.body.classList.add('app-loading');
+    $('#startup-message').textContent=error.message;
+    $('#startup-retry').classList.remove('hidden');
+  }
 }
 async function submitWithButton(event, action) {
   event.preventDefault();
@@ -80,7 +92,7 @@ function renderHome() {
   $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='submitted'?'Sent for review or approval':'Finished project archive'}</small></button>`).join('');
   $('#home-metrics').classList.remove('five-metrics');
   renderProjectBoard();
-  if(typeof loadReminders==='function')loadReminders().catch(()=>{});
+  if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(()=>{});
   renderSchedule();
   const values = new Map();
   projects.filter(p=>p.status!=='completed').forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.quoted||0)));
@@ -111,6 +123,8 @@ function renderProjectBoard() {
   const sort=workspaceState.boardSort;
   $('#project-sort').value=sort;
   projects.sort((a,b)=>{
+    // Different currencies stay in their own groups; do not imply conversion.
+    if(sort==='cost-high'||sort==='cost-low')return (a.currency||'').localeCompare(b.currency||'')||(sort==='cost-high'?-1:1)*(Number(a.totals?.quoted||0)-Number(b.totals?.quoted||0))||a.name.localeCompare(b.name);
     if(sort==='name'||sort==='name-desc')return (sort==='name'?1:-1)*a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});
     if(sort==='deadline')return (a.submission_deadline||'9999').localeCompare(b.submission_deadline||'9999')||a.name.localeCompare(b.name);
     const key=sort==='newest'?'created_at':'updated_at';
@@ -348,9 +362,21 @@ async function saveTeam() {
   $('#team-dialog').close(); await loadUsers(); await loadDashboard(false); toast('Team and members saved');
 }
 async function refreshBoard() {
-  const session=await api('/api/auth/session'); setAccount(session.user,session.csrf_token);
-  if(session.user.must_change_password) {setView('profile',false);return;}
-  await loadDashboard(false); if(state.view==='calendar') renderCalendar();
+  if(workspaceState.boardRefreshing)return;
+  const uid=state.user?.id;
+  workspaceState.boardRefreshing=true;
+  try{
+    const session=await api('/api/auth/session');
+    if(uid!==state.user?.id)return;
+    setAccount(session.user,session.csrf_token);
+    if(session.user.must_change_password){setView('profile',false);return;}
+    const result=await api('/api/projects');
+    if(uid!==state.user?.id)return;
+    if(JSON.stringify(state.projects)===JSON.stringify(result.projects))return;
+    state.projects=result.projects;renderProjectSelect();
+    if(state.view==='home')renderHome();
+    if(state.view==='calendar')renderCalendar();
+  }finally{workspaceState.boardRefreshing=false;}
 }
 
 async function loadMyTeam() {
@@ -486,13 +512,13 @@ function bindWorkspaceEvents() {
   $('#add-user').addEventListener('click',()=>openUserEditor());
   $('#project-search').addEventListener('input',renderProjectBoard);
   $('#project-sort').addEventListener('change',event=>{
-    const value=event.target.value;if(!['recent','name','name-desc','deadline','newest'].includes(value))return;
+    const value=event.target.value;if(!['recent','name','name-desc','deadline','newest','cost-high','cost-low'].includes(value))return;
     workspaceState.boardSort=value;
     try{localStorage.setItem('conest-project-sort-'+state.user.id,value);}catch(_){}
     renderProjectBoard();
   });
   $('#project-view-style').addEventListener('change',event=>{
-    const value=event.target.value;if(!['cards','list','compact'].includes(value))return;
+    const value=event.target.value;if(!['cards','list'].includes(value))return;
     workspaceState.boardView=value;
     try{localStorage.setItem('conest-project-view-'+state.user.id,value);}catch(_){}
     renderProjectBoard();

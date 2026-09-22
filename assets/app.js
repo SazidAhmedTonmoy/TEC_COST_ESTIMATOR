@@ -127,9 +127,30 @@ async function api(path, options = {}) {
     config.headers["Content-Type"] = "application/json";
     config.body = JSON.stringify(config.body);
   }
-  const response = await fetch(path, config);
-  const contentType = response.headers.get("content-type") || "";
-  const result = contentType.includes("application/json") ? await response.json() : null;
+  const readOnly=['GET','HEAD'].includes((config.method||'GET').toUpperCase());
+  let response,result;
+  for(let attempt=0;attempt<(readOnly?2:1);attempt++){
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),readOnly?30000:120000);
+    try {
+      response=await fetch(path,{...config,signal:config.signal||controller.signal});
+      if(readOnly&&attempt===0&&[502,503,504].includes(response.status)){
+        await response.body?.cancel();
+        clearTimeout(timer);await new Promise(resolve=>setTimeout(resolve,400));continue;
+      }
+      const contentType=response.headers.get('content-type')||'';
+      if(response.ok&&!contentType.includes('application/json'))throw new Error('The server returned an unexpected response. Refresh or try again shortly.');
+      result=contentType.includes('application/json')?await response.json():null;
+      break;
+    }catch(error){
+      if(config.signal?.aborted)throw error;
+      const connectionError=error instanceof TypeError||error.name==='AbortError';
+      if(connectionError&&readOnly&&attempt===0){clearTimeout(timer);await new Promise(resolve=>setTimeout(resolve,400));continue;}
+      if(connectionError)throw new Error(readOnly?'Connection interrupted or the server took too long. Check your connection and try again.':'Connection interrupted while saving. The change may have reached the server. Reload and check before submitting again.');
+      if(error instanceof SyntaxError)throw new Error('The server returned an incomplete response. Reload to check the latest saved information.');
+      throw error;
+    }finally{clearTimeout(timer);}
+  }
   if (!response.ok || (result && result.success === false)) {
     if (response.status === 401 && path !== '/api/auth/login') showLogin();
     const fallback=response.status===413?'The server rejected the upload size. Its hosting limit may be lower than the app limit; try a smaller file.':[502,503,504].includes(response.status)?'The server is starting, busy or timed out. Wait briefly and try again.':response.status>=500?'The server returned an error before application details were available. Ask your administrator to check the hosting error log.':`Request failed (${response.status})`;
@@ -180,7 +201,9 @@ function setView(name, load = true, remember = true) {
 }
 
 async function loadDashboard(reloadEstimate = true) {
+  const uid=state.user?.id;
   const result = await api("/api/dashboard");
+  if(uid!==state.user?.id)return;
   state.dashboard = result;
   state.projects = result.projects;
   state.catalogCategories = result.catalog?.categories || [];
@@ -191,8 +214,7 @@ async function loadDashboard(reloadEstimate = true) {
   if (!state.projects.some((project) => project.id === state.projectId && project.can_view)) state.projectId = null;
   if (state.projectId) { if(reloadEstimate) await loadProject(state.projectId); }
   else { state.projectData = null; renderProject(); }
-  renderProjectSelect();
-  renderHome();
+  if(state.view==='home')renderHome();
 }
 
 function renderCatalogCategoryFilter() {
@@ -1273,6 +1295,7 @@ function bindEvents() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+  $('#startup-retry').addEventListener('click',()=>bootWorkspace());
   bindEvents();
   bindWorkspaceEvents();
   if(typeof bindProductivityEvents==='function')bindProductivityEvents();
