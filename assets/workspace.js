@@ -60,6 +60,7 @@ async function enterWorkspace(result) {
 }
 async function bootWorkspace() {
   document.body.classList.add('app-loading');
+  $('#startup-screen').classList.remove('loading-failed');
   $('#startup-message').textContent='Loading your workspace…';
   $('#startup-retry').classList.add('hidden');
   try { await enterWorkspace(await api('/api/auth/session')); }
@@ -67,6 +68,7 @@ async function bootWorkspace() {
     if(error.status===401){showLogin();return;}
     // A temporary network/server fault does not mean the session expired.
     document.body.classList.add('app-loading');
+    $('#startup-screen').classList.add('loading-failed');
     $('#startup-message').textContent=error.message;
     $('#startup-retry').classList.remove('hidden');
   }
