@@ -160,7 +160,7 @@ def application(environ, start_response):
         parsed_headers.append((name.decode('latin-1').strip(), value.decode('latin-1').strip()))
     status_code = int(parts[1])
     response_headers, body = prepare_response(environ, status_code, parsed_headers, body)
-    response_headers.append(('X-ConEst-Adapter','2.4-r4'))
+    response_headers.append(('X-ConEst-Adapter','2.4-r5'))
     response_headers.append(('Server-Timing',f'app;dur={(time.perf_counter()-started)*1000:.1f}'))
     start_response(status, response_headers)
     if environ.get('REQUEST_METHOD', 'GET').upper() == 'HEAD':
@@ -192,7 +192,7 @@ def prepare_response(environ, status, headers, body):
              and name.lower() not in {'content-length','status'}]
     metadata={name.lower():value for name,value in headers}
     path=environ.get('PATH_INFO','')
-    eligible=(status==200 and environ.get('REQUEST_METHOD','GET').upper() in {'GET','HEAD'}
+    eligible=(status in (200,201) and environ.get('REQUEST_METHOD','GET').upper() in {'GET','HEAD','POST','PATCH','PUT','DELETE'}
               and (path.startswith('/api/projects/') or path.startswith('/api/catalog/'))
               and metadata.get('content-type','').startswith('application/json')
               and 'content-encoding' not in metadata and len(body)>=2048)

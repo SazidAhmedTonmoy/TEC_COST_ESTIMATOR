@@ -10,6 +10,8 @@ class TransportTests(unittest.TestCase):
    out=dict(out);self.assertEqual(int(out['Content-Length']),len(body));self.assertEqual(out['Cache-Control'],'no-store')
    self.assertEqual(gzip.decompress(body) if compress else body,raw)
    self.assertEqual(out.get('Content-Encoding'), 'gzip' if compress else None)
+  out,body=prepare_response({'REQUEST_METHOD':'POST','PATH_INFO':'/api/projects/11/reorder','HTTP_ACCEPT_ENCODING':'gzip'},201,headers,raw)
+  self.assertEqual(gzip.decompress(body),raw);self.assertEqual(int(dict(out)['Content-Length']),len(body))
   for path in ['/api/auth/session','/api/settings']:
    out,body=prepare_response({'PATH_INFO':path,'HTTP_ACCEPT_ENCODING':'gzip'},200,headers,raw)
    self.assertEqual(body,raw)

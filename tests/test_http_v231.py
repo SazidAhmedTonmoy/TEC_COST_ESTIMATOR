@@ -82,6 +82,35 @@ class HttpPatchTests(unittest.TestCase):
         status,result=self.request('PATCH','/api/settings',{'default_labor_hours_markup':-1})
         self.assertEqual(status,400)
 
+    def test_compact_estimate_edits_reorder_and_zero_copy(self):
+        from fixtures_v232 import seed
+        from conest_app.projects import calculate_project
+        with connect() as conn:
+            sample=seed(conn);pid=sample['project_id']
+        status,base=self.request('GET',f'/api/projects/{pid}')
+        def metadata(data):
+            return {'_known_lines':{str(l['id']):l['revision'] for l in data['lines']},
+                    '_known_pricing':[data['project'].get(k,0) for k in ('material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day')]}
+        ids=[l['id'] for l in base['lines']][::-1]
+        with patch('app.calculate_project',side_effect=AssertionError('Reorder must not recalculate estimate')):
+            status,ordered=self.request('POST',f'/api/projects/{pid}/reorder',dict(metadata(base),ids=ids,expected_revision=base['project']['revision']))
+        self.assertEqual(status,201,ordered);self.assertTrue(ordered['estimate_order']);self.assertNotIn('lines',ordered)
+        status,base=self.request('GET',f'/api/projects/{pid}');self.assertEqual([l['id'] for l in base['lines']],ids)
+        lid=ids[0]
+        status,changed=self.request('PATCH',f'/api/projects/{pid}/lines/{lid}',dict(metadata(base),quantity=12,expected_revision=base['lines'][0]['revision']))
+        self.assertEqual(status,200,changed);self.assertTrue(changed['estimate_delta']);self.assertEqual([l['id'] for l in changed['lines']],[lid])
+        status,full=self.request('GET',f'/api/projects/{pid}');self.assertEqual(changed['totals'],full['totals'])
+        status,copied=self.request('POST',f'/api/projects/{pid}/lines/{lid}/copy',dict(metadata(full),expected_revision=full['lines'][0]['revision']))
+        self.assertEqual(status,201,copied);self.assertTrue(copied['estimate_delta']);self.assertEqual(len(copied['lines']),1);self.assertEqual(len(copied['line_order']),3)
+        with connect() as conn:
+            conn.execute('UPDATE project_line_components SET fixed_quantity=1 WHERE project_line_id=?',(lid,))
+            source=calculate_project(conn,pid)
+        status,zero=self.request('POST',f'/api/projects/{pid}/copy',{'name':'Zero copy','zero_quantities':True})
+        self.assertEqual(status,201,zero);self.assertTrue(all(l['quantity']==0 for l in zero['lines']));self.assertEqual(zero['totals']['quoted'],0)
+        with connect() as conn:self.assertEqual(calculate_project(conn,pid)['totals'],source['totals'])
+        status,normal=self.request('POST',f'/api/projects/{pid}/copy',{'name':'Normal copy'})
+        self.assertEqual(status,201,normal);self.assertEqual(normal['totals'],source['totals'])
+
     def upload(self,filename='tle_standard.pdf',content=None,path='/api/light-prices/preview'):
         boundary='----test-fixture-boundary-231'
         content=content if content is not None else (FIXTURES/filename).read_bytes()

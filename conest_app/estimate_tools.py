@@ -72,6 +72,8 @@ def component_action(conn,pid,lid,payload,action,cid=None):
 
 def copy_project(conn,pid,user,payload):
     source=require_project(conn,pid,user,'view');check_revision(source,payload)
+    reset=payload.get('zero_quantities',False)
+    if type(reset) is not bool:raise ValueError('Zero quantities must be true or false')
     name=clean_text(payload.get('name') or source['name']+' — Copy')
     if not name or len(name)>500:raise ValueError('Project name must be 1–500 characters')
     deadline=payload.get('submission_deadline') or ''
@@ -83,8 +85,12 @@ def copy_project(conn,pid,user,payload):
     register_project(conn,new,user)
     conn.execute('UPDATE projects SET scope_of_work=?,scope_order=?,crew_size=?,hours_per_day=?,submission_deadline=? WHERE id=?',(scope,source['scope_order'],source['crew_size'],source['hours_per_day'],deadline,new))
     for line in conn.execute('SELECT * FROM project_lines WHERE project_id=? ORDER BY sort_order,id',(pid,)).fetchall():
-        new_line=insert_copy(conn,'project_lines',line,{'project_id':new,'revision':0,'created_at':utc_now(),'updated_at':utc_now()})
+        changes={'project_id':new,'revision':0,'created_at':utc_now(),'updated_at':utc_now()}
+        if reset:changes.update(quantity=0,supply_quantity_override=None)
+        new_line=insert_copy(conn,'project_lines',line,changes)
         for row in conn.execute('SELECT * FROM project_line_components WHERE project_line_id=?',(line['id'],)).fetchall():
-            insert_copy(conn,'project_line_components',row,{'project_line_id':new_line})
+            changes={'project_line_id':new_line}
+            if reset and row['fixed_quantity']:changes['quantity_per_unit']=0
+            insert_copy(conn,'project_line_components',row,changes)
     record_activity(conn,new,user,'Copied project',source['name'])
     return new

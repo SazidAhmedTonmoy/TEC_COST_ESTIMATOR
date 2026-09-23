@@ -3,7 +3,10 @@ const estimateViewState={collapsed:new Set(),expanded:new Set(),query:'',drag:nu
 function scopeKey(category){return `${state.projectId}:${category}`;}
 function fitEstimateText(){
   if(!$('#estimate-view').classList.contains('active'))return;
-  $$('#estimate-lines textarea').forEach(field=>{field.style.height='auto';field.style.height=`${field.scrollHeight+2}px`;});
+  const fields=$$('#estimate-lines textarea');
+  fields.forEach(field=>field.style.height='auto');
+  const heights=fields.map(field=>field.scrollHeight+2);
+  fields.forEach((field,i)=>field.style.height=`${heights[i]}px`);
 }
 function renderGroupedEstimate(lines){
   const groups=new Map();
@@ -30,13 +33,26 @@ function renderGroupedEstimate(lines){
   $('#floating-bottom-button').classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
 }
 async function estimateOperation(path,payload,record){
-  if(estimateViewState.busy)return;
+  if(estimateViewState.busy){toast('Please wait for the current change to finish.');return;}
   if(!state.projectData?.project?.can_edit)throw new Error('This estimate is read-only');
   estimateViewState.busy=true;
-  const pid=state.projectId;
-  try{const result=await api(path,{method:'POST',body:{...payload,expected_revision:record.revision}});if(state.projectId===pid){state.projectData=result;renderProject();}}
-  finally{estimateViewState.busy=false;}
+  const pid=state.projectId,before=state.projectData,table=$('#estimate-lines');
+  table.inert=true;table.setAttribute('aria-busy','true');
+  const reorder=/\/projects\/\d+\/reorder$/.test(path);
+  if(reorder){
+    const rows=new Map(before.lines.map(line=>[line.id,line]));
+    state.projectData={...before,lines:payload.ids.map(id=>rows.get(id))};
+    renderGroupedEstimate(state.projectData.lines);
+  }
+  try{
+    const result=await api(path,{method:'POST',body:{...payload,expected_revision:record.revision}});
+    if(state.projectId===pid && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0)){state.projectData=result;if(reorder)renderGroupedEstimate(result.lines);else renderProject();}
+  }catch(error){
+    if(state.projectId===pid&&reorder&&state.projectData?.project?.revision===before.project.revision){state.projectData=before;renderGroupedEstimate(before.lines);}
+    throw error;
+  }finally{estimateViewState.busy=false;table.inert=false;table.removeAttribute('aria-busy');}
 }
+
 function lineById(id){return state.projectData.lines.find(l=>l.id===Number(id));}
 async function deleteSearchItem(id){
   const item=await fetchCatalogItem(id);
@@ -54,7 +70,7 @@ function moveId(ids,id,target,after){const result=ids.filter(x=>x!==id),at=resul
 
 function scopeNames(){return [...new Set((state.projectData?.lines||[]).map(l=>l.category_snapshot||'Other'))];}
 async function moveScope(source,target,after){
-  if(estimateViewState.busy)return;
+  if(estimateViewState.busy){toast('Please wait for the current change to finish.');return;}
   const names=scopeNames();if(source===target||!names.includes(source)||!names.includes(target))return;
   const scope_order=moveId(names,source,target,after);
   const ids=scope_order.flatMap(category=>state.projectData.lines.filter(l=>(l.category_snapshot||'Other')===category).map(l=>l.id));
@@ -81,7 +97,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(move){const names=scopeNames(),at=names.indexOf(move.dataset.scope),direction=Number(move.dataset.direction);if(names[at+direction])moveScope(move.dataset.scope,names[at+direction],direction>0).catch(error=>toast(error.message,true));return;}
     const scope=event.target.closest('.toggle-scope');
     if(scope){const key=scopeKey(scope.dataset.scope);if(estimateViewState.collapsed.has(key))estimateViewState.collapsed.delete(key);else estimateViewState.collapsed.add(key);renderGroupedEstimate(state.projectData.lines);return;}
-    const toggle=event.target.closest('.toggle-details');if(toggle){const id=Number(toggle.dataset.lineId);if(toggle.getAttribute('aria-expanded')==='true')estimateViewState.expanded.add(id);else estimateViewState.expanded.delete(id);}
+
     const copy=event.target.closest('.copy-estimate-line');
     if(copy){const line=lineById(copy.dataset.lineId);estimateOperation(`/api/projects/${state.projectId}/lines/${line.id}/copy`,{},line).catch(error=>toast(error.message,true));}
     const component=event.target.closest('.component-copy-live');
@@ -95,7 +111,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('dragstart',event=>{
     const handle=event.target.closest('.drag-handle');if(!handle)return;
     const kind=handle.dataset.dragKind;
-    if(kind!=='manual'&&!state.projectData?.project?.can_edit){event.preventDefault();return;}
+    if(kind!=='manual'&&(estimateViewState.busy||!state.projectData?.project?.can_edit)){event.preventDefault();return;}
     estimateViewState.drag={kind,scope:handle.dataset.scope,lineId:Number(handle.dataset.lineId),componentId:Number(handle.dataset.componentId),row:handle.closest('tr')};
     event.dataTransfer.effectAllowed='move';event.dataTransfer.setData('text/plain',kind);
   });
@@ -116,8 +132,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
     let path,payload,record;
     if(drag.kind==='line'){
-      if(!row.matches('.assembly-row'))return;
-      const target=lineById(row.dataset.lineId),source=lineById(drag.lineId);if(target.id===source.id)return;
+      if(!row.matches('.assembly-row,.detail-row'))return;
+      const target=lineById(row.dataset.lineId||row.dataset.parent),source=lineById(drag.lineId);if(target.id===source.id)return;
       if(target.category_snapshot!==source.category_snapshot){toast('Move items within the same scope. Change Category to move between scopes.');return;}
       payload={ids:moveId(state.projectData.lines.map(l=>l.id),source.id,target.id,after)};record=state.projectData.project;path=`/api/projects/${state.projectId}/reorder`;
     } else {

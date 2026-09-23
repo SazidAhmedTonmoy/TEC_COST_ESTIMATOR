@@ -406,7 +406,12 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         estimate_tools.component_action(conn,pid,lid,payload,action,int(tools_match[5]) if tools_match[5] else None)
                         name=conn.execute('SELECT name_snapshot FROM project_lines WHERE id=?',(lid,)).fetchone()[0]
                         self._audit(conn,pid,'Copied component' if action=='copy' else 'Reordered components',name)
-                    result=self._project_payload(conn,calculate_project(conn,pid));conn.commit()
+                    if tools_match[2]=='reorder' and isinstance(payload.get('_known_lines'),dict):
+                        result=self._project_payload(conn,{'project':dict(get_project(conn,pid))})
+                        result.update(estimate_order=True,line_order=payload['ids'],line_versions=[dict(row) for row in conn.execute('SELECT id,revision,sort_order,updated_at FROM project_lines WHERE project_id=?',(pid,))])
+                    else:
+                        result=self._estimate_delta(self._project_payload(conn,calculate_project(conn,pid)),payload)
+                    conn.commit()
                 self._send_json({'success':True,**result},201)
                 return
             manual_match = re.fullmatch(r"/api/projects/(\d+)/(?:manual-items|lines/(\d+)/manual-item)", path)
@@ -419,7 +424,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     )
                     if result.get('catalog_saved'):capture_price(conn,result['item']['id'],self.user['id'],payload.get('item',{}),payload.get('item',{}).get('source_item_id'))
                     self._audit(conn, int(manual_match.group(1)), 'Saved manual estimate item', result['item']['name'])
-                    result = self._project_payload(conn, result)
+                    result = self._estimate_delta(self._project_payload(conn, result),payload)
                     conn.commit()
                 self._send_json({"success": True, **result}, 201)
                 return
@@ -456,7 +461,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         clean_text(payload.get("query")),
                     )
                     self._audit(conn, int(match.group(1)), 'Added estimate item', f"Catalog item {payload.get('catalog_item_id')}, quantity {payload.get('quantity', 1)}")
-                    result = self._project_payload(conn, result)
+                    result = self._estimate_delta(self._project_payload(conn, result),payload)
                     conn.commit()
                 self._send_json({"success": True, **result}, 201)
                 return
@@ -554,7 +559,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                             require_project(conn, int(match.group(1)), self.user, 'manage')
                     project = update_project(conn, int(match.group(1)), payload)
                     self._audit(conn, int(match.group(1)), 'Updated estimate settings')
-                    project = self._project_payload(conn, project)
+                    project = self._estimate_delta(self._project_payload(conn, project),payload)
                     conn.commit()
                 self._send_json({"success": True, **project})
                 return
@@ -563,7 +568,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 with self._write_connection() as conn:
                     project = update_project_line(conn, int(match.group(1)), int(match.group(2)), payload)
                     self._audit(conn, int(match.group(1)), 'Updated estimate item', 'Line ' + match.group(2) + ': ' + json.dumps({k: payload[k] for k in ('quantity', 'category_snapshot', 'notes', 'name_snapshot', 'reference_name', 'size_snapshot', 'supply_quantity_override', 'supply_unit_cost_override') if k in payload}, ensure_ascii=False))
-                    project = self._project_payload(conn, project)
+                    project = self._estimate_delta(self._project_payload(conn, project),payload)
                     conn.commit()
                 self._send_json({"success": True, **project})
                 return
@@ -673,7 +678,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     check_revision(line, payload)
                     project = delete_project_line(conn, int(match.group(1)), int(match.group(2)))
                     self._audit(conn, int(match.group(1)), 'Removed estimate item', 'Line ' + match.group(2))
-                    project = self._project_payload(conn, project)
+                    project = self._estimate_delta(self._project_payload(conn, project),payload)
                     conn.commit()
                 self._send_json({"success": True, **project})
                 return

@@ -88,6 +88,21 @@ class WorkspaceHTTP:
             result['projects'] = workspace.visible_projects(conn, self.user)
         return result
 
+    def _estimate_delta(self, result, request):
+        known=request.get('_known_lines')
+        if not isinstance(known,dict) or not isinstance(result.get('lines'),list):return result
+        keys=('material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day')
+        if request.get('_known_pricing') != [result['project'].get(k,0) for k in keys]:return result
+        result=dict(result)
+        lines=result['lines']
+        result['line_order']=[line['id'] for line in lines]
+        result['lines']=[line for line in lines if known.get(str(line['id'])) != line.get('revision',0)]
+        result['estimate_delta']=True
+        # The edited catalog record repeats the same component build-up; the
+        # estimate editor consumes the changed estimate line, not this record.
+        if 'item' in result:result.pop('item')
+        return result
+
     @contextmanager
     def _write_connection(self):
         with write_lock:

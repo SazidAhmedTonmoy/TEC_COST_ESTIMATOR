@@ -131,6 +131,7 @@ async function api(path,options={}){
   }
 }
 async function apiRequest(path, options = {}) {
+  const estimateBase = state.projectData;
   const config = { ...options, headers: { ...(options.headers || {}) } };
   config.credentials = 'same-origin';
   config.headers['X-ConEst-Request'] = '1';
@@ -140,6 +141,11 @@ async function apiRequest(path, options = {}) {
     if(match && ['PATCH','DELETE'].includes(config.method) && config.body.expected_revision===undefined) {
       const record=match[2]?state.projectData?.lines.find(l=>l.id===Number(match[2])):state.projectData?.project;
       if(record && state.projectId===Number(match[1])) config.body={...config.body,expected_revision:record.revision};
+    }
+    const estimatePath=path.match(/^\/api\/projects\/(\d+)(?:\/|$)/);
+    if(estimatePath && Number(estimatePath[1])===state.projectId && estimateBase?.lines && /^\/api\/projects\/\d+(?:$|\/(?:reorder|manual-items|lines)(?:\/|$))/.test(path)) {
+      config.body={...config.body,_known_lines:Object.fromEntries(estimateBase.lines.map(l=>[l.id,l.revision||0])),_known_pricing:['material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day'].map(k=>estimateBase.project[k]??0)};
+      state.projectLoadRequest=(state.projectLoadRequest||0)+1;
     }
     config.headers["Content-Type"] = "application/json";
     config.body = JSON.stringify(config.body);
@@ -170,7 +176,19 @@ async function apiRequest(path, options = {}) {
     error.status = response.status;
     throw error;
   }
-  return result;
+  return mergeEstimateResponse(result,estimateBase);
+}
+
+function mergeEstimateResponse(result,base){
+  if(!result?.estimate_delta&&!result?.estimate_order)return result;
+  if(!base||base.project.id!==result.project.id)throw new Error('Estimate changed. Reload to see the saved result.');
+  const rows=new Map(base.lines.map(line=>[line.id,line]));
+  for(const line of result.lines||[])rows.set(line.id,line);
+  for(const version of result.line_versions||[])rows.set(version.id,{...rows.get(version.id),...version});
+  const lines=result.line_order.map((id,index)=>{const line=rows.get(id);if(!line)throw new Error('Estimate changed. Reload to see the saved result.');return {...line,sort_order:index*10};});
+  const merged={...base,...result,lines};
+  delete merged.estimate_delta;delete merged.estimate_order;delete merged.line_order;delete merged.line_versions;
+  return merged;
 }
 
 let toastTimer;
@@ -333,7 +351,7 @@ async function deleteCurrentProject() {
     hideSmartSuggestions();
     $("#search-results").classList.add("hidden");
     renderProject();
-    await loadDashboard();
+    await loadDashboard(false);
     toast("Project deleted");
   } finally {
     $("#delete-project-button").disabled = !state.projectData;
@@ -343,6 +361,7 @@ async function deleteCurrentProject() {
 
 async function updateLineCategory(lineId, value) {
   const result = await api(`/api/projects/${state.projectId}/lines/${lineId}`, { method:"PATCH", body:{ category_snapshot:value.trim() || "Other" } });
+  if(result.project.id!==state.projectId || Number(result.project.revision)<Number(state.projectData?.project?.revision))return;
   state.projectData = result;
   renderProject();
   toast("Category and scope breakdown updated");
@@ -383,7 +402,7 @@ async function addQuickResult(button) {
 
 function renderEstimateLine(line) {
   const category = line.category_snapshot || "Other";
-  const details = (line.components || []).map((component) => `
+  const details = (estimateViewState.expanded.has(line.id) ? (line.components || []) : []).map((component) => `
     <tr class="detail-row hidden-row" data-parent="${line.id}" data-component-id="${component.id}">
       <td class="assembly-cell"><span class="drag-handle" draggable="true" data-drag-kind="component" data-line-id="${line.id}" data-component-id="${component.id}" title="Drag component">⠿</span><button class="component-copy-live" data-line-id="${line.id}" data-component-id="${component.id}" title="Copy component below" aria-label="Copy component">+</button>${componentLabel(component)}${component.fixed_quantity?'<small class="fixed-quantity-note">Fixed total quantity</small>':''}</td>
       <td>${fmtNumber(component.scaled_quantity)} ${escapeHtml(component.uom || "")}</td>
@@ -589,6 +608,7 @@ async function addCatalogItem(itemId, query = "", quantity = null) {
     method: "POST",
     body: { catalog_item_id: Number(itemId), quantity: qty, query },
   });
+  if(result.project.id!==state.projectId || Number(result.project.revision)<Number(state.projectData?.project?.revision))return;
   state.projectData = result;
   renderProject();
   $("#search-results").classList.add("hidden");
@@ -601,12 +621,14 @@ async function updateLineQuantity(lineId, value) {
   const quantity = Number(value);
   if (!Number.isFinite(quantity) || quantity < 0) { toast("Quantity must be zero or greater", true); renderProject(); return; }
   const result = await api(`/api/projects/${state.projectId}/lines/${lineId}`, { method: "PATCH", body: { quantity } });
+  if(result.project.id!==state.projectId || Number(result.project.revision)<Number(state.projectData?.project?.revision))return;
   state.projectData = result;
   renderProject();
 }
 
 async function removeLine(lineId) {
   const result = await api(`/api/projects/${state.projectId}/lines/${lineId}`, { method: "DELETE", body: {} });
+  if(result.project.id!==state.projectId || Number(result.project.revision)<Number(state.projectData?.project?.revision))return;
   state.projectData = result;
   renderProject();
   toast("Assembly removed");
@@ -628,7 +650,7 @@ async function saveProjectSettings(event) {
   payload.expected_revision = state.projectData?.project.revision;
   const result = await api(`/api/projects/${state.projectId}`, { method: "PATCH", body: payload });
   state.projectData = result;
-  await loadDashboard();
+  await loadDashboard(false);
   $("#project-settings-form").classList.remove("hidden");
   toast("Project rates updated; all totals recalculated");
 }
@@ -637,6 +659,7 @@ let projectCopySource=null;
 function openProjectForm(source=null){
   projectCopySource=source;
   $('#new-project-form').reset();
+  $('#copy-zero-label').classList.toggle('hidden',!source);
   $('#new-project-name').value=source?`${source.name} — Copy`:'';
   $('#new-project-scope').value=source?.scope_of_work||'';
   renderBuilderEditor('new-project-builders',source?projectBuilders(source):[]);
@@ -665,16 +688,17 @@ async function createNewProject(event) {
   const source=projectCopySource;
   const result = await api(source?`/api/projects/${source.id}/copy`:"/api/projects", { method: "POST", body: source?{
     name:payload.name,builders:payload.builders,scope_of_work:payload.scope_of_work,
-    submission_deadline:payload.submission_deadline,expected_revision:source.revision
+    submission_deadline:payload.submission_deadline,expected_revision:source.revision,zero_quantities:$("#copy-zero-quantities").checked
   }:payload });
   projectCopySource=null;
   state.projectId = result.project.id;
   $("#project-dialog").close();
   $("#new-project-form").reset();
   renderBuilderEditor("new-project-builders", []);
-  await loadDashboard();
+  await loadDashboard(false);
+  state.projectData=result;renderProject();
   setView('estimate', false);
-  if(source){await loadProject(result.project.id);toast('Project copied');return;}
+  if(source){toast('Project copied');return;}
   toast(state.user.role==='user' && state.user.team_id ? "Project created and shared with your team" : "New estimate created");
 }
 
@@ -865,7 +889,7 @@ async function saveManualItem(event) {
         ? `/api/projects/${state.manualProjectId}/lines/${state.manualLineId}/manual-item`
         : `/api/projects/${state.manualProjectId}/manual-items`;
       result = await api(path, { method: "POST", body: { save_mode:$("#manual-save-mode").value || "new", item: payload, quantity: Number($("#manual-quantity").value), ...(state.manualLineId ? {expected_revision:state.manualLineRevision}: {}) } });
-      state.projectData = result;
+      if(result.project.id===state.projectId && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0))state.projectData = result;
     } else {
       const path = state.manualEditId ? `/api/catalog/${state.manualEditId}` : "/api/catalog";
       result = await api(path, { method: state.manualEditId ? "PUT" : "POST", body: payload });
@@ -882,7 +906,7 @@ async function saveManualItem(event) {
   try {
     state.catalogCache.clear();hideSmartSuggestions();hideCatalogHover(0);
     if(state.manualAddToEstimate){renderProject();$("#search-results").classList.add("hidden");}
-    await loadDashboard();
+    if (!state.manualAddToEstimate) await loadDashboard(false);
     if (!state.manualAddToEstimate) {
       $("#catalog-category").value = "";
       $("#catalog-search-input").value = result.item.display_name || cleanEstimateTitle(result.item.name);
@@ -1152,11 +1176,9 @@ function bindEvents() {
   $("#estimate-lines").addEventListener("click", (event) => {
     const toggle = event.target.closest(".toggle-details");
     if (toggle) {
-      const rows = $$(`.detail-row[data-parent="${toggle.dataset.lineId}"]`);
-      const hiding = !rows[0]?.classList.contains("hidden-row");
-      rows.forEach((row) => row.classList.toggle("hidden-row", hiding));
-      toggle.textContent = hiding ? "+" : "−";
-      toggle.setAttribute("aria-expanded",String(!hiding));
+      const id=Number(toggle.dataset.lineId);
+      if(estimateViewState.expanded.has(id))estimateViewState.expanded.delete(id);else estimateViewState.expanded.add(id);
+      renderGroupedEstimate(state.projectData.lines);
     }
     const edit = event.target.closest(".edit-estimate-line");
     if (edit) openEstimateLineEditor(edit.dataset.lineId);
@@ -1186,7 +1208,7 @@ function bindEvents() {
     if(key){
       const value=['reference_name','name_snapshot','work_type_snapshot','size_snapshot'].includes(key)?field.value:field.value===''?null:Number(field.value);
       field.disabled=true;
-      api(`/api/projects/${state.projectId}/lines/${field.dataset.lineId}`,{method:'PATCH',body:{[key]:value,expected_revision:state.projectData.lines.find(l=>l.id===Number(field.dataset.lineId))?.revision}}).then(result=>{state.projectData=result;renderProject();}).catch(error=>{field.disabled=false;toast(error.message,true);});
+      api(`/api/projects/${state.projectId}/lines/${field.dataset.lineId}`,{method:'PATCH',body:{[key]:value,expected_revision:state.projectData.lines.find(l=>l.id===Number(field.dataset.lineId))?.revision}}).then(result=>{if(result.project.id===state.projectId && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0)){state.projectData=result;renderProject();}}).catch(error=>{field.disabled=false;toast(error.message,true);});
     }
     if (event.target.matches(".line-category")) updateLineCategory(event.target.dataset.lineId, event.target.value).catch((error) => { toast(error.message, true); renderProject(); });
     if (event.target.matches(".line-quantity")) updateLineQuantity(event.target.dataset.lineId, event.target.value).catch((error) => toast(error.message, true));

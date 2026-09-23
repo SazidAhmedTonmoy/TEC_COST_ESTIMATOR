@@ -315,6 +315,7 @@ def refresh_catalog_index(conn: sqlite3.Connection) -> dict[str, int]:
         """SELECT ci.id, ci.code, ci.name, ci.description, ci.phase, ci.scope,
                   ci.source_type, ci.is_manual, ci.usage_count, ci.updated_at,
                   ci.work_type, ci.base_uom, ci.category_override, ci.manual_revision,
+                  ci.catalog_key, ci.category, ci.data_status, ci.content_key, ci.is_preferred,
                   COUNT(cc.id) AS component_count,
                   COALESCE(SUM(cc.quantity_per_unit * cc.unit_material * cc.material_factor), 0) AS unit_material,
                   COALESCE(SUM(CASE WHEN cc.labor_pricing='hours' THEN cc.quantity_per_unit * cc.unit_hours * cc.labor_factor ELSE 0 END), 0) AS unit_hours,
@@ -346,12 +347,18 @@ def refresh_catalog_index(conn: sqlite3.Connection) -> dict[str, int]:
         families.setdefault(key, []).append((int(row["manual_revision"]), quality, row["updated_at"] or "", int(row["id"])))
 
     if updates:
+        previous={int(row['id']):row for row in rows}
+        changed=[value for value in updates if value[:4] != tuple(previous[value[4]][key] for key in ('catalog_key','category','data_status','content_key'))]
         conn.executemany(
-            "UPDATE catalog_items SET catalog_key=?, category=?, data_status=?, content_key=?, is_preferred=0 WHERE id=?",
-            updates,
+            "UPDATE catalog_items SET catalog_key=?, category=?, data_status=?, content_key=? WHERE id=?",
+            changed,
         )
-        preferred_ids = [max(members)[3] for members in families.values()]
-        conn.executemany("UPDATE catalog_items SET is_preferred=1 WHERE id=?", ((item_id,) for item_id in preferred_ids))
+        preferred_ids = {max(members)[3] for members in families.values()}
+        # Unchanged catalogue rows must not generate writes and invalidate the
+        # shared catalogue cache whenever one unrelated item is edited.
+        conn.executemany("UPDATE catalog_items SET is_preferred=? WHERE id=?",
+                         ((int(row['id'] in preferred_ids),row['id']) for row in rows
+                          if int(row['is_preferred']) != int(row['id'] in preferred_ids)))
     return {
         "catalog_families": len({content for _, _, _, content, _ in updates}),
         "source_families": len(families),
