@@ -237,7 +237,6 @@ async function loadDashboard(reloadEstimate = true) {
   state.dashboard = result;
   state.projects = result.projects;
   state.catalogCategories = result.catalog?.categories || [];
-  $("#system-status").textContent = `${result.counts.catalog_items.toLocaleString()} unique items · ${result.counts.source_variants.toLocaleString()} source records`;
   renderCatalogCategoryFilter();
   renderProjectSelect();
   $("#category-options").innerHTML = (result.manual_options?.categories || []).map((category) => `<option value="${escapeHtml(category)}">`).join("");

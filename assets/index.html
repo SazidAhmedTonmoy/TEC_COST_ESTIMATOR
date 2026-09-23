@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.40dc534e95db.css">
+  <link rel="stylesheet" href="/assets/styles.b508eea054cf.css">
 </head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -36,15 +36,10 @@
         <a class="nav-button" data-view="catalog" href="#/catalog"><span>⌕</span> Catalog</a>
         <a class="nav-button" data-view="light-prices" href="#/light-prices"><span>☼</span> Light Price</a>
         <a class="nav-button" data-view="imports" href="#/imports"><span>⇧</span> Import</a>
-        <a class="nav-button" data-view="profile" href="#/profile"><span>◉</span> My Profile</a>
         <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage Users</a>
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App Settings</a>
       </nav>
-      <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><strong id="account-name"></strong><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
-      <div class="sidebar-footer">
-        <span class="status-dot"></span>
-        <span id="system-status">Checking database…</span>
-      </div>
+      <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><a class="account-name-link" href="#/profile" aria-label="Open my profile"><strong id="account-name"></strong></a><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
     </aside>
 
     <main>
@@ -231,7 +226,7 @@
 
       <section class="view" id="light-prices-view">
 
-        <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light Price</h2></div><span id="light-price-count" class="pill"></span></div>
+        <section class="panel"><div class="panel-heading"><div><p class="eyebrow">Supplier quote library</p><h2>Light Price</h2></div></div>
           <p class="helper-text">Search by name, nickname, supplier, catalogue number or project. All prices are AUD excluding GST. Open a result here to see exactly which rows and totals make up its package price.</p>
           <form id="light-price-search-form" class="light-price-search"><label class="light-query">Find a quoted fitting<input type="search" id="light-price-search" placeholder="Name, nickname, cat no or project..." autocomplete="off"></label><label class="light-supplier">Supplier<select id="light-price-supplier"><option value="">All suppliers</option></select></label><button class="button primary" type="submit">Search</button></form>
 
@@ -431,6 +426,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.bb2b129c82be.js" defer></script>
+  <script src="/assets/app.813902f2a282.js" defer></script>
 </body>
 </html>

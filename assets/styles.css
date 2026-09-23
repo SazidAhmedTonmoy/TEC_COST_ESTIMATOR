@@ -805,7 +805,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 .form-error:empty { display: none; }
 .sidebar { overflow-y: auto; }
 .sidebar .brand { margin-bottom: 24px; }
-.account-summary { display: grid; gap: 7px; margin: 28px 10px 4px; padding-top: 18px; border-top: 1px solid #ffffff33; overflow-wrap: anywhere; }
+.account-summary { display: grid; gap: 7px; margin: auto 10px 4px; padding-top: 18px; border-top: 1px solid #ffffff33; overflow-wrap: anywhere; }
 .account-summary span { color: #c6d6e1; font-size: 13px; line-height: 1.5; }
 .account-summary button { justify-self: start; color: #fff; background: none; padding: 5px 0; border: 0; text-decoration: underline; font-size: 14px; }
 .workspace-welcome { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 10px 0 22px; }
@@ -1911,3 +1911,11 @@ input,select,textarea{border-radius:11px}
 
 #app-settings-form{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:700px){#app-settings-form{grid-template-columns:minmax(0,1fr)}}
+
+/* Account navigation and compact copy option. */
+.account-name-link{color:inherit;text-decoration:none;border-radius:4px;outline-offset:4px}
+.account-name-link:hover{text-decoration:underline}
+.account-name-link:focus-visible{outline:2px solid var(--teal)}
+#copy-zero-label>span{display:flex;align-items:center;gap:9px}
+#copy-zero-quantities{width:16px;height:16px;min-width:16px;min-height:16px;flex:0 0 16px;margin:0;padding:0;accent-color:var(--teal)}
+@media(min-width:821px){.sidebar nav{margin-bottom:24px;flex-shrink:0}.sidebar .account-summary{flex-shrink:0}}

@@ -37,7 +37,6 @@ async function loadLightPrices(offset=0){
   lightPriceState.dirty=false;closeLightPrice(false);
   Object.assign(lightPriceState,{offset,total:data.total,results:data.results});
   $('#light-price-supplier').innerHTML='<option value="">All suppliers</option>'+(data.suppliers||[]).map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');$('#light-price-supplier').value=supplier;
-  $('#light-price-count').textContent=`${data.stats.quotes} quotes | ${data.stats.groups} lighting packages`;
   $('#light-price-status').textContent=data.total?`${offset+1}-${offset+data.results.length} of ${data.total} matches. Click a result to expand it here.`:'No matches. Try a name, nickname, supplier or catalogue number.';
   $('#light-price-results').innerHTML=data.results.map(item=>`<article class="light-price-result" data-light-id="${item.id}">${lightCard(item)}</article>`).join('');
   $('#light-price-prev').disabled=offset===0;$('#light-price-next').disabled=offset+data.results.length>=data.total;
