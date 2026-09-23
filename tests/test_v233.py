@@ -36,6 +36,21 @@ class Patch233Tests(unittest.TestCase):
         report={'quotes_added':1,'groups_added':1,'lines_added':2,'quotes_skipped':0}
         c.execute('INSERT INTO lighting_import_receipts VALUES (?,?,?,?,?,?)',(token,who,name,sha,json.dumps(report),utc_now()))
 
+    def test_catalog_deletion_preserves_estimate_snapshots(self):
+        from conest_app.catalog import delete_catalog_item
+        with connect() as c:
+            pid=self.d['project_id'];item=self.d['catalog_id']
+            before=calculate_project(c,pid)
+            delete_catalog_item(c,item)
+            after=calculate_project(c,pid)
+            self.assertIsNone(c.execute('SELECT id FROM catalog_items WHERE id=?',(item,)).fetchone())
+            self.assertEqual(before['totals'],after['totals'])
+            self.assertEqual(len(before['lines']),len(after['lines']))
+            for old,new in zip(before['lines'],after['lines']):
+                self.assertIsNone(new['catalog_item_id'])
+                for field in ['name_snapshot','quantity','components','reference_name','supply_unit_cost_override']:
+                    self.assertEqual(old[field],new[field])
+
     def test_nonadmin_owner_assigns_any_team_and_retains_full_control(self):
         with connect() as c:
             p=self.grant(c,team_ids=[self.d['teams'][1]],user_ids=[])
