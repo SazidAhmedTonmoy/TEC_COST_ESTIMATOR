@@ -14,6 +14,23 @@ class TenderIntegrationTests(unittest.TestCase):
     def tearDown(self):
         tenders._store=None
         http_helpers.HttpPatchTests.tearDown(self)
+    def test_bootstrap_authentication_and_password_policy(self):
+        status,payload=self.request('GET','/api/tenders/bootstrap')
+        self.assertEqual(status,200,payload)
+        self.assertEqual(payload['user']['id'],self.user_id)
+        self.assertEqual(payload['csrf_token'],self.csrf)
+        self.assertEqual(len(payload['data']['submissions']),291)
+        self.assertNotIn('report',payload['data'])
+        with http_helpers.connect() as conn:
+            conn.execute('UPDATE users SET must_change_password=1 WHERE id=?',(self.user_id,))
+        status,payload=self.request('GET','/api/tenders/bootstrap')
+        self.assertEqual(status,200)
+        self.assertTrue(payload['user']['must_change_password'])
+        self.assertNotIn('data',payload)
+        self.assertEqual(self.request('GET','/api/tenders/data')[0],403)
+        self.cookie=''
+        self.assertEqual(self.request('GET','/api/tenders/bootstrap')[0],401)
+
     def test_tender_shared_session_and_compact_changes(self):
         status,data=self.request('GET','/api/tenders/data')
         self.assertEqual(status,200,data)

@@ -2,7 +2,7 @@
 import gzip
 import json
 from pathlib import Path
-from . import tenders
+from . import tenders, accounts
 from .accounts import AccessError
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -43,6 +43,14 @@ def route(h,path):
                 send(h,asset.read_bytes(),mimetypes.guess_type(name)[0] or 'application/octet-stream',cache='public, max-age=31536000, immutable')
             else:h._send_file(ROOT/'tenders_web/index.html')
             return
+        if path=='/api/tenders/bootstrap' and h.command=='GET':
+            h._guard('/api/auth/session')
+            payload={'user':h.user,'csrf_token':accounts.csrf_token(h.session_token)}
+            if not h.user['must_change_password']:
+                data={k:v for k,v in tenders.get_store().all_data().items() if k not in ('report','projectSummary')}
+                data['settings']={**data['settings'],'author':h.user['name']}
+                payload['data']=data
+            send(h,payload);return
         h._guard(path)
         store=tenders.get_store()
         if path=='/api/tenders/data' and h.command=='GET':

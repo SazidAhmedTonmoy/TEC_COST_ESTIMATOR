@@ -12,6 +12,12 @@ The uploaded ZIP contained seed JSON, not a live SQLite database. A new installa
 
 Tender daily snapshots are retained separately in `data/tender_backups/` (latest one). The existing App Settings database restore applies to the estimator database, not to the tender database. Keep both databases in your server backup plan.
 
+## Startup update
+
+Tenders now starts its authenticated bootstrap request while its JavaScript loads. That single response supplies the session and initial data, removing the previous sequential session/data requests. A public sidebar shell is visible immediately, with the Estimator-style loader centred in the content viewport. Failed connections retain the sidebar and offer Retry. No user records are stored in browser storage. Password-change and authentication restrictions remain enforced. The requested one-second workspace transition remains unchanged. Estimator's tab title is now TEC ConEst Estimator.
+
+Local verification covered delayed loading, loader position, a single bootstrap request, failed-request retry, authentication/password restrictions, search and both workspace transitions. Production response times have not been measured.
+
 ## Changes
 
 - Submission pipeline, Tender activity, Builder outcomes and Pricing feedback share one desktop row. Chart legends and activity bars open filtered submissions. Up next spans the row below. Narrow screens stack cards.

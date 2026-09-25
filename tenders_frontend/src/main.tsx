@@ -8,12 +8,14 @@ export function apiFetch(path:string,options:RequestInit={}){
 }
 async function start(){
  try{
- const response=await fetch('/api/auth/session');if(response.status===401){location.replace('/?return=tenders');return;}
+ const boot=window as Window & {__tenderBoot?:Promise<Response|null>};
+ const pending=boot.__tenderBoot;delete boot.__tenderBoot;
+ const response=await (pending||fetch('/api/tenders/bootstrap'));if(!response)throw Error('Unable to connect. Please retry.');if(response.status===401){location.replace('/?return=tenders');return;}
  if(!response.ok)throw Error('Could not load your session. Please retry.');
  const data=await response.json();session.user=data.user;session.csrf=data.csrf_token;
  if(data.user.must_change_password){location.replace('/?workspace=tenders#/profile');return;}
  const view=location.pathname.split('/')[2]||'dashboard';
- createRoot(document.getElementById('root')!).render(<TenderApp initialView={view}/>);
- }catch(e){const root=document.getElementById('root')!;root.textContent=(e as Error).message;const button=document.createElement('button');button.textContent='Retry';button.onclick=start;root.append(button);}
+ createRoot(document.getElementById('root')!).render(<TenderApp initialView={view} initialData={data.data}/>);
+ }catch(e){window.dispatchEvent(new Event('conest:workspace-ready'));const root=document.getElementById('boot-status')||document.getElementById('root')!;root.textContent=(e as Error).message;const button=document.createElement('button');button.textContent='Retry';button.onclick=start;root.append(button);}
 }
 start();
