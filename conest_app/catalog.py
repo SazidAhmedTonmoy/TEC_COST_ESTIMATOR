@@ -130,6 +130,7 @@ def _row_score(
 
 
 @catalog_read_cache
+@catalog_read_cache
 def catalog_overview(conn: sqlite3.Connection) -> dict[str, Any]:
     rows = conn.execute(
         """SELECT id, content_key, category, data_status, is_manual

@@ -164,6 +164,24 @@ class HttpPatchTests(unittest.TestCase):
         status,result=self.request('GET','/api/auth/profile/photo');self.assertEqual(status,401,result)
         status,result=self.upload();self.assertEqual(status,401,result)
 
+    def test_estimator_bootstrap_matches_authenticated_data(self):
+        status,result=self.request('GET','/api/bootstrap')
+        self.assertEqual(status,200,result)
+        self.assertEqual(result['user']['id'],self.user_id)
+        self.assertEqual(result['csrf_token'],self.csrf)
+        self.assertEqual(result['dashboard'],self.request('GET','/api/dashboard')[1])
+        self.assertEqual(result['settings'],self.request('GET','/api/settings')[1]['settings'])
+        self.assertNotIn('gemini_api_key',result['settings'])
+        with connect() as conn:
+            conn.execute('UPDATE users SET must_change_password=1 WHERE id=?',(self.user_id,))
+        status,result=self.request('GET','/api/bootstrap')
+        self.assertEqual(status,200,result)
+        self.assertTrue(result['user']['must_change_password'])
+        self.assertNotIn('dashboard',result)
+        self.assertNotIn('settings',result)
+        self.cookie=''
+        self.assertEqual(self.request('GET','/api/bootstrap')[0],401)
+
     def test_titles_and_assets_have_no_visible_version(self):
         status,html=self.request('GET','/');self.assertEqual(status,200)
         self.assertIn(b'<title>TEC ConEst Estimator</title>',html)

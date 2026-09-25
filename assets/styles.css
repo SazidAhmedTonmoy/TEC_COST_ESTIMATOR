@@ -1877,7 +1877,12 @@ input,select,textarea{border-radius:11px}
 /* v24.css */
 
 #startup-screen{display:none;position:fixed;inset:0;place-items:center;background:var(--canvas,#f4f7f9);color:var(--ink,#193346);z-index:9999}
-.app-loading #startup-screen{display:grid}.app-loading #login-screen,.app-loading #authenticated-app{display:none!important}
+.app-loading #startup-screen{display:grid}.app-loading #login-screen{display:none!important}
+.app-loading #authenticated-app{display:grid!important}
+.app-loading #authenticated-app>main{visibility:hidden}
+.app-loading #startup-screen{left:236px}
+.app-loading .account-summary:has(#account-name:empty){visibility:hidden}
+@media(max-width:820px){.app-loading #startup-screen{left:0}.app-loading #authenticated-app{display:none!important}}
 
 #startup-screen>div{max-width:480px;padding:24px;text-align:center}
 
@@ -1942,3 +1947,9 @@ html[data-workspace="tenders"] .account-avatar{border-color:#087f75;background:#
 html[data-workspace="tenders"] .account-avatar .avatar-initials{color:#07665f}
 html[data-theme="dark"][data-workspace="tenders"] .account-avatar{background:#183d40}
 html[data-theme="dark"][data-workspace="tenders"] .account-avatar .avatar-initials{color:#dcebef}
+
+html[data-workspace="tenders"] .account-avatar{border-color:#f4cf38}
+
+.brief-loading-indicator{display:none;padding:48px}
+.brief-loading .brief-loading-indicator{display:grid;place-items:center}
+.brief-loading .brief-overview,.brief-loading #project-workflow-form,.brief-loading #activity-section{display:none}

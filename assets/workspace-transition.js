@@ -22,7 +22,12 @@
   if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||reduced())return;
   const link=event.target.closest?.('a.workspace-swap');if(!link||link.target==='_blank')return;
   const url=new URL(link.href,location.href);if(url.origin!==location.origin)return;
+  const target=url.pathname.startsWith('/tenders/')?'tenders':'estimator';
+  document.querySelector('.workspace-departure')?.remove();
+  const progress=document.createElement('div');progress.className='workspace-departure';progress.dataset.target=target;progress.setAttribute('role','status');progress.setAttribute('aria-label','Loading '+target);
+  const spinner=document.createElement('div');spinner.className='loader';progress.append(spinner);document.body.append(progress);
+  setTimeout(()=>progress.remove(),15000);
   try{sessionStorage.setItem(key,JSON.stringify({target:url.pathname.startsWith('/tenders/')?'tenders':'estimator',at:Date.now()}))}catch{}
  });
- window.addEventListener('pageshow',event=>{if(event.persisted){clearTimeout(timeout);clearTimeout(cleanup);html.removeAttribute('data-swap');html.removeAttribute('data-swap-label');html.classList.remove('workspace-reveal')}});
+ window.addEventListener('pageshow',event=>{document.querySelector('.workspace-departure')?.remove();if(event.persisted){clearTimeout(timeout);clearTimeout(cleanup);html.removeAttribute('data-swap');html.removeAttribute('data-swap-label');html.classList.remove('workspace-reveal')}});
 })();

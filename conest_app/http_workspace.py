@@ -115,7 +115,7 @@ class WorkspaceHTTP:
 
     def _workspace_route(self, path):
         if not (path.startswith('/api/auth/') or path.startswith('/api/users') or path.startswith('/api/teams')
-                or re.fullmatch(r'/api/projects/\d+/(workflow|activity|review|access-options|notes(?:/(?:\d+|status|read))?)', path)):
+                or re.fullmatch(r'/api/projects/\d+/(workflow|activity|brief|review|access-options|notes(?:/(?:\d+|status|read))?)', path)):
             return False
         self._guard(path)
         method = self.command
@@ -227,6 +227,19 @@ class WorkspaceHTTP:
             with self._write_connection() as conn:
                 result = teams.save_team(conn, payload, self.user, int(match[1]) if match else None)
             self._send_json({'success': True, 'team': result}, 201 if method == 'POST' else 200)
+            return True
+        match = re.fullmatch(r'/api/projects/(\d+)/brief', path)
+        if match and method == 'GET':
+            pid=int(match[1])
+            with self._read_connection() as conn:
+                project=workspace.decorate_project(conn,workspace.require_project(conn,pid,self.user,'view'),self.user)
+                access=workspace.project_access_options(conn,pid,self.user) if project['can_manage'] else {'teams':[],'users':[]}
+                activity=workspace.project_activity(conn,pid,self.user)
+                total=conn.execute('SELECT COUNT(*) FROM project_activity WHERE project_id=?',(pid,)).fetchone()[0]
+                more=bool(activity and conn.execute('SELECT 1 FROM project_activity WHERE project_id=? AND id<? LIMIT 1',(pid,activity[-1]['id'])).fetchone())
+            self._send_json({'success':True,'project':project,'access':access,'history':{
+                'activity':activity,'contributors':project['contributors'],'total_activity':total,
+                'next_before_id':activity[-1]['id'] if more else None}})
             return True
         match = re.fullmatch(r'/api/projects/(\d+)/access-options', path)
         if match and method == 'GET':

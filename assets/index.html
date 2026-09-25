@@ -3,11 +3,12 @@
 <head>
   <script src="/assets/theme.c981d266547b.js"></script>
   <meta charset="utf-8">
+  <script src="/assets/estimator_boot.js?v=3.0-r1" defer></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.3894220d658b.css">
-<link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r4"><script src="/assets/workspace-transition.js?v=3.0-r4"></script></head>
+  <link rel="stylesheet" href="/assets/styles.26d7fdae3147.css">
+<link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script></head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
   <section id="login-screen" class="login-screen">
@@ -362,6 +363,7 @@
 
   <dialog id="project-brief-dialog" aria-labelledby="brief-title">
     <div class="dialog-card project-brief-card"><div class="dialog-heading"><div><p class="eyebrow" id="brief-client"></p><h2 id="brief-title"></h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+      <div class="brief-loading-indicator" role="status" aria-label="Loading project details"><div class="loader" aria-hidden="true"></div></div>
       <div class="brief-overview"><div id="brief-summary"></div><a id="brief-open-estimate" class="button primary" href="#/estimate">Open Estimate</a></div>
       <form id="project-workflow-form" class="workflow-form">
         <label>Scope of Work<textarea id="brief-scope" rows="5" maxlength="20000"></textarea></label>
@@ -426,6 +428,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.dbe3de14c7dc.js" defer></script>
+  <script src="/assets/app.3b975cb36905.js" defer></script>
 </body>
 </html>

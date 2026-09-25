@@ -74,3 +74,11 @@ Validation: TypeScript, production builds and Estimator startup regression check
 The header search appears only on Dashboard. Type a query and press Enter or the search icon; results open in Search Tenders, where the local search remains available. Local project, builder and tender searches use the same case-insensitive category matching. Open/OPEN/Open return recorded open submissions; Awarded, Won, Competitive, High, Closed and other category values work similarly. Exact category queries do not match incidental words in historical notes.
 
 Builder awarded uses a blue badge; TEC won uses a green badge. A record can carry both independently. Workspace transition titles now show only TENDERS or ESTIMATOR, with a one-second wipe.
+
+## Estimator switching and calendar performance update
+
+Estimator now fetches its session, settings and dashboard in one authenticated bootstrap response while scripts load. The response supports gzip. Catalogue overview reads use the existing cache with database-change invalidation. Loading preserves the desktop sidebar; workspace clicks immediately display progress while navigation is pending. The one-second destination transition remains. The Tenders profile-photo and initials borders are yellow. Timeout limits have not been increased.
+
+Calendar project details now open their dialog immediately and fetch only project metadata, access options and activity in one request. They no longer calculate or download all estimate lines. Read-only detail refreshes use the same smaller endpoint. Opening the actual estimate still fetches the latest estimate and checks access.
+
+Validation: full existing Python suite (124 tests), the added calendar detail/authentication test, startup checks, TypeScript, and browser checks with delayed navigation, failed startup/retry, both workspace switches and a delayed calendar details request passed. Live hosting response times remain unverified.

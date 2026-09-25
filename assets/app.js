@@ -230,9 +230,9 @@ function setView(name, load = true, remember = true) {
   if (load && name === "settings") {loadSettings(); if(typeof loadBackups==='function')loadBackups().catch(error=>toast(error.message,true));}
 }
 
-async function loadDashboard(reloadEstimate = true) {
+async function loadDashboard(reloadEstimate = true, initialData = null) {
   const uid=state.user?.id;
-  const result = await api("/api/dashboard");
+  const result = initialData || await api("/api/dashboard");
   if(uid!==state.user?.id)return;
   state.dashboard = result;
   state.projects = result.projects;
@@ -1058,8 +1058,8 @@ function defaultSaveMode(addToEstimate, sourceItem) {
   return ['estimate','new'].includes(preferred) || (preferred==='update' && sourceItem.id) ? preferred : 'estimate';
 }
 
-async function loadSettings(render = true) {
-  const result = await api("/api/settings");
+async function loadSettings(render = true, initialData = null) {
+  const result = initialData ? {settings:initialData} : await api("/api/settings");
   state.appSettings = result.settings;
   if (render) {
     $("#default-save-mode").value=result.settings.default_save_mode || "estimate";

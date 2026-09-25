@@ -10,3 +10,9 @@ html.workspace-reveal::after{animation:workspace-title-out 1000ms ease-in forwar
 @keyframes workspace-wipe{to{transform:translateX(-110%) skewX(-8deg)}}
 @keyframes workspace-title-out{to{opacity:0;transform:translateX(-25vw)}}
 @media(prefers-reduced-motion:reduce){html[data-swap]::before,html[data-swap]::after{display:none}}
+
+.workspace-departure{position:fixed;inset:0 0 0 236px;z-index:2147483646;display:grid;place-items:center;background:#f4f7f9;--primary:#18b7ac;--accent:#18b7ac;--loader-color:#18b7ac}
+html[data-theme="dark"] .workspace-departure{background:#0b1922}
+.workspace-departure[data-target="tenders"]{--primary:#f4cf38;--accent:#f4cf38;--loader-color:#f4cf38}
+.workspace-departure .loader{margin:0}
+@media(max-width:820px){.workspace-departure{left:0}}

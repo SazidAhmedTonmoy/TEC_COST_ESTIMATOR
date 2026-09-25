@@ -58,7 +58,7 @@ from conest_app.utils import clean_text, safe_filename, utc_now
 from conest_app.http_workspace import WorkspaceHTTP
 from conest_app.http_productivity import ProductivityHTTP
 from conest_app.productivity import capture_price
-from conest_app import backups, import_preview
+from conest_app import accounts, backups, import_preview
 from conest_app.accounts import AccessError
 from conest_app.workspace import update_workflow, register_project, visible_projects, check_revision, get_project
 
@@ -204,9 +204,56 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         route(self,path)
         return True
 
+    def _dashboard_payload(self):
+        with self._read_connection() as conn:
+            catalog = catalog_overview(conn)
+            counts = {
+                "catalog_items": catalog["usable_catalog_groups"],
+                "catalog_groups": catalog["catalog_groups"],
+                "source_variants": catalog["source_variants"],
+                "reference_only_variants": catalog["reference_only_variants"],
+                "components": conn.execute("SELECT COUNT(*) FROM catalog_components").fetchone()[0],
+                "source_files": conn.execute("SELECT COUNT(DISTINCT file_sha256) FROM sources").fetchone()[0],
+                "source_sheets": conn.execute("SELECT COUNT(*) FROM sources").fetchone()[0],
+                "projects": conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0],
+                "review_issues": conn.execute("SELECT COUNT(*) FROM import_issues WHERE resolved=0").fetchone()[0],
+            }
+            projects = visible_projects(conn, self.user)
+            sources = list_sources(conn)[:8]
+            categories = list(dict.fromkeys([*CATALOG_CATEGORIES,
+                *(row[0] for row in conn.execute("SELECT DISTINCT category FROM catalog_items WHERE is_active=1 ORDER BY category")),
+                *(row[0] for row in conn.execute("SELECT DISTINCT category_snapshot FROM project_lines ORDER BY category_snapshot") if row[0])]))
+        return {"success": True, "counts": counts, "catalog": catalog, "projects": projects, "sources": sources,
+                         "manual_options": {"categories": categories, "work_types": WORK_TYPES}}
+
+    def _settings_payload(self):
+        with self._read_connection() as conn:
+            settings = get_settings(conn)
+            configured = gemini_key_configured(conn)
+            stored = conn.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()
+        settings["llm_provider"] = "gemini"
+        settings["llm_model"] = settings.get("llm_model") or DEFAULT_GEMINI_MODEL
+        settings["llm_api_key_configured"] = configured
+        settings["llm_api_key_source"] = (
+            "saved" if stored and stored[0].strip()
+            else "environment" if os.environ.get("GEMINI_API_KEY", "").strip()
+            else "none"
+        )
+        settings["llm_models"] = list(FREE_TIER_GEMINI_MODELS)
+        settings["llm_free_tier_only"] = True
+        return {"success": True, "settings": settings}
+
     def do_GET(self) -> None:  # noqa: N802
         try:
             path, query = self._route()
+            if path == '/api/bootstrap':
+                self._guard('/api/auth/session')
+                payload={'success':True,'user':self.user,'csrf_token':accounts.csrf_token(self.session_token)}
+                if not self.user['must_change_password']:
+                    payload['settings']=self._settings_payload()['settings']
+                    payload['dashboard']=self._dashboard_payload()
+                from conest_app.tender_http import send
+                send(self,self._public_payload(payload));return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):
                 return
@@ -260,27 +307,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 self._send_json({'success': True, **result})
                 return
             if path == "/api/dashboard":
-                with self._read_connection() as conn:
-                    catalog = catalog_overview(conn)
-                    counts = {
-                        "catalog_items": catalog["usable_catalog_groups"],
-                        "catalog_groups": catalog["catalog_groups"],
-                        "source_variants": catalog["source_variants"],
-                        "reference_only_variants": catalog["reference_only_variants"],
-                        "components": conn.execute("SELECT COUNT(*) FROM catalog_components").fetchone()[0],
-                        "source_files": conn.execute("SELECT COUNT(DISTINCT file_sha256) FROM sources").fetchone()[0],
-                        "source_sheets": conn.execute("SELECT COUNT(*) FROM sources").fetchone()[0],
-                        "projects": conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0],
-                        "review_issues": conn.execute("SELECT COUNT(*) FROM import_issues WHERE resolved=0").fetchone()[0],
-                    }
-                    projects = visible_projects(conn, self.user)
-                    sources = list_sources(conn)[:8]
-                    categories = list(dict.fromkeys([*CATALOG_CATEGORIES,
-                        *(row[0] for row in conn.execute("SELECT DISTINCT category FROM catalog_items WHERE is_active=1 ORDER BY category")),
-                        *(row[0] for row in conn.execute("SELECT DISTINCT category_snapshot FROM project_lines ORDER BY category_snapshot") if row[0])]))
-                self._send_json({"success": True, "counts": counts, "catalog": catalog, "projects": projects, "sources": sources,
-                                 "manual_options": {"categories": categories, "work_types": WORK_TYPES}})
-                return
+                self._send_json(self._dashboard_payload());return
             if path == "/api/catalog/search":
                 term = query.get("q", [""])[0]
                 limit = int(query.get("limit", ["20"])[0])
@@ -348,22 +375,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 self._send_json({"success": True, "api_key": saved})
                 return
             if path == "/api/settings":
-                with self._read_connection() as conn:
-                    settings = get_settings(conn)
-                    configured = gemini_key_configured(conn)
-                    stored = conn.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()
-                settings["llm_provider"] = "gemini"
-                settings["llm_model"] = settings.get("llm_model") or DEFAULT_GEMINI_MODEL
-                settings["llm_api_key_configured"] = configured
-                settings["llm_api_key_source"] = (
-                    "saved" if stored and stored[0].strip()
-                    else "environment" if os.environ.get("GEMINI_API_KEY", "").strip()
-                    else "none"
-                )
-                settings["llm_models"] = list(FREE_TIER_GEMINI_MODELS)
-                settings["llm_free_tier_only"] = True
-                self._send_json({"success": True, "settings": settings})
-                return
+                self._send_json(self._settings_payload());return
             raise ApiError(404, "Route not found")
         except Exception as exc:
             self._handle_error(exc)

@@ -55,7 +55,7 @@ async function enterWorkspace(result) {
     setAccount(result.user, result.csrf_token);
     if (state.user.must_change_password) { setView('profile',false); return; }
     if(new URLSearchParams(location.search).get('return')==='tenders'){location.replace('/tenders/');return;}
-    await Promise.all([loadSettings(false),loadDashboard(false)]);
+    await Promise.all([loadSettings(false,result.settings),loadDashboard(false,result.dashboard)]);
     if(typeof restorePage==='function')await restorePage(); else setView('home',false);
   } finally {document.body.classList.remove('app-loading');window.dispatchEvent(new Event('conest:workspace-ready'));}
 }
@@ -64,7 +64,12 @@ async function bootWorkspace() {
   $('#startup-screen').classList.remove('loading-failed');
   $('#startup-message').textContent='Loading your workspace…';
   $('#startup-retry').classList.add('hidden');
-  try { await enterWorkspace(await api('/api/auth/session')); }
+  try {
+    const pending=window.__estimatorBoot;delete window.__estimatorBoot;
+    const result=pending ? await pending : await api('/api/bootstrap');
+    if(result?.error){const error=new Error(result.error);error.status=result.status;throw error;}
+    await enterWorkspace(result);
+  }
   catch(error) {
     if(error.status===401){showLogin();return;}
     // A temporary network/server fault does not mean the session expired.
@@ -184,10 +189,17 @@ function renderTeams() {
 }
 async function openProjectBrief(id) {
   const request=++workspaceState.briefRequest;
-  const result=await api(`/api/projects/${Number(id)}`);
+  const dialog=$('#project-brief-dialog');
+  workspaceState.briefId=null;workspaceState.briefProject=null;
+  $('#brief-title').textContent=state.projects.find(p=>p.id===Number(id))?.name||'Project details';
+  $('#brief-client').textContent='';dialog.classList.add('brief-loading');dialog.setAttribute('aria-busy','true');
+  if(!dialog.open)dialog.showModal();
+  try {
+  const result=await api(`/api/projects/${Number(id)}/brief`);
+  if(request!==workspaceState.briefRequest||!dialog.open)return;
   const p=await reviewOpenedProject(result.project);
-  const [access,history]=await Promise.all([p.can_manage?api(`/api/projects/${p.id}/access-options`):Promise.resolve({teams:[],users:[]}),api(`/api/projects/${p.id}/activity`)]);
-  if(request!==workspaceState.briefRequest) return;
+  const {access,history}=result;
+  if(request!==workspaceState.briefRequest||!dialog.open) return;
   workspaceState.briefId=p.id; workspaceState.briefProject=p;
   $('#brief-open-estimate').href=`#/estimate/${p.id}`;
   $('#brief-title').textContent=p.name; $('#brief-client').textContent=builderText(p, 'Manage project');
@@ -206,7 +218,8 @@ async function openProjectBrief(id) {
   $('#assignment-user-empty').classList.add('hidden');
   $('#project-contributors').innerHTML=history.contributors?.length?'<h4>Project contributors</h4>'+history.contributors.map(c=>`<article class="contributor-card"><strong>${escapeHtml(c.name)}</strong><span>${escapeHtml(c.teams || (c.admin_contribution?'Administrator':'Historical team not recorded'))}</span><small>${c.actions} recorded actions · Last contribution ${new Date(c.last_activity).toLocaleString('en-AU')}</small></article>`).join(''):'<p class="helper-text">No contributions recorded yet.</p>';
   renderProjectActivity(history);
-  if(!$('#project-brief-dialog').open) $('#project-brief-dialog').showModal();
+  } catch(error) {if(request===workspaceState.briefRequest)dialog.close();throw error;}
+  finally {if(request===workspaceState.briefRequest){dialog.classList.remove('brief-loading');dialog.removeAttribute('aria-busy');}}
 }
 function renderProjectActivity(history, append=false) {
   const old=append?(workspaceState.activityRows||[]):[];
@@ -234,10 +247,10 @@ async function loadOlderProjectActivity(button) {
 }
 async function refreshReadOnlyBrief() {
   const dialog=$('#project-brief-dialog'),pid=workspaceState.briefId,request=workspaceState.briefRequest;
-  if(!dialog.open||workspaceState.briefProject?.can_edit||workspaceState.briefSyncBusy||workspaceState.activityLoading)return;
+  if(!dialog.open||!pid||workspaceState.briefProject?.can_edit||workspaceState.briefSyncBusy||workspaceState.activityLoading)return;
   workspaceState.briefSyncBusy=true;
   try {
-    const [result,history]=await Promise.all([api(`/api/projects/${pid}`),api(`/api/projects/${pid}/activity`)]);
+    const result=await api(`/api/projects/${pid}/brief`);const history=result.history;
     if(!dialog.open||pid!==workspaceState.briefId||request!==workspaceState.briefRequest)return;
     const p=result.project,old=workspaceState.briefProject;
     // Permission changes need to rebuild disabled controls from server truth.

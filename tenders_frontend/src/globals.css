@@ -192,3 +192,6 @@ tbody [data-slot=table-row]:hover,.tender-table tbody tr:hover{background:var(--
 .tender-table td .badge+.badge,[data-slot=table-cell] .badge+.badge{margin-top:5px;display:table}
 .topbar .notification-btn{margin-left:auto}.topbar .global-search+.notification-btn{margin-left:0}
 .submission-record dd.badge{padding:4px 8px}.global-search input{min-width:0}.global-search>.icon-btn{background:transparent;color:var(--muted-foreground)}
+
+/* Tender profile photo and initials use the workspace accent. */
+.conest-account .account-person img,.conest-account .account-person .avatar{border-color:#f4cf38}
