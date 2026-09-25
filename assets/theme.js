@@ -1,5 +1,6 @@
 /* Apply before paint; keep this browser's preference across sign-in and refresh. */
 (()=>{
+  if(new URLSearchParams(location.search).get('workspace')==='tenders')document.documentElement.dataset.workspace='tenders';
   let choice;try{choice=localStorage.getItem('tec-theme');}catch{}
   const prefersDark=()=>window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
   function apply(theme){document.documentElement.dataset.theme=theme;const button=document.getElementById('theme-toggle');if(button){button.setAttribute('title',theme==='dark'?'Switch to light mode':'Switch to dark mode');button.setAttribute('aria-pressed',String(theme==='dark'));button.setAttribute('aria-label',theme==='dark'?'Switch to light mode':'Switch to dark mode');}}

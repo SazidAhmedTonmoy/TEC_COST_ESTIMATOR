@@ -23,3 +23,24 @@ class TransportTests(unittest.TestCase):
  def test_internal_request_has_single_connection_header(self):
   raw=_request_bytes({'REQUEST_METHOD':'GET','HTTP_CONNECTION':'keep-alive, X-Hop','HTTP_X_HOP':'x','HTTP_TE':'trailers','PATH_INFO':'/'})
   self.assertEqual(raw.count(b'Connection:'),1);self.assertNotIn(b'X-Hop:',raw)
+
+ def test_public_assets_and_tenders_without_double_compression(self):
+  raw=b'const example = "compressible bundle";\n'*500
+  env={'REQUEST_METHOD':'GET','PATH_INFO':'/tenders/assets/index-example.js','HTTP_ACCEPT_ENCODING':'gzip'}
+  headers=[('Content-Type','application/javascript'),('Cache-Control','public, max-age=31536000, immutable')]
+  out,body=prepare_response(env,200,headers,raw)
+  self.assertEqual(gzip.decompress(body),raw)
+  self.assertEqual(dict(out)['Cache-Control'],headers[1][1])
+  out2,body2=prepare_response(env,200,out,body)
+  self.assertEqual(body2,body)
+  self.assertEqual(sum(k.lower()=='content-encoding' for k,v in out2),1)
+  for extra in [('Content-Range','bytes 0-3999/4000'),('Cache-Control','no-transform')]:
+   _,body=prepare_response(env,200,[headers[0],extra],raw)
+   self.assertEqual(body,raw)
+  env['PATH_INFO']='/api/tenders/data'
+  out,body=prepare_response(env,200,[('Content-Type','application/json')],raw)
+  self.assertEqual(gzip.decompress(body),raw)
+  for status in (204,304):
+   out,body=prepare_response(env,status,headers,raw)
+   self.assertEqual(body,b'')
+   self.assertNotIn('Content-Encoding',dict(out))

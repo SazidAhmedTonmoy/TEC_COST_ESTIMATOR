@@ -1,0 +1,4 @@
+export type Submission={id:string;project:string;builder:string;value:number|null;status:string;builderStatus:string;location:string;region:string;contact:string;email:string;month:string;due:string;statusUpdated:string;pricing:string;chaseNumber:string;latest:string;remarks:string;revision:number;sourceRow?:number;createdBy?:number};
+export type Chase={id:string;submissionId:string;date:string;note:string;method:string;author:string;createdAt:string;source?:string};
+export type Reminder={id:string;submissionId:string;due:string;note:string;done:boolean;createdAt:string};
+export type AppData={submissions:Submission[];chases:Chase[];reminders:Reminder[];settings:{author:string;defaultDays:number};report:{file:string;submissions:number;projects:number;builders:number;chases:number;sheets:string[];notes:string[]};projectSummary:Record<string,{value:number;status:string;pricing:string;region:string}>};

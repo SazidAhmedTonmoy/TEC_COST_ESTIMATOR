@@ -3,7 +3,7 @@ from pathlib import Path
 import hashlib,re
 ROOT=Path(__file__).resolve().parents[1]
 ASSETS=ROOT/'assets'
-SCRIPTS=['mobile.js', 'file_drop.js', 'builders.js', 'app.js', 'workspace.js', 'productivity.js', 'estimate_workspace.js', 'navigation.js', 'help_chat.js', 'estimate_extras.js', 'light_prices.js', 'v23.js', 'profile.js', 'quotation_import.js', 'import_history.js']
+SCRIPTS=['workspace_switch.js', 'mobile.js', 'file_drop.js', 'builders.js', 'app.js', 'workspace.js', 'productivity.js', 'estimate_workspace.js', 'navigation.js', 'help_chat.js', 'estimate_extras.js', 'light_prices.js', 'v23.js', 'profile.js', 'quotation_import.js', 'import_history.js']
 def emit(prefix,extension,body):
     digest=hashlib.sha256(body.encode()).hexdigest()[:12]
     name=f'{prefix}.{digest}.{extension}'

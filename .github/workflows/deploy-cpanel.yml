@@ -36,6 +36,15 @@ jobs:
           python-version: '3.11'
           cache: pip
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Build Tenders
+        working-directory: tenders_frontend
+        run: npm ci && npm run build
+
       - name: Validate application
         run: |
           python -m pip install --upgrade pip
@@ -72,6 +81,7 @@ jobs:
 
           rsync -az --delete \
             -e "ssh -i ~/.ssh/tec_conest_deploy_key -p $PORT" \
+            --exclude 'node_modules/' \
             --exclude '.git/' \
             --exclude '.env' \
             --exclude '.env.*' \
@@ -118,7 +128,7 @@ jobs:
           set -euo pipefail
           for ATTEMPT in $(seq 1 18); do
             RESPONSE="$(curl -fsS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health" || true)"
-            if printf '%s' "$RESPONSE" | python -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r.get("status")=="ok" and r.get("release")=="2.4" and r.get("schema_version")==26 else 1)' 2>/dev/null; then
+            if printf '%s' "$RESPONSE" | python -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r.get("status")=="ok" and r.get("release")=="3.0" and r.get("schema_version")==26 else 1)' 2>/dev/null; then
               echo "$RESPONSE"
               echo 'Updated code is serving traffic and the runtime database has migrated.'
               exit 0

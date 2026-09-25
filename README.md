@@ -1,13 +1,17 @@
-# TEC ConEst · v2.4
+# Tenders integration
+
+See [TENDERS_UPDATE.md](TENDERS_UPDATE.md) for the shared-login workspace, database migration and update instructions.
+
+# TEC ConEst · v3.0
 
 ### Electrical estimating, connected costs and team collaboration
 
-A shared estimating workspace for catalogue assemblies, project quotations, supplier lighting prices and connected Excel exports. Built with Python, SQLite and plain JavaScript, with a GitHub Actions workflow for the existing cPanel deployment.
+A shared estimating workspace for catalogue assemblies, project quotations, supplier lighting prices and connected Excel exports. Built with Python, SQLite, a plain JavaScript Estimator and a React Tenders workspace, with a GitHub Actions workflow for the existing cPanel deployment.
 
 | Estimate | Collaborate | Operate |
 | :--- | :--- | :--- |
-| Reusable assemblies and item build-ups | Shared projects, notes and activity | One `conest_catalog.db` |
-| Lighting supply and installation costs | Teams, account roles and revisions | Automated deployment and one backup |
+| Reusable assemblies and item build-ups | Shared projects, notes and activity | Separate estimator and tender `.db` files |
+| Lighting supply and installation costs | Teams, account roles and revisions | Automated code deployment and database backups |
 | Connected Excel quantities and totals | Searchable supplier quotations | Desktop, mobile and dark mode |
 
 **Quick links:** [Start](#1-start-and-deploy) · [Daily use](#2-daily-use) · [Backups](#3-data-and-backups) · [Architecture](#4-architecture-and-pricing) · [Files](#5-file-guide) · [Release history](#6-release-history) · [Troubleshooting](#7-troubleshooting)
@@ -15,7 +19,15 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 > [!IMPORTANT]
 > Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
 
-## Current release · v2.4
+## Current release · v3.0
+
+Major release: Estimator and Tenders share login, users, profile and theme. Switch with the circular-arrow control beside the brand. Tenders uses yellow accents and now matches Estimator's desktop sidebar geometry, typography and account controls. Its Workspace label and admin links are removed; user management and app settings remain in Estimator. A coloured title wipe reveals the destination workspace using a one-second transform animation; navigation and data loading start immediately, and reduced-motion users skip the wipe.
+
+**Deployment and data:** read `TENDERS_UPDATE.md`. Keep live databases excluded from Git. Commit the code and `tenders_seed/seed.json`; the first Tender visit creates `data/tec_tenders.db` and imports the seed once. Subsequent deployments preserve live data. Replace `passenger_wsgi.py` manually in cPanel because the workflow deliberately excludes it. Restart Passenger. `/api/health` reports release `3.0` with estimator schema `26`; responses through the adapter report `X-ConEst-Adapter: 3.0`.
+
+The v3.0 Passenger adapter retains one-time initialization, the idle estimator WAL connection, transport-header cleanup, exact response lengths and negotiated gzip. It also compresses eligible dashboard, reminders, tender JSON and public JavaScript/CSS/SVG when Python serves those assets; precompressed, partial and no-transform responses are left intact. Public tender pages and bundles skip estimator database initialization. No production latency guarantee is implied.
+
+## Previous release · v2.4
 
 Latest estimate-page update (r5): reorder acknowledgements contain only order/revision metadata and skip full estimate calculations. The UI moves rows immediately, prevents overlapping drag/copy actions and restores the previous order on save failure. Dragging onto a component row also targets its parent estimate item. Updated clients negotiate changed-line responses for item changes and copies; legacy clients still receive complete responses. Pricing-setting changes fall back to full results. Outdated mutation responses cannot replace a newer project revision.
 
@@ -362,6 +374,7 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 | **v2.3.6** | Simplified project board with three remembered views, integrated schedule reminders, estimate-only creation, clearer page titles and prominent Open Estimate access. |
 
 | **v2.4** | Direct refresh restoration, shared read requests, lighter background updates, batched component queries, browser asset caching and total-cost sorting. |
+| **v3.0** | Integrated Tenders with shared authentication, yellow workspace, matching sidebar, compact updates, protected runtime database deployment and Passenger v3.0. |
 
 ## 7. Troubleshooting
 
@@ -386,3 +399,4 @@ python -m compileall -q app.py conest_app
 ```
 
 The release tests use temporary databases. They check date boundaries, backup retention, metadata cleanup and restoring the older snapshot. Additional development regression checks cover estimation, permissions, import/export, sessions and migration. Browser rendering should also be checked at your team's actual screen sizes.
+

@@ -54,9 +54,10 @@ async function enterWorkspace(result) {
   try {
     setAccount(result.user, result.csrf_token);
     if (state.user.must_change_password) { setView('profile',false); return; }
+    if(new URLSearchParams(location.search).get('return')==='tenders'){location.replace('/tenders/');return;}
     await Promise.all([loadSettings(false),loadDashboard(false)]);
     if(typeof restorePage==='function')await restorePage(); else setView('home',false);
-  } finally {document.body.classList.remove('app-loading');}
+  } finally {document.body.classList.remove('app-loading');window.dispatchEvent(new Event('conest:workspace-ready'));}
 }
 async function bootWorkspace() {
   document.body.classList.add('app-loading');

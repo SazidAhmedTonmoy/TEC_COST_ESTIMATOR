@@ -33,7 +33,7 @@ def _ensure_initialized():
     with _init_lock:
         if _initialized:
             return
-        # v2.4 connect() checks the schema and upgrades only when needed,
+        # connect() checks the schema and upgrades only when needed,
         # using the existing cross-process migration lock.
         with conest.connect() as conn:
             conn.execute('SELECT version FROM schema_version LIMIT 1').fetchone()
@@ -134,7 +134,7 @@ def application(environ, start_response):
     started=time.perf_counter()
     path = environ.get('PATH_INFO', '/') or '/'
     # Public HTML and assets do not need database initialization.
-    if path != '/' and not path.startswith('/assets/'):
+    if path != '/' and not path.startswith(('/assets/', '/tenders/')):
         _ensure_initialized()
 
     memory_socket = _MemorySocket(_request_bytes(environ))
@@ -160,7 +160,7 @@ def application(environ, start_response):
         parsed_headers.append((name.decode('latin-1').strip(), value.decode('latin-1').strip()))
     status_code = int(parts[1])
     response_headers, body = prepare_response(environ, status_code, parsed_headers, body)
-    response_headers.append(('X-ConEst-Adapter','2.4-r5'))
+    response_headers.append(('X-ConEst-Adapter','3.0'))
     response_headers.append(('Server-Timing',f'app;dur={(time.perf_counter()-started)*1000:.1f}'))
     start_response(status, response_headers)
     if environ.get('REQUEST_METHOD', 'GET').upper() == 'HEAD':
@@ -192,10 +192,17 @@ def prepare_response(environ, status, headers, body):
              and name.lower() not in {'content-length','status'}]
     metadata={name.lower():value for name,value in headers}
     path=environ.get('PATH_INFO','')
-    eligible=(status in (200,201) and environ.get('REQUEST_METHOD','GET').upper() in {'GET','HEAD','POST','PATCH','PUT','DELETE'}
-              and (path.startswith('/api/projects/') or path.startswith('/api/catalog/'))
-              and metadata.get('content-type','').startswith('application/json')
-              and 'content-encoding' not in metadata and len(body)>=2048)
+    # Compress data and public bundles served through Python. Apache may serve
+    # assets directly instead. Authentication/settings responses remain excluded.
+    media_type=metadata.get('content-type','').split(';',1)[0].strip().lower()
+    data_response=(path.startswith(('/api/projects/', '/api/catalog/', '/api/tenders/'))
+                   or path in {'/api/dashboard', '/api/reminders'}) and media_type=='application/json'
+    public_asset=path.startswith(('/assets/', '/tenders/assets/')) and media_type in {
+        'text/css','text/javascript','application/javascript','image/svg+xml'}
+    eligible=(status in (200,201) and (data_response or public_asset)
+              and 'content-encoding' not in metadata and 'content-range' not in metadata
+              and 'no-transform' not in metadata.get('cache-control','').lower()
+              and len(body)>=2048)
     if eligible:
         vary={v.strip().lower() for v in metadata.get('vary','').split(',') if v.strip()}
         if '*' not in vary and 'accept-encoding' not in vary:

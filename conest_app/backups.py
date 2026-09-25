@@ -43,6 +43,8 @@ def create_backup(reason='manual',actor=None):
 
 
 def daily_backup():
+    from .tenders import daily_backup as tender_backup
+    tender_backup()
     today=datetime.now(timezone.utc).strftime('%Y%m%d')
     with write_lock:
         prune_backups()

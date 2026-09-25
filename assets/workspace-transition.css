@@ -1,0 +1,12 @@
+/* Theme is painted before the app starts; the coloured wipe uses transforms only. */
+html[data-theme="dark"]{background:#0b1821;color-scheme:dark}
+html[data-theme="light"]{background:#f4f7f9;color-scheme:light}
+html[data-swap]::before,html[data-swap]::after{position:fixed;z-index:2147483647;pointer-events:none}
+html[data-swap]::before{content:"";inset:0 -15vw;background:#f4cf38;transform:skewX(-8deg)}
+html[data-swap="estimator"]::before{background:#18b7ac}
+html[data-swap]::after{content:attr(data-swap-label);inset:0;display:grid;place-items:center;color:#102334;font:800 clamp(20px,4vw,48px)/1.2 Inter,Aptos,"Segoe UI",Arial,sans-serif;letter-spacing:-.035em;text-align:center;padding:24px}
+html.workspace-reveal::before{animation:workspace-wipe 1000ms cubic-bezier(.65,0,.35,1) forwards}
+html.workspace-reveal::after{animation:workspace-title-out 1000ms ease-in forwards}
+@keyframes workspace-wipe{to{transform:translateX(-110%) skewX(-8deg)}}
+@keyframes workspace-title-out{to{opacity:0;transform:translateX(-25vw)}}
+@media(prefers-reduced-motion:reduce){html[data-swap]::before,html[data-swap]::after{display:none}}

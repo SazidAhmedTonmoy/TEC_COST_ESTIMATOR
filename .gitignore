@@ -32,3 +32,6 @@ venv/
 data/lighting_import_previews/
 data/upgrade_backups/
 *.upgrade.lock
+
+node_modules/
+data/tender_backups/
