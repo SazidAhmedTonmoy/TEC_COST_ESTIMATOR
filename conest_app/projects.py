@@ -30,7 +30,7 @@ def list_projects(conn: sqlite3.Connection) -> list[dict[str, Any]]:
     result = []
     for row in rows:
         project = project_with_builders(row)
-        totals = calculate_project(conn, int(row["id"]), include_components=False)["totals"]
+        totals = project_totals(conn, int(row["id"]))
         project["totals"] = totals
         result.append(project)
     return result
@@ -333,10 +333,47 @@ def delete_project_line(conn: sqlite3.Connection, project_id: int, line_id: int)
     return calculate_project(conn, project_id)
 
 
-def calculate_project(
-    conn: sqlite3.Connection, project_id: int, include_components: bool = True
-) -> dict[str, Any]:
-    project = project_with_builders(_project_row(conn, project_id))
+def _calculation_inputs(conn, project_id):
+    project=project_with_builders(_project_row(conn,project_id))
+    lines=conn.execute('SELECT * FROM project_lines WHERE project_id=? ORDER BY sort_order,id',(project_id,)).fetchall()
+    components=conn.execute('SELECT c.* FROM project_line_components c JOIN project_lines l ON l.id=c.project_line_id WHERE l.project_id=? ORDER BY c.project_line_id,c.line_order,c.id',(project_id,)).fetchall()
+    return project,lines,components
+
+
+def calculate_project(conn: sqlite3.Connection, project_id: int, include_components: bool = True) -> dict[str, Any]:
+    return _calculate_rows(*_calculation_inputs(conn,project_id),include_components)
+
+
+# Cache only numerical summaries, never account permissions or project records.
+# Hash all calculation inputs from this request's snapshot: edits made in another
+# worker, direct component edits and rollback/restore cannot reuse stale totals.
+from collections import OrderedDict
+from threading import Lock
+from hashlib import sha256
+_totals_cache=OrderedDict()
+_totals_lock=Lock()
+_totals_flights=[Lock() for _ in range(32)]
+
+def project_totals(conn,project_id):
+    inputs=_calculation_inputs(conn,project_id)
+    digest=sha256(repr(inputs[0]).encode())
+    for rows in inputs[1:]:
+        digest.update(b'\x00ROWS\x00')
+        for row in rows:digest.update(repr(tuple(row)).encode());digest.update(b'\n')
+    key=digest.digest()
+    with _totals_flights[key[0]%len(_totals_flights)]:
+        with _totals_lock:
+            if key in _totals_cache:
+                _totals_cache.move_to_end(key)
+                return dict(_totals_cache[key])
+        totals=_calculate_rows(*inputs,False)['totals']
+        with _totals_lock:
+            _totals_cache[key]=dict(totals)
+            if len(_totals_cache)>256:_totals_cache.popitem(last=False)
+        return dict(totals)
+
+
+def _calculate_rows(project, line_rows, component_rows, include_components=True):
     material_markup = float(project["material_markup"])
     labor_rate = float(project["labor_rate"])
     hours_factor = 1 + float(project.get("labor_hours_markup",0))
@@ -347,12 +384,8 @@ def calculate_project(
     total_labor = 0.0
     direct_total = 0.0
     quoted_total = 0.0
-    line_rows = conn.execute(
-        "SELECT * FROM project_lines WHERE project_id = ? ORDER BY sort_order, id", (project_id,)
-    ).fetchall()
-    # Fetch all components once, instead of issuing one query per estimate line.
     component_groups = {}
-    for row in conn.execute("SELECT c.* FROM project_line_components c JOIN project_lines l ON l.id=c.project_line_id WHERE l.project_id=? ORDER BY c.project_line_id,c.line_order,c.id", (project_id,)):
+    for row in component_rows:
         component_groups.setdefault(row['project_line_id'], []).append(row)
     for line_row in line_rows:
         line = dict(line_row)

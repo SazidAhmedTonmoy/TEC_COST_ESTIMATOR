@@ -101,7 +101,7 @@ def decorate_project(conn, project, user):
 
 
 def visible_projects(conn, user, include_totals=True):
-    from .projects import calculate_project
+    from .projects import project_totals
     actor = conn.execute('SELECT is_active FROM users WHERE id=?', (user['id'],)).fetchone()
     if not actor or not actor['is_active']:
         raise AccessError(403, 'An active account is required')
@@ -110,7 +110,7 @@ def visible_projects(conn, user, include_totals=True):
     for row in rows:
         project = decorate_project(conn, row, user)
         if include_totals:
-            project['totals'] = calculate_project(conn, project['id'], include_components=False)['totals']
+            project['totals'] = project_totals(conn, project['id'])
             project['line_count'] = project['totals']['line_count']
         result.append(project)
     return result

@@ -82,3 +82,15 @@ Estimator now fetches its session, settings and dashboard in one authenticated b
 Calendar project details now open their dialog immediately and fetch only project metadata, access options and activity in one request. They no longer calculate or download all estimate lines. Read-only detail refreshes use the same smaller endpoint. Opening the actual estimate still fetches the latest estimate and checks access.
 
 Validation: full existing Python suite (124 tests), the added calendar detail/authentication test, startup checks, TypeScript, and browser checks with delayed navigation, failed startup/retry, both workspace switches and a delayed calendar details request passed. Live hosting response times remain unverified.
+
+## Concurrent-user load and startup recovery
+
+Board totals are cached by a fingerprint of every calculation input read from the current database snapshot. Identical concurrent reads share one calculation. The bounded cache stores numeric totals only; permissions and account data remain live. Direct component edits, transactions and rollback were verified against uncached results.
+
+Presence updates run every 30–35 seconds instead of 10 seconds. Board and reminder refreshes run every 60–70 seconds; notes and read-only details every 30–35 seconds. Intervals are staggered across tabs to reduce simultaneous request bursts. Explicit saves and navigation still request current information.
+
+After 20 seconds of startup delay, a reload option appears. Tenders bootstrap has a finite 90-second limit, matching Estimator; timeout limits were not increased. A Tenders rendering failure preserves the navigation shell and shows recovery instead of a blank root. Slow API requests over two seconds now log method, route (without query data), worker process ID and elapsed time to the Python error log. Server-Timing headers measure application processing; they cannot measure time queued at the hosting proxy before a worker receives the request.
+
+Validation: existing 125-test Python suite, two additional concurrent totals/edit/rollback tests, transport checks, TypeScript, and browser switching/calendar/failed-bundle/render-error recovery checks passed. The concurrent cache test used 16 reads across eight threads and verified one calculation. These local tests do not measure live hosting capacity.
+
+If freezes continue, capture the Python application error log and hosting CPU/memory/process-limit readings while several accounts are using the site. Do not replace the live database or increase worker limits blindly.

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import argparse
+import time
+import sys
 import json
 import mimetypes
 import os
@@ -85,10 +87,21 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(120)
 
+    def parse_request(self):
+        valid=super().parse_request()
+        self._request_started=time.perf_counter()
+        return valid
+
     def log_message(self, fmt: str, *args: object) -> None:
         print(f"[{self.log_date_time_string()}] {self.address_string()} {fmt % args}")
 
     def _security_headers(self) -> None:
+        started=getattr(self,'_request_started',None)
+        if started is not None:
+            elapsed=(time.perf_counter()-started)*1000
+            self.send_header('Server-Timing',f'request;dur={elapsed:.1f}')
+            if elapsed>=2000 and self.path.startswith('/api/'):
+                print(f'ConEst slow request pid={os.getpid()} {self.command} {urlparse(self.path).path} {elapsed:.0f}ms',file=sys.stderr,flush=True)
         if self.response_cookie:
             self.send_header('Set-Cookie', self.response_cookie)
             self.response_cookie = None

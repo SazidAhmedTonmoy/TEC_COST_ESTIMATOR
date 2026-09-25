@@ -116,6 +116,6 @@ function bindProductivityEvents(){
       }
     }catch(error){toast(error.message,true);target.disabled=false;}
   });
-  setInterval(()=>pollPresence().catch(()=>{}),10000);
-  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden&&!state.apiPendingCount&&state.view==='home')loadReminders().catch(()=>{});},30000);
+  setInterval(()=>pollPresence().catch(()=>{}),30000+Math.random()*5000);
+  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden&&!state.apiPendingCount&&state.view==='home')loadReminders().catch(()=>{});},60000+Math.random()*10000);
 }
