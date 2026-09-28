@@ -81,23 +81,51 @@ def require_project(conn, project_id, user, mode='edit'):
     return project
 
 
-def decorate_project(conn, project, user):
+def decorate_project(conn, project, user, *, directory=None):
     result = project_with_builders(project)
     result.update(permissions(conn, result, user))
     for column, output in [('owner_id', 'owner_name'), ('created_by', 'created_by_name'),
                            ('updated_by', 'updated_by_name'), ('completed_by', 'completed_by_name')]:
-        row = conn.execute('SELECT name FROM users WHERE id=?', (result.get(column),)).fetchone()
-        result[output] = row[0] if row else result.get(column + '_name_snapshot')
-    result['teams'] = [dict(r) for r in conn.execute('''SELECT t.id,t.name FROM project_teams p
-        JOIN teams t ON t.id=p.team_id WHERE p.project_id=? ORDER BY t.name COLLATE NOCASE''', (result['id'],))]
-    result['individual_users'] = [dict(r) for r in conn.execute('''SELECT u.id,u.name,u.username,u.is_active,t.name AS team_name
-        FROM project_user_access a JOIN users u ON u.id=a.user_id LEFT JOIN teams t ON t.id=u.team_id
-        WHERE a.project_id=? ORDER BY u.name COLLATE NOCASE,u.id''', (result['id'],))]
-    result['contributors'] = project_contributors(conn,result['id'])
+        if directory is None:
+            row = conn.execute('SELECT name FROM users WHERE id=?', (result.get(column),)).fetchone()
+            name = row[0] if row else None
+        else:
+            name = directory['names'].get(result.get(column))
+        result[output] = name if name is not None else result.get(column + '_name_snapshot')
+    if directory is None:
+        result['teams'] = [dict(r) for r in conn.execute('''SELECT t.id,t.name FROM project_teams p
+            JOIN teams t ON t.id=p.team_id WHERE p.project_id=? ORDER BY t.name COLLATE NOCASE''', (result['id'],))]
+        result['individual_users'] = [dict(r) for r in conn.execute('''SELECT u.id,u.name,u.username,u.is_active,t.name AS team_name
+            FROM project_user_access a JOIN users u ON u.id=a.user_id LEFT JOIN teams t ON t.id=u.team_id
+            WHERE a.project_id=? ORDER BY u.name COLLATE NOCASE,u.id''', (result['id'],))]
+        result['contributors'] = project_contributors(conn,result['id'])
+    else:
+        for key in ('teams', 'individual_users', 'contributors'):
+            result[key] = directory[key].get(result['id'], [])
     # Legacy publication records remain in the database for preservation only.
     result.pop('published_at', None)
     result['needs_admin_review'] = bool(result['needs_admin_review'])
     return result
+
+
+def _project_directory(conn):
+    """Batch display metadata once per list request; never cache access grants."""
+    directory = {'names': dict(conn.execute('SELECT id,name FROM users')),
+                 'teams': {}, 'individual_users': {}, 'contributors': {}}
+    queries = {
+        'teams': """SELECT p.project_id,t.id,t.name FROM project_teams p
+            JOIN teams t ON t.id=p.team_id ORDER BY t.name COLLATE NOCASE""",
+        'individual_users': """SELECT a.project_id,u.id,u.name,u.username,u.is_active,t.name AS team_name
+            FROM project_user_access a JOIN users u ON u.id=a.user_id LEFT JOIN teams t ON t.id=u.team_id
+            ORDER BY u.name COLLATE NOCASE,u.id""",
+    }
+    for key, sql in queries.items():
+        for row in conn.execute(sql):
+            record = dict(row)
+            directory[key].setdefault(record.pop('project_id'), []).append(record)
+    for record in project_contributors(conn, None):
+        directory['contributors'].setdefault(record.pop('project_id'), []).append(record)
+    return directory
 
 
 def visible_projects(conn, user, include_totals=True):
@@ -106,9 +134,10 @@ def visible_projects(conn, user, include_totals=True):
     if not actor or not actor['is_active']:
         raise AccessError(403, 'An active account is required')
     rows = conn.execute('SELECT p.* FROM projects p ORDER BY p.updated_at DESC,p.id DESC').fetchall()
+    directory = _project_directory(conn) if rows else None
     result = []
     for row in rows:
-        project = decorate_project(conn, row, user)
+        project = decorate_project(conn, row, user, directory=directory)
         if include_totals:
             project['totals'] = project_totals(conn, project['id'])
             project['line_count'] = project['totals']['line_count']
@@ -271,10 +300,14 @@ def user_directory(conn):
 
 
 def project_contributors(conn, project_id):
-    return [dict(r) for r in conn.execute('''SELECT COALESCE(u.id,a.actor_id_snapshot) AS id,COALESCE(u.name,a.actor_name_snapshot,'Former user') AS name,COALESCE(u.username,a.actor_username_snapshot) AS username,COUNT(*) AS actions,
+    selection = 'a.project_id,' if project_id is None else ''
+    condition = 'a.project_id IS NOT NULL' if project_id is None else 'a.project_id=?'
+    grouping = 'a.project_id,' if project_id is None else ''
+    return [dict(r) for r in conn.execute(f'''SELECT {selection}COALESCE(u.id,a.actor_id_snapshot) AS id,COALESCE(u.name,a.actor_name_snapshot,'Former user') AS name,COALESCE(u.username,a.actor_username_snapshot) AS username,COUNT(*) AS actions,
         MAX(a.created_at) AS last_activity,GROUP_CONCAT(DISTINCT a.team_name_snapshot) AS teams,
         MAX(CASE WHEN a.role_snapshot='admin' THEN 1 ELSE 0 END) AS admin_contribution
         FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
-        WHERE a.project_id=? AND a.action IN ('Created project','Updated estimate settings','Added estimate item',
+        WHERE {condition} AND a.action IN ('Created project','Updated estimate settings','Added estimate item',
         'Updated estimate item','Removed estimate item','Saved manual estimate item','Changed project status',
-        'Updated project brief','Updated project builders','Added project note','Changed project result') GROUP BY COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',(project_id,))]
+        'Updated project brief','Updated project builders','Added project note','Changed project result') GROUP BY {grouping}COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',
+        () if project_id is None else (project_id,))]

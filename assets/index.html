@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.38f3282f73a1.css">
+  <link rel="stylesheet" href="/assets/styles.702b54ab3104.css">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script></head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -143,7 +143,7 @@
         <section class="panel project-panel">
           <div class="panel-heading">
             <div><p class="eyebrow">Project controls</p><h2>Rates and mark-ups</h2></div>
-            <button class="text-button" id="toggle-project-settings">Show / hide settings</button>
+            <button class="panel-collapse-toggle" id="toggle-project-settings" type="button" aria-controls="project-settings-form" aria-expanded="true" aria-label="Collapse rates and mark-ups" title="Collapse rates and mark-ups">−</button>
           </div>
           <form id="project-settings-form" class="settings-grid compact">
             <label>Project name<input id="project-name" required></label>
@@ -167,7 +167,7 @@
           <form id="smart-search-form" class="smart-search">
             <label class="search-field">
               <span>Search by item title</span>
-              <button type="button" class="clear-search" id="clear-smart-search" aria-label="Clear search and results" title="Clear search">×</button><input id="smart-search-input" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-search-suggestions" placeholder="Try: batten, 1200mm LED light, or double power outlet">
+              <div class="search-input-wrap"><button type="button" class="clear-search" id="clear-smart-search" aria-label="Clear search and results" title="Clear search">×</button><input id="smart-search-input" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="smart-search-suggestions" placeholder="Try: batten, 1200mm LED light, or double power outlet"></div>
               <div id="smart-search-suggestions" class="suggestion-menu hidden" role="listbox" aria-label="Catalog suggestions"></div>
             </label>
             <label class="quantity-field"><span>Qty</span><input id="smart-quantity" type="number" min="0" step="any" value="1"></label>
@@ -429,6 +429,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.4f5a54b9d9a5.js" defer></script>
+  <script src="/assets/app.7812fed4ca99.js" defer></script>
 </body>
 </html>

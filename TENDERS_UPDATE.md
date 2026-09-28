@@ -4,6 +4,13 @@ Extract the changed-files ZIP into the existing TEC ConEst application folder an
 
 Use the small circular-arrow button beside **Estimator** to open **TEC ConEst Tenders**. The reverse button returns to Estimator. Both use the same sign-in, users, profile photo, password rules and light/dark preference. Tenders uses a yellow accent. Profile is shared. Manage Users and App Settings are accessed from Estimator; Tenders has no separate links to them. The old tender-only Settings page is removed.
 
+## Estimate layout and shared-use update — 28 September 2026
+
+- Rates and mark-ups now uses an accessible + / − toggle. The cost-summary toggle is larger; the summary remains collapsed by default.
+- Item actions have matching buttons, clearer dark-theme contrast and aligned numeric columns. Category totals have consistent labels and values. The search clear button sits inside its input. Mobile editing retains its stacked layout.
+- Project lists fetch names, teams, individual-user display details and contributor summaries in four batch queries, replacing repeated per-project metadata queries. Permission checks still read live account and assignment records; no account-specific results are shared between users or cached across requests.
+- Local tests compare batch output with individual project reads, check immediate membership/account changes, and run 16 list reads across eight threads using four accounts. This reduces database work; live hosting capacity still requires measurements on the deployed server.
+
 ## Existing tender database
 
 If you have used the standalone tender app since this ZIP was created, stop that standalone server and copy its `data/tec_tenders.sqlite3` into the estimator's `data/` directory before first opening Tenders. Keep any SQLite sidecar files with it if they remain after shutdown. The application makes a consistent SQLite backup into `tec_tenders.db`; it keeps the original `.sqlite3` file. If a `tec_tenders.db` already exists, that existing database is used.

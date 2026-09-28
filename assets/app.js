@@ -422,7 +422,7 @@ function renderEstimateLine(line) {
             <div class="line-name-field"><div class="assembly-name-row"><span class="drag-handle" draggable="true" data-drag-kind="line" data-line-id="${line.id}" title="Drag item within this category">⠿</span><textarea class="line-estimate-name" data-line-id="${line.id}" rows="1" maxlength="500" aria-label="Estimate item name">${escapeHtml(line.display_name || cleanEstimateTitle(line.name_snapshot))}</textarea></div>
             ${['Lighting','Emergency & Exit Lighting'].includes(category)?`<label class="compact-light-reference"><span>Ref.</span><input class="line-light-reference" data-line-id="${line.id}" type="text" maxlength="120" value="${escapeHtml(line.reference_name||'')}" placeholder="Light ref." aria-label="Project-only light reference" title="Project-only lighting reference (for example D1 or EX1). Not saved to the shared catalogue."></label>`:''}</div>
             <div class="line-category-field"><label class="line-category-label">Category<div class="category-editor" data-value="${escapeHtml(category)}"><textarea class="line-category" data-line-id="${line.id}" rows="1" maxlength="120" aria-label="Scope or category for ${escapeHtml(line.name_snapshot)}" title="Choose or type a category; saves when you leave this field">${escapeHtml(category)}</textarea><div class="category-suggestions hidden" aria-label="Suggested categories"></div></div></label>
-            <div class="assembly-actions"><button class="text-button edit-estimate-line" data-line-id="${line.id}">Edit item / components</button><button class="text-button copy-estimate-line" data-line-id="${line.id}">Copy item</button><span class="line-detail-count">${line.components.length} components</span></div></div>
+            <div class="assembly-actions"><button class="text-button edit-estimate-line" data-line-id="${line.id}" title="Edit item and components">Edit item</button><button class="text-button copy-estimate-line" data-line-id="${line.id}">Copy item</button><span class="line-detail-count">${line.components.length} components</span></div></div>
           </div>
         </div></div></td>
       <td class="line-quantity-cell"><input class="line-quantity" data-line-id="${line.id}" type="number" min="0" step="any" value="${Number(line.quantity)}" aria-label="Estimate quantity"><small class="line-unit">${escapeHtml(line.uom || "EA")}</small>${line.has_supply_allowance?`<label class="compact-supply">Supply cost / unit<input class="line-supply-cost" data-line-id="${line.id}" type="number" min="0" step="any" value="${line.supply_unit_cost}" title="Supplier price for one fitting, before mark-ups. Saved only with this estimate."></label>`:''}</td>
@@ -1206,7 +1206,14 @@ function bindEvents() {
     if (event.target.matches(".line-category")) updateLineCategory(event.target.dataset.lineId, event.target.value).catch((error) => { toast(error.message, true); renderProject(); });
     if (event.target.matches(".line-quantity")) updateLineQuantity(event.target.dataset.lineId, event.target.value).catch((error) => toast(error.message, true));
   });
-  $("#toggle-project-settings").addEventListener("click", () => $("#project-settings-form").classList.toggle("hidden"));
+  $("#toggle-project-settings").addEventListener("click", event => {
+    const collapsed = $("#project-settings-form").classList.toggle("hidden");
+    const button = event.currentTarget;
+    button.textContent = collapsed ? "+" : "−";
+    button.setAttribute("aria-expanded", String(!collapsed));
+    button.title = `${collapsed ? "Expand" : "Collapse"} rates and mark-ups`;
+    button.setAttribute("aria-label", button.title);
+  });
   $("#project-settings-form").addEventListener("submit", (event) => saveProjectSettings(event).catch((error) => toast(error.message, true)));
   $("#delete-project-button").addEventListener("click", () => deleteCurrentProject().catch((error) => toast(error.message, true)));
   $("#floating-search-button").addEventListener("click", () => { $("#smart-search-form").scrollIntoView({behavior:"smooth",block:"center"});$("#smart-search-input").focus({preventScroll:true}); });
