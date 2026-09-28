@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.26d7fdae3147.css">
+  <link rel="stylesheet" href="/assets/styles.38f3282f73a1.css">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script></head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -177,13 +177,14 @@
           <div id="search-results" class="search-results hidden" aria-live="polite"></div>
         </section>
 
-        <section class="panel scope-breakdown" aria-labelledby="scope-breakdown-title">
-          <div class="scope-breakdown-heading"><h2 id="scope-breakdown-title">Scope cost summary</h2><div class="summary-switch" role="group" aria-label="Cost summary view"><button type="button" class="summary-mode" data-mode="scope" aria-pressed="true">By scope</button><button type="button" class="summary-mode" data-mode="work" aria-pressed="false">By work type</button></div></div>
+        <details class="panel scope-breakdown" aria-labelledby="scope-breakdown-title">
+          <summary class="scope-breakdown-heading"><h2 id="scope-breakdown-title">Scope cost summary</h2><span class="scope-summary-toggle" aria-hidden="true"></span></summary><div class="scope-summary-body"><div class="scope-summary-toolbar"><div class="summary-switch" role="group" aria-label="Cost summary view"><button type="button" class="summary-mode" data-mode="scope" aria-pressed="true">By scope</button><button type="button" class="summary-mode" data-mode="work" aria-pressed="false">By work type</button></div></div>
           <div class="table-scroll"><table class="scope-table">
             <thead><tr><th>Scope / Category</th><th>Assemblies</th><th>Total Material</th><th>Total Hours</th><th>Total Labour</th><th>Quoted Total</th></tr></thead>
             <tbody id="scope-breakdown-rows"></tbody><tfoot id="scope-breakdown-total"></tfoot>
           </table></div>
-        </section>
+          </div>
+        </details>
 
         <section class="panel estimate-panel">
           <div class="panel-heading">
@@ -428,6 +429,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.eba788fcc8ab.js" defer></script>
+  <script src="/assets/app.4f5a54b9d9a5.js" defer></script>
 </body>
 </html>
