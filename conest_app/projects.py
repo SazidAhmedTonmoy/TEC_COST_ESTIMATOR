@@ -206,6 +206,8 @@ def save_manual_estimate_item(conn, project_id, payload, line_id=None):
     line=conn.execute('SELECT * FROM project_lines WHERE id=? AND project_id=?',(line_id,project_id)).fetchone() if line_id is not None else None
     if line_id is not None and line is None:raise LookupError('Estimate line not found')
     if line is not None:check_revision(line,payload)
+    from .release_v31_item_markups import markup_options
+    exclusions=markup_options(payload,line)
     quantity=_nonnegative(payload.get('quantity',line['quantity'] if line else 1),'Estimate quantity')
     source=payload.get('item')
     if not isinstance(source,dict):raise ValueError('Catalog item details are required')
@@ -254,6 +256,7 @@ def save_manual_estimate_item(conn, project_id, payload, line_id=None):
             (item['id'],name,raw.get('description',name),category,raw.get('work_type','assembly'),quantity,raw.get('base_uom','EA'),
              clean_text(raw.get('assembly_size')),utc_now(),line_id,project_id))
         _copy_line_components(conn,line_id,{'components':components})
+    conn.execute('UPDATE project_lines SET '+','.join(f'{k}=?' for k in exclusions)+' WHERE id=?', (*exclusions.values(),line_id))
     conn.execute('UPDATE project_lines SET supply_unit_cost_override=?,size_snapshot=? WHERE id=?',
                  (supply_price,clean_text(raw.get('assembly_size')),line_id))
     conn.execute('UPDATE projects SET updated_at=? WHERE id=?',(utc_now(),project_id))
@@ -273,7 +276,8 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
         raise ValueError("Category must be 120 characters or fewer")
     name=clean_text(payload.get('name_snapshot',line['name_snapshot']))
     if not name or len(name)>500:raise ValueError('Estimate name must be 1–500 characters')
-    extra={'name_snapshot':name}
+    from .release_v31_item_markups import markup_options
+    extra={'name_snapshot':name,**markup_options(payload,line)}
     if 'reference_name' in payload:
         if not isinstance(payload['reference_name'], str):
             raise ValueError('Reference name must be text')
@@ -389,6 +393,9 @@ def _calculate_rows(project, line_rows, component_rows, include_components=True)
         component_groups.setdefault(row['project_line_id'], []).append(row)
     for line_row in line_rows:
         line = dict(line_row)
+        material_markup = 0.0 if line.get('exclude_material_markup') else float(project['material_markup'])
+        hours_factor = 1.0 if line.get('exclude_hours_markup') else 1 + float(project.get('labor_hours_markup',0))
+        overhead_markup = 0.0 if line.get('exclude_final_markup') else float(project['overhead_markup'])
         line_qty = float(line["quantity"])
         components: list[dict[str, Any]] = []
         line_material = 0.0

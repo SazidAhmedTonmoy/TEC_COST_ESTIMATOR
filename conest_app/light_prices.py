@@ -256,10 +256,12 @@ def search(query='', limit=40, offset=0, supplier=''):
     terms = clean(query).casefold().split()[:12]
     offset = max(0, int(offset)); limit = min(100, max(1, int(limit)))
     where = ' AND '.join('instr(lower(g.search_text || \' \' || g.nickname || \' \' || g.description),?)>0' for _ in terms) or '1=1'
-    supplier = clean(supplier)
-    if supplier:
-        where += ' AND (g.supplier=? COLLATE NOCASE OR EXISTS (SELECT 1 FROM lines sl WHERE sl.group_id=g.id AND sl.supplier=? COLLATE NOCASE))'
-        terms.extend([supplier, supplier])
+    suppliers = [supplier] if isinstance(supplier, str) else supplier
+    if not isinstance(suppliers, (list, tuple)) or len(suppliers)>200:raise ValueError('Select up to 200 suppliers')
+    suppliers = list(dict.fromkeys(clean(s) for s in suppliers if clean(s)))
+    if suppliers:
+        where += ' AND (' + ' OR '.join('(g.supplier=? COLLATE NOCASE OR EXISTS (SELECT 1 FROM lines sl WHERE sl.group_id=g.id AND sl.supplier=? COLLATE NOCASE))' for _ in suppliers) + ')'
+        terms.extend(value for s in suppliers for value in (s,s))
     with connect() as conn:
         total = conn.execute(f'SELECT COUNT(*) FROM groups g WHERE {where}', terms).fetchone()[0]
         ids = [r[0] for r in conn.execute(f'''SELECT g.id FROM groups g JOIN quotes q ON q.id=g.quote_id

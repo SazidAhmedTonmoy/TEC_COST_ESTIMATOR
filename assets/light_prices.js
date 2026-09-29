@@ -1,5 +1,13 @@
 /* Quoted lighting packages: inline details, explicit arithmetic, editable working copies. */
-const lightPriceState={request:0,detailRequest:0,offset:0,total:0,selected:null,item:null,results:[],editing:false,dirty:false,busy:false,photoDataUrl:null,removePhoto:false,photoLoading:false,photoReadId:0};
+const lightPriceState={request:0,detailRequest:0,offset:0,total:0,selected:null,item:null,results:[],suppliers:[],editing:false,dirty:false,busy:false,photoDataUrl:null,removePhoto:false,photoLoading:false,photoReadId:0};
+function renderSupplierPicker(options){
+  const active=document.activeElement,preserve=$('#light-price-supplier').contains(active)&&active.matches('input'),all=active?.dataset?.allSuppliers!==undefined,activeValue=active?.value;
+  lightPriceState.supplierOptions=options;
+  const selected=lightPriceState.suppliers;
+  $('#light-price-supplier summary').textContent=selected.length===0?'All suppliers':selected.length===1?selected[0]:`${selected.length} suppliers`;
+  $('#light-price-supplier .supplier-options').innerHTML=`<label><input type="checkbox" data-all-suppliers ${selected.length?'':'checked'}>All suppliers</label>`+options.map(s=>`<label><input type="checkbox" data-supplier value="${escapeHtml(s)}" ${selected.includes(s)?'checked':''}>${escapeHtml(s)}</label>`).join('');
+  if(preserve){const control=$$('#light-price-supplier input').find(el=>all?el.dataset.allSuppliers!==undefined:el.value===activeValue);control?.focus();}
+}
 function lightMoney(value){return value===null||value===undefined?'Not priced':fmtMoney(value,'AUD');}
 function lightRate(value){return value===null||value===undefined?'Not priced':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',minimumFractionDigits:2,maximumFractionDigits:4}).format(value);}
 function lightQty(value){return value===null||value===undefined?'Not set':fmtNumber(value,4);}
@@ -8,9 +16,9 @@ function resetLightPrices(){
   if(typeof resetQuoteReview==='function')resetQuoteReview();
   $('#light-price-import-form').reset();$('#light-price-import-status').textContent='';
   lightPriceState.request++;lightPriceState.detailRequest++;
-  Object.assign(lightPriceState,{selected:null,item:null,results:[],editing:false,dirty:false,busy:false,photoDataUrl:null,removePhoto:false,photoLoading:false,photoReadId:(lightPriceState.photoReadId||0)+1});
+  Object.assign(lightPriceState,{selected:null,item:null,results:[],suppliers:[],editing:false,dirty:false,busy:false,photoDataUrl:null,removePhoto:false,photoLoading:false,photoReadId:(lightPriceState.photoReadId||0)+1});
   const box=$('#light-price-detail');box.classList.add('hidden');$('#light-prices-view').appendChild(box);box.innerHTML='';
-  $('#light-price-results').innerHTML='';$('#light-price-search').value='';$('#light-price-supplier').innerHTML='<option value="">All suppliers</option>';
+  $('#light-price-results').innerHTML='';$('#light-price-search').value='';renderSupplierPicker([]);
 }
 function confirmLightDiscard(){return !lightPriceState.dirty||confirm('Discard the unsaved changes to this light?');}
 function closeLightPrice(remember=true){
@@ -30,13 +38,13 @@ function lightCard(item){
 async function loadLightPrices(offset=0){
   if(lightPriceState.busy||!confirmLightDiscard())return false;
   const request=++lightPriceState.request;lightPriceState.detailRequest++;
-  const query=$('#light-price-search').value.trim(),supplier=$('#light-price-supplier').value;
+  const query=$('#light-price-search').value.trim(),suppliers=[...lightPriceState.suppliers];
   $('#light-price-status').textContent='Searching supplier quotes...';
-  const data=await api(`/api/light-prices?q=${encodeURIComponent(query)}&offset=${offset}&supplier=${encodeURIComponent(supplier)}`);
+  const data=await api(`/api/light-prices?q=${encodeURIComponent(query)}&offset=${offset}${suppliers.map(s=>'&supplier='+encodeURIComponent(s)).join('')}`);
   if(request!==lightPriceState.request)return false;
   lightPriceState.dirty=false;closeLightPrice(false);
   Object.assign(lightPriceState,{offset,total:data.total,results:data.results});
-  $('#light-price-supplier').innerHTML='<option value="">All suppliers</option>'+(data.suppliers||[]).map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');$('#light-price-supplier').value=supplier;
+  renderSupplierPicker(data.suppliers||[]);
   $('#light-price-status').textContent=data.total?`${offset+1}-${offset+data.results.length} of ${data.total} matches. Click a result to expand it here.`:'No matches. Try a name, nickname, supplier or catalogue number.';
   $('#light-price-results').innerHTML=data.results.map(item=>`<article class="light-price-result" data-light-id="${item.id}">${lightCard(item)}</article>`).join('');
   $('#light-price-prev').disabled=offset===0;$('#light-price-next').disabled=offset+data.results.length>=data.total;
@@ -184,7 +192,9 @@ async function saveLightDetails(){
 document.addEventListener('DOMContentLoaded',()=>{
   let timer;
   const runSearch=()=>loadLightPrices().catch(error=>toast(error.message,true));
-  $('#light-price-supplier').addEventListener('change',()=>{clearTimeout(timer);runSearch();});
+  $('#light-price-supplier').addEventListener('change',event=>{clearTimeout(timer);if(event.target.dataset.allSuppliers!==undefined){lightPriceState.suppliers=[];}else{lightPriceState.suppliers=$$('#light-price-supplier input[data-supplier]:checked').map(el=>el.value);}renderSupplierPicker(lightPriceState.supplierOptions||[]);runSearch();});
+  document.addEventListener('click',event=>{const picker=$('#light-price-supplier');if(!picker.contains(event.target))picker.open=false;});
+  $('#light-price-supplier').addEventListener('keydown',event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary').focus();}});
   $('#light-price-search').addEventListener('input',()=>{clearTimeout(timer);lightPriceState.request++;timer=setTimeout(runSearch,250);});
   $('#light-price-search-form').addEventListener('submit',event=>{event.preventDefault();clearTimeout(timer);runSearch();});
   $('#light-price-prev').addEventListener('click',()=>loadLightPrices(Math.max(0,lightPriceState.offset-40)).catch(error=>toast(error.message,true)));

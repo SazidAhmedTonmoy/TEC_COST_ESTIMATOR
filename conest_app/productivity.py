@@ -73,14 +73,15 @@ def revision_snapshot(conn,pid,rid,user):
 
 
 def compare_snapshots(before,after):
-    fields=('reference_name','name_snapshot','size_snapshot','sort_order','category_snapshot','quantity','uom','work_type_snapshot','notes','quoted_total','supply_quantity_override','supply_unit_cost_override')
+    fields=('exclude_material_markup','exclude_hours_markup','exclude_final_markup','reference_name','name_snapshot','size_snapshot','sort_order','category_snapshot','quantity','uom','work_type_snapshot','notes','quoted_total','supply_quantity_override','supply_unit_cost_override')
     component_fields=('description','size','is_supply_copy','fixed_quantity','source_quantity','quantity_per_unit','uom','unit_material','material_factor','unit_hours','labor_factor','labor_pricing','unit_labor_price')
     old={r['id']:r for r in before['lines']};new={r['id']:r for r in after['lines']}
     changes=[]
     for key in sorted(old.keys()|new.keys()):
         a,b=old.get(key),new.get(key)
         kind='Added' if not a else 'Removed' if not b else 'Changed'
-        delta={f:{'before':a.get(f) if a else None,'after':b.get(f) if b else None} for f in fields if not a or not b or a.get(f)!=b.get(f)}
+        def field_value(row, field):return row.get(field,0 if field.startswith('exclude_') else None) if row else None
+        delta={f:{'before':field_value(a,f),'after':field_value(b,f)} for f in fields if not a or not b or field_value(a,f)!=field_value(b,f)}
         def parts(line):return [{f:c.get(f) for f in component_fields} for c in line.get('components',[])] if line else []
         if a and b and parts(a)!=parts(b):delta['components']={'before':parts(a),'after':parts(b)}
         if delta:changes.append({'line_id':key,'name':(b or a)['name_snapshot'],'kind':kind,'fields':delta})

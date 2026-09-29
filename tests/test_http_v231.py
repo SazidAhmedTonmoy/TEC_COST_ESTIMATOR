@@ -33,7 +33,7 @@ class HttpPatchTests(unittest.TestCase):
         self.cookie='';self.csrf=''
         # First request, not an explicit initialize(), must prepare the database.
         status,health=self.request('GET','/api/health')
-        self.assertEqual((status,health['schema_version']),(200,27))
+        self.assertEqual((status,health['schema_version']),(200,28))
         with connect() as conn:
             row=conn.execute("SELECT * FROM users WHERE role='admin' LIMIT 1").fetchone()
             self.username=row['username']; self.user_id=row['id']

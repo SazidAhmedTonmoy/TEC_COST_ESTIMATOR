@@ -2022,3 +2022,15 @@ html[data-theme="dark"] .status-in_review,html[data-theme="dark"] .calendar-even
 html[data-theme="dark"] .schedule-item.is-review .schedule-date,html[data-theme="dark"] .review-agenda-item span{color:#ffe173}
 @media(min-width:821px){.scope-heading-row .scope-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:500px;flex:0 0 500px;gap:16px}.scope-heading-row .scope-metric{min-width:0;align-items:flex-end;text-align:right}.scope-heading-row .scope-metric b{white-space:nowrap}.scope-heading-row .scope-order-actions{flex-shrink:0}}
 @media(max-width:820px){.scope-heading-row .scope-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.review-agenda-item{flex-direction:column;gap:4px}}
+
+/* Compact per-item exclusions and multi-supplier filter. */
+.line-markup-options{min-width:0;margin:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;display:flex;flex-wrap:wrap;gap:7px 12px;align-items:center}
+.line-markup-options.hidden{display:none}.line-markup-options legend{font-size:12px;padding:0 4px;color:var(--muted)}
+.line-markup-options label,.supplier-options label{display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer}
+.line-markup-options input[type=checkbox],.supplier-options input[type=checkbox]{width:16px;height:16px;min-height:0;flex-shrink:0;margin:0;accent-color:var(--teal,#0bb8ab)}
+.light-supplier>span{display:block;font-size:13px;margin-bottom:6px}.supplier-picker{position:relative;min-width:180px}
+.supplier-picker summary{cursor:pointer;padding:11px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.supplier-options{position:absolute;top:calc(100% + 6px);left:0;right:0;min-width:230px;max-height:290px;overflow:auto;padding:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px #0003;z-index:30}
+.supplier-options label{font-size:13px;padding:9px;border-radius:6px}.supplier-options label:hover{background:var(--canvas)}
+.light-price-search .supplier-options label{flex-direction:row;justify-content:flex-start;text-align:left;font-weight:500}
+.light-supplier>span{font-weight:700;font-size:14px}

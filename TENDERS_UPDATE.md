@@ -119,3 +119,14 @@ After 20 seconds of startup delay, a reload option appears. Tenders bootstrap ha
 Validation: existing 125-test Python suite, two additional concurrent totals/edit/rollback tests, transport checks, TypeScript, and browser switching/calendar/failed-bundle/render-error recovery checks passed. The concurrent cache test used 16 reads across eight threads and verified one calculation. These local tests do not measure live hosting capacity.
 
 If freezes continue, capture the Python application error log and hosting CPU/memory/process-limit readings while several accounts are using the site. Do not replace the live database or increase worker limits blindly.
+
+## v3.1 — 29 September refinement
+
+- Project Board defaults to Newest created; deadline ascending/descending keep undated projects last. The selected order is remembered per user.
+- Removed the separate Reviews due this month list. Review stamps and Keep on Schedule remain.
+- Light Price supports multiple supplier checkboxes. Search and pagination match any selected supplier, including suppliers of package components. Clear the filter with All suppliers.
+- Search Tenders is merged into Project Chase-up with search, status/region/builder filters, dashboard chart drilldowns, tabs and Excel export. Existing /tenders/search links open Chase-up.
+- Edit estimate item includes three independent Exclude mark-up checkboxes: Material, Labour hours and Final. All are unchecked by default. They affect only this estimate item, persist when copied, are recorded in revisions and apply to Excel formulas. Fixed labour prices do not gain labour-hour markup.
+- Schema 28 adds these three settings with defaults that preserve existing totals. Startup makes a protected backup and migrates the existing database; no database file is shipped.
+
+Deploy the changed files over the previous v3.1 release and restart Passenger. Do not replace the live database. Old fingerprinted frontend assets can be removed after cached sessions have expired; the updated HTML references the new files.

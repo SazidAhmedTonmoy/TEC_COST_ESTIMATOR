@@ -292,6 +292,12 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             sum(max(1, len(textwrap.wrap(part, width=width))) for part in str(values.get(column, "")).split("\n"))
             for column, width in ((1, 25), (2, 47), (3, 20), (14, 26))) + 12)
 
+        material_ref = '0' if line.get('exclude_material_markup') else f'{settings_ref}$C$5'
+        hours_ref = '0' if line.get('exclude_hours_markup') else f'{settings_ref}$F$7'
+        final_ref = '0' if line.get('exclude_final_markup') else f'{settings_ref}$C$6'
+        excluded = [label for key,label in [('exclude_material_markup','Material'),('exclude_hours_markup','Labour hours'),('exclude_final_markup','Final')] if line.get(key)]
+        if excluded:
+            ws.cell(parent_row,14, str(values[14] or '') + ' · Excluded mark-ups: ' + ', '.join(excluded))
         for offset, component in enumerate(components):
             row = detail_start + offset
             description = component.get("description") or ""
@@ -311,9 +317,9 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 ws.cell(row,5,f'=D{row}')
                 ws.cell(row,4).comment=Comment('Total fitting supply quantity, independent of installation quantity.','User')
             ws.cell(row, 6, max(0.0, float(component.get("unit_material") or 0.0)))
-            ws.cell(row, 7, f"=E{row}*F{row}*{_safe_formula_factor(component.get('material_factor'))}*(1+{settings_ref}$C$5)")
+            ws.cell(row, 7, f"=E{row}*F{row}*{_safe_formula_factor(component.get('material_factor'))}*(1+{material_ref})")
             ws.cell(row, 8, max(0.0, float(component.get("unit_hours") or 0.0)))
-            ws.cell(row, 9, f"=E{row}*H{row}*{_safe_formula_factor(component.get('labor_factor'))}*(1+{settings_ref}$F$7)")
+            ws.cell(row, 9, f"=E{row}*H{row}*{_safe_formula_factor(component.get('labor_factor'))}*(1+{hours_ref})")
             ws.cell(row, 10, f"=I{row}*{settings_ref}$F$5")
             if component.get("labor_pricing") == "fixed":
                 ws.cell(row, 8, float(component.get("unit_labor_price") or 0))
@@ -324,9 +330,9 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 labor_base=str(ratio) if component.get('fixed_quantity') else f'$D${parent_row}*{ratio}'
                 if component.get('labor_pricing')=='fixed':ws.cell(row,10,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}')
                 else:
-                    ws.cell(row,9,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}*(1+{settings_ref}$F$7)')
+                    ws.cell(row,9,f'={labor_base}*H{row}*{_safe_formula_factor(component.get("labor_factor"))}*(1+{hours_ref})')
             ws.cell(row, 11, f"=G{row}+J{row}")
-            ws.cell(row, 12, f"=K{row}*(1+{settings_ref}$C$6)")
+            ws.cell(row, 12, f"=K{row}*(1+{final_ref})")
             ws.cell(row, 14, " · ".join(filter(None, [
                 "Fixed labour price; hours not provided" if component.get("labor_pricing") == "fixed" else "",
                 "Fixed total quantity" if component.get("fixed_quantity") else "",
@@ -417,7 +423,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             if part==0:
                 ws.cell(row,1,f'=IF({lighting},A{parent_row}&" / Supply cost",IF(A{parent_row}="","(Unassigned)",A{parent_row}))')
                 formulas={3:f'IF({lighting},{supply_formula},G{parent_row})',4:f'IF({lighting},0,I{parent_row})',
-                    5:f'IF({lighting},0,J{parent_row})',6:f'IF({lighting},{supply_formula}*(1+{settings_ref}$C$6),L{parent_row})',7:f'IF({lighting},0,1)'}
+                    5:f'IF({lighting},0,J{parent_row})',6:f'IF({lighting},{supply_formula}*(1+{final_ref}),L{parent_row})',7:f'IF({lighting},0,1)'}
             else:
                 ws.cell(row,1,f'=IF({lighting},A{parent_row}&" / Installation cost","")')
                 formulas={3:f'IF({lighting},G{parent_row}-C{row-1},0)',4:f'IF({lighting},I{parent_row},0)',

@@ -8,7 +8,7 @@ vm.runInContext('workspaceState.month=new Date(2026,8,1);renderCalendar()',ctx);
 assert.match(el('#calendar-summary').innerHTML,/Projects due this month<\/span><strong>1</);assert.match(el('#calendar-summary').innerHTML,/AUD 900/);assert.equal(el('#calendar-review-agenda').innerHTML,'');
 vm.runInContext('workspaceState.month=new Date(2026,9,1);renderCalendar()',ctx);
 assert.match(el('#calendar-grid').innerHTML,/data-event-kind="review"/);assert.match(el('#calendar-grid').innerHTML,/calendar-event is-review/);
-assert.match(el('#calendar-review-agenda').innerHTML,/Review project/);assert.match(el('#calendar-summary').innerHTML,/Projects due this month<\/span><strong>0</);assert.doesNotMatch(el('#calendar-summary').innerHTML,/AUD 900/);
+assert.equal(el('#calendar-review-agenda').innerHTML,'');assert.match(el('#calendar-summary').innerHTML,/Projects due this month<\/span><strong>0</);assert.doesNotMatch(el('#calendar-summary').innerHTML,/AUD 900/);
 p.submission_deadline=p.review_deadline;vm.runInContext('renderCalendar()',ctx);
 assert.equal((el('#calendar-grid').innerHTML.match(/data-project-brief="1"/g)||[]).length,1);assert.match(el('#calendar-grid').innerHTML,/Submission · Review due/);assert.match(el('#calendar-summary').innerHTML,/Projects due this month<\/span><strong>1</);
 p.status='submitted';p.review_deadline=null;vm.runInContext('renderCalendar();renderSchedule()',ctx);

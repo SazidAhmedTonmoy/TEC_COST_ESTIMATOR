@@ -287,7 +287,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 return
             if path == '/api/light-prices':
                 from conest_app import light_prices
-                self._send_json({'success':True,**light_prices.search(query.get('q',[''])[0],offset=query.get('offset',[0])[0],supplier=query.get('supplier',[''])[0])});return
+                self._send_json({'success':True,**light_prices.search(query.get('q',[''])[0],offset=query.get('offset',[0])[0],supplier=query.get('supplier',[]))});return
             if path == '/api/light-prices/backup':
                 from conest_app import light_prices
                 if self.user['role']!='admin':raise ApiError(403,'Administrator access is required')

@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', boardSort: 'recent', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted' };
 
 function localDateKey(date = new Date()) {
@@ -19,8 +19,8 @@ function projectStatus(project) {
 function setAccount(user, token) {
   const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
-  if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='recent';
-    try{const saved=localStorage.getItem('conest-project-sort-'+user.id);if(['recent','name','name-desc','deadline','newest','cost-high','cost-low'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
+  if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
+    try{const saved=localStorage.getItem('conest-project-sort-v31-'+user.id);if(['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
     try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list'].includes(saved))workspaceState.boardView=saved;}catch(_){}
   }
   $$('.user-only').forEach(el=>el.classList.toggle('hidden',user.role==='admin'));
@@ -138,7 +138,7 @@ function renderProjectBoard() {
     // Different currencies stay in their own groups; do not imply conversion.
     if(sort==='cost-high'||sort==='cost-low')return (a.currency||'').localeCompare(b.currency||'')||(sort==='cost-high'?-1:1)*(Number(a.totals?.quoted||0)-Number(b.totals?.quoted||0))||a.name.localeCompare(b.name);
     if(sort==='name'||sort==='name-desc')return (sort==='name'?1:-1)*a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});
-    if(sort==='deadline')return (projectDeadline(a)||'9999').localeCompare(projectDeadline(b)||'9999')||a.name.localeCompare(b.name);
+    if(sort==='deadline'||sort==='deadline-desc'){const ad=projectDeadline(a),bd=projectDeadline(b);return (!ad)-(!bd)||(sort==='deadline'?1:-1)*(ad||'').localeCompare(bd||'')||a.name.localeCompare(b.name);}
     const key=sort==='newest'?'created_at':'updated_at';
     return (b[key]||'').localeCompare(a[key]||'')||b.id-a.id;
   });
@@ -504,8 +504,6 @@ function renderCalendar() {
   const monthProjects=projects.filter(p=>p.submission_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
   // Monetary totals and counts use submission dates only, never review entries.
   renderCalendarSummary(monthProjects);
-  const monthReviews=reviews.filter(p=>p.review_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.review_deadline.localeCompare(b.review_deadline)||a.id-b.id);
-  $('#calendar-review-agenda').innerHTML=monthReviews.length?`<h3>Reviews due this month</h3><p class="helper-text">Review reminders only; excluded from monthly project counts and totals.</p><div class="review-agenda-list">${monthReviews.map(p=>`<button type="button" class="review-agenda-item" data-project-brief="${p.id}"><span>${escapeHtml(p.name)}</span><time datetime="${p.review_deadline}">${dateLabel(p.review_deadline)}</time></button>`).join('')}</div>`:'';
 }
 function bindWorkspaceEvents() {
   setInterval(async()=>{
@@ -552,9 +550,9 @@ function bindWorkspaceEvents() {
   $('#add-user').addEventListener('click',()=>openUserEditor());
   $('#project-search').addEventListener('input',renderProjectBoard);
   $('#project-sort').addEventListener('change',event=>{
-    const value=event.target.value;if(!['recent','name','name-desc','deadline','newest','cost-high','cost-low'].includes(value))return;
+    const value=event.target.value;if(!['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(value))return;
     workspaceState.boardSort=value;
-    try{localStorage.setItem('conest-project-sort-'+state.user.id,value);}catch(_){}
+    try{localStorage.setItem('conest-project-sort-v31-'+state.user.id,value);}catch(_){}
     renderProjectBoard();
   });
   $('#project-view-style').addEventListener('change',event=>{

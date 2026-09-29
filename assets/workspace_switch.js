@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  const wrap=document.createElement('div');wrap.className='workspace-brand';brand.before(wrap);wrap.append(brand,swap);
  if(inTenders){document.documentElement.dataset.workspace='tenders';brand.querySelector('div:last-child span').textContent='TENDERS';brand.href='/tenders/';brand.removeAttribute('data-view');
  const nav=document.querySelector('#main-navigation');nav.querySelectorAll('.nav-button').forEach(a=>a.remove());
- const pages=[['dashboard','Home','⌂'],['chase-up','Project Chase-up','☷'],['search','Search Tenders','⌕'],['projects','Projects','▦'],['builders','Builders','♙'],['calendar','Calendar','▤'],['reminders','Reminders','◷']];
+ const pages=[['dashboard','Home','⌂'],['chase-up','Project Chase-up','☷'],['projects','Projects','▦'],['builders','Builders','♙'],['calendar','Calendar','▤'],['reminders','Reminders','◷']];
  for(const [path,label,icon] of pages.reverse()){const a=document.createElement('a');a.className='nav-button';a.href='/tenders/'+path;a.innerHTML=`<span>${icon}</span> ${label}`;nav.prepend(a);}
  }
 });

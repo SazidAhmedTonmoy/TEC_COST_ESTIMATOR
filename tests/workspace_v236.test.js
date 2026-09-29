@@ -43,3 +43,13 @@ assert.ok(element('#project-board').innerHTML.indexOf('Finished')<element('#proj
 vm.runInContext("workspaceState.boardSort='cost-low';renderProjectBoard()",ctx);
 assert.ok(element('#project-board').innerHTML.indexOf('Finished')>element('#project-board').innerHTML.indexOf('New &lt;project>'));
 console.log('Total-cost ordering checks passed.');
+ctx.state.projects=[
+ {id:1,name:'Earlier',created_at:'2026-09-01',updated_at:'2026-09-29',status:'draft',submission_deadline:'2026-10-01'},
+ {id:2,name:'Later',created_at:'2026-09-20',updated_at:'2026-09-21',status:'in_review',review_deadline:'2026-10-15',submission_deadline:'2026-10-03'},
+ {id:3,name:'Undated',created_at:'2026-09-21',updated_at:'2026-09-21',status:'draft'}
+];
+for(const [sort,expected] of [['newest',[3,2,1]],['deadline',[1,2,3]],['deadline-desc',[2,1,3]]]){
+ vm.runInContext(`workspaceState.boardSort='${sort}';renderProjectBoard()`,ctx);
+ const ids=[...element('#project-board').innerHTML.matchAll(/href="#\/estimate\/(\d+)"/g)].map(m=>Number(m[1]));assert.deepEqual(ids,expected);
+}
+console.log('Newest creation and bidirectional effective-deadline ordering passed.');

@@ -760,6 +760,7 @@ function readManualComponents() {
   });
 }
 
+function manualMarkupOptions(){return {exclude_material_markup:state.manualAddToEstimate&&$('#manual-exclude-material').checked,exclude_hours_markup:state.manualAddToEstimate&&$('#manual-exclude-hours').checked,exclude_final_markup:state.manualAddToEstimate&&$('#manual-exclude-final').checked};}
 function refreshManualPricing() {
   const workType = $("#manual-work-type").value;
   const help = {
@@ -786,16 +787,18 @@ function refreshManualPricing() {
   const fixed = components.reduce((sum, c) => sum + c.quantity_per_unit * c.unit_labor_price * c.labor_factor, 0);
   const project = state.projectData?.project;
   const rate = Number(project?.labor_rate ?? state.appSettings?.default_labor_rate ?? 120);
-  const markup = Number(project?.material_markup ?? state.appSettings?.default_material_markup ?? .15);
-  const overhead = Number(project?.overhead_markup ?? state.appSettings?.default_overhead_markup ?? .10);
+  const exclusions=manualMarkupOptions();
+  const hoursFactor=1+(exclusions.exclude_hours_markup?0:Number(project?.labor_hours_markup??state.appSettings?.default_labor_hours_markup??0));
+  const markup = exclusions.exclude_material_markup?0:Number(project?.material_markup ?? state.appSettings?.default_material_markup ?? .15);
+  const overhead = exclusions.exclude_final_markup?0:Number(project?.overhead_markup ?? state.appSettings?.default_overhead_markup ?? .10);
   const qty = Number($("#manual-quantity").value);
   const estimateTotal=components.reduce((sum,c)=>{
     const quantity=c.quantity_per_unit*(c.fixed_quantity?1:qty);
-    return sum+quantity*(c.unit_material*c.material_factor*(1+markup)+(c.unit_hours*rate+c.unit_labor_price)*c.labor_factor)*(1+overhead);
+    return sum+quantity*(c.unit_material*c.material_factor*(1+markup)+(c.unit_hours*hoursFactor*rate+c.unit_labor_price)*c.labor_factor)*(1+overhead);
   },0);
-  const quotedUnit = (material * (1 + markup) + hours * rate + fixed) * (1 + overhead);
+  const quotedUnit = (material * (1 + markup) + hours * hoursFactor * rate + fixed) * (1 + overhead);
   const unit = escapeHtml($("#manual-uom").value || "unit");
-  $("#manual-cost-preview").innerHTML = `<span>Base material / ${unit}<strong>${fmtMoney(material)}</strong></span><span>Labour / ${unit}<strong>${fmtNumber(hours)} hrs + ${fmtMoney(fixed)} fixed</strong></span><span>Quoted price / ${unit}<strong>${fmtMoney(quotedUnit)}</strong></span>${state.manualAddToEstimate ? `<span>Estimate total · ${fmtNumber(qty)} ${unit}<strong>${fmtMoney(estimateTotal)}</strong></span>` : ""}<small>Preview uses ${fmtMoney(rate)}/hr, ${fmtNumber(markup * 100)}% material mark-up and ${fmtNumber(overhead * 100)}% final mark-up. ${state.manualAddToEstimate ? "Lighting fitting supply prices are saved only with this estimate." : "Existing estimates retain their saved prices."}</small>`;
+  $("#manual-cost-preview").innerHTML = `<span>Base material / ${unit}<strong>${fmtMoney(material)}</strong></span><span>Labour / ${unit}<strong>${fmtNumber(hours)} hrs + ${fmtMoney(fixed)} fixed</strong></span><span>Quoted price / ${unit}<strong>${fmtMoney(quotedUnit)}</strong></span>${state.manualAddToEstimate ? `<span>Estimate total · ${fmtNumber(qty)} ${unit}<strong>${fmtMoney(estimateTotal)}</strong></span>` : ""}<small>Preview uses ${fmtMoney(rate)}/hr, ${fmtNumber(markup * 100)}% material, ${fmtNumber((hoursFactor-1)*100)}% labour hours and ${fmtNumber(overhead * 100)}% final mark-up. ${state.manualAddToEstimate ? "Lighting fitting supply prices are saved only with this estimate." : "Existing estimates retain their saved prices."}</small>`;
 }
 
 function openManualDialog(addToEstimate = false, sourceItem = null, editExisting = false, lineId = null, quantityOverride = null) {
@@ -809,6 +812,8 @@ function openManualDialog(addToEstimate = false, sourceItem = null, editExisting
   state.manualSaving = false;
   $("#manual-save-error").classList.add("hidden");
   $("#manual-item-form").reset();
+  $('#manual-markup-options').classList.toggle('hidden',!addToEstimate);
+  for(const [control,key] of [['material','exclude_material_markup'],['hours','exclude_hours_markup'],['final','exclude_final_markup']])$('#manual-exclude-'+control).checked=!!sourceItem?.[key];
   const options = state.dashboard.manual_options;
   $("#manual-category").value = sourceItem?.category_override || sourceItem?.category || "Lighting";
   $("#manual-work-type").innerHTML = Object.entries(options.work_types).map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("");
@@ -845,7 +850,7 @@ function openEstimateLineEditor(lineId) {
     id: line.catalog_item_id, code: line.code_snapshot, name: line.name_snapshot, description: line.description_snapshot,
     phase: line.scope_snapshot, scope: line.scope_snapshot, category: line.category_snapshot,
     work_type: line.work_type_snapshot, base_uom: line.uom, components: line.components, assembly_size:line.size_snapshot,
-    estimate_quantity: line.quantity,
+    estimate_quantity: line.quantity, exclude_material_markup:line.exclude_material_markup, exclude_hours_markup:line.exclude_hours_markup, exclude_final_markup:line.exclude_final_markup,
   }, false, line.id);
 }
 
@@ -881,7 +886,7 @@ async function saveManualItem(event) {
       const path = state.manualLineId
         ? `/api/projects/${state.manualProjectId}/lines/${state.manualLineId}/manual-item`
         : `/api/projects/${state.manualProjectId}/manual-items`;
-      result = await api(path, { method: "POST", body: { save_mode:$("#manual-save-mode").value || "new", item: payload, quantity: Number($("#manual-quantity").value), ...(state.manualLineId ? {expected_revision:state.manualLineRevision}: {}) } });
+      result = await api(path, { method: "POST", body: { ...manualMarkupOptions(), save_mode:$("#manual-save-mode").value || "new", item: payload, quantity: Number($("#manual-quantity").value), ...(state.manualLineId ? {expected_revision:state.manualLineRevision}: {}) } });
       if(result.project.id===state.projectId && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0))state.projectData = result;
     } else {
       const path = state.manualEditId ? `/api/catalog/${state.manualEditId}` : "/api/catalog";
