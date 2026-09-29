@@ -2007,3 +2007,18 @@ html[data-workspace="tenders"] .account-avatar{border-color:#f4cf38}
 html[data-theme="dark"] .panel-collapse-toggle,html[data-theme="dark"] .estimate-table .line-category-field .assembly-actions .text-button,html[data-theme="dark"] .scope-heading-row .scope-quoted b{color:#82dccc}
 .project-panel>.panel-heading{flex-direction:row;align-items:center}
 .project-panel>.panel-heading>div{min-width:0}
+
+/* Shared review phase and fixed category-total columns. */
+.status-in_review{color:#715300;background:#fff0aa}
+.calendar-event.is-review{color:#715300;background:#fff4c2;border-left:3px solid #d0a800}
+.calendar-review-stamp{display:block;font-size:10px;line-height:1.4;margin-top:3px;font-weight:600}
+.schedule-item.is-review .schedule-date,.review-agenda-item span{color:#715300}
+.calendar-review-agenda:empty{display:none}
+.calendar-review-agenda{margin:18px 0;padding:18px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.review-agenda-list{display:grid;gap:8px}
+.review-agenda-item{display:flex;justify-content:space-between;gap:16px;text-align:left;padding:12px;border:1px solid var(--line);border-radius:8px;color:var(--ink);background:var(--canvas)}
+.review-agenda-item span{font-weight:650}.review-agenda-item time{flex-shrink:0}
+html[data-theme="dark"] .status-in_review,html[data-theme="dark"] .calendar-event.is-review{color:#ffe173;background:#39351c}
+html[data-theme="dark"] .schedule-item.is-review .schedule-date,html[data-theme="dark"] .review-agenda-item span{color:#ffe173}
+@media(min-width:821px){.scope-heading-row .scope-totals{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:500px;flex:0 0 500px;gap:16px}.scope-heading-row .scope-metric{min-width:0;align-items:flex-end;text-align:right}.scope-heading-row .scope-metric b{white-space:nowrap}.scope-heading-row .scope-order-actions{flex-shrink:0}}
+@media(max-width:820px){.scope-heading-row .scope-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.review-agenda-item{flex-direction:column;gap:4px}}

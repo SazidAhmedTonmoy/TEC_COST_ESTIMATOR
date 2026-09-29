@@ -1,6 +1,6 @@
 /* Project board, account administration and deadline calendar. */
 const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', boardSort: 'recent', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
-const statusNames = { draft: 'Not started', in_progress: 'In progress', submitted: 'Submitted', completed: 'Completed' };
+const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted' };
 
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
@@ -11,7 +11,8 @@ function dateLabel(value) {
   return new Date(y,m-1,d).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
 }
 function isOpenProject(project) { return !['submitted','completed'].includes(project.status); }
-function isOverdue(project) { return isOpenProject(project) && project.submission_deadline && project.submission_deadline < localDateKey(); }
+function projectDeadline(project) { return project.status==='in_review' ? project.review_deadline : project.submission_deadline; }
+function isOverdue(project) { return isOpenProject(project) && projectDeadline(project) && projectDeadline(project) < localDateKey(); }
 function projectStatus(project) {
   return `<span class="project-status status-${escapeHtml(project.status)}">${escapeHtml(statusNames[project.status] || project.status)}</span>`;
 }
@@ -97,25 +98,28 @@ function renderHome() {
   $('#welcome-name').textContent = `Welcome, ${state.user.name}`;
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key).length,key]);
-  $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='submitted'?'Sent for review or approval':'Finished project archive'}</small></button>`).join('');
+  $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='in_review'?'Review before the deadline':'Submitted estimate'}</small></button>`).join('');
   $('#home-metrics').classList.remove('five-metrics');
   renderProjectBoard();
   if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(()=>{});
   renderSchedule();
   const values = new Map();
-  projects.filter(p=>p.status!=='completed').forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.quoted||0)));
+  projects.filter(isOpenProject).forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.quoted||0)));
   $('#portfolio-value').textContent = values.size ? 'Active estimate value: '+[...values].map(([currency,value])=>`${currency} ${fmtMoney(value,currency)}`).join(' · ') : '';
 }
 function renderSchedule(){
-  const reminders=new Map(workspaceState.reminderRows.map(row=>[row.project_id,row]));
-  const due=state.projects.filter(p=>p.submission_deadline&&isOpenProject(p)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
+  const reminders=new Map(workspaceState.reminderRows.map(row=>[`${row.project_id}:${row.kind||'submission'}`,row]));
+  const due=state.projects.filter(p=>projectDeadline(p)&&isOpenProject(p)).sort((a,b)=>projectDeadline(a).localeCompare(projectDeadline(b))||a.id-b.id);
   const render=p=>{
-    const reminder=reminders.get(p.id),days=reminder?.days;
-    const timing=days===undefined?(isOverdue(p)?'Overdue':''):days<0?`${-days} day${days===-1?'':'s'} overdue`:days===0?'Due today':`Due in ${days} day${days===1?'':'s'}`;
-    return `<article class="schedule-item ${isOverdue(p)?'overdue':''}"><div class="schedule-date">${dateLabel(p.submission_deadline)}${reminder&&!reminder.read?'<span class="schedule-new">New</span>':''}</div><button type="button" class="text-button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button>${timing?`<small class="${isOverdue(p)?'overdue-text':''}">${timing}</small>`:''}${reminder&&!reminder.read?`<button type="button" class="schedule-seen text-button" data-read-reminder="${escapeHtml(reminder.key)}">Mark seen</button>`:''}</article>`;
+    const review=p.status==='in_review',deadline=projectDeadline(p);
+    const reminder=reminders.get(`${p.id}:${review?'review':'submission'}`);
+    const days=reminder?.days??Math.round((new Date(deadline+'T12:00:00')-new Date(localDateKey()+'T12:00:00'))/86400000);
+    const timing=days<0?`${-days} day${days===-1?'':'s'} overdue`:days===0?'Due today':`Due in ${days} day${days===1?'':'s'}`;
+    return `<article class="schedule-item ${review?'is-review':''} ${isOverdue(p)?'overdue':''}"><div class="schedule-date">${review?'Review by · ':''}${dateLabel(deadline)}${reminder&&!reminder.read?'<span class="schedule-new">New</span>':''}</div><button type="button" class="text-button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button><small class="${isOverdue(p)?'overdue-text':''}">${timing}</small>${reminder&&!reminder.read?`<button type="button" class="schedule-seen text-button" data-read-reminder="${escapeHtml(reminder.key)}">Mark seen</button>`:''}</article>`;
   };
   $('#deadline-agenda').innerHTML=due.length?due.slice(0,5).map(render).join('')+(due.length>5?`<details class="schedule-more"><summary>${due.length-5} more deadlines</summary>${due.slice(5).map(render).join('')}</details>`:''):'<p class="board-empty">You’re up to date. No pending deadlines.</p>';
 }
+
 function renderProjectBoard() {
   const term = $('#project-search').value.trim().toLowerCase();
   const filter = ['all','team',...Object.keys(statusNames)].includes(workspaceState.filter)?workspaceState.filter:'all';
@@ -134,15 +138,15 @@ function renderProjectBoard() {
     // Different currencies stay in their own groups; do not imply conversion.
     if(sort==='cost-high'||sort==='cost-low')return (a.currency||'').localeCompare(b.currency||'')||(sort==='cost-high'?-1:1)*(Number(a.totals?.quoted||0)-Number(b.totals?.quoted||0))||a.name.localeCompare(b.name);
     if(sort==='name'||sort==='name-desc')return (sort==='name'?1:-1)*a.name.localeCompare(b.name,undefined,{numeric:true,sensitivity:'base'});
-    if(sort==='deadline')return (a.submission_deadline||'9999').localeCompare(b.submission_deadline||'9999')||a.name.localeCompare(b.name);
+    if(sort==='deadline')return (projectDeadline(a)||'9999').localeCompare(projectDeadline(b)||'9999')||a.name.localeCompare(b.name);
     const key=sort==='newest'?'created_at':'updated_at';
     return (b[key]||'').localeCompare(a[key]||'')||b.id-a.id;
   });
   board.innerHTML = projects.length ? projects.map(p=>`<article class="project-card">
     <div class="project-card-heading"><div>${builderText(p)?`<p>${escapeHtml(builderText(p))}</p>`:''}<h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div><div class="project-badges">${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':''}${projectStatus(p)}</div></div>
-    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${dateLabel(p.submission_deadline)}</span>${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
+    <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${p.status==='in_review'?'Review by · ':''}${dateLabel(projectDeadline(p))}</span>${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
     <div class="project-card-footer"><span>${p.line_count||0} items <strong>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</strong></span><a class="button primary small" href="#/estimate/${p.id}" data-open-project="${p.id}">Open Estimate</a></div>
-    <details class="project-more"><summary>Project details</summary>${p.scope_of_work?`<p class="project-scope-excerpt">${escapeHtml(p.scope_of_work)}</p>`:''}<p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Creator not recorded')}${p.completed_by_name?`<br>Completed by ${escapeHtml(p.completed_by_name)}`:p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p><div class="project-more-actions"><button type="button" class="button secondary small" data-project-brief="${p.id}">${p.can_edit?'Manage Project':'View Project'}</button><button class="button secondary small" type="button" data-copy-project="${p.id}">Copy Project</button></div></details>
+    <details class="project-more"><summary>Project details</summary>${p.scope_of_work?`<p class="project-scope-excerpt">${escapeHtml(p.scope_of_work)}</p>`:''}<p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Creator not recorded')}${p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p><div class="project-more-actions"><button type="button" class="button secondary small" data-project-brief="${p.id}">${p.can_edit?'Manage Project':'View Project'}</button><button class="button secondary small" type="button" data-copy-project="${p.id}">Copy Project</button></div></details>
   </article>`).join('') : '<div class="board-empty"><h3>No matching projects</h3><p>Try a different search or status. Create a project from Build Estimate.</p></div>';
 
 }
@@ -205,6 +209,7 @@ async function openProjectBrief(id) {
   $('#brief-title').textContent=p.name; $('#brief-client').textContent=builderText(p, 'Manage project');
   $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Contributors: ${p.contributors?.length?p.contributors.map(u=>escapeHtml(u.name)).join(', '):'No recorded work yet'}</p>`;
   $('#brief-scope').value=p.scope_of_work||''; $('#brief-deadline').value=p.submission_deadline||''; $('#brief-status').value=p.status;
+    $('#brief-review-deadline').value=p.review_deadline||'';syncReviewDeadline(p.can_edit);
   renderBuilderEditor('brief-builders', projectBuilders(p), p.can_manage);
   $('#brief-scope').disabled=!p.can_manage; $('#brief-deadline').disabled=!p.can_manage;
   $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(p.can_edit);
@@ -260,6 +265,7 @@ async function refreshReadOnlyBrief() {
     $('#brief-client').textContent=builderText(p, 'View project');
     renderBuilderEditor('brief-builders', projectBuilders(p), false);
     $('#brief-scope').value=p.scope_of_work||'';$('#brief-deadline').value=p.submission_deadline||'';$('#brief-status').value=p.status;
+    $('#brief-review-deadline').value=p.review_deadline||'';syncReviewDeadline(p.can_edit);
     $('#brief-award-status').value=p.award_status||'';syncProjectOutcome(false);
     $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Read-only &middot; latest saved project information.</p>`;
     const next=workspaceState.activityNext,oldRows=workspaceState.activityRows||[];
@@ -271,10 +277,16 @@ async function refreshReadOnlyBrief() {
     if(added){renderProjectActivity(history,true);workspaceState.activityNext=next;renderActivityPagination();}
   } finally {workspaceState.briefSyncBusy=false;}
 }
+function syncReviewDeadline(editable=workspaceState.briefProject?.can_edit) {
+  const review=$('#brief-status').value==='in_review';
+  $('#brief-review-field').classList.toggle('hidden',!review);
+  $('#brief-review-deadline').disabled=!review||!editable;
+  $('#brief-review-deadline').required=review&&Boolean(editable);
+}
 async function saveProjectWorkflow() {
   const p=workspaceState.briefProject;
   if(!p) throw new Error('Project no longer available');
-  const payload={status:$('#brief-status').value,award_status:$('#brief-award-status').value,expected_revision:p.revision};
+  const payload={status:$('#brief-status').value,review_deadline:$('#brief-status').value==='in_review'?$('#brief-review-deadline').value:null,award_status:$('#brief-award-status').value,expected_revision:p.revision};
   if(p.can_manage) {payload.scope_of_work=$('#brief-scope').value;payload.builders=readBuilderEditor('brief-builders');payload.submission_deadline=$('#brief-deadline').value;}
   if(p.can_manage) {
     payload.team_ids=$$('#assignment-options input:checked').map(input=>Number(input.value));
@@ -474,15 +486,26 @@ function renderCalendar() {
   const cells=Math.ceil((offset+dayCount)/7)*7;
   let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div class="calendar-weekday ${i>=5?'is-weekend':''}">${d}</div>`).join('');
   const projects=state.projects.filter(p=>p.submission_deadline);
+  const reviews=state.projects.filter(p=>p.status==='in_review'&&p.review_deadline);
   for(let i=0;i<cells;i++) {
     const day=new Date(y,m,i-offset+1), key=localDateKey(day);
     const items=projects.filter(p=>p.submission_deadline===key);
     const weekend=day.getDay()===0||day.getDay()===6;
-    html+=`<div class="calendar-day ${weekend?'is-weekend':''} ${day.getMonth()!==m?'outside-month':''} ${key===localDateKey()?'is-today':''}"><time datetime="${key}" aria-label="${escapeHtml(dateLabel(key))}${weekend?', weekend':''}">${day.getDate()}</time>${items.map(p=>`<button class="calendar-event ${p.status==='completed'?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" title="${escapeHtml(p.name)} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}</button>`).join('')}</div>`;
+    const reviewItems=reviews.filter(p=>p.review_deadline===key&&p.submission_deadline!==key);
+    const event=(p,reviewOnly=false)=>{
+      const review=p.status==='in_review',reviewToday=review&&p.review_deadline===key;
+      const label=reviewOnly?'Review due':reviewToday?'Submission · Review due':'Submission due';
+      return `<button class="calendar-event ${review?'is-review':p.status==='submitted'?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" data-event-kind="${reviewOnly?'review':'submission'}" title="${escapeHtml(p.name)} — ${label} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}${reviewToday?`<small class="calendar-review-stamp">${label}</small>`:''}</button>`;
+    };
+    html+=`<div class="calendar-day ${weekend?'is-weekend':''} ${day.getMonth()!==m?'outside-month':''} ${key===localDateKey()?'is-today':''}"><time datetime="${key}" aria-label="${escapeHtml(dateLabel(key))}${weekend?', weekend':''}">${day.getDate()}</time>${items.map(p=>event(p)).join('')}${reviewItems.map(p=>event(p,true)).join('')}</div>`;
+
   }
   $('#calendar-grid').innerHTML=html;
   const monthProjects=projects.filter(p=>p.submission_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
+  // Monetary totals and counts use submission dates only, never review entries.
   renderCalendarSummary(monthProjects);
+  const monthReviews=reviews.filter(p=>p.review_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.review_deadline.localeCompare(b.review_deadline)||a.id-b.id);
+  $('#calendar-review-agenda').innerHTML=monthReviews.length?`<h3>Reviews due this month</h3><p class="helper-text">Review reminders only; excluded from monthly project counts and totals.</p><div class="review-agenda-list">${monthReviews.map(p=>`<button type="button" class="review-agenda-item" data-project-brief="${p.id}"><span>${escapeHtml(p.name)}</span><time datetime="${p.review_deadline}">${dateLabel(p.review_deadline)}</time></button>`).join('')}</div>`:'';
 }
 function bindWorkspaceEvents() {
   setInterval(async()=>{
@@ -520,6 +543,7 @@ function bindWorkspaceEvents() {
     $('#assignment-user-empty').classList.toggle('hidden',!choices.length||choices.some(el=>!el.classList.contains('hidden')));
   });
   $('#assignment-user-search').addEventListener('keydown',event=>{if(event.key==='Enter')event.preventDefault();});
+  $('#brief-status').addEventListener('change',()=>syncReviewDeadline());
   $('#project-workflow-form').addEventListener('submit',event=>submitWithButton(event,saveProjectWorkflow));
   $('#team-form').addEventListener('submit',event=>submitWithButton(event,saveTeam));
   $('#add-team').addEventListener('click',()=>openTeamEditor());

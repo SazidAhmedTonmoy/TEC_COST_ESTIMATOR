@@ -5,7 +5,7 @@ const ctx={console,Date,Map,Set,document:{addEventListener(){}},$:element,$$:()=
  state:{user:{id:1,role:'admin'},projects:[]},escapeHtml:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),fmtMoney:n=>String(n||0),projectOutcome:()=>''};
 vm.createContext(ctx);
 for(const file of ['builders.js','workspace.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets',file),'utf8'),ctx);
-ctx.state.projects=[{id:1,name:'New <project>',status:'draft',needs_admin_review:true,submission_deadline:'2026-09-22',currency:'AUD',can_edit:true}, {id:2,name:'Finished',status:'completed',submission_deadline:'2026-09-20',currency:'AUD',can_edit:true}];
+ctx.state.projects=[{id:1,name:'New <project>',status:'draft',needs_admin_review:true,submission_deadline:'2026-09-22',currency:'AUD',can_edit:true}, {id:2,name:'Finished',status:'submitted',submission_deadline:'2026-09-20',currency:'AUD',can_edit:true}];
 vm.runInContext("workspaceState.filter='draft';renderProjectBoard()",ctx);
 assert.match(element('#project-board').innerHTML,/Newly added/);
 assert.match(element('#project-board').innerHTML,/New &lt;project>/);

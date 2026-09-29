@@ -21,13 +21,13 @@ from .utils import clean_text
 AI_SLOTS = threading.BoundedSemaphore(3)
 MAX_RECORDS = 5
 MAX_ITEMS = 20
-STATUS = {'draft': 'Not started', 'in_progress': 'In progress', 'submitted': 'Submitted', 'completed': 'Completed'}
+STATUS = {'draft': 'Not started', 'in_progress': 'In progress', 'submitted': 'Submitted', 'in_review': 'In review'}
 GUIDE = '''TEC ConEst help:
 All active signed-in accounts can view all company projects, including other teams' estimates, notes, revisions and activity. Only the project owner, assigned team members, individually assigned users and admins can edit a project. Owners and admins manage its brief, deletion, team assignments and individual edit access. Individual editors cannot change access or delete the project. Read-only viewers cannot add/remove notes or revisions.
 Create a project with New project. On Estimate search for a catalogue item, set Qty, then Add to estimate. The floating search button jumps to search. Edit item/components changes quantity, specifications, material factors, hours and fixed labour. Estimate only keeps the change in the project. Update catalog edits the reusable item. New catalog creates another reusable item.
 Lighting and Emergency & Exit Lighting supply cost is per fitting, before project markups. Ref. belongs only to a project line and exports under the item name in the same Excel cell. Saving a reusable lighting catalogue omits the project fitting price and reference.
 Drag dotted handles to reorder categories/items. Category + and - collapse/expand. Fixed quantity components do not scale with the parent quantity. Crew working days = total hours divided by hours/person/day and crew size.
-Material totals include project material markup. Labour price includes hours times the project labour rate plus fixed labour allowances. Quoted total = (material + labour) times (1 + overhead markup). GST is excluded. The calendar totals projects whose submission deadlines fall in the displayed month, using current estimates. It shows material, labour and quoted values separately by currency.
+Material totals include project material markup. Labour price includes hours times the project labour rate plus fixed labour allowances. Quoted total = (material + labour) times (1 + overhead markup). GST is excluded. In review has a separate review deadline and shared reminder. Returning to Submitted clears the review reminder. Yellow review entries do not add project counts or money. The calendar totals projects whose submission deadlines fall in the displayed month, using current estimates. It shows material, labour and quoted values separately by currency.
 Each project may have no builders, one builder or multiple builders. Add/remove Builders below Scope of Work in Manage project. Existing client names are kept as builder names. Saturday and Sunday are marked as weekends; deadlines on these dates still count.
 Manage project & activity shows status, optional Won/Lost result, deadline, teams, contributors and activity. Notes and revisions are viewable by everyone with an active account; only editors may add notes or save revisions. Original revisions remain available for comparison/export.
 Light Price searches supplier, catalogue number, description, nickname, quote or project. Expand a result in place to see included/excluded components. Connected unit price = included resolved component totals divided by the pricing/base quantity. Each component uses its selected quoted-total or quantity-times-rate mode. Missing included prices or a zero base quantity means no complete connected unit price. Quotation prices are historical supplier prices in AUD excluding GST, not guaranteed current offers.
@@ -110,7 +110,7 @@ def project_facts(conn, pid, question, user=None):
     data = calculate_project(conn, pid, include_components=False)
     project = decorate_project(conn, data['project'], user) if user is not None else data['project']
     fields = ('id', 'name', 'builders', 'currency', 'material_markup', 'labor_rate', 'overhead_markup',
-              'scope_of_work', 'status', 'submission_deadline', 'award_status', 'updated_at', 'revision',
+              'scope_of_work', 'status', 'submission_deadline', 'review_deadline', 'award_status', 'updated_at', 'revision',
               'can_edit', 'owner_name', 'created_by_name', 'updated_by_name', 'teams')
     facts = {k: project.get(k) for k in fields}
     facts.update(totals=data['totals'], crew_plan=data['crew_plan'], item_count=len(data['lines']))
@@ -237,7 +237,7 @@ def prepare_context(conn, user, payload):
     sources = []
     if scope in ('project', 'search'):
         selected = []
-        list_request = bool(re.search(r'\b(all (?:company )?projects|list (?:company )?projects|show (?:company )?projects|my projects|team projects|projects due|won projects|lost projects|completed projects|submitted projects|projects this month)\b', lower))
+        list_request = bool(re.search(r'\b(all (?:company )?projects|list (?:company )?projects|show (?:company )?projects|my projects|team projects|projects due|won projects|lost projects|completed projects|in review projects|submitted projects|projects this month)\b', lower))
         if named:
             selected = named[:MAX_RECORDS]
             context['project_matches'] = len(named)
@@ -247,7 +247,7 @@ def prepare_context(conn, user, payload):
             if 'team projects' in lower:
                 ids = {r[0] for r in conn.execute('SELECT t.project_id FROM project_teams t JOIN users u ON u.team_id=t.team_id WHERE u.id=?', (user['id'],))}
                 selected = [p for p in selected if p['id'] in ids]
-            for word, field, value in [('won', 'award_status', 'won'), ('lost', 'award_status', 'lost'), ('completed', 'status', 'completed'), ('submitted', 'status', 'submitted')]:
+            for word, field, value in [('won', 'award_status', 'won'), ('lost', 'award_status', 'lost'), ('completed', 'status', 'submitted'), ('in review', 'status', 'in_review'), ('submitted', 'status', 'submitted')]:
                 if re.search(r'\b' + word + r'\b', lower): selected = [p for p in selected if p[field] == value]
             if 'this month' in lower:
                 selected = [p for p in selected if (p['submission_deadline'] or '').startswith(date.today().isoformat()[:7])]
@@ -320,6 +320,8 @@ def _project_answer(p, lower, brief=False):
         f"Status: {STATUS.get(p['status'], p['status'])}. Result: {p.get('award_status') or 'Not recorded'}. Deadline: {p.get('submission_deadline') or 'Not set'}.",
         f"Builders: {', '.join(p.get('builders') or []) or 'None assigned'}.",
         f"Quoted estimate: {_money(totals['quoted'], currency)} ex GST."]
+    if p['status'] == 'in_review':
+        lines.append(f"Review deadline: {p.get('review_deadline') or 'Not set'}.")
     if brief:
         return '\n'.join(lines)
     lines += [f"Material cost: {_money(totals['material'], currency)} (includes {float(p['material_markup'] or 0)*100:g}% material markup; no overhead).",

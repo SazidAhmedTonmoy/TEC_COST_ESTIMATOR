@@ -195,3 +195,14 @@ tbody [data-slot=table-row]:hover,.tender-table tbody tr:hover{background:var(--
 
 /* Tender profile photo and initials use the workspace accent. */
 .conest-account .account-person img,.conest-account .account-person .avatar{border-color:#f4cf38}
+/* v3.1 activity history: keep the dashboard compact; expand on demand. */
+.activity-panel{display:flex;flex-direction:column}.activity-panel>.panel-foot{margin-top:auto}.activity-expand{display:inline-flex;align-items:center;gap:6px}
+.activity-history-dialog[data-slot=dialog-content]{width:min(1100px,calc(100vw - 32px));max-width:1100px;max-height:85dvh;overflow-y:auto;background:var(--card);color:var(--foreground);border-color:var(--border)}
+.activity-history-dialog [data-slot=dialog-description]{color:var(--muted-foreground)}
+.activity-history-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;color:var(--muted-foreground);font-size:13px}
+.activity-history-toolbar label{display:flex;align-items:center;gap:8px}.activity-history-toolbar select{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--background);color:var(--foreground)}
+.activity-history-scroll{max-width:100%;overflow-x:auto;border:1px solid var(--border);border-radius:12px;overscroll-behavior-x:contain}
+.activity-history-chart.bar-chart{height:330px;display:flex;gap:10px;padding:24px 20px}.activity-history-chart .bar-column{flex:1;min-width:26px}.activity-history-chart .bar-track{height:215px}.activity-history-chart .bar-column:disabled{opacity:.65;cursor:default}
+.activity-empty{padding:28px 18px;color:var(--muted-foreground)}
+@media(max-width:600px){.activity-history-toolbar{align-items:flex-start;flex-direction:column}.activity-history-dialog[data-slot=dialog-content]{padding:20px}.activity-history-chart.bar-chart{height:285px}.activity-history-chart .bar-track{height:175px}}
+.activity-panel .bar-column:disabled .bar-track>div,.activity-history-chart .bar-column:disabled .bar-track>div{min-height:0}

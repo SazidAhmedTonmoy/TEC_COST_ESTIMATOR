@@ -115,15 +115,20 @@ def heartbeat(conn,pid,user,payload):
 
 def reminders(conn,user):
     today=date.today();result=[]
+    read_keys = {r[0] for r in conn.execute('SELECT reminder_key FROM deadline_reads WHERE user_id=?', (user['id'],))}
     for p in visible_projects(conn,user,include_totals=False):
-        if not p['can_edit'] or p['status'] in ('submitted','completed') or not p['submission_deadline']:continue
-        days=(date.fromisoformat(p['submission_deadline'])-today).days
-        if days>7:continue
+        review = p['status'] == 'in_review'
+        deadline = p['review_deadline'] if review else p['submission_deadline']
+        # Reviews are shared with all active viewers, including other teams.
+        if not deadline or p['status'] == 'submitted' or (not review and not p['can_edit']):continue
+        days=(date.fromisoformat(deadline)-today).days
+        if not review and days>7:continue
         stage='overdue' if days<0 else 'today' if days==0 else 'soon'
-        key=f"{p['id']}:{p['submission_deadline']}:{stage}"
-        read=conn.execute('SELECT 1 FROM deadline_reads WHERE user_id=? AND reminder_key=?',(user['id'],key)).fetchone()
-        result.append({'key':key,'project_id':p['id'],'name':p['name'],'deadline':p['submission_deadline'],'days':days,'stage':stage,'read':bool(read)})
-    return sorted(result,key=lambda r:r['deadline'])
+        key=(f"review:{p['id']}:{p['review_cycle']}:{deadline}:{stage}" if review
+             else f"{p['id']}:{deadline}:{stage}")
+        result.append({'key':key,'project_id':p['id'],'name':p['name'],'deadline':deadline,
+                       'kind':'review' if review else 'submission','days':days,'stage':stage,'read':key in read_keys})
+    return sorted(result,key=lambda r:(r['deadline'],r['project_id']))
 
 
 def price_metadata(payload):

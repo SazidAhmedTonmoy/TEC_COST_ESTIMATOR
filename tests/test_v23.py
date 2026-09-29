@@ -72,7 +72,7 @@ class Version23Tests(unittest.TestCase):
             self.assertEqual(conn.execute('SELECT COUNT(*) FROM project_notes').fetchone()[0],1)
             self.assertEqual(conn.execute('SELECT COUNT(*) FROM project_note_reads').fetchone()[0],1)
             self.assertFalse(conn.execute('PRAGMA foreign_key_check').fetchall())
-            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],26)
+            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],27)
 
     def test_legacy_notes_migration_keeps_deleted_id_sequence(self):
         import sqlite3

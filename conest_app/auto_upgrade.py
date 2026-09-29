@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 26
-MIGRATION_KEY = 'v2.4-labor-hours'
+CURRENT_SCHEMA = 27
+MIGRATION_KEY = 'v3.0-review-workflow'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -95,6 +95,7 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
         if expected_version >= 25:
             required['project_user_access'] = {'project_id', 'user_id', 'granted_by', 'granted_at'}
         if expected_version >= 26:required['projects'] = {'labor_hours_markup'}
+        if expected_version >= 27:required['projects'].update({'review_deadline', 'review_cycle'})
         present = present and all(table in tables and fields <= {r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')}
                                   for table, fields in required.items())
         # app_migrations uses a release-specific first-column name; positional
@@ -165,7 +166,9 @@ def ensure_database(path=None):
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
-                    if previous == 25 and _status(target,25,'v2.3.3-project-access')[0]:
+                    if previous == 26 and _status(target,26,'v2.4-labor-hours')[0]:
+                        pass  # Only the review migration below is needed.
+                    elif previous == 25 and _status(target,25,'v2.3.3-project-access')[0]:
                         from .release_v24_hours import initialize_hours
                         with _raw_connect(target) as conn:initialize_hours(conn)
                     elif previous == 24 and _status(target, 24, 'v2.3.1-import-profile-auto-upgrade')[0]:
@@ -176,6 +179,10 @@ def ensure_database(path=None):
                             initialize_hours(conn)
                     else:
                         _initialize_schema(target)
+                    from .release_v30_review import initialize_review
+                    with _raw_connect(target) as conn:
+                        conn.execute('BEGIN IMMEDIATE')
+                        initialize_review(conn)
                     with _raw_connect(target) as conn:
                         if conn.execute('PRAGMA quick_check').fetchone()[0] != 'ok' or conn.execute('PRAGMA foreign_key_check').fetchone():
                             raise UpgradeError('Database verification failed after the upgrade. The pre-upgrade backup was retained.')

@@ -6,7 +6,7 @@ const projects=[['AUD',100,60,200],['AUD',20,30,80],['USD',7,9,19]].map(([curren
  id:i+1,name:`Fixture ${i}`,client:'',currency,totals:{material,labor,quoted,direct:999999,hours:2},line_count:1,status:'draft',award_status:'',
  teams:[],owner_name:'Test',created_at:'2026-09-01',submission_deadline:'2026-09-18'}));
 const ctx={document:{addEventListener:()=>{}},$:(s)=>elements[s],state:{projects},workspaceState:{month:new Date('2026-09-01T00:00:00')},
- statusNames:{draft:'Not started',in_progress:'In progress',submitted:'Submitted',completed:'Completed'},
+ statusNames:{draft:'Not started',in_progress:'In progress',in_review:'In review',submitted:'Submitted'},
  escapeHtml:s=>String(s),fmtMoney:(n,c)=>new Intl.NumberFormat('en-AU',{style:'currency',currency:c||'AUD'}).format(n||0),
  fmtNumber:n=>String(n),localDateKey:()=> '2026-09-01',dateLabel:s=>s,teamNames:()=>'',projectStatus:()=>'',console};
 vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/builders.js'),'utf8'),ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/v23.js'),'utf8'),ctx);

@@ -167,7 +167,7 @@ class Patch233Tests(unittest.TestCase):
             before={t:c.execute('SELECT * FROM "'+t+'"').fetchall() for t in tables}
         auto_upgrade._ready.clear()
         with connect() as c:
-            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],26)
+            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],27)
             for t in tables:self.assertEqual([tuple(r) for r in c.execute('SELECT * FROM "'+t+'"')],before[t],t)
             self.assertEqual(c.execute('PRAGMA integrity_check').fetchone()[0],'ok')
         snapshots=list((self.root/'upgrade_backups').glob('*.db'));self.assertEqual(len(snapshots),1)

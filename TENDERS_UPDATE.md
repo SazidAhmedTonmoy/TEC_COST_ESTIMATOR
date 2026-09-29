@@ -1,8 +1,26 @@
-# TEC ConEst v3.0 — deployment and database guide
+# TEC ConEst v3.1 — deployment and database guide
 
 Extract the changed-files ZIP into the existing TEC ConEst application folder and replace matching files, then restart the Python app / cPanel application. Keep the existing `data/` directory. The full ZIP is the complete source alternative. Neither package replaces your estimator database. Compiled frontend assets are included; Node is not required on the hosting server.
 
 Use the small circular-arrow button beside **Estimator** to open **TEC ConEst Tenders**. The reverse button returns to Estimator. Both use the same sign-in, users, profile photo, password rules and light/dark preference. Tenders uses a yellow accent. Profile is shared. Manage Users and App Settings are accessed from Estimator; Tenders has no separate links to them. The old tender-only Settings page is removed.
+
+## v3.1 tender views
+
+Builders now has an **All Projects** selector in place of its redundant builder selector. Selecting a project limits the builder rows, project counts, awards, TEC wins and submitted values to matching submissions. Keyword, region and TEC-status filters still work together. Other pages retain their builder selector.
+
+Tender activity keeps its six-month dashboard preview. **View all months** opens a wide, scrollable chart with a year selector and every month between the earliest and latest dated submission, including zero-activity gaps. Selecting a nonzero bar opens that month's tender submissions. This uses the data already loaded; it makes no extra server request.
+
+Both ZIPs include the earlier review workflow and alignment changes. The changed-files ZIP is cumulative from the last pre-review v3.0 package. Runtime databases are excluded. The deployment health check now expects release **3.1**, schema **27**. The Passenger adapter version is **3.1**; if your deployment excludes `passenger_wsgi.py`, replace that file manually in cPanel as before and restart the application.
+
+## Review workflow update — 28 September 2026
+
+Progress is now **Not started → In progress → In review → Submitted**. Review is optional and may be reopened after submission. Completed is removed from the UI. On the first start after deployment, schema 27 automatically moves every existing Completed project to Submitted, preserving estimates, submission deadlines, activity and historical completion attribution. A protected pre-upgrade backup is created by the existing migration process. No database file is included in the update ZIP.
+
+Choose **In review** in Manage Project and set a review deadline. Active colleagues, including read-only users on other teams, see it in **Keep on Schedule**. Mark seen is individual; reopening a review or changing its deadline creates a fresh reminder. Edit permissions are unchanged.
+
+The calendar shows project titles in yellow while In review and adds a labelled entry at the review deadline. Returning to Submitted removes that review entry and reminder. The original submission entry remains. If both dates are the same, a single calendar entry carries both labels. Review-only entries are excluded from monthly project counts, labour, material, quoted and result totals, even if the review is in another month.
+
+Category totals use fixed columns so labels and amounts align consistently between sections. Compiled browser assets are included. Replace the matching files and restart all application workers after deployment so the new workflow and automatic migration take effect.
 
 ## Estimate layout and shared-use update — 28 September 2026
 

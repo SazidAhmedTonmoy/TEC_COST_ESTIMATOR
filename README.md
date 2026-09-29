@@ -2,7 +2,7 @@
 
 See [TENDERS_UPDATE.md](TENDERS_UPDATE.md) for the shared-login workspace, database migration and update instructions.
 
-# TEC ConEst · v3.0
+# TEC ConEst · v3.1
 
 ### Electrical estimating, connected costs and team collaboration
 
@@ -19,13 +19,13 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 > [!IMPORTANT]
 > Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
 
-## Current release · v3.0
+## Current release · v3.1
 
 Major release: Estimator and Tenders share login, users, profile and theme. Switch with the circular-arrow control beside the brand. Tenders uses yellow accents and now matches Estimator's desktop sidebar geometry, typography and account controls. Its Workspace label and admin links are removed; user management and app settings remain in Estimator. A coloured title wipe reveals the destination workspace using a one-second transform animation; navigation and data loading start immediately, and reduced-motion users skip the wipe.
 
-**Deployment and data:** read `TENDERS_UPDATE.md`. Keep live databases excluded from Git. Commit the code and `tenders_seed/seed.json`; the first Tender visit creates `data/tec_tenders.db` and imports the seed once. Subsequent deployments preserve live data. Replace `passenger_wsgi.py` manually in cPanel because the workflow deliberately excludes it. Restart Passenger. `/api/health` reports release `3.0` with estimator schema `26`; responses through the adapter report `X-ConEst-Adapter: 3.0`.
+**Deployment and data:** read `TENDERS_UPDATE.md`. Keep live databases excluded from Git. Commit the code and `tenders_seed/seed.json`; the first Tender visit creates `data/tec_tenders.db` and imports the seed once. Subsequent deployments preserve live data. Replace `passenger_wsgi.py` manually in cPanel because the workflow deliberately excludes it. Restart Passenger. `/api/health` reports release `3.1` with estimator schema `27`; responses through the adapter report `X-ConEst-Adapter: 3.1`.
 
-The v3.0 Passenger adapter retains one-time initialization, the idle estimator WAL connection, transport-header cleanup, exact response lengths and negotiated gzip. It also compresses eligible dashboard, reminders, tender JSON and public JavaScript/CSS/SVG when Python serves those assets; precompressed, partial and no-transform responses are left intact. Public tender pages and bundles skip estimator database initialization. No production latency guarantee is implied.
+The v3.1 Passenger adapter retains one-time initialization, the idle estimator WAL connection, transport-header cleanup, exact response lengths and negotiated gzip. It also compresses eligible dashboard, reminders, tender JSON and public JavaScript/CSS/SVG when Python serves those assets; precompressed, partial and no-transform responses are left intact. Public tender pages and bundles skip estimator database initialization. No production latency guarantee is implied.
 
 ## Previous release · v2.4
 
@@ -156,7 +156,7 @@ A completely new manual item created while estimating is saved for future use au
 
 Use **Copy** on a project card or **Copy project** above its estimate, then enter the new project name. The copy retains the scope of work, client, currency, project rates, estimate quantities, fitting supply prices, item order and component snapshots. Every copied item/component receives a new ID so subsequent edits are independent.
 
-The copied project starts as **Not started**, with a new owner/creator and activity history. Set its new deadline in Manage project. User-created copies share automatically with the creator's current team and enter the admin's newly-added review queue. Admin-created copies can be assigned to teams through Manage project. Old assignments, submission/completion records, shared notes and tender revisions are not copied. A completed project from another team may be copied when you have permission to view it; that does not grant permission to edit the original.
+The copied project starts as **Not started**, with a new owner/creator and activity history. Set its new deadline in Manage project. User-created copies share automatically with the creator's current team and enter the admin's newly-added review queue. Admin-created copies can be assigned to teams through Manage project. Old assignments, submission/completion records, shared notes and tender revisions are not copied. A submitted project from another team may be copied when you have permission to view it; that does not grant permission to edit the original.
 
 ### Rates and summaries
 Rates and mark-ups are visible above the estimate. Material mark-up affects material; labour rate affects hourly labour; final mark-up applies to direct cost. Save project settings to apply edits. Fixed labour prices stay independent of the hourly rate.
@@ -374,6 +374,7 @@ Versions are listed oldest to newest. Early milestones are grouped where individ
 | **v2.3.6** | Simplified project board with three remembered views, integrated schedule reminders, estimate-only creation, clearer page titles and prominent Open Estimate access. |
 
 | **v2.4** | Direct refresh restoration, shared read requests, lighter background updates, batched component queries, browser asset caching and total-cost sorting. |
+| **v3.1** | Review workflow, Completed-to-Submitted migration, shared review reminders, Builders project filter and expanded monthly activity. |
 | **v3.0** | Integrated Tenders with shared authentication, yellow workspace, matching sidebar, compact updates, protected runtime database deployment and Passenger v3.0. |
 
 ## 7. Troubleshooting

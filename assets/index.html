@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.702b54ab3104.css">
+  <link rel="stylesheet" href="/assets/styles.6b1309ec7a11.css">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script></head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -77,9 +77,9 @@
               <button type="button" data-filter="all" class="active">All projects</button>
               <button type="button" data-filter="draft">Not started</button>
               <button type="button" data-filter="in_progress">In progress</button>
+              <button type="button" data-filter="in_review">In review</button>
               <button type="button" data-filter="submitted">Submitted</button>
               <button type="button" class="user-only" data-filter="team">My team</button>
-              <button type="button" data-filter="completed">Completed</button>
             </div>
             <div id="project-board" class="project-board"></div>
             <div id="portfolio-value" class="portfolio-value"></div>
@@ -90,9 +90,10 @@
 
       <section id="calendar-view" class="view">
         <section class="panel calendar-panel">
-          <div class="panel-heading"><div><p class="eyebrow">Submission deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
+          <div class="panel-heading"><div><p class="eyebrow">Submission &amp; review deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
           <div id="calendar-summary" class="calendar-summary" aria-live="polite"></div>
           <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid" aria-label="Project deadline calendar"></div></div>
+          <div id="calendar-review-agenda" class="calendar-review-agenda"></div>
           <div id="calendar-agenda" class="calendar-agenda"></div>
         </section>
       </section>
@@ -373,7 +374,8 @@
         <div class="builder-rows" data-builder-rows></div>
         <button class="button secondary small" type="button" data-builder-add>+ Add builder</button>
       </fieldset>
-        <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="submitted">Submitted</option><option value="completed">Completed</option></select></label></div>
+        <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="in_review">In review</option><option value="submitted">Submitted</option></select></label></div>
+        <label id="brief-review-field" class="hidden">Review deadline<input id="brief-review-deadline" type="date"><small class="helper-text">Shown to everyone in Keep on Schedule and the calendar. Submission dates and totals stay unchanged.</small></label>
         <fieldset class="project-outcome-fieldset"><legend>Project result <small>(optional)</small></legend>
           <input id="brief-award-status" type="hidden" value="">
           <div class="project-outcome-buttons"><button type="button" class="button secondary outcome-won" data-award-status="won" aria-pressed="false">&#10003; Won</button><button type="button" class="button secondary outcome-lost" data-award-status="lost" aria-pressed="false">&#10007; Lost</button><button type="button" class="text-button" data-award-status="">Clear result</button><span id="brief-award-label" class="helper-text">Not recorded</span></div>
@@ -429,6 +431,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.7812fed4ca99.js" defer></script>
+  <script src="/assets/app.a06262435b52.js" defer></script>
 </body>
 </html>

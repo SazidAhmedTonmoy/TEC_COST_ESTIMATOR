@@ -5,7 +5,7 @@ from .accounts import AccessError, public_user
 from .utils import utc_now
 from .builders import project_with_builders, stored_builders
 
-STATUSES = ('draft', 'in_progress', 'submitted', 'completed')
+STATUSES = ('draft', 'in_progress', 'in_review', 'submitted')
 
 
 def initialize_workspace(conn):
@@ -234,7 +234,7 @@ def project_access_options(conn, project_id, user):
 def update_workflow(conn, project_id, payload, user):
     project = require_project(conn, project_id, user)
     check_revision(project, payload)
-    allowed = {'scope_of_work', 'submission_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status', 'builders'}
+    allowed = {'scope_of_work', 'submission_deadline', 'review_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status', 'builders'}
     if set(payload) - allowed: raise ValueError('Unknown project workflow field')
     if {'team_ids', 'user_ids'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
         raise AccessError(403, 'Only the project owner or an administrator can change project access')
@@ -253,6 +253,21 @@ def update_workflow(conn, project_id, payload, user):
         except (ValueError, TypeError): raise ValueError('Submission deadline must be a valid date') from None
     status = payload.get('status', project['status'])
     if status not in STATUSES: raise ValueError('Invalid project status')
+    review_deadline = payload.get('review_deadline', project['review_deadline']) or None
+    if review_deadline is not None:
+        try:
+            if not isinstance(review_deadline, str) or len(review_deadline) != 10 or date.fromisoformat(review_deadline).isoformat() != review_deadline:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ValueError('Review deadline must be a valid date') from None
+    if status == 'in_review' and not review_deadline:
+        raise ValueError('Choose a review deadline for In review')
+    if status != 'in_review':
+        review_deadline = None
+    review_cycle = project['review_cycle']
+    if status == 'in_review' and (project['status'] != 'in_review' or review_deadline != project['review_deadline']):
+        review_cycle += 1
+
     award = payload.get('award_status', project['award_status'])
     if award not in ('', 'won', 'lost'):
         raise ValueError('Choose Won, Lost or leave the project result unset')
@@ -282,15 +297,14 @@ def update_workflow(conn, project_id, payload, user):
             removed = [conn.execute('SELECT name FROM users WHERE id=?',(uid,)).fetchone()[0] for uid in sorted(previous-chosen_users)]
             detail = '; '.join(part for part in [('Added: '+', '.join(added)) if added else '', ('Removed: '+', '.join(removed)) if removed else ''] if part)
             record_activity(conn,project_id,user,'Changed individual project access',detail)
-    completed_at, completed_by = project['completed_at'], project['completed_by']
     if status != project['status']:
-        completed_at = utc_now() if status=='completed' else None
-        completed_by = user['id'] if status=='completed' else None
         record_activity(conn,project_id,user,'Changed project status',f"{project['status']} → {status}")
+    if review_deadline != project['review_deadline'] or review_cycle != project['review_cycle']:
+        record_activity(conn,project_id,user,'Updated review deadline', review_deadline or 'Review closed')
     if scope != project['scope_of_work'] or deadline != project['submission_deadline']:
         record_activity(conn,project_id,user,'Updated project brief',f"Submission deadline: {deadline or 'Not set'}")
-    conn.execute('''UPDATE projects SET scope_of_work=?,submission_deadline=?,status=?,completed_at=?,completed_by=?
-        WHERE id=?''',(scope.strip(),deadline,status,completed_at,completed_by,project_id))
+    conn.execute('''UPDATE projects SET scope_of_work=?,submission_deadline=?,status=?,review_deadline=?,review_cycle=?
+        WHERE id=?''',(scope.strip(),deadline,status,review_deadline,review_cycle,project_id))
     return decorate_project(conn,get_project(conn,project_id),user)
 
 
@@ -309,5 +323,5 @@ def project_contributors(conn, project_id):
         FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
         WHERE {condition} AND a.action IN ('Created project','Updated estimate settings','Added estimate item',
         'Updated estimate item','Removed estimate item','Saved manual estimate item','Changed project status',
-        'Updated project brief','Updated project builders','Added project note','Changed project result') GROUP BY {grouping}COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',
+        'Updated project brief','Updated project builders','Added project note','Changed project result','Updated review deadline') GROUP BY {grouping}COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',
         () if project_id is None else (project_id,))]
