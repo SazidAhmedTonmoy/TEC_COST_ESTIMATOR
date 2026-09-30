@@ -71,7 +71,7 @@ class ReviewWorkflowTests(unittest.TestCase):
             self.assertEqual(p['completed_at'],'2026-09-20')
             self.assertEqual(projects.calculate_project(c,pid)['totals'],before['totals'])
             self.assertEqual(c.execute('SELECT COUNT(*) FROM project_activity').fetchone()[0],events)
-        snapshot=next((database_path().parent/'upgrade_backups').glob('*before-schema-28.db'))
+        snapshot=next((database_path().parent/'upgrade_backups').glob('*before-schema-29.db'))
         with sqlite3.connect(snapshot) as c:
             self.assertEqual(c.execute('SELECT status FROM projects WHERE id=?',(pid,)).fetchone()[0],'completed')
         auto_upgrade._ready.pop(str(database_path()),None)

@@ -118,7 +118,7 @@ class Http232Tests(unittest.TestCase):
         with connect() as c:self.assertEqual(calculate_project(c,pid),original)
 
     def test_release_health_and_new_assets(self):
-        status,result=self.request('GET','/api/health');self.assertEqual((status,result['release'],result['schema_version']),(200,'3.1',28))
+        status,result=self.request('GET','/api/health');self.assertEqual((status,result['release'],result['schema_version']),(200,'3.1',29))
         status,html=self.request('GET','/');self.assertEqual(status,200)
         self.assertIn(b'help-chat-scope',html);self.assertIn(b'notes-readonly',html)
         status,css=self.request('GET','/assets/styles.css');self.assertEqual(status,200);self.assertIn(b'calendar-metric-grid',css)

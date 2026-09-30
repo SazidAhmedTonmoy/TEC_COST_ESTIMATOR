@@ -145,3 +145,14 @@ The deployment log reported healthy schema 28/release 3.1 but the workflow still
 Catalog grouping now preserves different item titles, categories and work types even when allowances match. This prevents a broad isolator search hiding surface-isolator titles that appear in a narrower search. Additional autocomplete results load automatically near the bottom of the list; a visible count and manual Show more fallback remain.
 
 Push .github/workflows/deploy-cpanel.yml and tools/check_deployment_health.py and tools/run_tests.py together with the rest of the patch. Schema remains 28; no database changes.
+
+## v3.1 — optional importance stars and search visibility
+
+- Catalogue items support an optional shared importance rating from 1–5, coloured #D3AF37. Default 0 means unstarred; Clear stars removes the rating. Existing-item stars save immediately and separately from estimate/catalogue cost edits, so closing the editor does not undo a saved star selection. New-item stars save with the new item. All users see the same catalogue rating.
+- Star controls appear beside + Detail row in both item editors. Saved stars appear in autocomplete, search results, Catalogue Explorer results and its details panel. Ratings never change prices or estimate quantities. Identical grouped catalogue records retain the highest-rated representative.
+- The marked estimate search field has a more visible background/border in light and dark modes. The overall themes remain unchanged.
+- Result columns, star controls and catalogue header actions align consistently and wrap for mobile screens.
+- Removed Show records needing prices from Catalogue Explorer. Its previous default priced-item filter remains in effect.
+- Schema 29 adds the optional rating with an unstarred default. Existing estimates remain unchanged; migration creates a protected backup. The deployment health check already reads the schema from code and needs no schema-number edit.
+
+Validated with 143 backend tests and desktop/mobile browser checks covering set/clear/reload, both editors, search/detail displays, new item creation, colours, alignment and unchanged estimate costs.

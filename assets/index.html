@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.62f1f4ed9dd5.css">
+  <link rel="stylesheet" href="/assets/styles.2e0d71bb8286.css">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script></head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -216,7 +216,6 @@
           <div class="catalog-search-row">
             <input id="catalog-search-input" placeholder="Search item titles…">
             <select id="catalog-category" aria-label="Catalog category"><option value="">All categories</option></select>
-            <label class="catalog-check"><input id="catalog-show-incomplete" type="checkbox"><span>Show records needing prices</span></label>
             <button id="catalog-search-button" class="button secondary">Search</button>
           </div>
           <p class="catalog-clean-note">Identical items appear once, regardless of their original codes. Different sizes, components and prices remain separate.</p>
@@ -322,7 +321,7 @@
         <label>Supplier<input id="manual-supplier" maxlength="1000"></label><label>Quote date<input type="date" id="manual-quote-date"></label><label>Price source / reference<input id="manual-price-source" maxlength="1000" placeholder="Supplier quote reference or budget allowance"></label><fieldset id="manual-markup-options" class="line-markup-options hidden"><legend>Exclude mark-up</legend><label><input type="checkbox" id="manual-exclude-material" title="Exclude Material mark-up %">Material</label><label><input type="checkbox" id="manual-exclude-hours" title="Exclude Labour hour mark-up %">Labour hours</label><label><input type="checkbox" id="manual-exclude-final" title="Exclude Final mark-up %">Final</label></fieldset>
       </div>
       <p id="manual-work-help" class="manual-note"></p>
-      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div>
+      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><div class="component-heading-actions"><div id="manual-rating" class="rating-editor" aria-label="Catalogue importance"></div><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div></div>
       <div class="table-scroll"><table class="component-editor"><thead><tr><th>Description</th><th>Size / specification</th><th>Qty / 1</th><th>Unit</th><th>Product / material price</th><th>Labour basis</th><th>Labour hrs / price</th><th></th></tr></thead><tbody id="manual-components"></tbody></table></div>
       <p class="manual-note">A fixed labour price replaces hours × hourly rate. It adds no labour hours. Changing a unit changes its label; review quantities and prices for that unit.</p>
       <div id="manual-cost-preview" class="manual-cost-preview" aria-live="polite"></div>
@@ -431,6 +430,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.6d0084ec46fd.js" defer></script>
+  <script src="/assets/app.e246d3173f1f.js" defer></script>
 </body>
 </html>

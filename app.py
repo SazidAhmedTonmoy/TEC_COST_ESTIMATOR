@@ -464,6 +464,14 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     conn.commit()
                 self._send_json({"success": True, **result}, 201)
                 return
+            rating_match=re.fullmatch(r'/api/catalog/(\d+)/rating',path)
+            if rating_match:
+                from conest_app.release_v31_rating import set_rating
+                payload=self._json_body()
+                with self._write_connection() as conn:
+                    value=set_rating(conn,int(rating_match[1]),payload.get('importance_rating'))
+                self._send_json({'success':True,'importance_rating':value})
+                return
             if path == "/api/catalog":
                 payload = self._json_body()
                 with self._write_connection() as conn:

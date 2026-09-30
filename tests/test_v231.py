@@ -59,7 +59,7 @@ class Patch231Tests(unittest.TestCase):
 
     def test_first_connection_initializes_schema_and_repeat_is_stable(self):
         with connect() as conn:
-            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],28)
+            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],29)
             before=[tuple(row) for row in conn.execute('SELECT * FROM users')]
         auto_upgrade._ready.clear();initialize();initialize()
         with connect() as conn:self.assertEqual(before,[tuple(row) for row in conn.execute('SELECT * FROM users')])
@@ -75,7 +75,7 @@ class Patch231Tests(unittest.TestCase):
         auto_upgrade._ready.clear()
         with connect() as conn:
             self.assertEqual(before,[tuple(row) for row in conn.execute('SELECT id,username,name,password_hash FROM users')])
-            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],28)
+            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],29)
         snapshots=list((self.root/'upgrade_backups').glob('*.db'));self.assertEqual(len(snapshots),1)
         with closing(sqlite3.connect(snapshots[0])) as conn, conn:self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],23)
         from conest_app.backups import create_backup

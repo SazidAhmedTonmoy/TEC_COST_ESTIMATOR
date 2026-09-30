@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 28
-MIGRATION_KEY = 'v3.1-item-markups'
+CURRENT_SCHEMA = 29
+MIGRATION_KEY = 'v3.1-catalog-rating'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -97,6 +97,7 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
         if expected_version >= 26:required['projects'] = {'labor_hours_markup'}
         if expected_version >= 27:required['projects'].update({'review_deadline', 'review_cycle'})
         if expected_version >= 28:required['project_lines'].update({'exclude_material_markup','exclude_hours_markup','exclude_final_markup'})
+        if expected_version >= 29:required['catalog_items']={'importance_rating'}
         present = present and all(table in tables and fields <= {r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')}
                                   for table, fields in required.items())
         # app_migrations uses a release-specific first-column name; positional
@@ -167,7 +168,9 @@ def ensure_database(path=None):
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
-                    if previous == 27 and _status(target,27,'v3.0-review-workflow')[0]:
+                    if previous == 28 and _status(target,28,'v3.1-item-markups')[0]:
+                        pass
+                    elif previous == 27 and _status(target,27,'v3.0-review-workflow')[0]:
                         pass
                     elif previous == 26 and _status(target,26,'v2.4-labor-hours')[0]:
                         pass  # Only the review migration below is needed.
@@ -188,6 +191,8 @@ def ensure_database(path=None):
                         initialize_review(conn)
                         from .release_v31_item_markups import initialize_item_markups
                         initialize_item_markups(conn)
+                        from .release_v31_rating import initialize_rating
+                        initialize_rating(conn)
                     with _raw_connect(target) as conn:
                         if conn.execute('PRAGMA quick_check').fetchone()[0] != 'ok' or conn.execute('PRAGMA foreign_key_check').fetchone():
                             raise UpgradeError('Database verification failed after the upgrade. The pre-upgrade backup was retained.')

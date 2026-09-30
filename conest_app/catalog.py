@@ -174,7 +174,7 @@ def _search_rows(conn):
         """SELECT ci.id, ci.assembly_size, ci.code, ci.name, ci.description, ci.phase, ci.subphase, ci.scope,
                   ci.base_quantity, ci.base_uom, ci.source_type, ci.search_text, ci.is_manual,
                   ci.usage_count, ci.catalog_key, ci.content_key, ci.category, ci.data_status, ci.is_preferred, ci.work_type, ci.manual_revision,
-                  ci.updated_at, COUNT(cc.id) AS component_count,
+                  ci.updated_at, ci.importance_rating, COUNT(cc.id) AS component_count,
                   (SELECT COUNT(*) FROM source_occurrences so WHERE so.catalog_item_id=ci.id) AS occurrence_count,
                   COALESCE(SUM(cc.quantity_per_unit * cc.unit_material * cc.material_factor), 0) AS unit_material,
                   COALESCE(SUM(CASE WHEN cc.labor_pricing='hours' THEN cc.quantity_per_unit * cc.unit_hours * cc.labor_factor ELSE 0 END), 0) AS unit_hours,
@@ -239,8 +239,8 @@ def search_catalog(
             row = candidate[2]
             key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"],normalize_text(display_title(row["name"])),row["category"],row["work_type"])
             current = best_by_content.get(key)
-            rank = (recent.get(int(row["id"]), ""), row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
-            if current is None or rank > (recent.get(int(current[2]["id"]), ""), current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
+            rank = (row["importance_rating"], recent.get(int(row["id"]), ""), row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
+            if current is None or rank > (current[2]["importance_rating"], recent.get(int(current[2]["id"]), ""), current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
                 best_by_content[key] = candidate
         scored = list(best_by_content.values())
 
@@ -452,6 +452,8 @@ def _validated_components(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def create_manual_catalog_item(conn: sqlite3.Connection, payload: dict[str, Any]) -> dict[str, Any]:
+    from .release_v31_rating import validate_rating
+    rating=validate_rating(payload.get("importance_rating",0))
     name = clean_text(payload.get("name"))
     if not name:
         raise ValueError("name is required")
@@ -476,6 +478,7 @@ def create_manual_catalog_item(conn: sqlite3.Connection, payload: dict[str, Any]
         (code, name, description, phase, subphase, scope, base_uom, fingerprint, normalize_text(" ".join(search_fields)), now, now, work_type, category),
     )
     item_id = int(cursor.lastrowid)
+    if "importance_rating" in payload:conn.execute("UPDATE catalog_items SET importance_rating=? WHERE id=?",(rating,item_id))
     conn.execute("UPDATE catalog_items SET manual_revision=(SELECT COALESCE(MAX(manual_revision),0)+1 FROM catalog_items) WHERE id=?", (item_id,))
     _replace_components(conn, item_id, components)
     for alias in {code, name, description}:

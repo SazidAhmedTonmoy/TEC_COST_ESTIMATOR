@@ -385,7 +385,7 @@ async function runQuickSearch(more=false) {
   if(!more)box.innerHTML = `<p class="helper-text">Searching…</p>`;
   const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=30&recent_first=1&offset=${offset}`);
   if (request !== state.quickSearchRequest) return;
-  const html = result.results.length ? result.results.map((item) => `<article class="quick-search-result"><div><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small><small>Material ${fmtMoney(item.unit_material)} · Labour ${catalogLaborLabel(item)}</small></div><div><button class="button primary small quick-add" type="button" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-unit="${escapeHtml(item.base_uom || "EA")}">Add</button><button class="text-button quick-edit-add" type="button" data-id="${item.id}">Edit & add</button></div></article>`).join("") : `<p class="helper-text">No matching item. Try another search or add a manual item.</p>`;
+  const html = result.results.length ? result.results.map((item) => `<article class="quick-search-result"><div><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small><small>Material ${fmtMoney(item.unit_material)} · Labour ${catalogLaborLabel(item)}</small></div><div>${ratingStamp(item)}<button class="button primary small quick-add" type="button" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-unit="${escapeHtml(item.base_uom || "EA")}">Add</button><button class="text-button quick-edit-add" type="button" data-id="${item.id}">Edit & add</button></div></article>`).join("") : `<p class="helper-text">No matching item. Try another search or add a manual item.</p>`;
   box.querySelector(".quick-search-more")?.remove();if(more)box.insertAdjacentHTML("beforeend",html);else box.innerHTML=html;
   if(result.has_more)box.insertAdjacentHTML("beforeend",`<button type="button" class="button secondary quick-search-more">Show more matches (${offset+result.results.length} of ${result.total})</button>`);
 }
@@ -464,7 +464,7 @@ function renderSmartSuggestions(items) {
   box.innerHTML = items.map((item, index) => `
     <button class="suggestion-item catalog-peek" type="button" role="option" aria-selected="false" data-index="${index}" data-catalog-preview="${item.id}">
       <span class="suggestion-copy"><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small></span>
-      <span class="suggestion-meta"><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em>${fmtMoney(item.unit_material)} · ${catalogLaborLabel(item)}</span>
+      ${ratingStamp(item)}<span class="suggestion-meta"><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em>${fmtMoney(item.unit_material)} · ${catalogLaborLabel(item)}</span>
     </button>`).join("");
   box.classList.remove("hidden");
   input.setAttribute("aria-expanded", "true");
@@ -567,7 +567,7 @@ function renderSelectedCatalog(item, query) {
     <div class="selection-banner"><strong>Ready to add</strong><span>Check the quantity and allowances below.</span></div>
     <article class="search-result selected-result catalog-peek" data-catalog-preview="${item.id}">
       <div class="search-result-main"><div><h3>${catalogName(item)}</h3><p>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</p><div class="result-tags"><span class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</span><span>${versions > 1 ? `${versions} source records` : "Saved item"}</span><span>${(item.components || []).length} components</span></div></div></div>
-      <div class="result-cost"><span>Material / unit<strong>${fmtMoney(item.unit_material)}</strong></span><span>Labour / unit<strong>${catalogLaborLabel(item)}</strong></span><button class="button secondary search-delete-item" type="button" data-id="${item.id}">Delete</button><button class="button secondary edit-add-result" data-id="${item.id}">Edit & add</button><button class="button primary add-result" data-id="${item.id}" data-query="${escapeHtml(query)}">Add to estimate</button></div>
+      <div class="result-cost">${ratingStamp(item)}<span>Material / unit<strong>${fmtMoney(item.unit_material)}</strong></span><span>Labour / unit<strong>${catalogLaborLabel(item)}</strong></span><button class="button secondary search-delete-item" type="button" data-id="${item.id}">Delete</button><button class="button secondary edit-add-result" data-id="${item.id}">Edit & add</button><button class="button primary add-result" data-id="${item.id}" data-query="${escapeHtml(query)}">Add to estimate</button></div>
     </article>
     ${compactComponentTable(item, 10)}
     ${versions > 1 ? `<div class="variant-callout"><span>${versions} source records are available for this item. Identical allowances appear once.</span><button class="text-button compare-variants" data-id="${item.id}" data-query="${escapeHtml(item.name)}">View details</button></div>` : ""}`;
@@ -603,7 +603,7 @@ function renderSearchResults(result) {
   box.innerHTML = `<p class="helper-text">Interpreted as <strong>${escapeHtml(result.query)}</strong>, quantity <strong>${fmtNumber(result.quantity)}</strong>. Match confidence: ${escapeHtml(result.confidence)}.${methodLabel} Select an item to review its components.</p>` + result.candidates.map((item, index) => `
     <article class="search-result catalog-peek" data-catalog-preview="${item.id}">
       <div class="search-result-main"><div><h3>${catalogName(item)}${index === 0 ? ` <em class="recommended-tag">Recommended</em>` : ""}</h3><p>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</p><div class="result-tags"><span class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</span><span>${variantText(item)}</span><span>${Number(item.component_count || 0)} components</span></div></div></div>
-      <div class="result-cost"><span>Material / unit<strong>${fmtMoney(item.unit_material)}</strong></span><span>Labour / unit<strong>${catalogLaborLabel(item)}</strong></span>${Number(item.variant_count || 1) > 1 ? `<button class="button tertiary small compare-variants" data-id="${item.id}" data-query="${escapeHtml(item.name)}">Versions</button>` : ""}<button class="button secondary search-delete-item" type="button" data-id="${item.id}">Delete</button><button class="button secondary edit-add-result" data-id="${item.id}">Edit & add</button><button class="button primary add-result" data-id="${item.id}" data-query="${escapeHtml(result.original)}">Add</button></div>
+      <div class="result-cost">${ratingStamp(item)}<span>Material / unit<strong>${fmtMoney(item.unit_material)}</strong></span><span>Labour / unit<strong>${catalogLaborLabel(item)}</strong></span>${Number(item.variant_count || 1) > 1 ? `<button class="button tertiary small compare-variants" data-id="${item.id}" data-query="${escapeHtml(item.name)}">Versions</button>` : ""}<button class="button secondary search-delete-item" type="button" data-id="${item.id}">Delete</button><button class="button secondary edit-add-result" data-id="${item.id}">Edit & add</button><button class="button primary add-result" data-id="${item.id}" data-query="${escapeHtml(result.original)}">Add</button></div>
     </article>`).join("");
 }
 
@@ -813,6 +813,26 @@ function refreshManualPricing() {
   $("#manual-cost-preview").innerHTML = `<span>Base material / ${unit}<strong>${fmtMoney(material)}</strong></span><span>Labour / ${unit}<strong>${fmtNumber(hours)} hrs + ${fmtMoney(fixed)} fixed</strong></span><span>Quoted price / ${unit}<strong>${fmtMoney(quotedUnit)}</strong></span>${state.manualAddToEstimate ? `<span>Estimate total · ${fmtNumber(qty)} ${unit}<strong>${fmtMoney(estimateTotal)}</strong></span>` : ""}<small>Preview uses ${fmtMoney(rate)}/hr, ${fmtNumber(markup * 100)}% material, ${fmtNumber((hoursFactor-1)*100)}% labour hours and ${fmtNumber(overhead * 100)}% final mark-up. ${state.manualAddToEstimate ? "Lighting fitting supply prices are saved only with this estimate." : "Existing estimates retain their saved prices."}</small>`;
 }
 
+function ratingStamp(item){const value=Math.max(0,Math.min(5,Number(item?.importance_rating)||0));return `<span class="rating-stamp" data-rating-item="${Number(item?.id)||0}" role="img" aria-label="${value?value+' out of 5 importance stars':'Not starred'}" title="${value?value+' out of 5 importance stars':'Not starred'}">${value?'★'.repeat(value):''}</span>`;}
+function renderManualRating(){
+ const value=state.manualRating||0;
+ $('#manual-rating').innerHTML=`<small>Importance · optional</small><div class="rating-buttons" role="group" aria-label="Importance stars">${[1,2,3,4,5].map(n=>`<button type="button" data-rating="${n}" aria-label="${n} star${n===1?'':'s'}" aria-pressed="${value===n}" class="rating-star ${n<=value?'is-filled':''}" ${state.ratingBusy?'disabled':''}>${n<=value?'★':'☆'}</button>`).join('')}<button class="rating-clear" type="button" data-rating="0" aria-label="Clear stars" title="Clear stars" ${!value||state.ratingBusy?'disabled':''}>×</button></div><small class="rating-note" aria-live="polite">${state.ratingBusy?'Saving…':state.ratingItemId?'Shared catalogue rating · saved separately':'Saved with the new item'}</small>`;
+}
+async function changeManualRating(value){
+ if(state.ratingBusy)return;
+ const original=state.manualRating,itemId=state.ratingItemId,token=state.ratingDialogToken;
+ state.manualRating=value;
+ if(!itemId){renderManualRating();return;}
+ state.ratingBusy=true;renderManualRating();
+ try{
+  await api(`/api/catalog/${itemId}/rating`,{method:'POST',body:{importance_rating:value}});
+  state.catalogCache.clear();
+  if(state.currentCatalogItem?.id===itemId)state.currentCatalogItem.importance_rating=value;
+  for(const item of state.suggestions||[])if(item.id===itemId)item.importance_rating=value;
+  $$(`[data-rating-item="${itemId}"]`).forEach(el=>{el.outerHTML=ratingStamp({id:itemId,importance_rating:value});});
+ }catch(error){if(state.ratingDialogToken===token)state.manualRating=original;toast(error.message,true);}
+ finally{if(state.ratingDialogToken===token){state.ratingBusy=false;renderManualRating();}}
+}
 function openManualDialog(addToEstimate = false, sourceItem = null, editExisting = false, lineId = null, quantityOverride = null) {
   if (!state.dashboard?.manual_options) { toast("Catalog is still loading. Please try again.", true); return; }
   state.manualAddToEstimate = addToEstimate;
@@ -821,6 +841,10 @@ function openManualDialog(addToEstimate = false, sourceItem = null, editExisting
   state.manualLineRevision = state.projectData?.lines.find(l=>l.id===lineId)?.revision;
   state.manualProjectId = state.projectId;
   state.manualSource = sourceItem || {};
+  state.ratingItemId=(editExisting||addToEstimate)?sourceItem?.id:null;
+  const ratingToken=state.ratingDialogToken=(state.ratingDialogToken||0)+1;
+  state.manualRating=Number(sourceItem?.importance_rating)||0;state.ratingBusy=false;renderManualRating();
+  if(sourceItem?.id){state.ratingBusy=true;renderManualRating();fetchCatalogItem(sourceItem.id).then(item=>{if(state.ratingDialogToken===ratingToken){state.manualRating=item.importance_rating||0;state.ratingBusy=false;renderManualRating();}}).catch(error=>{if(state.ratingDialogToken===ratingToken){state.ratingBusy=false;renderManualRating();}toast(error.message,true);});}
   state.manualSaving = false;
   $("#manual-save-error").classList.add("hidden");
   $("#manual-item-form").reset();
@@ -876,7 +900,7 @@ async function saveManualItem(event) {
   const form = $("#manual-item-form");
   if (!form.reportValidity()) return;
   const payload = {
-    assembly_size:$("#manual-assembly-size").value.trim(), code: state.manualSource.code || "", name: $("#manual-name").value.trim(),
+    importance_rating:state.manualRating||0, assembly_size:$("#manual-assembly-size").value.trim(), code: state.manualSource.code || "", name: $("#manual-name").value.trim(),
     description: $("#manual-description").value.trim() || $("#manual-name").value.trim(),
     phase: state.manualSource.phase || "Manual items", subphase: state.manualSource.subphase || "",
     scope: state.manualSource.scope || $("#manual-category").value,
@@ -932,7 +956,7 @@ async function loadCatalog(query = null,more=false) {
   const request=++catalogSearchRequest;
   const term = query ?? $("#catalog-search-input").value.trim();
   const category = $("#catalog-category")?.value || "";
-  const includeIncomplete = $("#catalog-show-incomplete")?.checked ? "1" : "0";
+  const includeIncomplete = "0";
   const result = await api(`/api/catalog/search?q=${encodeURIComponent(term)}&category=${encodeURIComponent(category)}&include_incomplete=${includeIncomplete}&limit=60&offset=${offset}`);
   if(request!==catalogSearchRequest)return;
   const box = $("#catalog-results");
@@ -940,7 +964,7 @@ async function loadCatalog(query = null,more=false) {
     box.innerHTML = `<div class="empty-state"><p>No catalog results found.</p></div>`;
     return;
   }
-  const html = result.results.map((item) => `<a href="#/catalog/${item.id}" class="catalog-result catalog-peek" data-id="${item.id}" data-catalog-preview="${item.id}"><span><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}<br>${variantText(item)} · ${Number(item.component_count || 0)} detail rows</small></span><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></a>`).join("");
+  const html = result.results.map((item) => `<a href="#/catalog/${item.id}" class="catalog-result catalog-peek" data-id="${item.id}" data-catalog-preview="${item.id}"><span><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}<br>${variantText(item)} · ${Number(item.component_count || 0)} detail rows</small></span><span class="catalog-result-meta">${ratingStamp(item)}<em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></span></a>`).join("");
   box.querySelector(".catalog-search-more")?.remove();if(more)box.insertAdjacentHTML("beforeend",html);else box.innerHTML=html;
   if(result.has_more)box.insertAdjacentHTML("beforeend",`<button type="button" class="button secondary catalog-search-more">Show more matches (${offset+result.results.length} of ${result.total})</button>`);
 }
@@ -967,7 +991,7 @@ async function showCatalogDetail(itemId) {
   const variants = (item.variants || []).map((variant) => `<a href="#/catalog/${variant.id}" class="variant-option${Number(variant.id) === Number(item.id) ? " active" : ""}" data-variant-id="${variant.id}"><span><strong>${escapeHtml(variant.specification || variant.name || "Saved option")}</strong><small>${escapeHtml(variant.source_file || "Manual catalog")} · ${variant.component_count} rows</small></span><span><b>${fmtMoney(variant.unit_material)}</b><small>${catalogLaborLabel(variant)}</small></span><em class="data-status ${escapeHtml(variant.data_status)}">${dataStatusLabel(variant.data_status)}</em></a>`).join("");
   $("#catalog-detail").classList.remove("empty-detail");
   $("#catalog-detail").innerHTML = `
-    <div class="detail-header"><div><h3>${catalogName(item)}</h3><p>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</p><div class="result-tags"><span class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</span><span>${(item.components || []).length} components</span><span>${variantText(item)}</span></div></div><div><button class="button primary small detail-add" data-id="${item.id}">Add to estimate</button> <button class="button secondary small detail-edit">Edit catalog item</button> <button class="button secondary small detail-clone">${item.is_manual ? "Save as new version" : "Create editable version"}</button></div></div>
+    <div class="detail-header"><div><h3>${catalogName(item)}</h3><p>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</p><div class="result-tags"><span class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</span><span>${(item.components || []).length} components</span><span>${variantText(item)}</span></div></div><div><button class="button primary small detail-add" data-id="${item.id}">Add to estimate</button> <button class="button secondary small detail-edit">Edit catalog item</button> <button class="button secondary small detail-clone">${item.is_manual ? "Save as new version" : "Create editable version"}</button><div class="detail-rating">${ratingStamp(item)}</div></div></div>
     <div class="detail-meta"><div><span>Base quantity</span><strong>${fmtNumber(item.base_quantity)} ${escapeHtml(item.base_uom || "")}</strong></div><div><span>Material / unit</span><strong>${fmtMoney(item.unit_material)}</strong></div><div><span>Labour / unit</span><strong>${catalogLaborLabel(item)}</strong></div></div>
     <div class="table-scroll"><table class="mini-table"><thead><tr><th>Component</th><th>Qty / 1</th><th>Unit</th><th>Material</th><th>Labour / unit</th></tr></thead><tbody>${componentRows}</tbody></table></div>
     ${(item.variants || []).length > 1 ? `<div class="variant-section"><div><h4>Other saved allowances</h4><p>These options have different components, specifications or prices.</p></div><div class="variant-list">${variants}</div></div>` : ""}
@@ -1310,6 +1334,7 @@ function bindEvents() {
       refreshManualPricing();
     }
   });
+  $('#manual-rating').addEventListener('click',event=>{const button=event.target.closest('[data-rating]');if(button)changeManualRating(Number(button.dataset.rating));});
   $("#manual-item-form").addEventListener("input", (event) => {
     if (event.target.matches(".component-description")) event.target.closest("tr").dataset.autoDescription = "0";
     // Select changes switch the value first in the change handler above.
@@ -1320,7 +1345,6 @@ function bindEvents() {
   $('#catalog-search-input').addEventListener('input',()=>{clearTimeout(catalogSearchTimer);catalogSearchRequest++;catalogSearchTimer=setTimeout(()=>loadCatalog().catch(error=>toast(error.message,true)),200);});
   $("#catalog-search-input").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); loadCatalog().catch((error) => toast(error.message, true)); } });
   $("#catalog-category").addEventListener("change", () => loadCatalog().catch((error) => toast(error.message, true)));
-  $("#catalog-show-incomplete").addEventListener("change", () => loadCatalog().catch((error) => toast(error.message, true)));
   $("#catalog-results").addEventListener("click", (event) => {
     const more=event.target.closest(".catalog-search-more");if(more){more.disabled=true;loadCatalog(null,true).catch(error=>{more.disabled=false;toast(error.message,true)});return;}
     const result = event.target.closest(".catalog-result");
