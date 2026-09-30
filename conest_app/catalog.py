@@ -237,7 +237,7 @@ def search_catalog(
         best_by_content = {}
         for candidate in scored:
             row = candidate[2]
-            key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"])
+            key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"],normalize_text(display_title(row["name"])),row["category"],row["work_type"])
             current = best_by_content.get(key)
             rank = (recent.get(int(row["id"]), ""), row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
             if current is None or rank > (recent.get(int(current[2]["id"]), ""), current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):

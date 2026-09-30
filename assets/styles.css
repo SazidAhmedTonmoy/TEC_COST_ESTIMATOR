@@ -2047,3 +2047,5 @@ html[data-theme="dark"] .schedule-item.is-review .schedule-date,html[data-theme=
 .supplier-options #supplier-filter{width:100%;font-size:13px;margin-bottom:6px;position:sticky;top:0;background:var(--surface);z-index:1;}
 .light-price-search .supplier-choices label[hidden]{display:none;}
 .suggestion-more{display:block;width:100%;margin-top:6px;}
+
+.suggestion-count{position:sticky;top:0;z-index:2;padding:8px 12px;background:var(--surface);color:var(--muted);font-size:12px;border-bottom:1px solid var(--line);}

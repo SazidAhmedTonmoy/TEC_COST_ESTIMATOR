@@ -137,3 +137,11 @@ Deploy the changed files over the previous v3.1 release and restart Passenger. D
 - Supplier selector has a live Search suppliers field. Hidden supplier selections remain selected while searching other names; All suppliers clears the selection.
 - Estimate autocomplete no longer stops at eight results: title matches are paginated with Show more matches and a visible result count. Quick Search and Catalog Explorer also allow loading subsequent matches. Matching remains case-insensitive and respects category/incomplete-item filters.
 - Database schema remains 28. No live database is included or replaced.
+
+## v3.1 — deployment health and complete title matching
+
+The deployment log reported healthy schema 28/release 3.1 but the workflow still expected schema 27. Health validation now reads CURRENT_SCHEMA and the release from the deployed checkout's code. This removes the false failure and its 18 retries. The new isolated-process runner executes all unittest modules with four workers; no test gate is skipped. Removed the unnecessary pip self-upgrade.
+
+Catalog grouping now preserves different item titles, categories and work types even when allowances match. This prevents a broad isolator search hiding surface-isolator titles that appear in a narrower search. Additional autocomplete results load automatically near the bottom of the list; a visible count and manual Show more fallback remain.
+
+Push .github/workflows/deploy-cpanel.yml and tools/check_deployment_health.py and tools/run_tests.py together with the rest of the patch. Schema remains 28; no database changes.

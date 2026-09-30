@@ -482,13 +482,17 @@ function setSuggestionIndex(index) {
   });
 }
 
+let suggestionLoading=false,suggestionQuery="";
 async function loadSmartSuggestions(more=false) {
+  if(more&&suggestionLoading)return;
   const input = $("#smart-search-input");
   const text = input.value.trim();
   if (text.length < 2) {
     hideSmartSuggestions();
     return;
   }
+  if(more&&suggestionQuery!==text)more=false;
+  suggestionLoading=true;
   const requestId = ++suggestionRequestId;
   const query = text
     .replace(/\b(?:qty|quantity)\s*[:=]?\s*\d+(?:\.\d+)?\b/ig, " ")
@@ -497,13 +501,15 @@ async function loadSmartSuggestions(more=false) {
   try {
     const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=30&recent_first=1&offset=${more?state.suggestions.length:0}`);
     if (requestId !== suggestionRequestId || input.value.trim() !== text) return;
+    suggestionQuery=text;
     const box=$('#smart-search-suggestions'),scroll=box.scrollTop;
     renderSmartSuggestions(more?[...state.suggestions,...(result.results||[])]:result.results||[]);
+    box.insertAdjacentHTML('afterbegin',`<div class="suggestion-count" role="status">${result.total} matching items · ${state.suggestions.length} shown${result.has_more?' · Scroll for more':''}</div>`);
     if(result.has_more)box.insertAdjacentHTML('beforeend',`<button type="button" class="suggestion-more button secondary">Show more matches (${state.suggestions.length} of ${result.total})</button>`);
     if(more)box.scrollTop=scroll;
   } catch (_) {
     if (requestId === suggestionRequestId) hideSmartSuggestions();
-  }
+  } finally {if(requestId===suggestionRequestId)suggestionLoading=false;}
 }
 
 let smartResultVersion=0;
@@ -1164,6 +1170,7 @@ function bindEvents() {
     else if (event.key === "Enter" && menuVisible && state.suggestionIndex >= 0) { event.preventDefault(); chooseSmartSuggestion(state.suggestionIndex).catch((error) => toast(error.message, true)); }
     else if (event.key === "Escape") hideSmartSuggestions();
   });
+  $("#smart-search-suggestions").addEventListener('scroll',event=>{const box=event.currentTarget;if(box.scrollTop+box.clientHeight>=box.scrollHeight-100&&box.querySelector('.suggestion-more')&&!suggestionLoading)loadSmartSuggestions(true);},{passive:true});
   $("#smart-search-suggestions").addEventListener("mousedown", (event) => event.preventDefault());
   $("#smart-search-suggestions").addEventListener("click", (event) => {
     const more=event.target.closest('.suggestion-more');

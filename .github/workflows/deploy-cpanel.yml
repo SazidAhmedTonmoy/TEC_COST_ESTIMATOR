@@ -47,11 +47,10 @@ jobs:
 
       - name: Validate application
         run: |
-          python -m pip install --upgrade pip
           pip install -r requirements.txt
           python tools/build_frontend.py
           python -m compileall -q app.py conest_app
-          python -m unittest discover -s tests -v
+          python tools/run_tests.py --workers 4
 
       - name: Configure SSH
         env:
@@ -128,7 +127,7 @@ jobs:
           set -euo pipefail
           for ATTEMPT in $(seq 1 18); do
             RESPONSE="$(curl -fsS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health" || true)"
-            if printf '%s' "$RESPONSE" | python -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r.get("status")=="ok" and r.get("release")=="3.1" and r.get("schema_version")==27 else 1)' 2>/dev/null; then
+            if printf '%s' "$RESPONSE" | python tools/check_deployment_health.py; then
               echo "$RESPONSE"
               echo 'Updated code is serving traffic and the runtime database has migrated.'
               exit 0

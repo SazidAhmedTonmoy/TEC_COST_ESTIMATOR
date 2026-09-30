@@ -1,23 +1,29 @@
-TEC ConEst v3.1 — 30 September 2026
+TEC ConEst v3.1 — deployment and isolator search fixes
 
-Apply over the 29 September v3.1 update. Extract these files into the application root and restart Passenger. Use the full archive for older installations. No database is included; schema remains 28.
+Apply over the preceding 30 September search/alignment update. Push ALL files, including .github/workflows/deploy-cpanel.yml and the new tools scripts. Use the full archive for older installations.
 
-Changes: aligned Project Board list columns; searchable multi-supplier checklist preserving hidden selections; paginated title matching in estimate autocomplete, Quick Search and Catalog Explorer. Use Show more matches to reach the remaining results.
+Deployment: health verification now derives schema/release from code instead of requiring obsolete schema 27. The full test suite runs in four isolated processes without dropping tests. No redundant pip self-upgrade.
 
-Verified: title-matching pagination regression, pricing/search regressions, HTTP checks, workspace checks and browser checks for aligned columns, supplier selection and all 43 isolator fixture results.
+Search: different titles no longer collapse merely because their pricing allowances match. More autocomplete matches load as you scroll, with a match count and Show more fallback.
+
+Verified: all backend tests passed (20 modules; 32.7 seconds locally). Browser verified automatic loading and selection of later surface-isolator matches. Production timing depends on GitHub and hosting resources.
+
+Database schema stays 28. No database or credentials are included.
 
 Changed files:
+- .github/workflows/deploy-cpanel.yml
 - TENDERS_UPDATE.md
-- app.py
-- assets/app.0592fe74d162.js
+- assets/app.60d698455bea.js
 - assets/app.js
 - assets/index.html
-- assets/light_prices.js
+- assets/styles.62f1f4ed9dd5.css
 - assets/styles.css
-- assets/styles.e9248db4e98a.css
 - conest_app/catalog.py
+- tests/test_deployment_health.py
 - tests/test_search_pagination.py
+- tools/check_deployment_health.py
+- tools/run_tests.py
 
 Retired fingerprinted files (may remain during rollout):
-- assets/app.de293745c942.js
-- assets/styles.776722b864b9.css
+- assets/app.0592fe74d162.js
+- assets/styles.e9248db4e98a.css
