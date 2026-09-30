@@ -322,6 +322,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/dashboard":
                 self._send_json(self._dashboard_payload());return
             if path == "/api/catalog/search":
+                page_info = {}
                 term = query.get("q", [""])[0]
                 limit = int(query.get("limit", ["20"])[0])
                 category = query.get("category", [""])[0]
@@ -336,8 +337,9 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         include_incomplete=include_incomplete,
                         group_variants=group_variants,
                         recent_first=query.get("recent_first", ["0"])[0] == "1",
+                        offset=int(query.get("offset",["0"])[0]),page_info=page_info,
                     )
-                self._send_json({"success": True, "query": term, "results": results})
+                self._send_json({"success": True, "query": term, "results": results, **page_info})
                 return
             match = re.fullmatch(r"/api/catalog/(\d+)", path)
             if match:

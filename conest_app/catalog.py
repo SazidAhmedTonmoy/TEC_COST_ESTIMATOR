@@ -196,11 +196,14 @@ def search_catalog(
     include_incomplete: bool = False,
     group_variants: bool = True,
     recent_first: bool = False,
+    offset: int = 0,
+    page_info: dict | None = None,
 ) -> list[dict[str, Any]]:
     query = clean_text(query)
     normalized = normalize_text(query)
     category = clean_text(category)
     limit = max(1, min(int(limit or 20), 100))
+    offset = max(0, int(offset))
     rows = _search_rows(conn)
     recent = {int(row[0]): row[1] for row in conn.execute(
         "SELECT catalog_item_id, MAX(created_at) FROM project_lines WHERE catalog_item_id IS NOT NULL GROUP BY catalog_item_id"
@@ -255,7 +258,8 @@ def search_catalog(
     if recent_first:
         scored.sort(key=lambda item: recent.get(int(item[2]["id"]), ""), reverse=True)
     results: list[dict[str, Any]] = []
-    for score, quality, row, alias_source in scored[:limit]:
+    if page_info is not None:page_info.update(total=len(scored),offset=offset,has_more=offset+limit<len(scored))
+    for score, quality, row, alias_source in scored[offset:offset+limit]:
         item = dict(row)
         item.pop("search_text", None)
         if recent_first: item["last_used_at"] = recent.get(int(row["id"]), "")

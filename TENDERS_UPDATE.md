@@ -130,3 +130,10 @@ If freezes continue, capture the Python application error log and hosting CPU/me
 - Schema 28 adds these three settings with defaults that preserve existing totals. Startup makes a protected backup and migrates the existing database; no database file is shipped.
 
 Deploy the changed files over the previous v3.1 release and restart Passenger. Do not replace the live database. Old fingerprinted frontend assets can be removed after cached sessions have expired; the updated HTML references the new files.
+
+## v3.1 — 30 September search and alignment fixes
+
+- Project Board list view uses stable columns for status badges, item counts, quoted totals and Open Estimate buttons.
+- Supplier selector has a live Search suppliers field. Hidden supplier selections remain selected while searching other names; All suppliers clears the selection.
+- Estimate autocomplete no longer stops at eight results: title matches are paginated with Show more matches and a visible result count. Quick Search and Catalog Explorer also allow loading subsequent matches. Matching remains case-insensitive and respects category/incomplete-item filters.
+- Database schema remains 28. No live database is included or replaced.

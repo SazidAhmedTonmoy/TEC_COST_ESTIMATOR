@@ -2034,3 +2034,16 @@ html[data-theme="dark"] .schedule-item.is-review .schedule-date,html[data-theme=
 .supplier-options label{font-size:13px;padding:9px;border-radius:6px}.supplier-options label:hover{background:var(--canvas)}
 .light-price-search .supplier-options label{flex-direction:row;justify-content:flex-start;text-align:left;font-weight:500}
 .light-supplier>span{font-weight:700;font-size:14px}
+
+/* Stable list columns, independent of price length and badge count. */
+@media(min-width:761px){
+ #project-board[data-view="list"] .project-card{grid-template-columns:minmax(0,1fr) 310px;}
+ #project-board[data-view="list"] .project-card-heading{display:grid;grid-template-columns:minmax(0,1fr) 180px;align-items:center;}
+ #project-board[data-view="list"] .project-badges{justify-content:center;}
+ #project-board[data-view="list"] .project-card-footer{display:grid;grid-template-columns:minmax(0,1fr) 120px;width:310px;}
+ #project-board[data-view="list"] .project-card-footer>span{text-align:right;min-width:0;}
+ #project-board[data-view="list"] .project-card-footer>a{width:120px;}
+}
+.supplier-options #supplier-filter{width:100%;font-size:13px;margin-bottom:6px;position:sticky;top:0;background:var(--surface);z-index:1;}
+.light-price-search .supplier-choices label[hidden]{display:none;}
+.suggestion-more{display:block;width:100%;margin-top:6px;}

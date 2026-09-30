@@ -5,8 +5,15 @@ function renderSupplierPicker(options){
   lightPriceState.supplierOptions=options;
   const selected=lightPriceState.suppliers;
   $('#light-price-supplier summary').textContent=selected.length===0?'All suppliers':selected.length===1?selected[0]:`${selected.length} suppliers`;
-  $('#light-price-supplier .supplier-options').innerHTML=`<label><input type="checkbox" data-all-suppliers ${selected.length?'':'checked'}>All suppliers</label>`+options.map(s=>`<label><input type="checkbox" data-supplier value="${escapeHtml(s)}" ${selected.includes(s)?'checked':''}>${escapeHtml(s)}</label>`).join('');
+  $('#light-price-supplier .supplier-choices').innerHTML=`<label><input type="checkbox" data-all-suppliers ${selected.length?'':'checked'}>All suppliers</label>`+options.map(s=>`<label><input type="checkbox" data-supplier value="${escapeHtml(s)}" ${selected.includes(s)?'checked':''}>${escapeHtml(s)}</label>`).join('');
+  filterSupplierOptions();
   if(preserve){const control=$$('#light-price-supplier input').find(el=>all?el.dataset.allSuppliers!==undefined:el.value===activeValue);control?.focus();}
+}
+function filterSupplierOptions(){
+  const term=$('#supplier-filter').value.trim().toLocaleLowerCase();
+  $$('#light-price-supplier .supplier-choices label').forEach(label=>{label.hidden=!label.querySelector('[data-all-suppliers]')&&!label.textContent.toLocaleLowerCase().includes(term);});
+  const box=$('#light-price-supplier .supplier-choices');box.querySelector('.supplier-no-match')?.remove();
+  if(!$$('#light-price-supplier input[data-supplier]').some(el=>!el.parentElement.hidden))box.insertAdjacentHTML('beforeend','<p class="supplier-no-match helper-text">No matching suppliers.</p>');
 }
 function lightMoney(value){return value===null||value===undefined?'Not priced':fmtMoney(value,'AUD');}
 function lightRate(value){return value===null||value===undefined?'Not priced':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',minimumFractionDigits:2,maximumFractionDigits:4}).format(value);}
@@ -18,7 +25,7 @@ function resetLightPrices(){
   lightPriceState.request++;lightPriceState.detailRequest++;
   Object.assign(lightPriceState,{selected:null,item:null,results:[],suppliers:[],editing:false,dirty:false,busy:false,photoDataUrl:null,removePhoto:false,photoLoading:false,photoReadId:(lightPriceState.photoReadId||0)+1});
   const box=$('#light-price-detail');box.classList.add('hidden');$('#light-prices-view').appendChild(box);box.innerHTML='';
-  $('#light-price-results').innerHTML='';$('#light-price-search').value='';renderSupplierPicker([]);
+  $('#light-price-results').innerHTML='';$('#light-price-search').value='';$('#supplier-filter').value='';renderSupplierPicker([]);
 }
 function confirmLightDiscard(){return !lightPriceState.dirty||confirm('Discard the unsaved changes to this light?');}
 function closeLightPrice(remember=true){
@@ -192,7 +199,9 @@ async function saveLightDetails(){
 document.addEventListener('DOMContentLoaded',()=>{
   let timer;
   const runSearch=()=>loadLightPrices().catch(error=>toast(error.message,true));
-  $('#light-price-supplier').addEventListener('change',event=>{clearTimeout(timer);if(event.target.dataset.allSuppliers!==undefined){lightPriceState.suppliers=[];}else{lightPriceState.suppliers=$$('#light-price-supplier input[data-supplier]:checked').map(el=>el.value);}renderSupplierPicker(lightPriceState.supplierOptions||[]);runSearch();});
+  $('#supplier-filter').addEventListener('input',filterSupplierOptions);
+  $('#supplier-filter').addEventListener('keydown',event=>{if(event.key==='Enter')event.preventDefault();});
+  $('#light-price-supplier').addEventListener('change',event=>{if(event.target.id==='supplier-filter')return;clearTimeout(timer);if(event.target.dataset.allSuppliers!==undefined){lightPriceState.suppliers=[];}else{lightPriceState.suppliers=$$('#light-price-supplier input[data-supplier]:checked').map(el=>el.value);}renderSupplierPicker(lightPriceState.supplierOptions||[]);runSearch();});
   document.addEventListener('click',event=>{const picker=$('#light-price-supplier');if(!picker.contains(event.target))picker.open=false;});
   $('#light-price-supplier').addEventListener('keydown',event=>{if(event.key==='Escape'){event.currentTarget.open=false;event.currentTarget.querySelector('summary').focus();}});
   $('#light-price-search').addEventListener('input',()=>{clearTimeout(timer);lightPriceState.request++;timer=setTimeout(runSearch,250);});

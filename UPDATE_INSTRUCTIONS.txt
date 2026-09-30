@@ -1,52 +1,23 @@
-TEC ConEst Estimator + Tenders v3.1 — 29 September 2026
+TEC ConEst v3.1 — 30 September 2026
 
-CHANGED-FILES PATCH
-Apply over the previously supplied v3.1 release. Extract the contents directly into the application root, preserving folders, then restart Passenger. For older installations use the full v3.1 archive.
+Apply over the 29 September v3.1 update. Extract these files into the application root and restart Passenger. Use the full archive for older installations. No database is included; schema remains 28.
 
-The existing database is upgraded automatically to schema 28 after a protected backup. No database, credentials or local runtime files are included. Do not overwrite your live .db.
+Changes: aligned Project Board list columns; searchable multi-supplier checklist preserving hidden selections; paginated title matching in estimate autocomplete, Quick Search and Catalog Explorer. Use Show more matches to reach the remaining results.
 
-Changes:
-1. Newest created is the Project Board default. Deadline ascending/descending are available; undated projects stay last.
-2. Removed the extra Reviews due this month list; kept review calendar stamps and Keep on Schedule.
-3. Light Price supports any combination of suppliers, with search and pagination.
-4. Search Tenders is merged into Project Chase-up. Existing links, status search, filters, analytics drilldowns and Excel export work there.
-5. Three per-item Exclude mark-up checkboxes: Material, Labour hours, Final. Unchecked means included. Choices persist through saves, copies and revisions; previews and Excel formulas respect them. Shared catalog defaults remain unchanged.
+Verified: title-matching pagination regression, pricing/search regressions, HTTP checks, workspace checks and browser checks for aligned columns, supplier selection and all 43 isolator fixture results.
 
-Verification: 137 backend tests passed; affected JavaScript checks and TypeScript compilation passed. Browser checks covered desktop/mobile controls, save/reload, suppliers, legacy navigation, status search, chart drilldown and Builders filtering.
-
-Old fingerprinted assets below are no longer referenced by new HTML. They can remain during rollout for existing browser sessions, then be removed:
-- assets/app.a06262435b52.js
-- assets/styles.6b1309ec7a11.css
-- tenders_web/assets/index-BnxYHFwy.js
-
-Files added or changed:
+Changed files:
 - TENDERS_UPDATE.md
 - app.py
-- assets/app.de293745c942.js
+- assets/app.0592fe74d162.js
 - assets/app.js
 - assets/index.html
 - assets/light_prices.js
-- assets/styles.776722b864b9.css
 - assets/styles.css
-- assets/workspace.js
-- assets/workspace_switch.js
-- conest_app/auto_upgrade.py
-- conest_app/exporter.py
-- conest_app/light_prices.py
-- conest_app/productivity.py
-- conest_app/projects.py
-- conest_app/release_v31_item_markups.py
-- tenders_frontend/index.html
-- tenders_frontend/src/components/tender-app.tsx
-- tenders_web/assets/index-DgGjNgIt.js
-- tenders_web/index.html
-- tests/review_calendar.test.js
-- tests/test_http_v231.py
-- tests/test_http_v232.py
-- tests/test_item_markups.py
-- tests/test_review_workflow.py
-- tests/test_v23.py
-- tests/test_v231.py
-- tests/test_v233.py
-- tests/test_v235.py
-- tests/workspace_v236.test.js
+- assets/styles.e9248db4e98a.css
+- conest_app/catalog.py
+- tests/test_search_pagination.py
+
+Retired fingerprinted files (may remain during rollout):
+- assets/app.de293745c942.js
+- assets/styles.776722b864b9.css

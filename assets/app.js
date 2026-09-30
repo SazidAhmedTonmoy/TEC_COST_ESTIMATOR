@@ -375,16 +375,19 @@ function openQuickSearch() {
   runQuickSearch().catch((error) => { $("#quick-search-status").textContent = error.message; });
 }
 
-async function runQuickSearch() {
+async function runQuickSearch(more=false) {
   clearTimeout(state.quickSearchTimer);
   const request = ++state.quickSearchRequest;
   const query = $("#quick-search-input").value.trim();
   const box = $("#quick-search-results");
   if (!query) { box.innerHTML = `<p class="helper-text">Type an item title to find it.</p>`; return; }
-  box.innerHTML = `<p class="helper-text">Searching…</p>`;
-  const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=20&recent_first=1`);
+  const offset=more?box.querySelectorAll(".quick-search-result").length:0;
+  if(!more)box.innerHTML = `<p class="helper-text">Searching…</p>`;
+  const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=30&recent_first=1&offset=${offset}`);
   if (request !== state.quickSearchRequest) return;
-  box.innerHTML = result.results.length ? result.results.map((item) => `<article class="quick-search-result"><div><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small><small>Material ${fmtMoney(item.unit_material)} · Labour ${catalogLaborLabel(item)}</small></div><div><button class="button primary small quick-add" type="button" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-unit="${escapeHtml(item.base_uom || "EA")}">Add</button><button class="text-button quick-edit-add" type="button" data-id="${item.id}">Edit & add</button></div></article>`).join("") : `<p class="helper-text">No matching item. Try another search or add a manual item.</p>`;
+  const html = result.results.length ? result.results.map((item) => `<article class="quick-search-result"><div><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small><small>Material ${fmtMoney(item.unit_material)} · Labour ${catalogLaborLabel(item)}</small></div><div><button class="button primary small quick-add" type="button" data-id="${item.id}" data-name="${escapeHtml(item.name)}" data-unit="${escapeHtml(item.base_uom || "EA")}">Add</button><button class="text-button quick-edit-add" type="button" data-id="${item.id}">Edit & add</button></div></article>`).join("") : `<p class="helper-text">No matching item. Try another search or add a manual item.</p>`;
+  box.querySelector(".quick-search-more")?.remove();if(more)box.insertAdjacentHTML("beforeend",html);else box.innerHTML=html;
+  if(result.has_more)box.insertAdjacentHTML("beforeend",`<button type="button" class="button secondary quick-search-more">Show more matches (${offset+result.results.length} of ${result.total})</button>`);
 }
 
 async function addQuickResult(button) {
@@ -479,7 +482,7 @@ function setSuggestionIndex(index) {
   });
 }
 
-async function loadSmartSuggestions() {
+async function loadSmartSuggestions(more=false) {
   const input = $("#smart-search-input");
   const text = input.value.trim();
   if (text.length < 2) {
@@ -492,9 +495,12 @@ async function loadSmartSuggestions() {
     .replace(/^\s*\d+(?:\.\d+)?\s*[x×]\s*/i, "")
     .trim() || text;
   try {
-    const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=8&recent_first=1`);
+    const result = await api(`/api/catalog/search?q=${encodeURIComponent(query)}&limit=30&recent_first=1&offset=${more?state.suggestions.length:0}`);
     if (requestId !== suggestionRequestId || input.value.trim() !== text) return;
-    renderSmartSuggestions(result.results || []);
+    const box=$('#smart-search-suggestions'),scroll=box.scrollTop;
+    renderSmartSuggestions(more?[...state.suggestions,...(result.results||[])]:result.results||[]);
+    if(result.has_more)box.insertAdjacentHTML('beforeend',`<button type="button" class="suggestion-more button secondary">Show more matches (${state.suggestions.length} of ${result.total})</button>`);
+    if(more)box.scrollTop=scroll;
   } catch (_) {
     if (requestId === suggestionRequestId) hideSmartSuggestions();
   }
@@ -915,19 +921,22 @@ async function saveManualItem(event) {
 }
 
 let catalogSearchTimer, catalogSearchRequest=0;
-async function loadCatalog(query = null) {
+async function loadCatalog(query = null,more=false) {
+  const offset=more?$("#catalog-results").querySelectorAll(".catalog-result").length:0;
   const request=++catalogSearchRequest;
   const term = query ?? $("#catalog-search-input").value.trim();
   const category = $("#catalog-category")?.value || "";
   const includeIncomplete = $("#catalog-show-incomplete")?.checked ? "1" : "0";
-  const result = await api(`/api/catalog/search?q=${encodeURIComponent(term)}&category=${encodeURIComponent(category)}&include_incomplete=${includeIncomplete}&limit=60`);
+  const result = await api(`/api/catalog/search?q=${encodeURIComponent(term)}&category=${encodeURIComponent(category)}&include_incomplete=${includeIncomplete}&limit=60&offset=${offset}`);
   if(request!==catalogSearchRequest)return;
   const box = $("#catalog-results");
   if (!result.results.length) {
     box.innerHTML = `<div class="empty-state"><p>No catalog results found.</p></div>`;
     return;
   }
-  box.innerHTML = result.results.map((item) => `<a href="#/catalog/${item.id}" class="catalog-result catalog-peek" data-id="${item.id}" data-catalog-preview="${item.id}"><span><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}<br>${variantText(item)} · ${Number(item.component_count || 0)} detail rows</small></span><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></a>`).join("");
+  const html = result.results.map((item) => `<a href="#/catalog/${item.id}" class="catalog-result catalog-peek" data-id="${item.id}" data-catalog-preview="${item.id}"><span><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}<br>${variantText(item)} · ${Number(item.component_count || 0)} detail rows</small></span><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></a>`).join("");
+  box.querySelector(".catalog-search-more")?.remove();if(more)box.insertAdjacentHTML("beforeend",html);else box.innerHTML=html;
+  if(result.has_more)box.insertAdjacentHTML("beforeend",`<button type="button" class="button secondary catalog-search-more">Show more matches (${offset+result.results.length} of ${result.total})</button>`);
 }
 
 async function deleteCurrentCatalog(){
@@ -1157,6 +1166,8 @@ function bindEvents() {
   });
   $("#smart-search-suggestions").addEventListener("mousedown", (event) => event.preventDefault());
   $("#smart-search-suggestions").addEventListener("click", (event) => {
+    const more=event.target.closest('.suggestion-more');
+    if(more){more.disabled=true;loadSmartSuggestions(true).catch(error=>toast(error.message,true));return;}
     const button = event.target.closest(".suggestion-item");
     if (button) chooseSmartSuggestion(Number(button.dataset.index)).catch((error) => toast(error.message, true));
   });
@@ -1229,6 +1240,7 @@ function bindEvents() {
     state.quickSearchTimer = setTimeout(() => runQuickSearch().catch((error) => { $("#quick-search-status").textContent = error.message; }), 180);
   });
   $("#quick-search-results").addEventListener("click", (event) => {
+    const more=event.target.closest(".quick-search-more");if(more){more.disabled=true;runQuickSearch(true).catch(error=>{more.disabled=false;toast(error.message,true)});return;}
     const add = event.target.closest(".quick-add");
     if (add) addQuickResult(add).catch((error) => { $("#quick-search-status").textContent = error.message; });
     const edit = event.target.closest(".quick-edit-add");
@@ -1303,6 +1315,7 @@ function bindEvents() {
   $("#catalog-category").addEventListener("change", () => loadCatalog().catch((error) => toast(error.message, true)));
   $("#catalog-show-incomplete").addEventListener("change", () => loadCatalog().catch((error) => toast(error.message, true)));
   $("#catalog-results").addEventListener("click", (event) => {
+    const more=event.target.closest(".catalog-search-more");if(more){more.disabled=true;loadCatalog(null,true).catch(error=>{more.disabled=false;toast(error.message,true)});return;}
     const result = event.target.closest(".catalog-result");
     if (result && result.tagName!=='A') showCatalogDetail(result.dataset.id).catch((error) => toast(error.message, true));
   });
