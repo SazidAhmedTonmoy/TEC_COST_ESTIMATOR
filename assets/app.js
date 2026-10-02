@@ -414,7 +414,7 @@ function renderEstimateLine(line) {
       <td>${fmtNumber(component.total_hours)}</td>
       <td>${fmtMoney(component.total_labor)}</td>
       <td>${fmtMoney(component.grand_total)}</td>
-      <td>—</td><td></td>
+      <td>—</td><td><button type="button" class="component-remove-live delete-line-component" data-line-id="${line.id}" data-component-id="${component.id}" aria-label="Remove component from this estimate" title="Remove from this estimate only">×</button></td>
     </tr>`).join("");
   return `
     <tr class="assembly-row" data-line-id="${line.id}">
@@ -423,7 +423,7 @@ function renderEstimateLine(line) {
         <div class="assembly-copy">
           <div class="line-heading-grid">
             <div class="line-name-field"><div class="assembly-name-row"><span class="drag-handle" draggable="true" data-drag-kind="line" data-line-id="${line.id}" title="Drag item within this category">⠿</span><textarea class="line-estimate-name" data-line-id="${line.id}" rows="1" maxlength="500" aria-label="Estimate item name">${escapeHtml(line.display_name || cleanEstimateTitle(line.name_snapshot))}</textarea></div>
-            ${['Lighting','Emergency & Exit Lighting'].includes(category)?`<label class="compact-light-reference"><span>Ref.</span><input class="line-light-reference" data-line-id="${line.id}" type="text" maxlength="120" value="${escapeHtml(line.reference_name||'')}" placeholder="Light ref." aria-label="Project-only light reference" title="Project-only lighting reference (for example D1 or EX1). Not saved to the shared catalogue."></label>`:''}</div>
+            ${['Lighting','Emergency & Exit Lighting'].includes(category)?`<label class="compact-light-reference"><span>Ref.</span><input class="line-light-reference" data-line-id="${line.id}" type="text" maxlength="120" value="${escapeHtml(line.reference_name||'')}" placeholder="Light ref." aria-label="Project-only light reference" title="Project-only lighting reference (for example D1 or EX1). Not saved to the shared catalogue."></label>`:''}<label class="line-remarks-field"><span>Remarks</span><textarea class="line-remarks" data-line-id="${line.id}" rows="1" maxlength="2000" placeholder="Add a note…" aria-label="Remarks for ${escapeHtml(line.name_snapshot)}">${escapeHtml(line.notes||'')}</textarea></label></div>
             <div class="line-category-field"><label class="line-category-label">Category<div class="category-editor" data-value="${escapeHtml(category)}"><textarea class="line-category" data-line-id="${line.id}" rows="1" maxlength="120" aria-label="Scope or category for ${escapeHtml(line.name_snapshot)}" title="Choose or type a category; saves when you leave this field">${escapeHtml(category)}</textarea><div class="category-suggestions hidden" aria-label="Suggested categories"></div></div></label>
             <div class="assembly-actions"><button class="text-button edit-estimate-line" data-line-id="${line.id}" title="Edit item and components">Edit item</button><button class="text-button copy-estimate-line" data-line-id="${line.id}">Copy item</button><span class="line-detail-count">${line.components.length} components</span></div></div>
           </div>
@@ -1244,9 +1244,9 @@ function bindEvents() {
   });
   $("#estimate-lines").addEventListener("change", (event) => {
     const field=event.target;
-    const key=field.matches('.line-light-reference')?'reference_name':field.matches('.line-estimate-size')?'size_snapshot':field.matches('.line-work-type')?'work_type_snapshot':field.matches('.line-estimate-name')?'name_snapshot':field.matches('.line-supply-quantity')?'supply_quantity_override':field.matches('.line-supply-cost')?'supply_unit_cost_override':null;
+    const key=field.matches('.line-remarks')?'notes':field.matches('.line-light-reference')?'reference_name':field.matches('.line-estimate-size')?'size_snapshot':field.matches('.line-work-type')?'work_type_snapshot':field.matches('.line-estimate-name')?'name_snapshot':field.matches('.line-supply-quantity')?'supply_quantity_override':field.matches('.line-supply-cost')?'supply_unit_cost_override':null;
     if(key){
-      const value=['reference_name','name_snapshot','work_type_snapshot','size_snapshot'].includes(key)?field.value:field.value===''?null:Number(field.value);
+      const value=['notes','reference_name','name_snapshot','work_type_snapshot','size_snapshot'].includes(key)?field.value:field.value===''?null:Number(field.value);
       field.disabled=true;
       api(`/api/projects/${state.projectId}/lines/${field.dataset.lineId}`,{method:'PATCH',body:{[key]:value,expected_revision:state.projectData.lines.find(l=>l.id===Number(field.dataset.lineId))?.revision}}).then(result=>{if(result.project.id===state.projectId && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0)){state.projectData=result;renderProject();}}).catch(error=>{field.disabled=false;toast(error.message,true);});
     }

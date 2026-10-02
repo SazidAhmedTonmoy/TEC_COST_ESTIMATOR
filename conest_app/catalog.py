@@ -207,7 +207,7 @@ def search_catalog(
     rows = _search_rows(conn)
     recent = {int(row[0]): row[1] for row in conn.execute(
         "SELECT catalog_item_id, MAX(created_at) FROM project_lines WHERE catalog_item_id IS NOT NULL GROUP BY catalog_item_id"
-    )} if recent_first else {}
+    )}
     tokens = normalized.split()
     content_sizes: dict[str, dict[str, int]] = {}
     for row in rows:
@@ -239,24 +239,16 @@ def search_catalog(
             row = candidate[2]
             key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"],normalize_text(display_title(row["name"])),row["category"],row["work_type"])
             current = best_by_content.get(key)
-            rank = (row["importance_rating"], recent.get(int(row["id"]), ""), row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
-            if current is None or rank > (current[2]["importance_rating"], recent.get(int(current[2]["id"]), ""), current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
+            rank = (int(row["usage_count"]), recent.get(int(row["id"]), ""), row["importance_rating"], row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
+            if current is None or rank > (int(current[2]["usage_count"]), recent.get(int(current[2]["id"]), ""), current[2]["importance_rating"], current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
                 best_by_content[key] = candidate
         scored = list(best_by_content.values())
 
-    if normalized:
-        scored.sort(key=lambda item: (-item[0], -item[1], -int(item[2]["usage_count"]), item[2]["name"], item[2]["unit_material"]))
-    else:
-        scored.sort(
-            key=lambda item: (
-                -int(item[2]["usage_count"]),
-                0 if item[2]["is_manual"] else 1,
-                clean_text(item[2]["name"]),
-                -item[1],
-            )
-        )
-    if recent_first:
-        scored.sort(key=lambda item: recent.get(int(item[2]["id"]), ""), reverse=True)
+    # Stable priority across every search surface, applied before pagination.
+    scored.sort(key=lambda item: (-item[0], -item[1], item[2]['name'], int(item[2]['id'])))
+    scored.sort(key=lambda item: int(item[2]['importance_rating'] or 0),reverse=True)
+    scored.sort(key=lambda item: recent.get(int(item[2]['id']),''),reverse=True)
+    scored.sort(key=lambda item: int(item[2]['usage_count'] or 0),reverse=True)
     results: list[dict[str, Any]] = []
     if page_info is not None:page_info.update(total=len(scored),offset=offset,has_more=offset+limit<len(scored))
     for score, quality, row, alias_source in scored[offset:offset+limit]:

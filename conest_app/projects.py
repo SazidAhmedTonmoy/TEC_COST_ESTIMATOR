@@ -161,8 +161,7 @@ def add_catalog_line(
     line_id = int(cursor.lastrowid)
     _copy_line_components(conn, line_id, item)
     conn.execute('UPDATE project_lines SET size_snapshot=? WHERE id=?',(item.get('assembly_size',''),line_id))
-    if query:
-        record_selection(conn, query, catalog_item_id)
+    record_selection(conn, query or item["name"], catalog_item_id)
     conn.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (now, project_id))
     return calculate_project(conn, project_id)
 
@@ -270,6 +269,7 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
     if not line:
         raise LookupError("Estimate line not found")
     check_revision(line, payload)
+    if 'notes' in payload and (not isinstance(payload['notes'],str) or len(payload['notes'])>2000):raise ValueError('Remarks must be text of up to 2,000 characters')
     quantity = _nonnegative(payload.get("quantity", line["quantity"]), "Estimate quantity")
     category = clean_text(payload.get("category_snapshot", line["category_snapshot"])) or "Other"
     if len(category) > 120:

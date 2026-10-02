@@ -1,17 +1,31 @@
-TEC ConEst v3.1 — search panel colours and star alignment
+TEC ConEst v3.1 — project titles, catalogue priority and estimate remarks
 
-Apply over the latest v3.1 optional-stars update. Extract all files preserving folders, push to GitHub and restart Passenger using your normal deployment. Use the full archive for older installations.
+Apply over the latest v3.1 search-panel-colour update. Extract all files preserving folders and deploy using your existing GitHub workflow. Use the full archive for older installations.
 
-The entire Smart Catalog Search panel now has coordinated teal backgrounds, borders, labels, inputs and buttons for light and dark modes. Catalogue detail stars align to the right edge of the action buttons and totals.
+1. Pencil beside Manage Project title: edit the name, then Save project. Existing owner/admin permissions apply.
+2. Matching catalogue search results sort by most used, then last used, then star rating, before pagination. Usage is shared across the catalogue, not personal to one user. Additions without a search query now also count.
+3. Remarks below each estimate item's title/reference. Saved to that estimate only, with existing notes included in copies, revisions and Excel.
+4. Cross beside each expanded component removes it from this estimate only and recalculates totals. Shared catalogue and other estimate items remain unchanged. Existing edit access, CSRF protection and revision conflicts apply.
 
-No database changes in this patch. Do not replace your production database. Full archive retains schema 29 and previous v3.1 features. No database or credentials are included.
+Schema remains 29. No database replacement or migration needed for this patch. Do not overwrite the production database.
 
-Validation: frontend rebuilt; desktop and mobile browser checks passed for colours, star alignment, rating persistence and unchanged estimate costs.
+Validation: 145 backend tests passed; desktop/mobile browser checks passed for renaming, persisted remarks and component removal.
 
 Changed files:
+- app.py
+- assets/app.8cfb724e3ad5.js
+- assets/app.js
+- assets/estimate_workspace.js
 - assets/index.html
-- assets/styles.2e0d71bb8286.css
+- assets/styles.9b0f2f732c43.css
 - assets/styles.css
+- assets/workspace.js
+- conest_app/catalog.py
+- conest_app/estimate_tools.py
+- conest_app/projects.py
+- conest_app/workspace.py
+- tests/test_qol_october.py
 
 Retired fingerprinted files (may remain during rollout):
-- assets/styles.759deaafd9d9.css
+- assets/app.e246d3173f1f.js
+- assets/styles.2e0d71bb8286.css

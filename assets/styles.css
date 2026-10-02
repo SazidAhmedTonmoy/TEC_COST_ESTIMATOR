@@ -2098,3 +2098,7 @@ html[data-theme="dark"] .finder-panel :is(input,button):focus-visible{outline-co
 /* Keep the star row inside the same right edge as the detail actions and totals. */
 #catalog-detail .detail-rating{flex-basis:100%;min-width:0;padding:0}
 #catalog-detail .detail-rating .rating-stamp{flex:0 0 auto;width:max-content;min-width:100px;letter-spacing:0;text-align:right}
+
+.brief-title-row{display:flex;align-items:center;gap:10px}.brief-title-row h2{min-width:0;overflow-wrap:anywhere}.brief-title-row .icon-button{flex-shrink:0;font-size:23px}#brief-name{width:100%;margin-top:8px;font-size:18px;font-weight:650}.line-remarks-field{display:grid;gap:4px;margin:8px 0 0 30px;font-size:11px;color:var(--muted)}.line-remarks-field textarea{width:100%;min-height:32px;font-size:12px;resize:vertical;font-weight:400}.delete-line-component{background:transparent;border:0;color:var(--muted);font-size:21px;cursor:pointer;padding:6px}.delete-line-component:hover{color:#dc5261}.delete-line-component:focus-visible{outline:2px solid var(--teal);border-radius:5px}
+
+#project-brief-dialog .dialog-heading>div{flex:1;min-width:0}.brief-title-row #brief-name{flex:1;min-width:0;margin-top:0}.brief-title-row #brief-name.hidden{display:none}

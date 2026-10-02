@@ -106,6 +106,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     const copy=event.target.closest('.copy-estimate-line');
     if(copy){const line=lineById(copy.dataset.lineId);estimateOperation(`/api/projects/${state.projectId}/lines/${line.id}/copy`,{},line).catch(error=>toast(error.message,true));}
+    const remove=event.target.closest('.component-remove-live');
+    if(remove){const line=lineById(remove.dataset.lineId);estimateViewState.expanded.add(line.id);estimateOperation(`/api/projects/${state.projectId}/lines/${line.id}/components/${remove.dataset.componentId}/remove`,{},line).then(()=>toast('Component removed from this estimate only')).catch(error=>toast(error.message,true));return;}
     const component=event.target.closest('.component-copy-live');
     if(component){const line=lineById(component.dataset.lineId);estimateViewState.expanded.add(line.id);estimateOperation(`/api/projects/${state.projectId}/lines/${line.id}/components/${component.dataset.componentId}/copy`,{},line).catch(error=>toast(error.message,true));}
   });

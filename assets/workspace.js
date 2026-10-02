@@ -206,7 +206,7 @@ async function openProjectBrief(id) {
   if(request!==workspaceState.briefRequest||!dialog.open) return;
   workspaceState.briefId=p.id; workspaceState.briefProject=p;
   $('#brief-open-estimate').href=`#/estimate/${p.id}`;
-  $('#brief-title').textContent=p.name; $('#brief-client').textContent=builderText(p, 'Manage project');
+  $('#brief-title').textContent=p.name; $('#brief-name').value=p.name; $('#brief-name').disabled=!p.can_manage; $('#brief-name').classList.add('hidden'); $('#brief-title').classList.remove('hidden'); $('#brief-edit-title').classList.toggle('hidden',!p.can_manage); $('#brief-client').textContent=builderText(p, 'Manage project');
   $('#brief-summary').innerHTML=`<div class="brief-meta">${projectStatus(p)}<span>Added by: ${escapeHtml(p.created_by_name||'Creator not recorded')}</span><span>Team: ${escapeHtml(teamNames(p))}</span>${individualNames(p)?`<span>Individual editors: ${escapeHtml(individualNames(p))}</span>`:''}</div><p class="helper-text">Contributors: ${p.contributors?.length?p.contributors.map(u=>escapeHtml(u.name)).join(', '):'No recorded work yet'}</p>`;
   $('#brief-scope').value=p.scope_of_work||''; $('#brief-deadline').value=p.submission_deadline||''; $('#brief-status').value=p.status;
     $('#brief-review-deadline').value=p.review_deadline||'';syncReviewDeadline(p.can_edit);
@@ -287,7 +287,7 @@ async function saveProjectWorkflow() {
   const p=workspaceState.briefProject;
   if(!p) throw new Error('Project no longer available');
   const payload={status:$('#brief-status').value,review_deadline:$('#brief-status').value==='in_review'?$('#brief-review-deadline').value:null,award_status:$('#brief-award-status').value,expected_revision:p.revision};
-  if(p.can_manage) {payload.scope_of_work=$('#brief-scope').value;payload.builders=readBuilderEditor('brief-builders');payload.submission_deadline=$('#brief-deadline').value;}
+  if(p.can_manage) {payload.name=$('#brief-name').value;payload.scope_of_work=$('#brief-scope').value;payload.builders=readBuilderEditor('brief-builders');payload.submission_deadline=$('#brief-deadline').value;}
   if(p.can_manage) {
     payload.team_ids=$$('#assignment-options input:checked').map(input=>Number(input.value));
     payload.user_ids=$$('#individual-assignment-options input:checked').map(input=>Number(input.value));
@@ -541,6 +541,7 @@ function bindWorkspaceEvents() {
     $('#assignment-user-empty').classList.toggle('hidden',!choices.length||choices.some(el=>!el.classList.contains('hidden')));
   });
   $('#assignment-user-search').addEventListener('keydown',event=>{if(event.key==='Enter')event.preventDefault();});
+  $('#brief-edit-title').addEventListener('click',()=>{if(!workspaceState.briefProject?.can_manage)return;$('#brief-title').classList.add('hidden');$('#brief-name').classList.remove('hidden');$('#brief-name').focus();$('#brief-name').select();});
   $('#brief-status').addEventListener('change',()=>syncReviewDeadline());
   $('#project-workflow-form').addEventListener('submit',event=>submitWithButton(event,saveProjectWorkflow));
   $('#team-form').addEventListener('submit',event=>submitWithButton(event,saveTeam));

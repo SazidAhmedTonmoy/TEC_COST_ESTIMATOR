@@ -234,15 +234,18 @@ def project_access_options(conn, project_id, user):
 def update_workflow(conn, project_id, payload, user):
     project = require_project(conn, project_id, user)
     check_revision(project, payload)
-    allowed = {'scope_of_work', 'submission_deadline', 'review_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status', 'builders'}
+    allowed = {'name', 'scope_of_work', 'submission_deadline', 'review_deadline', 'status', 'team_ids', 'user_ids', 'expected_revision', 'award_status', 'builders'}
     if set(payload) - allowed: raise ValueError('Unknown project workflow field')
     if {'team_ids', 'user_ids'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
         raise AccessError(403, 'Only the project owner or an administrator can change project access')
     # Validate all requested grants before performing any mutation.
     chosen_teams = _validate_access_ids(conn, payload['team_ids'], 'team', project) if 'team_ids' in payload else None
     chosen_users = _validate_access_ids(conn, payload['user_ids'], 'user', project) if 'user_ids' in payload else None
-    if {'scope_of_work', 'submission_deadline', 'builders'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
+    if {'name', 'scope_of_work', 'submission_deadline', 'builders'} & payload.keys() and not permissions(conn,project,user)['can_manage']:
         raise AccessError(403, 'Only the project creator or an administrator can change its brief')
+    name=payload.get('name',project['name'])
+    if not isinstance(name,str) or not name.strip() or len(name.strip())>500:raise ValueError('Project title must be 1–500 characters')
+    name=name.strip()
     builders = stored_builders(payload, project)
     scope = payload.get('scope_of_work', project['scope_of_work'])
     if not isinstance(scope, str) or len(scope)>20000: raise ValueError('Scope of Work must be text of up to 20,000 characters')
@@ -271,6 +274,9 @@ def update_workflow(conn, project_id, payload, user):
     award = payload.get('award_status', project['award_status'])
     if award not in ('', 'won', 'lost'):
         raise ValueError('Choose Won, Lost or leave the project result unset')
+    if name != project['name']:
+        conn.execute('UPDATE projects SET name=? WHERE id=?',(name,project_id))
+        record_activity(conn,project_id,user,'Renamed project',f"{project['name']} → {name}")
     if builders != (project['client'] or ''):
         conn.execute('UPDATE projects SET client=? WHERE id=?', (builders, project_id))
         record_activity(conn, project_id, user, 'Updated project builders', builders or 'No builder assigned')

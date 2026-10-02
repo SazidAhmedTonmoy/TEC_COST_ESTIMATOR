@@ -423,7 +423,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     lambda conn: self._authorize_connection(conn, path))
                 self._send_json({'success': True, **result})
                 return
-            tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|lines/(\d+)/(copy|components/reorder|components/(\d+)/copy))',path)
+            tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|lines/(\d+)/(copy|components/reorder|components/(\d+)/(?:copy|remove)))',path)
             if tools_match:
                 from conest_app import estimate_tools
                 payload=self._json_body();pid=int(tools_match[1]);lid=int(tools_match[3]) if tools_match[3] else None
@@ -438,10 +438,10 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         name=conn.execute('SELECT name_snapshot FROM project_lines WHERE id=?',(lid,)).fetchone()[0]
                         self._audit(conn,pid,'Copied estimate item',name)
                     else:
-                        action='copy' if tools_match[5] else 'reorder'
+                        action=('remove' if path.endswith('/remove') else 'copy') if tools_match[5] else 'reorder'
                         estimate_tools.component_action(conn,pid,lid,payload,action,int(tools_match[5]) if tools_match[5] else None)
                         name=conn.execute('SELECT name_snapshot FROM project_lines WHERE id=?',(lid,)).fetchone()[0]
-                        self._audit(conn,pid,'Copied component' if action=='copy' else 'Reordered components',name)
+                        self._audit(conn,pid,'Removed estimate component' if action=='remove' else 'Copied component' if action=='copy' else 'Reordered components',name)
                     if tools_match[2]=='reorder' and isinstance(payload.get('_known_lines'),dict):
                         result=self._project_payload(conn,{'project':dict(get_project(conn,pid))})
                         result.update(estimate_order=True,line_order=payload['ids'],line_versions=[dict(row) for row in conn.execute('SELECT id,revision,sort_order,updated_at FROM project_lines WHERE project_id=?',(pid,))])

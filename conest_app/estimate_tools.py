@@ -51,7 +51,15 @@ def component_action(conn,pid,lid,payload,action,cid=None):
     line=line_record(conn,pid,lid,payload)
     records=conn.execute('SELECT * FROM project_line_components WHERE project_line_id=? ORDER BY line_order,id',(lid,)).fetchall()
     ids=[r['id'] for r in records]
-    if action=='copy':
+    if action=='remove':
+        if cid not in ids:raise LookupError('Component not found')
+        from .estimate_options import supply_component
+        primary=supply_component(line['category_snapshot'],[dict(r) for r in records])
+        if primary and primary['id']==cid:
+            conn.execute('UPDATE project_lines SET supply_unit_cost_override=NULL,supply_quantity_override=NULL WHERE id=?',(lid,))
+        conn.execute('DELETE FROM project_line_components WHERE id=? AND project_line_id=?',(cid,lid))
+        ids.remove(cid)
+    elif action=='copy':
         row=next((r for r in records if r['id']==cid),None)
         if row is None:raise LookupError('Component not found')
         from .estimate_options import supply_component
