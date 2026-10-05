@@ -9,7 +9,7 @@ from zipfile import ZipFile, ZIP_DEFLATED
 from xml.etree import ElementTree as ET
 from openpyxl import load_workbook
 from conest_app.tenders import Store, ValidationError
-from conest_app.tender_import import import_workbook
+from conest_app.tender_import import import_workbook, parse_workbook
 from conest_app.tender_export import export_workbook, sheet_xml
 
 ACTOR={'id':1,'name':'Import test'}
@@ -93,6 +93,26 @@ class TenderImportTests(unittest.TestCase):
             d=copy.deepcopy(self.data);d['submissions'][0]['value']=value
             with self.assertRaises(ValidationError):self.run_import(self.export(d))
         with self.assertRaises(ValidationError):self.run_import(b'not an xlsx')
+    def test_calculated_empty_string_is_valid_but_missing_or_error_cache_is_not(self):
+        blob=self.export();ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+        with ZipFile(io.BytesIO(blob)) as z:original=z.read('xl/worksheets/sheet4.xml')
+        for kind in ('empty-string','missing-number','missing-string','error'):
+            root=ET.fromstring(original)
+            c=next(c for c in root.iter('{'+ns+'}c') if c.get('r')=='O6')
+            c.clear();c.set('r','O6')
+            if kind!='missing-number':c.set('t','e' if kind=='error' else 'str')
+            ET.SubElement(c,'{'+ns+'}f',{'t':'shared','si':'5'}).text='IF(1=1,"","Follow up")'
+            if kind!='missing-string':
+                value=ET.SubElement(c,'{'+ns+'}v')
+                if kind=='error':value.text='#VALUE!'
+            updated=rewrite(blob,{'xl/worksheets/sheet4.xml':ET.tostring(root)})
+            if kind=='empty-string':
+                parsed=parse_workbook('test.xlsx',updated)
+                self.assertEqual(parsed['records'][0]['latest'],'')
+                self.assertEqual(len(parsed['records']),291)
+            else:
+                with self.assertRaisesRegex(ValidationError,'formula has no valid saved result'):
+                    parse_workbook('test.xlsx',updated)
     def test_visuals_formula_cache_empty_export_and_literal_text(self):
         d=copy.deepcopy(self.data);d['submissions'][0]['remarks']='=HYPERLINK("bad")'
         blob=self.export(d);w=load_workbook(io.BytesIO(blob),data_only=False)

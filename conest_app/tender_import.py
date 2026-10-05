@@ -71,7 +71,10 @@ def parse_workbook(filename, content):
                 for c in root.findall('.//s:sheetData/s:row/s:c',ns):
                     if c.find('s:f',ns) is not None:
                         value=c.find('s:v',ns)
-                        if value is None or value.text is None or c.attrib.get('t')=='e':
+                        # Excel writes a calculated empty string as t="str" with <v/>.
+                        # This is a valid result, unlike a missing numeric cache.
+                        empty_string=value is not None and c.attrib.get('t')=='str' and value.text is None
+                        if value is None or (value.text is None and not empty_string) or c.attrib.get('t')=='e':
                             raise ValidationError(f'{s.attrib["name"]}!{c.attrib.get("r","")}: formula has no valid saved result. Recalculate and save the workbook in Excel first.')
         from openpyxl import load_workbook
         wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True, keep_links=False)
