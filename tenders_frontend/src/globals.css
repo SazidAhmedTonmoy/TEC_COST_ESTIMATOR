@@ -206,3 +206,13 @@ tbody [data-slot=table-row]:hover,.tender-table tbody tr:hover{background:var(--
 .activity-empty{padding:28px 18px;color:var(--muted-foreground)}
 @media(max-width:600px){.activity-history-toolbar{align-items:flex-start;flex-direction:column}.activity-history-dialog[data-slot=dialog-content]{padding:20px}.activity-history-chart.bar-chart{height:285px}.activity-history-chart .bar-track{height:175px}}
 .activity-panel .bar-column:disabled .bar-track>div,.activity-history-chart .bar-column:disabled .bar-track>div{min-height:0}
+
+/* Incremental workbook import */
+.tender-import-dialog{width:min(640px,calc(100vw - 32px))!important;max-width:640px!important;max-height:88dvh;overflow:auto;background:var(--card);color:var(--foreground);border-color:var(--border)}
+.import-file-picker{display:flex;align-items:center;gap:14px;padding:20px;border:1px dashed var(--border);border-radius:12px;background:var(--muted);text-align:left;width:100%}
+.import-file-picker small,.import-changes small{display:block;margin-top:4px;color:var(--muted-foreground)}
+.import-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.import-counts>div{border:1px solid var(--border);border-radius:12px;padding:15px;display:flex;flex-direction:column;gap:4px}
+.import-counts strong{font-size:26px}.import-counts span,.import-note{font-size:13px;color:var(--muted-foreground);line-height:1.6}
+.import-changes{max-height:230px;overflow:auto}.import-changes>div{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.import-actions{display:flex;justify-content:flex-end;gap:10px}.import-success{display:flex;align-items:center;gap:8px;color:var(--foreground)}

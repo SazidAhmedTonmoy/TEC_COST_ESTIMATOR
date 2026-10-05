@@ -14,6 +14,20 @@ class TenderIntegrationTests(unittest.TestCase):
     def tearDown(self):
         tenders._store=None
         http_helpers.HttpPatchTests.tearDown(self)
+    def test_import_preview_apply_csrf_and_revision(self):
+        import base64
+        from conest_app.tender_export import export_workbook
+        store=tenders.get_store();data=store.all_data()
+        blob=export_workbook(data,[data['submissions'][0]['id']])
+        body={'filename':'test.xlsx','content':base64.b64encode(blob).decode(),'mode':'preview'}
+        self.assertEqual(self.request('POST','/api/tenders/import',body,csrf=False)[0],403)
+        status,preview=self.request('POST','/api/tenders/import',body)
+        self.assertEqual(status,200,preview);self.assertEqual(preview['counts']['unchanged'],1)
+        body.update(mode='apply',token=preview['token'])
+        status,result=self.request('POST','/api/tenders/import',body)
+        self.assertEqual(status,200,result);self.assertTrue(result['applied'])
+        self.assertEqual(self.request('POST','/api/tenders/import',body)[0],409)
+        self.cookie='';self.assertEqual(self.request('POST','/api/tenders/import',body)[0],401)
     def test_bootstrap_authentication_and_password_policy(self):
         status,payload=self.request('GET','/api/tenders/bootstrap')
         self.assertEqual(status,200,payload)

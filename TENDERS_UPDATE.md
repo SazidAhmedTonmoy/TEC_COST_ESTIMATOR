@@ -1,4 +1,31 @@
-# TEC ConEst v3.1 — deployment and database guide
+# v3.2 Tender Excel import and export
+
+## Tender Excel update — 5 October 2026
+
+- Dashboard: **Import Excel** sits beside **+ New tender**. Preview new, updated and unchanged submissions before importing.
+- Accepts `.xlsx` and `.xlsm` files with the original **Raw Data** layout, or a TEC **Tenders** export. VBA macros are never executed.
+- Uses Submission ID when supplied; otherwise matches project + builder (case and extra spacing ignored). Row order is not an identifier. For name changes, use the exported Submission ID; renaming an original-workbook project/builder is otherwise treated as a new submission.
+- Adds new records, updates changed imported fields and skips unchanged rows. Previous imports establish a baseline so unchanged Excel cells do not undo later app edits. Changed workbook values take precedence when applied.
+- Imports dated chase history and exported scheduled reminders. Existing records, notes and reminders absent from the workbook are preserved; importing is not a deletion operation.
+- Conflicting duplicate rows or ambiguous matches stop the import. Changes apply together in a database transaction. If another user changes tender data after preview, preview again.
+- Import limit: 15 MB / 20,000 submissions. Formulas must have saved results: recalculate and save in Excel before uploading if prompted.
+- Export: a visual overview with separate TEC-outcome, builder-outcome and pricing-feedback charts; clearer KPI totals, status colours, striped rows, value bars, readable dates, filters and frozen headers. Technical IDs remain in hidden columns for safe reimport.
+- Project value counts the highest quote for each project once. Builder awards and TEC wins are separate measures.
+
+**Deployment:** apply the changed-files ZIP over the latest Blueprint-login release, retaining folder paths, or use the full v3.2 ZIP. Deploy code and restart Passenger. Do not replace or delete live `.db` files. No new package dependency or estimator schema migration is required; import baselines are stored in the existing tender settings table. Built Tenders assets are included.
+
+**Checks:** import idempotency, original-workbook row reordering, additions and updates, history/reminder preservation, duplicate rejection, concurrent edits, authentication and CSRF, export structure and totals, native charts, desktop dark and mobile light import flow. Visual previews were checked; desktop Microsoft Excel was not available in this environment.
+
+# v3.2 release — October 2026
+
+The last three updates form v3.2:
+- Project JSON import/export and example; component copy/paste; This month filter.
+- Coloured JSON transfer cards; replaceable clipboard with copied-item label; This month default.
+- Approved Blueprint split login with responsive layout and reduced-motion support.
+
+Database schema remains 29. Existing migration names and data are preserved.
+
+# TEC ConEst v3.2 — deployment and database guide
 
 Extract the changed-files ZIP into the existing TEC ConEst application folder and replace matching files, then restart the Python app / cPanel application. Keep the existing `data/` directory. The full ZIP is the complete source alternative. Neither package replaces your estimator database. Compiled frontend assets are included; Node is not required on the hosting server.
 
@@ -10,7 +37,7 @@ Builders now has an **All Projects** selector in place of its redundant builder 
 
 Tender activity keeps its six-month dashboard preview. **View all months** opens a wide, scrollable chart with a year selector and every month between the earliest and latest dated submission, including zero-activity gaps. Selecting a nonzero bar opens that month's tender submissions. This uses the data already loaded; it makes no extra server request.
 
-Both ZIPs include the earlier review workflow and alignment changes. The changed-files ZIP is cumulative from the last pre-review v3.0 package. Runtime databases are excluded. The deployment health check now expects release **3.1**, schema **27**. The Passenger adapter version is **3.1**; if your deployment excludes `passenger_wsgi.py`, replace that file manually in cPanel as before and restart the application.
+Both ZIPs include the earlier review workflow and alignment changes. The changed-files ZIP is cumulative from the last pre-review v3.0 package. Runtime databases are excluded. The deployment health check now expects release **3.2**, schema **29**. The Passenger adapter version is **3.2**; if your deployment excludes `passenger_wsgi.py`, replace that file manually in cPanel as before and restart the application.
 
 ## Review workflow update — 28 September 2026
 

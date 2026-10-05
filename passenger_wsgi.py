@@ -160,7 +160,7 @@ def application(environ, start_response):
         parsed_headers.append((name.decode('latin-1').strip(), value.decode('latin-1').strip()))
     status_code = int(parts[1])
     response_headers, body = prepare_response(environ, status_code, parsed_headers, body)
-    response_headers.append(('X-ConEst-Adapter','3.1'))
+    response_headers.append(('X-ConEst-Adapter','3.2'))
     response_headers.append(('Server-Timing',f'app;dur={(time.perf_counter()-started)*1000:.1f}'))
     start_response(status, response_headers)
     if environ.get('REQUEST_METHOD', 'GET').upper() == 'HEAD':

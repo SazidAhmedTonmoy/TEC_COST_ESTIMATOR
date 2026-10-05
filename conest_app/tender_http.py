@@ -64,6 +64,19 @@ def route(h,path):
             if not isinstance(ids,list) or any(not isinstance(i,str) for i in ids):raise tenders.ValidationError('Choose submissions to export.')
             send(h,export_workbook(store.all_data(),ids,tenders.text(body.get('description'),'Filters',limit=4000)),
                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','TEC-Tenders.xlsx');return
+        if path=='/api/tenders/import' and h.command=='POST':
+            import base64
+            import binascii
+            from .tender_import import import_workbook, MAX_BYTES
+            encoded=body.get('content')
+            if not isinstance(encoded,str) or len(encoded)>((MAX_BYTES+2)//3)*4:
+                raise tenders.ValidationError('Choose a workbook smaller than 15 MB.')
+            try:content=base64.b64decode(encoded,validate=True)
+            except (ValueError,binascii.Error):raise tenders.ValidationError('Invalid workbook upload.')
+            mode=body.get('mode','preview')
+            if mode not in ('preview','apply'):raise tenders.ValidationError('Invalid import action.')
+            expected=tenders.text(body.get('token'),'Preview token',required=True,limit=100) if mode=='apply' else None
+            send(h,import_workbook(store,tenders.text(body.get('filename'),'Filename',required=True,limit=255),content,h.user,expected));return
         if path=='/api/tenders/submissions' and h.command=='DELETE':
             send(h,store.delete_submission(body,h.user));return
         routes={'submissions':store.save_submission,'chases':store.add_chase,'reminders':store.save_reminder}
