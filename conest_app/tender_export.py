@@ -33,7 +33,11 @@ def styles():
     fonts=''.join(f'<font><sz val="{size}"/><color rgb="FF{color}"/><name val="Aptos"/>{"<b/>" if bold else ""}</font>' for size,color,bold in [(10,'172B3A',False),(18,'FFFFFF',True),(10,'5F7180',False),(10,'FFFFFF',True),(10,'172B3A',True),(10,'806009',False),(24,'173B55',True),(11,'FFFFFF',True)])
     fills='<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'+''.join(f'<fill><patternFill patternType="solid"><fgColor rgb="FF{c}"/><bgColor indexed="64"/></patternFill></fill>' for c in ['0B1F33','173B55','EAF1F5','FFFFFF','F8FAFB','FFF7E4','FFF2A8','E2F3EC','FFF1C2','FBE6E9','E7EEFB','F0E8FA','E8EDF1'])
     definitions=[(0,0,0),(1,2,0),(2,0,0),(3,3,0),(4,4,0),(0,5,0),(0,6,0),(0,5,164),(0,6,164),(0,5,165),(0,6,165),(0,7,0),(4,8,164),(5,5,0),(0,5,166),(3,3,164),(4,8,0),(6,4,0),(6,4,164),(4,9,0),(4,10,0),(4,11,0),(4,12,0),(4,13,0),(4,14,0),(7,3,0),(0,5,9)]
-    xfs=''.join(f'<xf numFmtId="{num}" fontId="{font}" fillId="{fill}" borderId="0" xfId="0" applyFont="1" applyFill="1" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center" {('horizontal="left" ' if font==6 else 'horizontal="center" ' if num in (165,166) else '')}wrapText="1"/></xf>' for font,fill,num in definitions)
+    formats=[]
+    for font,fill,num in definitions:
+        alignment='horizontal="left" ' if font==6 else 'horizontal="center" ' if num in (165,166) else ''
+        formats.append(f'<xf numFmtId="{num}" fontId="{font}" fillId="{fill}" borderId="0" xfId="0" applyFont="1" applyFill="1" applyNumberFormat="1" applyAlignment="1"><alignment vertical="center" {alignment}wrapText="1"/></xf>')
+    xfs=''.join(formats)
     return f'''<styleSheet xmlns="{NS}"><numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;$&quot;#,##0.00;[Red](&quot;$&quot;#,##0.00);&quot;$&quot;0.00"/><numFmt numFmtId="165" formatCode="d mmm yyyy"/><numFmt numFmtId="166" formatCode="d mmm yyyy hh:mm"/></numFmts><fonts count="8">{fonts}</fonts><fills count="15">{fills}</fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="{len(definitions)}">{xfs}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'''
 
 def sheet_xml(name,headers,rows,widths,generated,description,note='',money_cols=(),date_cols=(),time_cols=(),links=None,summary=False):
