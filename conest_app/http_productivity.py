@@ -12,6 +12,18 @@ from .exporter import export_project
 
 class ProductivityHTTP:
     def _productivity_route(self,path):
+        transfer=re.fullmatch(r'/api/projects/(\d+)/json',path)
+        if transfer or path=='/api/project-json/import':
+            from . import project_json
+            self._guard(path)
+            if transfer and self.command=='GET':
+                with self._read_connection() as conn:result=project_json.export_json(conn,int(transfer[1]),self.user)
+            elif path=='/api/project-json/import' and self.command=='POST':
+                payload=self._json_body()
+                with self._write_connection() as conn:result={'id':project_json.import_json(conn,payload,self.user)}
+            else:raise AccessError(405,'Method not allowed')
+            self._send_json(result);return True
+
         project=re.fullmatch(r'/api/projects/(\d+)/(revisions(?:/\d+(?:/export)?)?|presence)',path)
         price=re.fullmatch(r'/api/catalog/(\d+)/price-history',path)
         backup=re.fullmatch(r'/api/backups(?:/([^/]+)(?:/(restore|download))?)?',path)

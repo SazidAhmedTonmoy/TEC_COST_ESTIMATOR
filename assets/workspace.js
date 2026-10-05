@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { filter: 'all', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted' };
 
 function localDateKey(date = new Date()) {
@@ -19,7 +19,7 @@ function projectStatus(project) {
 function setAccount(user, token) {
   const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
-  if(changedUser){workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
+  if(changedUser){workspaceState.filter='month';workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
     try{const saved=localStorage.getItem('conest-project-sort-v31-'+user.id);if(['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
     try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list'].includes(saved))workspaceState.boardView=saved;}catch(_){}
   }
@@ -122,12 +122,13 @@ function renderSchedule(){
 
 function renderProjectBoard() {
   const term = $('#project-search').value.trim().toLowerCase();
-  const filter = ['all','team',...Object.keys(statusNames)].includes(workspaceState.filter)?workspaceState.filter:'all';
+  const filter = ['all','month','team',...Object.keys(statusNames)].includes(workspaceState.filter)?workspaceState.filter:'all';
   workspaceState.filter=filter;
   const board=$('#project-board');board.dataset.view=workspaceState.boardView;$('#project-view-style').value=workspaceState.boardView;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   const projects = state.projects.filter(p=>{
     if (!(p.name+' '+builderText(p)+' '+(p.created_by_name||'')+' '+teamNames(p)+' '+(p.contributors||[]).map(c=>c.name).join(' ')).toLowerCase().includes(term)) return false;
+    if (filter==='month') return (p.submission_deadline||'').slice(0,7)===sydneyMonth();
     if (filter==='team') return p.is_assigned;
     if (statusNames[filter]) return p.status===filter;
     return true;
@@ -522,11 +523,12 @@ function bindWorkspaceEvents() {
     if(state.user && !state.user.must_change_password && ['home','calendar'].includes(state.view) && !document.hidden && !state.apiPendingCount && !$('dialog[open]')) refreshBoard().catch(()=>{});
   },60000+Math.random()*10000);
   $('#login-form').addEventListener('submit',event=>submitWithButton(event,async()=>{
-    $('#login-error').textContent='';
+    $('#login-error').textContent='';$('#login-form').setAttribute('aria-busy','true');$('#login-submit').textContent='Signing in…';
     try {
       const result=await api('/api/auth/login',{method:'POST',body:{username:$('#login-username').value,password:$('#login-password').value}});
       $('#login-password').value=''; await enterWorkspace(result);
     } catch(error) { $('#login-error').textContent=error.message; }
+    finally {$('#login-form').removeAttribute('aria-busy');$('#login-submit').innerHTML='Sign in <span aria-hidden="true">→</span>';} 
   }));
   $('#logout-button').addEventListener('click',async()=>{
     try { await api('/api/auth/logout',{method:'POST',body:{}}); showLogin(); }

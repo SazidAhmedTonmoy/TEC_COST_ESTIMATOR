@@ -7,21 +7,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.9b0f2f732c43.css">
+  <link rel="stylesheet" href="/assets/styles.36267a32bc5f.css">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script></head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
-  <section id="login-screen" class="login-screen">
-    <form id="login-form" class="login-card">
-      <img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC">
-      <p class="eyebrow">TEC ConEst</p><h1>Your estimating workspace</h1>
-      <p class="login-intro">Sign in to manage projects and build estimates.</p>
-      <label>Username<input id="login-username" autocomplete="username" required maxlength="64" autofocus></label>
-      <label>Password<span class="password-field"><input id="login-password" type="password" autocomplete="current-password" required maxlength="256"><button type="button" class="key-toggle" data-password-target="login-password" aria-pressed="false" aria-label="Show password">Show</button></span></label>
-      <p id="login-error" class="form-error" role="alert"></p>
-      <button class="button primary" id="login-submit" type="submit">Sign in</button>
-      <p class="helper-text">Need an account or a password reset? Contact your administrator.</p>
-    </form>
+  <section id="login-screen" class="login-screen" aria-label="Sign in to TEC ConEst">
+    <div class="login-layout">
+      <div class="login-blueprint-panel">
+        <img class="login-blueprint-art" src="/assets/login-blueprint.svg" alt="" width="900" height="900" aria-hidden="true">
+        <div class="login-blueprint-copy"><h2>Build your<br>next <span>estimate.</span></h2><div class="login-accent-line"></div><p>Electrical estimating.<br>Built around your projects.</p></div>
+      </div>
+      <div class="login-form-panel">
+        <form id="login-form" class="login-card">
+          <div class="login-brand"><img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC"><div><strong>TEC ConEst</strong><span>ESTIMATOR</span></div></div>
+          <div class="login-heading"><h1>Welcome back</h1><p>Sign in to your estimating workspace.</p></div>
+          <label class="login-field"><span>Username</span><div class="login-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3Z"/></svg><input id="login-username" autocomplete="username" required maxlength="64" autofocus placeholder="Enter your username" autocapitalize="none" spellcheck="false"></div></label>
+          <label class="login-field"><span>Password</span><span class="password-field login-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><input id="login-password" type="password" autocomplete="current-password" required maxlength="256" placeholder="Enter your password"><button type="button" class="key-toggle login-eye" data-password-target="login-password" aria-pressed="false" aria-label="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></span></label>
+          <p id="login-error" class="form-error" role="alert"></p>
+          <button class="button primary" id="login-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
+          <p class="login-support">Need access or a password reset?<br><span>Contact your administrator.</span></p>
+        </form>
+      </div>
+    </div>
   </section>
   <div class="app-shell hidden" id="authenticated-app">
     <aside class="sidebar">
@@ -68,13 +75,14 @@
       </header>
 
       <section id="home-view" class="view active">
-        <div class="workspace-welcome"><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div></div>
+        <div class="workspace-welcome"><button type="button" id="project-json-open" class="button secondary">↥↧ Project JSON</button><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div></div>
         <div id="home-metrics" class="metric-grid home-metrics"></div>
         <div class="home-grid">
           <section class="panel portfolio-panel">
             <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Project Board</h2></div><div class="project-board-tools"><input id="project-search" type="search" placeholder="Search projects, builders or people" aria-label="Search projects"><label class="project-sort-label" title="Sort projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><select id="project-sort" aria-label="Sort projects"><option value="newest" selected>Newest created</option><option value="recent">Latest updated</option><option value="name">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="deadline">Deadline ascending</option><option value="deadline-desc">Deadline descending</option><option value="cost-high">Total cost: High to low</option><option value="cost-low">Total cost: Low to high</option></select></label><label class="project-view-label" title="Project view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg><select id="project-view-style" aria-label="Project view style"><option value="cards">Cards</option><option value="list">List</option></select></label></div></div>
             <div class="project-tabs" id="project-tabs" role="group" aria-label="Filter projects">
-              <button type="button" data-filter="all" class="active">All projects</button>
+              <button type="button" data-filter="all">All projects</button>
+              <button type="button" data-filter="month" class="active" title="Submission deadlines this month (Sydney)">This month</button>
               <button type="button" data-filter="draft">Not started</button>
               <button type="button" data-filter="in_progress">In progress</button>
               <button type="button" data-filter="in_review">In review</button>
@@ -308,6 +316,12 @@
     </form>
   </dialog>
 
+  <dialog id="project-json-dialog"><div class="dialog-card"><div class="dialog-heading"><div><p class="eyebrow">PROJECT TRANSFER</p><h2>Project JSON</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+    <p class="helper-text">Transfer project settings, estimate items, components and remarks. Imports create a new project owned by you. Team access, catalogue links, activity and saved revisions are not transferred.</p>
+    <section class="json-transfer-card json-export-card"><div class="json-card-heading"><span aria-hidden="true">↧</span><div><h3>Export a project</h3><p>Keep a portable copy of your estimate.</p></div></div><label>Project to export<select id="project-json-select"></select></label><button id="project-json-export" type="button" class="button primary">Export project JSON</button></section>
+    <section class="json-transfer-card json-import-card"><div class="json-card-heading"><span aria-hidden="true">↥</span><div><h3>Import a project</h3><p>Upload JSON to start a new estimate.</p></div></div><label class="json-file-field">Upload project JSON<input id="project-json-file" type="file" accept=".json,application/json"></label><p id="project-json-preview" class="helper-text" aria-live="polite"></p>
+    <div class="inline-actions"><button id="project-json-import" type="button" class="button primary" disabled>Import as new project</button><button id="project-json-example" type="button" class="button secondary">Example JSON</button></div>
+    </section><p id="project-json-status" role="status"></p></div></dialog>
   <dialog id="manual-dialog">
     <form id="manual-item-form" method="dialog" class="dialog-card wide-dialog">
       <div class="dialog-heading"><div><p class="eyebrow">Reusable catalog pricing</p><h2 id="manual-title">Add catalog item</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
@@ -321,8 +335,8 @@
         <label>Supplier<input id="manual-supplier" maxlength="1000"></label><label>Quote date<input type="date" id="manual-quote-date"></label><label>Price source / reference<input id="manual-price-source" maxlength="1000" placeholder="Supplier quote reference or budget allowance"></label><fieldset id="manual-markup-options" class="line-markup-options hidden"><legend>Exclude mark-up</legend><label><input type="checkbox" id="manual-exclude-material" title="Exclude Material mark-up %">Material</label><label><input type="checkbox" id="manual-exclude-hours" title="Exclude Labour hour mark-up %">Labour hours</label><label><input type="checkbox" id="manual-exclude-final" title="Exclude Final mark-up %">Final</label></fieldset>
       </div>
       <p id="manual-work-help" class="manual-note"></p>
-      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><div class="component-heading-actions"><div id="manual-rating" class="rating-editor" aria-label="Catalogue importance"></div><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div></div>
-      <div class="table-scroll"><table class="component-editor"><thead><tr><th>Description</th><th>Size / specification</th><th>Qty / 1</th><th>Unit</th><th>Product / material price</th><th>Labour basis</th><th>Labour hrs / price</th><th></th></tr></thead><tbody id="manual-components"></tbody></table></div>
+      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><div class="component-heading-actions"><div id="manual-rating" class="rating-editor" aria-label="Catalogue importance"></div><button class="button secondary small" id="paste-component-button" type="button" disabled>Paste component</button><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div></div>
+      <div class="component-clipboard-bar hidden" id="component-clipboard-bar"><span id="component-clipboard-label" role="status"></span><button type="button" id="clear-component-clipboard" class="text-button">Clear</button></div><div class="table-scroll"><table class="component-editor"><thead><tr><th>Description</th><th>Size / specification</th><th>Qty / 1</th><th>Unit</th><th>Product / material price</th><th>Labour basis</th><th>Labour hrs / price</th><th></th></tr></thead><tbody id="manual-components"></tbody></table></div>
       <p class="manual-note">A fixed labour price replaces hours × hourly rate. It adds no labour hours. Changing a unit changes its label; review quantities and prices for that unit.</p>
       <div id="manual-cost-preview" class="manual-cost-preview" aria-live="polite"></div>
       <label id="manual-save-mode-label">Save changes to<select id="manual-save-mode"><option value="new">Save new catalog item</option></select></label><p id="manual-save-note" class="manual-note"></p>
@@ -430,6 +444,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.8cfb724e3ad5.js" defer></script>
+  <script src="/assets/app.30fa1758043e.js" defer></script>
 </body>
 </html>

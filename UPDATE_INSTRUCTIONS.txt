@@ -1,31 +1,22 @@
-TEC ConEst v3.1 — project titles, catalogue priority and estimate remarks
+TEC ConEst v3.1 — Blueprint split login
 
-Apply over the latest v3.1 search-panel-colour update. Extract all files preserving folders and deploy using your existing GitHub workflow. Use the full archive for older installations.
+Apply over the latest v3.1 JSON-window/clipboard/default-month update. Extract files preserving folders and deploy normally. For older installations use the full archive.
 
-1. Pencil beside Manage Project title: edit the name, then Save project. Existing owner/admin permissions apply.
-2. Matching catalogue search results sort by most used, then last used, then star rating, before pagination. Usage is shared across the catalogue, not personal to one user. Additions without a search query now also count.
-3. Remarks below each estimate item's title/reference. Saved to that estimate only, with existing notes included in copies, revisions and Excel.
-4. Cross beside each expanded component removes it from this estimate only and recalculates totals. Shared catalogue and other estimate items remain unchanged. Existing edit access, CSRF protection and revision conflicts apply.
+Implemented the approved Blueprint split login: local electrical blueprint SVG, navy/teal split layout, TEC branding, focused sign-in form, password eye icon, clear error feedback and signing-in state. Responsive mobile layout and reduced-motion support are included. The illustration uses a short entrance animation only.
 
-Schema remains 29. No database replacement or migration needed for this patch. Do not overwrite the production database.
+Existing authentication, account permissions and workspace theme continue to apply. No backend or database changes.
 
-Validation: 145 backend tests passed; desktop/mobile browser checks passed for renaming, persisted remarks and component removal.
+Validation: browser checks passed for valid login, rejected login, password show/hide, logout, default monthly board, mobile overflow, reduced motion and light-theme preference.
 
 Changed files:
-- app.py
-- assets/app.8cfb724e3ad5.js
-- assets/app.js
-- assets/estimate_workspace.js
+- assets/app.30fa1758043e.js
+- assets/estimate_extras.js
 - assets/index.html
-- assets/styles.9b0f2f732c43.css
+- assets/login-blueprint.svg
+- assets/styles.36267a32bc5f.css
 - assets/styles.css
 - assets/workspace.js
-- conest_app/catalog.py
-- conest_app/estimate_tools.py
-- conest_app/projects.py
-- conest_app/workspace.py
-- tests/test_qol_october.py
 
 Retired fingerprinted files (may remain during rollout):
-- assets/app.e246d3173f1f.js
-- assets/styles.2e0d71bb8286.css
+- assets/app.87a4eca6a009.js
+- assets/styles.f394bc90e2f1.css

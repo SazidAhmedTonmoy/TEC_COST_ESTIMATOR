@@ -728,7 +728,7 @@ function catalogLaborLabel(item) {
 function componentRow(component = {}) {
   const mode = component.labor_pricing || "hours";
   return `<tr class="manual-component" data-component="${escapeHtml(JSON.stringify(component))}" data-labor-mode="${escapeHtml(mode)}">
-    <td data-label="Description"><div class="component-row-tools"><label class="fixed-quantity-control" title="Restore original database quantity and keep it independent of the assembly quantity"><input type="checkbox" class="component-fixed-quantity"${component.fixed_quantity?' checked':''}> Fixed total</label><span class="drag-handle" draggable="true" data-drag-kind="manual" title="Drag component">⠿</span><button class="copy-manual-component" type="button" title="Copy component below" aria-label="Copy component">+</button></div><input class="component-description" aria-label="Detail description" required value="${escapeHtml(component.description || "")}" placeholder="Product, material or work description">
+    <td data-label="Description"><div class="component-row-tools"><label class="fixed-quantity-control" title="Restore original database quantity and keep it independent of the assembly quantity"><input type="checkbox" class="component-fixed-quantity"${component.fixed_quantity?' checked':''}> Fixed total</label><span class="drag-handle" draggable="true" data-drag-kind="manual" title="Drag component">⠿</span><button class="clipboard-component" type="button" title="Copy component to paste into another item" aria-label="Copy component to clipboard"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4H4v12h4"/></svg><span>Copy</span></button><button class="copy-manual-component" type="button" title="Copy component below" aria-label="Copy component">+</button></div><input class="component-description" aria-label="Detail description" required value="${escapeHtml(component.description || "")}" placeholder="Product, material or work description">
       <details class="component-extra"><summary>Specifications, factors & notes</summary><div>
 
         <label>Material factor<input class="component-material-factor" type="number" min="0" step="any" required value="${Number(component.material_factor ?? 1)}"></label>
@@ -745,9 +745,9 @@ function componentRow(component = {}) {
   </tr>`;
 }
 
-function readManualComponents() {
+function readManualComponents(selectedRow = null) {
   const workType = $("#manual-work-type").value;
-  return $$("#manual-components .manual-component").map((row, index) => {
+  return (selectedRow ? [selectedRow] : $$("#manual-components .manual-component")).map((row, index) => {
     const original = JSON.parse(row.dataset.component || "{}");
     const mode = $(".component-labor-mode", row).value;
     const value = workType === "supply_only" ? 0 : Number($(".component-labor-value", row).value || 0);

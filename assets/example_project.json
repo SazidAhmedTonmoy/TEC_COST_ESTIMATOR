@@ -1,0 +1,56 @@
+{
+  "format": "tec-conest-project",
+  "version": 1,
+  "project": {
+    "name": "Example office electrical estimate",
+    "client": "Example Builder",
+    "currency": "AUD",
+    "status": "draft",
+    "submission_deadline": null,
+    "scope_of_work": "Lighting and power installation",
+    "material_markup": 0.15,
+    "labor_rate": 95,
+    "labor_hours_markup": 0.1,
+    "overhead_markup": 0.1,
+    "crew_size": 2,
+    "hours_per_day": 8,
+    "notes": "Example only. Mark-ups use decimal fractions: 0.15 = 15%."
+  },
+  "lines": [
+    {
+      "name_snapshot": "Double power outlet",
+      "category_snapshot": "Power",
+      "work_type_snapshot": "assembly",
+      "quantity": 10,
+      "uom": "EA",
+      "notes": "Confirm outlet finish with architect.",
+      "exclude_material_markup": 0,
+      "exclude_hours_markup": 0,
+      "exclude_final_markup": 0,
+      "components": [
+        {
+          "description": "Double GPO supply and install",
+          "quantity_per_unit": 1,
+          "uom": "EA",
+          "unit_material": 18.5,
+          "material_factor": 1,
+          "labor_pricing": "hours",
+          "unit_hours": 0.35,
+          "labor_factor": 1,
+          "is_parent": 1,
+          "fixed_quantity": 0
+        },
+        {
+          "description": "2.5 mm² TPS cable",
+          "quantity_per_unit": 12,
+          "uom": "M",
+          "unit_material": 1.9,
+          "unit_hours": 0.04,
+          "labor_pricing": "hours",
+          "material_factor": 1,
+          "labor_factor": 1
+        }
+      ]
+    }
+  ]
+}

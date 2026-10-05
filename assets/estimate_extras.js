@@ -25,8 +25,8 @@ function refreshFloatingTotal(){
 }
 document.addEventListener('DOMContentLoaded',()=>{
   ['#project-hours-per-day','#project-crew-size'].forEach(selector=>$(selector).addEventListener('input',previewEstimateTimeSummary));
-  document.addEventListener('click',event=>{const button=event.target.closest('[data-password-target]');if(!button)return;const input=document.getElementById(button.dataset.passwordTarget),show=input.type==='password';input.type=show?'text':'password';button.textContent=show?'Hide':'Show';button.setAttribute('aria-pressed',String(show));button.setAttribute('aria-label',show?'Hide password':'Show password');});
-  document.addEventListener('submit',event=>{event.target.querySelectorAll('[data-password-target]').forEach(button=>{document.getElementById(button.dataset.passwordTarget).type='password';button.textContent='Show';button.setAttribute('aria-pressed','false');button.setAttribute('aria-label','Show password');});},true);
+  document.addEventListener('click',event=>{const button=event.target.closest('[data-password-target]');if(!button)return;const input=document.getElementById(button.dataset.passwordTarget),show=input.type==='password';input.type=show?'text':'password';if(!button.classList.contains('login-eye'))button.textContent=show?'Hide':'Show';button.setAttribute('aria-pressed',String(show));button.setAttribute('aria-label',show?'Hide password':'Show password');});
+  document.addEventListener('submit',event=>{event.target.querySelectorAll('[data-password-target]').forEach(button=>{document.getElementById(button.dataset.passwordTarget).type='password';if(!button.classList.contains('login-eye'))button.textContent='Show';button.setAttribute('aria-pressed','false');button.setAttribute('aria-label','Show password');});},true);
   window.addEventListener('scroll',refreshFloatingTotal,{passive:true});window.addEventListener('resize',refreshFloatingTotal);
   new MutationObserver(refreshFloatingTotal).observe($('#estimate-view'),{attributes:true,attributeFilter:['class']});
   $('#floating-estimate-total').addEventListener('click',()=>$('#metric-quoted').scrollIntoView({behavior:'smooth',block:'center'}));
