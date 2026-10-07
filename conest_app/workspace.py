@@ -30,6 +30,7 @@ def initialize_workspace(conn):
             id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
             project_name TEXT NOT NULL, user_id INTEGER REFERENCES users(id), action TEXT NOT NULL,
             details TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_activity_actor ON project_activity(user_id,created_at);
         CREATE INDEX IF NOT EXISTS idx_activity_project ON project_activity(project_id,id DESC);
     ''')
     admin_id = conn.execute("SELECT id FROM users WHERE role='admin' ORDER BY id LIMIT 1").fetchone()[0]

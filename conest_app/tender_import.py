@@ -119,7 +119,7 @@ def parse_workbook(filename, content):
                     for i,h in enumerate(headers):
                         match=re.match(r'(\d+)(?:st|nd|rd|th)\s+chased\s+up\s*-\s*date', norm(h))
                         if match and row[i] is not None and i+1<len(row) and row[i+1]:
-                            history.append({'_record':len(records)-1,'_slot':int(match[1]),'date':iso(row[i]),'note':string(row[i+1]),'method':'Imported','author':'Workbook'})
+                            history.append({'_record':len(records)-1,'_slot':int(match[1]),'date':iso(row[i]),'note':string(row[i+1]),'method':'Imported','author':'Yunus'})
             except (ValueError, TypeError, ValidationError) as exc:
                 raise ValidationError(f'{sheet.title}, row {rn}: {exc}') from exc
         if fields is None or not records: raise ValidationError('No tender records found under the expected column headings.')
@@ -193,6 +193,10 @@ def import_workbook(store, filename, content, actor, expected=None):
             if old is None:
                 item={**{k:'' for k in TEXT_FIELDS},'latest':'','chaseNumber':'',**values,'id':sid,'revision':0,'createdBy':actor['id'],'createdAt':timestamp()}
             else: item={**old,**updates,'revision':old['revision']+(1 if updates else 0)}
+            if old is None:
+                item.update(origin='Excel import',importedBy=actor['id'],importedByName=actor['name'],importedAt=timestamp())
+            if old is None or updates:
+                item.update(lastImportedBy=actor['id'],lastImportedByName=actor['name'],lastImportedAt=timestamp())
             current[sid]=item
             if sid not in by_pair.setdefault(key,[]): by_pair[key].append(sid)
             if expected is not None and (old is None or updates):
@@ -204,6 +208,8 @@ def import_workbook(store, filename, content, actor, expected=None):
             if sid not in resolved: raise ValidationError('Follow-up references a submission missing from the Tenders sheet.')
             identifier=entry.get('id') or (f'{sid}-chase-{entry["_slot"]}' if '_slot' in entry else str(uuid.uuid5(uuid.NAMESPACE_URL,json.dumps(entry,sort_keys=True))))
             fields={k:v for k,v in entry.items() if not k.startswith('_') and k!='id'};fields['submissionId']=sid
+            if kind=='chases' and fields.get('method')=='Imported' and fields.get('author') in ('Workbook',''):
+                fields['author']='Yunus'
             hk=kind+':'+identifier
             if hk in seen_history:
                 if seen_history[hk]!=fields: raise ValidationError('Conflicting duplicate follow-up IDs in workbook.')
@@ -213,13 +219,28 @@ def import_workbook(store, filename, content, actor, expected=None):
             if old and old['submissionId']!=sid: raise ValidationError('A follow-up ID belongs to a different submission.')
             base=baselines.get(hk,{})
             if parsed['raw'] and not base: base=next((c for c in store.seed['chases'] if c['id']==identifier),{})
+            if kind=='chases' and base.get('author')=='Workbook':
+                base={**base,'author':'Yunus'}
+            # Existing authorship is immutable; importing edits records the importer separately.
+            if old and kind=='chases':
+                fields['author']=old.get('author','Yunus')
             updates={k:v for k,v in fields.items() if old is None or (old.get(k)!=v and (k not in base or base[k]!=v))}
             baselines[hk]={**base,**fields}
             if not updates: continue
             counts[('followups' if kind=='chases' else 'reminders')+('Added' if old is None else 'Updated')]+=1
             item={**(old or {'id':identifier,'createdAt':timestamp()}),**updates}
+            if kind=='chases':
+                item['revision']=(old or {}).get('revision',0)+(1 if old else 0)
+                if old:
+                    item.setdefault('edits',[]).append({k:old.get(k) for k in ('note','date','method','updatedByName','updatedAt')})
+                    item.update(updatedBy=actor['id'],updatedByName=actor['name'],updatedAt=timestamp())
+                elif parsed['raw']:
+                    item.update(legacyChase=True)
+                item.update(lastImportedBy=actor['id'],lastImportedByName=actor['name'])
             if expected is not None:
                 db.execute(f'INSERT INTO {kind} VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body',(identifier,sid,json.dumps(item,ensure_ascii=False)))
         if expected is not None:
+            if any(counts[k] for k in ('added','updated','followupsAdded','followupsUpdated','remindersAdded','remindersUpdated')):
+                store.activity(db,actor['id'],actor['name'],'Imported Excel',details={'filename':filename,**counts})
             db.execute("INSERT INTO settings VALUES('excel-import-baselines',?) ON CONFLICT(id) DO UPDATE SET body=excluded.body",(json.dumps(baselines,ensure_ascii=False),))
         return {'ok':True,'token':token,'counts':counts,'changes':changes[:100],'totalChanges':len(changes),'applied':expected is not None}

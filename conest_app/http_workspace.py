@@ -193,6 +193,14 @@ class WorkspaceHTTP:
                 users = workspace.user_directory(conn)
             self._send_json({'success': True, 'users': users})
             return True
+        match = re.fullmatch(r'/api/users/(\d+)/performance', path)
+        if match and method == 'GET':
+            from .performance import contribution_report
+            since=parse_qs(urlparse(self.path).query).get('since',[''])[0]
+            with self._read_connection() as conn:
+                result=contribution_report(conn,int(match[1]),since)
+            self._send_json(result)
+            return True
         if path == '/api/users' and method == 'POST':
             payload = self._json_body()
             with self._write_connection() as conn:

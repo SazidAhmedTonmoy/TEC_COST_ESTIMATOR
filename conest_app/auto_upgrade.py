@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 29
-MIGRATION_KEY = 'v3.1-catalog-rating'
+CURRENT_SCHEMA = 30
+MIGRATION_KEY = 'v3.3-contributions'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -168,7 +168,9 @@ def ensure_database(path=None):
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
-                    if previous == 28 and _status(target,28,'v3.1-item-markups')[0]:
+                    if previous == 29 and _status(target,29,'v3.1-catalog-rating')[0]:
+                        pass
+                    elif previous == 28 and _status(target,28,'v3.1-item-markups')[0]:
                         pass
                     elif previous == 27 and _status(target,27,'v3.0-review-workflow')[0]:
                         pass
@@ -193,6 +195,10 @@ def ensure_database(path=None):
                         initialize_item_markups(conn)
                         from .release_v31_rating import initialize_rating
                         initialize_rating(conn)
+                        conn.execute('CREATE INDEX IF NOT EXISTS idx_activity_actor ON project_activity(user_id,created_at)')
+                        from .utils import utc_now
+                        conn.execute('INSERT OR IGNORE INTO app_migrations VALUES (?,?)',('v3.3-contributions',utc_now()))
+                        conn.execute('UPDATE schema_version SET version=30')
                     with _raw_connect(target) as conn:
                         if conn.execute('PRAGMA quick_check').fetchone()[0] != 'ok' or conn.execute('PRAGMA foreign_key_check').fetchone():
                             raise UpgradeError('Database verification failed after the upgrade. The pre-upgrade backup was retained.')

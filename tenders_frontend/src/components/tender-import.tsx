@@ -1,7 +1,7 @@
 import {useRef,useState} from 'react';
 import {Upload,FileSpreadsheet,Check} from 'lucide-react';
 import {Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription} from './ui/dialog';
-import {apiFetch} from '../main';
+import {apiFetch,session} from '../main';
 
 type Preview={token:string;counts:Record<string,number>;changes:{action:string;project:string;builder:string;fields:string[]}[];totalChanges:number};
 export function TenderImport({onImported}:{onImported:()=>Promise<unknown>}){
@@ -22,7 +22,7 @@ export function TenderImport({onImported}:{onImported:()=>Promise<unknown>}){
  async function apply(){setBusy(true);setError('');try{const result=await request('apply');setPreview(result);setDone(true);await onImported()}catch(e){setError((e as Error).message)}finally{setBusy(false)}}
  const changes=preview?preview.counts.added+preview.counts.updated+preview.counts.followupsAdded+preview.counts.followupsUpdated+preview.counts.remindersAdded+preview.counts.remindersUpdated:0;
  return <><button className="secondary-btn" onClick={()=>{setOpen(true);setError('');setPreview(null);setFile(null);setDone(false)}}><Upload size={17}/>Import Excel</button>
- <Dialog open={open} onOpenChange={v=>{if(!busy)setOpen(v)}}><DialogContent className="tender-import-dialog"><DialogHeader><DialogTitle>{done?'Import complete':'Import tender data'}</DialogTitle><DialogDescription>Upload the original workbook with its Raw Data sheet, or a TEC Tenders export. New records are added; changed records are updated.</DialogDescription></DialogHeader>
+ <Dialog open={open} onOpenChange={v=>{if(!busy)setOpen(v)}}><DialogContent className="tender-import-dialog"><DialogHeader><DialogTitle>{done?'Import complete':'Import tender data'}</DialogTitle><DialogDescription>Upload the original workbook with its Raw Data sheet, or a TEC Tenders export. New records are added; changed records are updated. Imported by {session.user.name}. Historical Raw Data chase-ups are credited to Yunus.</DialogDescription></DialogHeader>
  <input ref={input} type="file" accept=".xlsx,.xlsm" aria-label="Tender Excel workbook" className="sr-only" disabled={busy} onChange={e=>{const chosen=e.target.files?.[0];if(chosen)inspect(chosen);e.target.value=''}}/>
  {!done&&<button className="import-file-picker" disabled={busy} onClick={()=>input.current?.click()}><FileSpreadsheet size={26}/><span><b>{file?.name||'Choose Excel workbook'}</b><small>{busy?'Processing workbook…':'XLSX or XLSM · up to 15 MB'}</small></span></button>}
  {error&&<p className="error-banner" role="alert">{error}</p>}

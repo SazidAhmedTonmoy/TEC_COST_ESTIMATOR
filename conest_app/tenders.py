@@ -63,6 +63,14 @@ class Store:
             with sqlite3.connect(f'{legacy.as_uri()}?mode=ro',uri=True) as source, sqlite3.connect(self.path) as target:
                 source.backup(target)
         self.seed = json.loads((ROOT / 'tenders_seed' / 'seed.json').read_text(encoding='utf-8'))
+        if self.path.is_file():
+            with sqlite3.connect(self.path) as old:
+                has_settings=old.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='settings'").fetchone()
+                migrated=has_settings and old.execute("SELECT 1 FROM settings WHERE id='attribution-v33'").fetchone()
+                backup=self.path.with_suffix('.pre-v33.db')
+                if has_settings and not migrated and not backup.exists():
+                    with sqlite3.connect(backup) as target:
+                        old.backup(target)
         self.initialize()
 
     @contextmanager
@@ -92,6 +100,11 @@ class Store:
                 CREATE TABLE IF NOT EXISTS submissions (id TEXT PRIMARY KEY, body TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0);
                 CREATE TABLE IF NOT EXISTS chases (id TEXT PRIMARY KEY, submission_id TEXT NOT NULL REFERENCES submissions(id), body TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS reminders (id TEXT PRIMARY KEY, submission_id TEXT NOT NULL REFERENCES submissions(id), body TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS tender_activity (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, actor_id INTEGER NOT NULL,
+                    actor_name TEXT NOT NULL, submission_id TEXT, project TEXT NOT NULL DEFAULT '',
+                    action TEXT NOT NULL, details TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+                CREATE INDEX IF NOT EXISTS tender_activity_actor ON tender_activity(actor_id,created_at);
                 CREATE TABLE IF NOT EXISTS settings (id TEXT PRIMARY KEY, body TEXT NOT NULL);
                 CREATE INDEX IF NOT EXISTS chase_submission ON chases(submission_id);
                 CREATE INDEX IF NOT EXISTS reminder_submission ON reminders(submission_id);
@@ -102,6 +115,8 @@ class Store:
                 db.executemany('INSERT OR IGNORE INTO chases VALUES(?,?,?)', [(c['id'], c['submissionId'], json.dumps(c, ensure_ascii=False)) for c in self.seed['chases']])
                 db.execute("INSERT INTO settings VALUES('import-v1','true')")
 
+            self.migrate_attribution(db)
+
             # Idempotent correction; existing history and manually entered records stay intact.
             for row in db.execute('SELECT id,body FROM submissions').fetchall():
                 item = json.loads(row['body'])
@@ -109,6 +124,63 @@ class Store:
                     item['pricing'] = 'High'
                     db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',
                                (json.dumps(item,ensure_ascii=False), row['id']))
+
+    def migrate_attribution(self, db):
+        # One-time attribution supplied by the owner; never invent historical timestamps.
+        if db.execute("SELECT 1 FROM settings WHERE id='attribution-v33'").fetchone():
+            return
+        baseline_row=db.execute("SELECT body FROM settings WHERE id='excel-import-baselines'").fetchone()
+        baseline=json.loads(baseline_row[0]) if baseline_row else {}
+        imported_ids={s['id'] for s in self.seed['submissions']} | {k for k in baseline if not k.startswith(('chases:','reminders:'))}
+        for row in db.execute('SELECT id,body FROM submissions').fetchall():
+            item=json.loads(row['body'])
+            if row['id'] in imported_ids or item.get('sourceRow'):
+                item.setdefault('importedByName','Tonmoy')
+                item.setdefault('legacyImported',True)
+                item.setdefault('origin','Excel import')
+                db.execute('UPDATE submissions SET body=? WHERE id=?',(json.dumps(item,ensure_ascii=False),row['id']))
+        for row in db.execute('SELECT id,body FROM chases').fetchall():
+            item=json.loads(row['body'])
+            if item.get('method')=='Imported' and item.get('author') in ('Workbook','Imported','',None):
+                item.update(author='Yunus',legacyChase=True)
+                db.execute('UPDATE chases SET body=? WHERE id=?',(json.dumps(item,ensure_ascii=False),row['id']))
+        db.execute("INSERT INTO settings VALUES('attribution-v33','true')")
+
+    @staticmethod
+    def activity(db, actor_id, actor_name, action, submission=None, details=None):
+        if actor_id is None:
+            return
+        submission=submission or {}
+        db.execute('INSERT INTO tender_activity(actor_id,actor_name,submission_id,project,action,details,created_at) VALUES(?,?,?,?,?,?,?)',
+                   (actor_id,actor_name or '',submission.get('id'),submission.get('project',''),action,json.dumps(details or {}),timestamp()))
+
+    def edit_chase(self, b):
+        identifier=text(b.get('id'),'Chase ID',True,100)
+        sid=text(b.get('submissionId'),'Submission ID',True,100)
+        note=text(b.get('note'),'Chase-up note',True)
+        chase_date=date_value(b.get('date'),required=True)
+        method=text(b.get('method'),'Contact method',True,50)
+        with self.connect(write=True) as db:
+            row=self.find(db,'chases',identifier)
+            c=json.loads(row['body'])
+            if row['submission_id']!=sid:
+                raise ValidationError('Chase-up belongs to a different tender.')
+            if type(b.get('revision')) is not int or b['revision']!=c.get('revision',0):
+                raise ValidationError('This chase-up changed in another window. Refresh and reopen it before saving.',409)
+            if all(c.get(k)==v for k,v in [('note',note),('date',chase_date),('method',method)]):
+                return {'ok':True}
+            before={k:c.get(k) for k in ('note','date','method','updatedByName','updatedAt')}
+            c.setdefault('edits',[]).append(before)
+            c.update(note=note,date=chase_date,method=method,revision=c.get('revision',0)+1,
+                     updatedBy=b.get('_actor_id'),updatedByName=b['author'],updatedAt=timestamp())
+            db.execute('UPDATE chases SET body=? WHERE id=?',(json.dumps(c,ensure_ascii=False),identifier))
+            old=self.find(db,'submissions',sid);item=json.loads(old['body'])
+            history=[{k:v for k,v in json.loads(r[0]).items() if k!='edits'} for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))]
+            latest=max(history,key=lambda h:(h.get('date',''),h.get('createdAt','')))
+            item.update(latest=latest['note'],revision=old['revision']+1)
+            db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),sid))
+            self.activity(db,b.get('_actor_id'),b['author'],'Edited chase-up',item,{'chaseId':identifier,'before':before})
+        return {'ok':True}
 
     @staticmethod
     def find(db, table, identifier):
@@ -138,7 +210,7 @@ class Store:
             pref = db.execute("SELECT body FROM settings WHERE id='preferences'").fetchone()
             return {
                 'submissions': submissions,
-                'chases': [json.loads(r['body']) for r in db.execute('SELECT body FROM chases')],
+                'chases': [{k:v for k,v in json.loads(r['body']).items() if k!='edits'} for r in db.execute('SELECT body FROM chases')],
                 'reminders': [json.loads(r['body']) for r in db.execute('SELECT body FROM reminders')],
                 'settings': json.loads(pref['body']) if pref else {'author':'Tonmoy','defaultDays':7},
                 'report': self.seed['report'],
@@ -166,7 +238,11 @@ class Store:
             else:
                 item, revision = {'latest':'','chaseNumber':''}, 0
             item.update(fields, id=identifier, value=value, revision=revision)
-            if not b.get('id'):item['createdBy']=b.get('_actor_id')
+            if not b.get('id'):
+                item.update(createdBy=b.get('_actor_id'),createdByName=b.get('author',''),createdAt=timestamp(),origin='Website')
+            else:
+                item.update(updatedBy=b.get('_actor_id'),updatedByName=b.get('author',''),updatedAt=timestamp())
+            self.activity(db,b.get('_actor_id'),b.get('author'),'Updated tender' if b.get('id') else 'Created tender',item)
             if b.get('id'):
                 db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?', (json.dumps(item,ensure_ascii=False),revision,identifier))
             else:
@@ -191,11 +267,12 @@ class Store:
                 r = json.loads(reminder['body'])
                 r['done'] = True
                 db.execute('UPDATE reminders SET body=? WHERE id=?',(json.dumps(r),complete))
-            c = {'id':str(uuid.uuid4()),'submissionId':sid,'date':chase_date,'note':note,'method':method,'author':author,'createdAt':timestamp()}
+            c = {'id':str(uuid.uuid4()),'submissionId':sid,'date':chase_date,'note':note,'method':method,'author':author,'authorId':b.get('_actor_id'),'createdAt':timestamp(),'revision':0}
             db.execute('INSERT INTO chases VALUES(?,?,?)',(c['id'],sid,json.dumps(c,ensure_ascii=False)))
             item = json.loads(old['body'])
             item.update(latest=note, statusUpdated=chase_date, revision=old['revision']+1)
             db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),sid))
+            self.activity(db,b.get('_actor_id'),author,'Recorded chase-up',item,{'chaseId':c['id']})
             if next_due:
                 self.insert_reminder(db, sid, next_due, reminder_note)
         return {'ok':True}
@@ -224,6 +301,9 @@ class Store:
                 due = date_value(b.get('due'),timed=True,required=True)
                 note = text(b.get('note') or 'Follow up', 'Reminder note', limit=2000)
                 self.insert_reminder(db,sid,due,note)
+            sid=item['submissionId'] if identifier else sid
+            submission=json.loads(self.find(db,'submissions',sid)['body'])
+            self.activity(db,b.get('_actor_id'),b.get('author'),'Updated reminder' if identifier else 'Scheduled follow-up',submission)
         return {'ok':True}
 
     def save_settings(self, b):
@@ -251,7 +331,7 @@ class Store:
             item=json.loads(row['body']) if row else None
             if item:item['revision']=row['revision']
             return {'submissionId':sid,'submission':item,
-                    'chases':[json.loads(r[0]) for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))],
+                    'chases':[{k:v for k,v in json.loads(r[0]).items() if k!='edits'} for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))],
                     'reminders':[json.loads(r[0]) for r in db.execute('SELECT body FROM reminders WHERE submission_id=?',(sid,))]}
 
     def delete_submission(self, body, user):

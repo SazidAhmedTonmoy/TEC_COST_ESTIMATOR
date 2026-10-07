@@ -79,7 +79,7 @@ def route(h,path):
             send(h,import_workbook(store,tenders.text(body.get('filename'),'Filename',required=True,limit=255),content,h.user,expected));return
         if path=='/api/tenders/submissions' and h.command=='DELETE':
             send(h,store.delete_submission(body,h.user));return
-        routes={'submissions':store.save_submission,'chases':store.add_chase,'reminders':store.save_reminder}
+        routes={'submissions':store.save_submission,'chases':store.add_chase,'chases/edit':store.edit_chase,'reminders':store.save_reminder}
         kind=path.removeprefix('/api/tenders/')
         if kind not in routes or h.command!='POST':raise tenders.ValidationError('Not found',404)
         body['author']=h.user['name'];body['_actor_id']=h.user['id']

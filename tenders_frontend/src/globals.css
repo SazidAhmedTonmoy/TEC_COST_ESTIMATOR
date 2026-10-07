@@ -216,3 +216,7 @@ tbody [data-slot=table-row]:hover,.tender-table tbody tr:hover{background:var(--
 .import-counts strong{font-size:26px}.import-counts span,.import-note{font-size:13px;color:var(--muted-foreground);line-height:1.6}
 .import-changes{max-height:230px;overflow:auto}.import-changes>div{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
 .import-actions{display:flex;justify-content:flex-end;gap:10px}.import-success{display:flex;align-items:center;gap:8px;color:var(--foreground)}
+
+/* v3.3 attribution and compact history editing */
+.chase-edit-btn{display:inline-flex;vertical-align:middle;margin-left:8px;padding:5px;border-radius:6px;color:inherit;background:transparent;border:1px solid currentColor;cursor:pointer}.chase-edit-btn:hover{background:var(--muted)}.chase-editor{display:block;margin-top:8px;color:var(--muted-foreground)}
+.tender-dialog .form-hint{margin-top:12px;line-height:1.5}

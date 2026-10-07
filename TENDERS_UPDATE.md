@@ -1,3 +1,7 @@
+# v3.3 update
+
+Read `UPDATE_V3.3.md` first. It supersedes earlier release/version and schema instructions below.
+
 # v3.2 Tender Excel import and export
 
 ## Tender Excel update — 5 October 2026

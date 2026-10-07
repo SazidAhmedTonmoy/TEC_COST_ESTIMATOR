@@ -1,3 +1,7 @@
+# Current release: v3.3
+
+See [UPDATE_V3.3.md](UPDATE_V3.3.md) for attribution, editable chase history, per-person contributions and deployment instructions. Release 3.3 uses estimator schema 30.
+
 # v3.2 release — October 2026
 
 The last three updates form v3.2:
@@ -29,7 +33,7 @@ Database schema remains 29. Existing migration names and data are preserved.
 
 See [TENDERS_UPDATE.md](TENDERS_UPDATE.md) for the shared-login workspace, database migration and update instructions.
 
-# TEC ConEst · v3.2
+# TEC ConEst · v3.3
 
 ### Electrical estimating, connected costs and team collaboration
 
@@ -46,7 +50,7 @@ A shared estimating workspace for catalogue assemblies, project quotations, supp
 > [!IMPORTANT]
 > Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
 
-## Current release · v3.2
+## Previous release · v3.2
 
 Major release: Estimator and Tenders share login, users, profile and theme. Switch with the circular-arrow control beside the brand. Tenders uses yellow accents and now matches Estimator's desktop sidebar geometry, typography and account controls. Its Workspace label and admin links are removed; user management and app settings remain in Estimator. A coloured title wipe reveals the destination workspace using a one-second transform animation; navigation and data loading start immediately, and reduced-motion users skip the wipe.
 
