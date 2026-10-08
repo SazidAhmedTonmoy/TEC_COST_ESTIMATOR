@@ -42,8 +42,6 @@ def contribution_report(conn, user_id, since='', until=''):
     }
     historical_chases=[c for c in data['chases'] if c.get('legacyChase') and (c.get('authorId')==user_id or (not c.get('authorId') and username=='yunus')) and (not since or c.get('date','')>=since) and (not until or c.get('date','')<=until)]
     credited_ids={c['submissionId'] for c in historical_chases}
-    if not since and not until:
-        credited_ids.update(s['id'] for s in data['submissions'] if s.get('legacyImported') and (s.get('importedBy')==user_id or (not s.get('importedBy') and username=='tonmoy')))
     with store.connect() as db:
         credited_ids.update(r[0] for r in db.execute('SELECT DISTINCT submission_id FROM tender_activity WHERE actor_id=? AND created_at>=? AND created_at<? AND submission_id IS NOT NULL',(user_id,start,end)))
     tender_count=len(credited_ids)
@@ -53,7 +51,16 @@ def contribution_report(conn, user_id, since='', until=''):
     uploads.extend(dict(r) for r in conn.execute('SELECT kind,COUNT(*) AS count FROM document_uploads WHERE user_id=? AND created_at>=? AND created_at<? GROUP BY kind',(user_id,start,end)))
     json_count=next((r['count'] for r in grouped if r['action']=='Imported project JSON'),0)
     if json_count:uploads.append({'kind':'project JSON','count':json_count})
-    if imports:uploads.append({'kind':'tender Excel','count':len(imports)})
+    with store.connect() as db:
+        row=db.execute("SELECT body FROM settings WHERE id='confirmed-imports-v33c'").fetchone()
+        credit=json.loads(row[0]) if row else {}
+        confirmed=credit.get('uploads',0) if credit.get('actorId')==user_id else 0
+        cutoff=credit.get('throughActivityId',0) if confirmed else 0
+        file_count=db.execute("SELECT COUNT(*) FROM tender_activity WHERE actor_id=? AND action='Imported Excel' AND id>? AND created_at>=? AND created_at<?",(user_id,cutoff,start,end)).fetchone()[0]
+    historical['importedFiles']=confirmed
+    historical['importedTenders']=0  # Uploading rows is not estimating/chasing those submissions.
+    if not since and not until:file_count+=confirmed
+    if file_count:uploads.append({'kind':'tender Excel','count':file_count})
     return {'person':dict(user),'since':since,'until':until,'uploads':{'total':sum(r['count'] for r in uploads),'byType':uploads},'estimator':{'projects':projects,'actions':grouped,'total':sum(r['count'] for r in grouped)},
             'tenders':{'submissions':tender_count,'actions':groups,'total':sum(r['count'] for r in groups),
                        'rowsAdded':sum(r.get('added',0) for r in imports),'rowsUpdated':sum(r.get('updated',0) for r in imports)},

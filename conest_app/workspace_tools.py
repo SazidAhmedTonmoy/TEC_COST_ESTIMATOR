@@ -68,12 +68,18 @@ def extract_file(payload):
 def tender_answer(question):
     if re.search(r'\b(how|where|explain)\b',question,re.I):
         return {'answer':'Tenders: use Dashboard → Import Excel to merge a workbook, or New tender to create one. Project Chase-up searches submissions, builder outcomes and pricing feedback. Open a tender to log/schedule a chase-up; the pencil edits an existing entry while retaining its author. Projects and Builders summarize connected submissions. Calendar and Reminders show deadlines and follow-ups. TEC Won means your quote won; Builder Awarded means the builder won the project. Manage Users → View Contribution shows recorded work and uploads.','sources':[],'mode':'Built-in tender guide · read-only'}
-    data=tenders.get_store().all_data();terms=re.findall(r'[\w-]+',question.casefold())
-    stop={'tender','tenders','project','projects','show','me','all','the','of','for','what','which','are','is','summary','summarise','and','give','in','a','to','my','please','status'}
+    data=tenders.get_store().all_data()
+    latest=re.search(r'\b(last|latest|recent|newest)\s*(\d+)?',question,re.I)
+    limit=min(int(latest[2] or 5),12) if latest else 12
+    search=re.sub(r'\b(last|latest|recent|newest)\s*\d*','',question,flags=re.I)
+    terms=re.findall(r'[\w-]+',search.casefold())
+    stop={'tender','tenders','project','projects','show','me','all','the','of','for','what','which','are','is','summary','summarise','and','give','in','a','to','my','please','status','tell','about'}
     terms=[t for t in terms if t not in stop]
     rows=[s for s in data['submissions'] if all(t in ' '.join(str(s.get(k,'')) for k in ('project','builder','status','builderStatus','pricing','remarks','due')).casefold() for t in terms)]
-    lines=[f'{len(rows)} matching tender submissions. Showing up to 12.']
-    for s in rows[:12]:
+    if latest:rows.sort(key=lambda s:s.get('createdAt') or s.get('due',''),reverse=True)
+    lines=[f'{len(rows)} matching tender submissions. Showing up to {limit}.']
+    if latest:lines.append('Newest creation date first; older records without a creation date use their submission deadline.')
+    for s in rows[:limit]:
         lines.append(f"{s['project']} — {s['builder']}: TEC {s['status']}; builder {s.get('builderStatus','')}; pricing {s.get('pricing','')}; due {s.get('due','')}; latest: {s.get('latest','')}")
     if not rows:lines.append('Try a project/builder name or Open, Won, Awarded, Competitive. Builder Awarded is separate from TEC Won.')
     return {'answer':'\n\n'.join(lines),'sources':[{'url':'/tenders/chase-up','label':'Project Chase-up'}],'mode':'Live tender records · read-only'}
@@ -101,7 +107,8 @@ def route(h,path):
             body=h._json_body()
             with h._write_connection() as db:
                 value=read_state(db,uid,'help')
-                if body.get('clear'):value={'epoch':uuid.uuid4().hex}
+                if body.get('clearConversation'):value.update(messages=[],follow_up=None,epoch=uuid.uuid4().hex)
+                elif body.get('clear'):value={'epoch':uuid.uuid4().hex}
                 elif 'removeDocument' in body:value['documents']=[d for d in value.get('documents',[]) if d['id']!=body['removeDocument']]
                 elif isinstance(body.get('note'),str) and len(body['note'])<=2000:value['note']=body['note']
                 else:raise ValueError('Memory note must be at most 2,000 characters.')

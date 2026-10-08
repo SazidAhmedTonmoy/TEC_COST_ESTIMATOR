@@ -32,7 +32,7 @@ class V33Tests(unittest.TestCase):
             self.assertEqual(saved['edits'][0]['note'],chase['note'])
         status,report=self.request('GET',f'/api/users/{self.user_id}/performance')
         self.assertEqual(status,200,report)
-        self.assertEqual(report['tenders']['total'],1);self.assertEqual(report['tenders']['submissions'],291)  # Includes Tonmoy's historical import credits.
+        self.assertEqual(report['tenders']['total'],1);self.assertEqual(report['tenders']['submissions'],1)  # Uploading a workbook is not submission work.
         self.assertEqual(report['recent'][0]['action'],'Edited chase-up')
         self.assertEqual(self.request('GET',f'/api/users/{self.user_id}/performance?since=bad')[0],400)
         with helpers.connect() as db:db.execute("UPDATE users SET role='user' WHERE id=?",(self.user_id,))

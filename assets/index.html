@@ -8,7 +8,7 @@
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
   <link rel="stylesheet" href="/assets/styles.f11371c84658.css">
-<link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.3-oct08">
+<link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.3-oct08b">
 </head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
@@ -87,7 +87,7 @@
               <button type="button" data-filter="draft">Not started</button>
               <button type="button" data-filter="in_progress">In progress</button>
               <button type="button" data-filter="in_review">In review</button>
-              <button type="button" data-filter="submitted">Submitted</button>
+              <button type="button" data-filter="submitted">Submitted</button><button type="button" data-filter="closed">Closed</button>
               <button type="button" class="user-only" data-filter="team">My team</button>
             </div>
             <div id="project-board" class="project-board"></div>
@@ -165,7 +165,7 @@
             <label>Material mark-up %<input id="project-material-markup" type="number" min="0" step="0.1"></label>
             <label>Labour hour mark-up %<input id="project-hours-markup" type="number" min="0" max="10000" step="0.1" value="0"></label>
             <label>Final mark-up %<input id="project-overhead-markup" type="number" min="0" step="0.1"></label>
-            <div class="form-actions"><button class="button primary" type="submit">Save project settings</button></div>
+            <div class="form-actions"><button class="button primary" type="submit">Save now</button><span id="project-autosave-status" role="status" class="helper-text">Changes save automatically</span></div>
           </form>
         </section>
 
@@ -388,7 +388,7 @@
         <div class="builder-rows" data-builder-rows></div>
         <button class="button secondary small" type="button" data-builder-add>+ Add builder</button>
       </fieldset>
-        <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="in_review">In review</option><option value="submitted">Submitted</option></select></label></div>
+        <div class="settings-grid"><label>Submission deadline<input id="brief-deadline" type="date"></label><label>Progress<select id="brief-status"><option value="draft">Not started</option><option value="in_progress">In progress</option><option value="in_review">In review</option><option value="submitted">Submitted</option><option value="closed">Closed</option></select></label></div>
         <label id="brief-review-field" class="hidden">Review deadline<input id="brief-review-deadline" type="date"><small class="helper-text">Shown to everyone in Keep on Schedule and the calendar. Submission dates and totals stay unchanged.</small></label>
         <fieldset class="project-outcome-fieldset"><legend>Project result <small>(optional)</small></legend>
           <input id="brief-award-status" type="hidden" value="">
@@ -445,6 +445,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.4ff0c5cd3fa5.js" defer></script>
+  <script src="/assets/app.fe8aff0f6061.js" defer></script>
 </body>
 </html>

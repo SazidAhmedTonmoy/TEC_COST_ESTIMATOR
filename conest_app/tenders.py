@@ -129,6 +129,13 @@ class Store:
         from .database import connect
         with connect() as conn:
             users={row['username'].casefold():dict(row) for row in conn.execute("SELECT id,name,username FROM users WHERE username COLLATE NOCASE IN ('Tonmoy','Yunus')")}
+        if users.get('tonmoy'):
+            with self.connect() as db:
+                credit=db.execute("SELECT 1 FROM settings WHERE id='confirmed-imports-v33c'").fetchone()
+            if not credit:
+                with self.connect(write=True) as db:
+                    last_id=db.execute('SELECT COALESCE(MAX(id),0) FROM tender_activity WHERE actor_id=?',(users['tonmoy']['id'],)).fetchone()[0]
+                    db.execute("INSERT OR IGNORE INTO settings VALUES('confirmed-imports-v33c',?)",(json.dumps({'actorId':users['tonmoy']['id'],'uploads':2,'throughActivityId':last_id}),))
         self.historical_yunus=users.get('yunus')
         if not users:return
         with self.connect() as db:

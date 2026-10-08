@@ -640,8 +640,20 @@ async function removeLine(lineId) {
   toast("Assembly removed");
 }
 
+let projectSettingsTimer=null,projectSettingsBusy=false,projectSettingsQueued=false,projectSettingsOwner=null;
+function queueProjectSettings(){
+ if(!state.projectData?.project.can_edit)return;
+ projectSettingsOwner=state.projectId;projectSettingsQueued=true;
+ $('#project-autosave-status').textContent='Unsaved changes…';
+ clearTimeout(projectSettingsTimer);projectSettingsTimer=setTimeout(()=>saveProjectSettings().catch(()=>{}),450);
+}
 async function saveProjectSettings(event) {
-  event.preventDefault();
+ event?.preventDefault();clearTimeout(projectSettingsTimer);
+ if(projectSettingsBusy){projectSettingsQueued=true;return;}
+ if(!state.projectId||!state.projectData?.project.can_edit)return;
+ if(projectSettingsOwner&&projectSettingsOwner!==state.projectId){projectSettingsQueued=false;projectSettingsOwner=null;return;}
+ if(!$('#project-settings-form').checkValidity()){$('#project-autosave-status').textContent='Enter valid values to save';return;}
+ const pid=state.projectId;
   const payload = {
     name: $("#project-name").value,
     currency: $("#project-currency").value,
@@ -653,12 +665,20 @@ async function saveProjectSettings(event) {
     crew_size: Number($("#project-crew-size").value || 2),
   };
   if (state.projectData?.project.can_manage) payload.builders = $("#project-builders").value.split(/\r?\n/);
-  payload.expected_revision = state.projectData?.project.revision;
-  const result = await api(`/api/projects/${state.projectId}`, { method: "PATCH", body: payload });
-  state.projectData = result;
-  await loadDashboard(false);
-  $("#project-settings-form").classList.remove("hidden");
-  toast("Project rates updated; all totals recalculated");
+
+ payload.expected_revision=state.projectData.project.revision;
+ projectSettingsBusy=true;projectSettingsQueued=false;
+ $('#project-autosave-status').textContent='Saving…';
+ try{
+  const result=await api(`/api/projects/${pid}`,{method:'PATCH',body:payload});
+  if(state.projectId!==pid)return;
+  const draft=Object.fromEntries([...$('#project-settings-form').querySelectorAll('input,textarea')].map(f=>[f.id,f.value]));
+  state.projectData=result;renderProject();
+  if(projectSettingsQueued){for(const [id,value] of Object.entries(draft))$('#'+id).value=value;}
+  const i=state.projects.findIndex(p=>p.id===pid);if(i>=0)state.projects[i]={...state.projects[i],...result.project,totals:result.totals};
+  $('#project-autosave-status').textContent=projectSettingsQueued?'Saving latest changes…':'Saved · totals updated';
+ }catch(error){projectSettingsQueued=false;$('#project-autosave-status').textContent='Not saved — '+error.message;toast(error.message,true);}
+ finally{projectSettingsBusy=false;if(projectSettingsQueued&&state.projectId===pid)saveProjectSettings().catch(()=>{});}
 }
 
 let projectCopySource=null;
@@ -1261,6 +1281,8 @@ function bindEvents() {
     button.title = `${collapsed ? "Expand" : "Collapse"} rates and mark-ups`;
     button.setAttribute("aria-label", button.title);
   });
+  $("#project-settings-form").addEventListener("input",queueProjectSettings);
+  $("#project-settings-form").addEventListener("change",()=>saveProjectSettings().catch(()=>{}));
   $("#project-settings-form").addEventListener("submit", (event) => saveProjectSettings(event).catch((error) => toast(error.message, true)));
   $("#delete-project-button").addEventListener("click", () => deleteCurrentProject().catch((error) => toast(error.message, true)));
   $("#floating-search-button").addEventListener("click", () => { $("#smart-search-form").scrollIntoView({behavior:"smooth",block:"center"});$("#smart-search-input").focus({preventScroll:true}); });

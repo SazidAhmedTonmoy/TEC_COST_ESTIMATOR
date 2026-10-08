@@ -5,7 +5,7 @@ from .accounts import AccessError, public_user
 from .utils import utc_now
 from .builders import project_with_builders, stored_builders
 
-STATUSES = ('draft', 'in_progress', 'in_review', 'submitted')
+STATUSES = ('draft', 'in_progress', 'in_review', 'submitted', 'closed')
 
 
 def initialize_workspace(conn):

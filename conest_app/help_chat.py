@@ -21,7 +21,7 @@ from .utils import clean_text
 AI_SLOTS = threading.BoundedSemaphore(3)
 MAX_RECORDS = 5
 MAX_ITEMS = 20
-STATUS = {'draft': 'Not started', 'in_progress': 'In progress', 'submitted': 'Submitted', 'in_review': 'In review'}
+STATUS = {'draft': 'Not started', 'in_progress': 'In progress', 'submitted': 'Submitted', 'in_review': 'In review', 'closed':'Closed'}
 GUIDE = '''TEC ConEst help:
 All active signed-in accounts can view all company projects, including other teams' estimates, notes, revisions and activity. Only the project owner, assigned team members, individually assigned users and admins can edit a project. Owners and admins manage its brief, deletion, team assignments and individual edit access. Individual editors cannot change access or delete the project. Read-only viewers cannot add/remove notes or revisions.
 Create a project with New project. On Estimate search for a catalogue item, set Qty, then Add to estimate. The floating search button jumps to search. Edit item/components changes quantity, specifications, material factors, hours and fixed labour. Estimate only keeps the change in the project. Update catalog edits the reusable item. New catalog creates another reusable item.
@@ -237,7 +237,7 @@ def prepare_context(conn, user, payload):
     sources = []
     if scope in ('project', 'search'):
         selected = []
-        list_request = bool(re.search(r'\b(all (?:company )?projects|list (?:company )?projects|show (?:company )?projects|my projects|team projects|projects due|won projects|lost projects|completed projects|in review projects|submitted projects|projects this month)\b', lower))
+        list_request = bool(re.search(r'\b(all (?:company )?projects|list (?:company )?projects|show (?:company )?projects|my projects|team projects|projects due|won projects|lost projects|completed projects|in review projects|submitted projects|closed projects|projects this month)\b', lower))
         if named:
             selected = named[:MAX_RECORDS]
             context['project_matches'] = len(named)
@@ -247,7 +247,7 @@ def prepare_context(conn, user, payload):
             if 'team projects' in lower:
                 ids = {r[0] for r in conn.execute('SELECT t.project_id FROM project_teams t JOIN users u ON u.team_id=t.team_id WHERE u.id=?', (user['id'],))}
                 selected = [p for p in selected if p['id'] in ids]
-            for word, field, value in [('won', 'award_status', 'won'), ('lost', 'award_status', 'lost'), ('completed', 'status', 'submitted'), ('in review', 'status', 'in_review'), ('submitted', 'status', 'submitted')]:
+            for word, field, value in [('won', 'award_status', 'won'), ('lost', 'award_status', 'lost'), ('completed', 'status', 'submitted'), ('in review', 'status', 'in_review'), ('submitted', 'status', 'submitted'), ('closed','status','closed')]:
                 if re.search(r'\b' + word + r'\b', lower): selected = [p for p in selected if p[field] == value]
             if 'this month' in lower:
                 selected = [p for p in selected if (p['submission_deadline'] or '').startswith(date.today().isoformat()[:7])]

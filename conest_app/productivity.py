@@ -121,7 +121,7 @@ def reminders(conn,user):
         review = p['status'] == 'in_review'
         deadline = p['review_deadline'] if review else p['submission_deadline']
         # Reviews are shared with all active viewers, including other teams.
-        if not deadline or p['status'] == 'submitted' or (not review and not p['can_edit']):continue
+        if not deadline or p['status'] in ('submitted','closed') or (not review and not p['can_edit']):continue
         days=(date.fromisoformat(deadline)-today).days
         if not review and days>7:continue
         stage='overdue' if days<0 else 'today' if days==0 else 'soon'

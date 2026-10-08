@@ -1,6 +1,6 @@
 /* Project board, account administration and deadline calendar. */
 const workspaceState = { filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
-const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted' };
+const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted', closed: 'Closed' };
 
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
@@ -10,7 +10,7 @@ function dateLabel(value) {
   const [y,m,d] = value.split('-').map(Number);
   return new Date(y,m-1,d).toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
 }
-function isOpenProject(project) { return !['submitted','completed'].includes(project.status); }
+function isOpenProject(project) { return !['submitted','completed','closed'].includes(project.status); }
 function projectDeadline(project) { return project.status==='in_review' ? project.review_deadline : project.submission_deadline; }
 function isOverdue(project) { return isOpenProject(project) && projectDeadline(project) && projectDeadline(project) < localDateKey(); }
 function projectStatus(project) {
@@ -98,8 +98,8 @@ function renderHome() {
   $('#welcome-name').textContent = `Welcome, ${state.user.name}`;
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key).length,key]);
-  $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='in_review'?'Review before the deadline':'Submitted estimate'}</small></button>`).join('');
-  $('#home-metrics').classList.remove('five-metrics');
+  $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='in_review'?'Review before the deadline':filter==='closed'?'Closed / not submitted':'Submitted estimate'}</small></button>`).join('');
+  $('#home-metrics').classList.add('five-metrics');
   renderProjectBoard();
   if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(()=>{});
   renderSchedule();
@@ -496,7 +496,7 @@ function renderCalendar() {
     const event=(p,reviewOnly=false)=>{
       const review=p.status==='in_review',reviewToday=review&&p.review_deadline===key;
       const label=reviewOnly?'Review due':reviewToday?'Submission · Review due':'Submission due';
-      return `<button class="calendar-event ${review?'is-review':p.status==='submitted'?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" data-event-kind="${reviewOnly?'review':'submission'}" title="${escapeHtml(p.name)} — ${label} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}${reviewToday?`<small class="calendar-review-stamp">${label}</small>`:''}</button>`;
+      return `<button class="calendar-event ${review?'is-review':['submitted','closed'].includes(p.status)?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" data-event-kind="${reviewOnly?'review':'submission'}" title="${escapeHtml(p.name)} — ${label} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}${reviewToday?`<small class="calendar-review-stamp">${label}</small>`:''}</button>`;
     };
     html+=`<div class="calendar-day ${weekend?'is-weekend':''} ${day.getMonth()!==m?'outside-month':''} ${key===localDateKey()?'is-today':''}"><time datetime="${key}" aria-label="${escapeHtml(dateLabel(key))}${weekend?', weekend':''}">${day.getDate()}</time>${items.map(p=>event(p)).join('')}${reviewItems.map(p=>event(p,true)).join('')}</div>`;
 

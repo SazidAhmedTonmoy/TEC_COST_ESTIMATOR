@@ -25,7 +25,7 @@ function renderProjectPicker() {
 }
 function monthMoney(projects,key) {
   const values=new Map();
-  projects.forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.[key]||0)));
+  projects.filter(p=>p.status!=='closed').forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.[key]||0)));
   return values.size?[...values].map(([currency,value])=>`${escapeHtml(currency)} ${fmtMoney(value,currency)}`).join('<br>'):'&mdash;';
 }
 function renderCalendarSummary(projects) {
@@ -33,7 +33,7 @@ function renderCalendarSummary(projects) {
   const prefix=localDateKey(workspaceState.month).slice(0,7);
   const created=state.projects.filter(p=>(p.created_at||'').slice(0,7)===prefix).length;
   const won=projects.filter(p=>p.award_status==='won'),lost=projects.filter(p=>p.award_status==='lost');
-  const hours=projects.reduce((sum,p)=>sum+Number(p.totals?.hours||0),0);
+  const hours=projects.filter(p=>p.status!=='closed').reduce((sum,p)=>sum+Number(p.totals?.hours||0),0);
   const items=projects.reduce((sum,p)=>sum+Number(p.line_count||0),0);
   const metrics=[
     ['Projects due this month',projects.length,`${created} projects created this month (across all deadlines)`],
@@ -43,7 +43,7 @@ function renderCalendarSummary(projects) {
     ['Total labour price',monthMoney(projects,'labor'),'Hours at project rate plus fixed labour allowances; excludes overhead and GST'],
   ];
   $('#calendar-summary').innerHTML=`<div class="calendar-metric-grid">${metrics.map(([label,value,note])=>`<article class="calendar-metric" title="${escapeHtml(note)}"><span>${label}</span><strong>${value}</strong></article>`).join('')}</div><div class="calendar-status-summary">${Object.entries(statusNames).map(([key,label])=>`<span>${label} <b>${projects.filter(p=>p.status===key).length}</b></span>`).join('')}<span class="outcome-won">&#10003; Won <b>${won.length}</b></span><span class="outcome-lost">&#10007; Lost <b>${lost.length}</b></span><span>Result not recorded <b>${projects.length-won.length-lost.length}</b></span></div><p class="helper-text">Won estimate value: <strong>${monthMoney(won,'quoted')}</strong> &middot; Lost estimate value: <strong>${monthMoney(lost,'quoted')}</strong></p>`;
-  $('#calendar-agenda').innerHTML=`<h3>Project details &mdash; ${escapeHtml(month)}</h3>`+(projects.length?`<div class="table-scroll"><table class="mini-table calendar-project-table"><thead><tr><th>Deadline</th><th>Project / builders</th><th>Team / estimator</th><th>Progress</th><th>Result</th><th>Items</th><th>Labour hrs</th><th>Material cost</th><th>Labour price</th><th>Quoted estimate</th></tr></thead><tbody>${projects.map(p=>`<tr><td>${dateLabel(p.submission_deadline)}</td><td><button type="button" class="text-button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button><small>${escapeHtml(builderText(p, 'No builder assigned'))}</small></td><td>${escapeHtml(teamNames(p))}<small>${escapeHtml(p.owner_name||p.created_by_name||'Not recorded')}</small></td><td>${projectStatus(p)}</td><td>${projectOutcome(p)||'<span class="helper-text">Not recorded</span>'}</td><td>${p.line_count||0}</td><td>${fmtNumber(p.totals?.hours||0,2)}</td><td>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.material||0,p.currency)}</td><td>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.labor||0,p.currency)}</td><td><strong>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted||0,p.currency)}</strong></td></tr>`).join('')}</tbody><tfoot><tr><th colspan="7">Monthly totals (ex GST)</th><td>${monthMoney(projects,'material')}</td><td>${monthMoney(projects,'labor')}</td><td>${monthMoney(projects,'quoted')}</td></tr></tfoot></table></div>`:'<p class="helper-text">No project deadlines this month.</p>');
+  $('#calendar-agenda').innerHTML=`<h3>Project details &mdash; ${escapeHtml(month)}</h3>`+(projects.length?`<div class="table-scroll"><table class="mini-table calendar-project-table"><thead><tr><th>Deadline</th><th>Project / builders</th><th>Team / estimator</th><th>Progress</th><th>Result</th><th>Items</th><th>Labour hrs</th><th>Material cost</th><th>Labour price</th><th>Quoted estimate</th></tr></thead><tbody>${projects.map(p=>`<tr><td>${dateLabel(p.submission_deadline)}</td><td><button type="button" class="text-button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button><small>${escapeHtml(builderText(p, 'No builder assigned'))}</small></td><td>${escapeHtml(teamNames(p))}<small>${escapeHtml(p.owner_name||p.created_by_name||'Not recorded')}</small></td><td>${projectStatus(p)}</td><td>${projectOutcome(p)||'<span class="helper-text">Not recorded</span>'}</td><td>${p.line_count||0}</td><td>${fmtNumber(p.totals?.hours||0,2)}</td><td>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.material||0,p.currency)}</td><td>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.labor||0,p.currency)}</td><td><strong>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted||0,p.currency)}</strong></td></tr>`).join('')}</tbody><tfoot><tr><th colspan="7">Monthly totals (ex GST; Closed excluded)</th><td>${monthMoney(projects,'material')}</td><td>${monthMoney(projects,'labor')}</td><td>${monthMoney(projects,'quoted')}</td></tr></tfoot></table></div>`:'<p class="helper-text">No project deadlines this month.</p>');
 }
 async function deleteUserAccount() {
   const user=workspaceState.users.find(u=>u.id===workspaceState.userId);

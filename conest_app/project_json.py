@@ -46,7 +46,7 @@ def import_json(conn,raw,user):
  p=checked(raw.get('project'),PROJECT,'Project')
  if not p.get('name','').strip() or len(p['name'])>500:raise ValueError('Project name must be 1–500 characters')
  status=p.get('status','draft')
- if status not in ('draft','in_progress','in_review','submitted'):raise ValueError('Invalid project progress')
+ if status not in ('draft','in_progress','in_review','submitted','closed'):raise ValueError('Invalid project progress')
  for key in ('submission_deadline','review_deadline'):
   if p.get(key):
    try:
