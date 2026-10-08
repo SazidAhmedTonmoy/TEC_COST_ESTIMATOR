@@ -10,8 +10,8 @@ function fitEstimateText(){
 }
 function renderGroupedEstimate(lines){
   const groups=new Map();
-  const query=estimateViewState.query.trim().toLocaleLowerCase();
-  const matches=lines.filter(l=>!query||[l.display_name,l.name_snapshot,l.size_snapshot,l.category_snapshot,...(l.components||[]).map(c=>`${c.description} ${c.size}`)].join(' ').toLocaleLowerCase().includes(query));
+  const query=estimateViewState.query.normalize('NFKC').trim().toLowerCase();
+  const matches=lines.filter(l=>!query||[l.display_name,l.name_snapshot,l.reference_name,l.notes,l.size_snapshot,l.category_snapshot,...(l.components||[]).map(c=>`${c.description} ${c.size}`)].join(' ').normalize('NFKC').toLowerCase().includes(query));
   for(const line of matches){const key=line.category_snapshot||'Other';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(line);}
   const scopeTotals=new Map();
   for(const line of (state.projectData?.lines||lines)){

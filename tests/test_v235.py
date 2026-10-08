@@ -58,7 +58,7 @@ class Builders235Tests(unittest.TestCase):
             self.assertEqual(c.execute('SELECT client FROM projects WHERE id=?',(self.d['project_id'],)).fetchone()[0],before)
             p=create_project(c,{'name':'Comma name','client':'One, Two & Three'})['project']
             self.assertEqual(p['builders'],['One, Two & Three'])
-            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],30)
+            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],31)
 
     def test_manager_add_clear_reopen_and_activity(self):
         with connect() as c:

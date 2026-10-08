@@ -45,6 +45,6 @@ class CatalogRatingTests(unittest.TestCase):
    c.execute(f'DELETE FROM app_migrations WHERE "{key}"=?',('v3.1-catalog-rating',))
   auto_upgrade._ready.pop(str(database_path()),None)
   with connect() as c:
-   self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],30)
+   self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],31)
    self.assertEqual(get_catalog_item(c,f['catalog_id'])['importance_rating'],0)
    self.assertEqual(projects.calculate_project(c,f['project_id'])['totals'],before)

@@ -1,61 +1,58 @@
-# TEC ConEst v3.3
+# TEC ConEst v3.3 — 8 October update
 
-## What changed
+## Included changes
 
-- Project JSON transfer uses neutral surfaces, subtle borders and a small teal accent in both themes.
-- Chase history has a pencil button for editing the date, contact method and note. The original author stays visible; the most recent editor and edit time appear below the entry. Previous values are retained in the database audit history. Conflicting edits return a refresh message rather than overwriting someone else's work.
-- New website tenders record their creator and creation time. Excel records show their importer separately. Later imports record the latest importer without replacing first-import attribution.
-- Existing Excel tenders are attributed to **Tonmoy**. Historical workbook chase-ups previously labelled Workbook are attributed to **Yunus**. Existing named website authors are preserved. Future Raw Data history has no author column, so it follows the supplied Yunus convention; the import dialog makes this explicit.
-- Manage Users includes **View Performance** for administrators. Each person has This month / All time filters, Estimator projects and actions, tender submissions and actions, import row totals, activity breakdowns and the latest 30 actions across both applications.
-- Historical Excel attribution is presented separately and excluded from website activity totals. Website tender activity tracking starts with v3.3. Existing Estimator history remains available. These counts do not measure hours worked or quality, and multiple people may contribute to the same project.
-- Reports load only when requested. Actor/date indexes support filtering. Chase audit snapshots stay out of the bootstrap payload.
+- **View Contribution** replaces View Performance. It defaults to **All Time**, with a specific month, specific year or custom inclusive date range. Date boundaries use Australia/Sydney.
+- Three summary cards show Estimator projects, tender submissions contributed to, and documents uploaded. Action breakdowns and recent activity remain available.
+- Historical tender imports are linked to the **Tonmoy** account and display **Md Sazid Ahmed Tonmoy**. Historical workbook chase-ups are linked to **Yunus** and display **Muhammad Yunus**. These are account IDs, not just display labels. Existing website authors and editors remain intact.
+- Dated historical chase-ups contribute within their original chase dates. Undated historical imports contribute under All Time. A tender submission is counted once per contributor even if they performed several actions.
+- Document totals use retained catalogue workbooks, lighting upload/source records, project JSON import actions, completed tender Excel imports and Help attachments. Unknown historical tender file counts are not fabricated. One workbook containing 333 submissions is not counted as 333 documents. Unchanged tender import checks count once when completed, not during preview.
+- Estimate item search includes name, Ref., remarks, category, size and component descriptions, case-insensitively.
+- Component Copy/Paste is saved per account and synchronized between tabs. A new copy replaces the previous one. It survives refresh, and a refresh icon sits beside Paste component. Other accounts cannot read the clipboard. Copied content is not added to an estimate until pasted and saved.
+
+## Help assistant
+
+Help is available in Estimator and Tenders and saves the latest 30 messages, an editable memory note and up to three extracted attachments to the signed-in account. A clear control removes the conversation, note and extracted attachments. Historical upload counts remain as contribution records.
+
+Supported attachments: text-based PDF (up to 100 pages), XLSX, DOCX, TXT, CSV, JSON and Markdown, up to 10 MB each. Extraction retains up to 60,000 characters per file; spreadsheets read up to 2,000 rows and 40 columns per sheet within that text limit. Scanned PDFs/images need OCR first. Original file bytes are not retained by Help.
+
+Local lookups work without AI. **Use configured Gemini** explicitly enables AI assistance and sends the question, relevant retrieved information, memory and document excerpts to the configured Gemini service. It uses the existing App Settings key/model. A missing, disabled, busy or unavailable AI service falls back to local results. Replies are read-only and do not change estimates or tenders. Live Gemini connectivity was not tested; the opt-in and request construction were tested with a mocked provider.
 
 ## Deployment
 
-1. Back up the live Estimator and Tenders databases. Keep `.db`, `.db-wal` and `.db-shm` files excluded from Git and never replace live databases with a development copy.
-2. Apply the changed-files ZIP over the latest v3.2 Excel-import-fix release, retaining all folder paths. Alternatively, use the full v3.3 code package. Neither ZIP contains a database.
-3. Deploy the complete changed file set together, including `conest_app`, source files, `assets/index.html`, fingerprinted Estimator assets and the built `tenders_web` folder. Both frontend builds are already included.
-4. Update `passenger_wsgi.py` manually if your existing Git deployment excludes it, then restart Passenger. All workers should use the same new code. No dependency change is needed.
-5. The Estimator upgrades to schema **30**, adding an activity index, with the existing protected pre-upgrade snapshot. The Tenders store creates an activity table and performs its one-time attribution migration. An existing tender database gets a `.pre-v33.db` snapshot before this migration.
-6. Check `/api/health` for release **3.3**, schema **30**. Sign in, open a tender, edit a chase-up, then use Manage Users → View Performance.
+1. Back up both live databases. Keep all live `.db`, `.db-wal` and `.db-shm` files excluded from Git.
+2. Apply this changed-files ZIP over the previous v3.3 release, preserving paths, or deploy the full updated code ZIP. Neither archive includes databases. Both frontend builds are included.
+3. Keep source and compiled assets together. This update includes new `conest_app/workspace_tools.py` and `assets/help_shared.css` files. Do not omit them.
+4. Restart Passenger after deployment. Keep the existing v3.3 `passenger_wsgi.py`; it is included in the full package and unchanged in this patch.
+5. `/api/health` should report release **3.3**, schema **31**. Automatic migration creates account-scoped workspace state and document-upload records, using the existing pre-upgrade backup process. The tender account-link correction runs on first Tender access.
 
-Do not downgrade code against schema 30. To roll back, stop all workers and restore matching code and both database backups together. The supplied user database was tested on a temporary copy; the original was not modified. Only the Estimator database was supplied, so actual live tender data was not directly inspected.
+The original supplied database was not modified. A temporary copy upgraded successfully, with unchanged existing record counts, valid integrity/foreign keys, and a pre-upgrade backup. To roll back, stop all workers and restore matching code and database backups; do not run older code against schema 31.
 
 ## Verification
 
-- 19 targeted automated tests passed: import/export regression, shared authentication, CSRF, authorship, edit conflicts, administrator-only reporting and review-workflow migration.
-- Browser checks passed for the transfer dialog, performance filters, mobile layout and chase edit/save attribution, with no JavaScript errors.
-- The supplied database copy passed migration, record-count preservation, integrity and foreign-key checks.
-- Both production frontend builds passed. Deployment itself was not performed. Python execution was validated locally on Python 3.12; no claim is made of a live cPanel run or a concurrency benchmark.
+20 targeted automated tests passed, covering contribution dates, author identity, edit conflicts, workbook import regression, authentication/CSRF, account isolation, saved Help data, upload counting and explicit AI opt-in. Browser checks passed for all four contribution period modes, Help upload/history across both apps, cross-tab clipboard replacement and refresh, case-insensitive reference/remarks search and mobile overflow. No live deployment or production concurrency benchmark was performed.
 
 ## Changed files
 
 - README.md
-- TENDERS_UPDATE.md
 - UPDATE_V3.3.md
-- assets/app.91603b738d0d.js
+- app.py
+- assets/app.4ff0c5cd3fa5.js
+- assets/estimate_workspace.js
+- assets/help_chat.js
+- assets/help_shared.css
 - assets/index.html
 - assets/performance.js
-- assets/styles.css
-- assets/styles.f11371c84658.css
+- assets/project_transfer.js
 - assets/workspace.js
-- conest_app/__init__.py
 - conest_app/auto_upgrade.py
+- conest_app/help_chat.py
 - conest_app/http_workspace.py
 - conest_app/performance.py
-- conest_app/tender_http.py
 - conest_app/tender_import.py
 - conest_app/tenders.py
-- conest_app/workspace.py
-- passenger_wsgi.py
-- tenders_frontend/package-lock.json
-- tenders_frontend/package.json
-- tenders_frontend/src/components/tender-app.tsx
-- tenders_frontend/src/components/tender-import.tsx
-- tenders_frontend/src/globals.css
-- tenders_frontend/src/lib/types.ts
-- tenders_web/assets/index-BCJvm32p.css
-- tenders_web/assets/index-CDht-Xeg.js
+- conest_app/workspace_tools.py
+- tenders_frontend/index.html
 - tenders_web/index.html
 - tests/test_catalog_rating.py
 - tests/test_http_v231.py
@@ -67,11 +64,8 @@ Do not downgrade code against schema 30. To roll back, stop all workers and rest
 - tests/test_v233.py
 - tests/test_v235.py
 - tests/test_v33.py
-- tools/build_frontend.py
+- tests/test_v33_oct08.py
 
 Old fingerprinted assets no longer referenced (optional cleanup after deployment):
 
-- assets/app.30fa1758043e.js
-- assets/styles.36267a32bc5f.css
-- tenders_web/assets/index-BeJFWl2X.css
-- tenders_web/assets/index-BryQ1iqe.js
+- assets/app.91603b738d0d.js

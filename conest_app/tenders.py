@@ -125,6 +125,25 @@ class Store:
                     db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',
                                (json.dumps(item,ensure_ascii=False), row['id']))
 
+    def link_contributors(self):
+        from .database import connect
+        with connect() as conn:
+            users={row['username'].casefold():dict(row) for row in conn.execute("SELECT id,name,username FROM users WHERE username COLLATE NOCASE IN ('Tonmoy','Yunus')")}
+        self.historical_yunus=users.get('yunus')
+        if not users:return
+        with self.connect() as db:
+            if db.execute("SELECT 1 FROM settings WHERE id='contributor-accounts-v33b'").fetchone():return
+        with self.connect(write=True) as db:
+            for table,flag,account,idkey,namekey in [('submissions','legacyImported','tonmoy','importedBy','importedByName'),('chases','legacyChase','yunus','authorId','author')]:
+                person=users.get(account)
+                if not person:continue
+                for row in db.execute('SELECT id,body FROM '+table).fetchall():
+                    item=json.loads(row['body'])
+                    if item.get(flag):
+                        item.update({idkey:person['id'],namekey:person['name']})
+                        db.execute('UPDATE '+table+' SET body=? WHERE id=?',(json.dumps(item,ensure_ascii=False),row['id']))
+            if len(users)==2:db.execute("INSERT OR IGNORE INTO settings VALUES('contributor-accounts-v33b','true')")
+
     def migrate_attribution(self, db):
         # One-time attribution supplied by the owner; never invent historical timestamps.
         if db.execute("SELECT 1 FROM settings WHERE id='attribution-v33'").fetchone():
@@ -353,7 +372,9 @@ _store_lock=threading.Lock()
 def get_store():
     global _store
     with _store_lock:
-        if _store is None:_store=Store()
+        if _store is None:
+            _store=Store()
+            _store.link_contributors()
         return _store
 
 def daily_backup():

@@ -198,7 +198,7 @@ class WorkspaceHTTP:
             from .performance import contribution_report
             since=parse_qs(urlparse(self.path).query).get('since',[''])[0]
             with self._read_connection() as conn:
-                result=contribution_report(conn,int(match[1]),since)
+                result=contribution_report(conn,int(match[1]),since,parse_qs(urlparse(self.path).query).get('until',[''])[0])
             self._send_json(result)
             return True
         if path == '/api/users' and method == 'POST':

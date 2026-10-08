@@ -184,7 +184,7 @@ async function loadUsers(render=true) {
   const [result]=await Promise.all([api('/api/users'),loadTeams()]);
   workspaceState.users=result.users;
   if(render) {
-    $('#user-rows').innerHTML=result.users.map(u=>`<tr><td><strong>${escapeHtml(u.name)}</strong><small class="line-unit">${escapeHtml(u.job_title)}</small></td><td>${escapeHtml(u.username)}</td><td>${u.role==='admin'?'Admin':'User'}</td><td>${escapeHtml(u.role==='admin'?'All projects':u.team_name||'No team')}</td><td>${u.is_active?'Active':'Inactive'}${u.must_change_password?' · Setup pending':''}</td><td><div class="user-action-buttons"><button class="button secondary small" type="button" data-performance="${u.id}">View Performance</button><button class="button secondary small" type="button" data-edit-user="${u.id}">Edit user</button></div></td></tr>`).join('');
+    $('#user-rows').innerHTML=result.users.map(u=>`<tr><td><strong>${escapeHtml(u.name)}</strong><small class="line-unit">${escapeHtml(u.job_title)}</small></td><td>${escapeHtml(u.username)}</td><td>${u.role==='admin'?'Admin':'User'}</td><td>${escapeHtml(u.role==='admin'?'All projects':u.team_name||'No team')}</td><td>${u.is_active?'Active':'Inactive'}${u.must_change_password?' · Setup pending':''}</td><td><div class="user-action-buttons"><button class="button secondary small" type="button" data-performance="${u.id}">View Contribution</button><button class="button secondary small" type="button" data-edit-user="${u.id}">Edit user</button></div></td></tr>`).join('');
     renderTeams();
   }
   return result.users;

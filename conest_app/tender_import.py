@@ -154,6 +154,7 @@ def parse_workbook(filename, content):
 
 def import_workbook(store, filename, content, actor, expected=None):
     parsed=parse_workbook(filename,content)
+    yunus=getattr(store,'historical_yunus',None)
     digest=hashlib.sha256(content).hexdigest()
     with store.connect(write=expected is not None) as db:
         if expected is None: db.execute('BEGIN')
@@ -236,11 +237,12 @@ def import_workbook(store, filename, content, actor, expected=None):
                     item.update(updatedBy=actor['id'],updatedByName=actor['name'],updatedAt=timestamp())
                 elif parsed['raw']:
                     item.update(legacyChase=True)
+                    if yunus:item.update(author=yunus['name'],authorId=yunus['id'])
                 item.update(lastImportedBy=actor['id'],lastImportedByName=actor['name'])
             if expected is not None:
                 db.execute(f'INSERT INTO {kind} VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body',(identifier,sid,json.dumps(item,ensure_ascii=False)))
         if expected is not None:
-            if any(counts[k] for k in ('added','updated','followupsAdded','followupsUpdated','remindersAdded','remindersUpdated')):
+            if True:  # A completed upload is counted even when all rows are unchanged.
                 store.activity(db,actor['id'],actor['name'],'Imported Excel',details={'filename':filename,**counts})
             db.execute("INSERT INTO settings VALUES('excel-import-baselines',?) ON CONFLICT(id) DO UPDATE SET body=excluded.body",(json.dumps(baselines,ensure_ascii=False),))
         return {'ok':True,'token':token,'counts':counts,'changes':changes[:100],'totalChanges':len(changes),'applied':expected is not None}

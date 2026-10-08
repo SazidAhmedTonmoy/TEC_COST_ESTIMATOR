@@ -1,6 +1,6 @@
 # Current release: v3.3
 
-See [UPDATE_V3.3.md](UPDATE_V3.3.md) for attribution, editable chase history, per-person contributions and deployment instructions. Release 3.3 uses estimator schema 30.
+See [UPDATE_V3.3.md](UPDATE_V3.3.md) for attribution, editable chase history, per-person contributions and deployment instructions. The 8 October v3.3 update uses estimator schema 31; it adds View Contribution date ranges, Help memory/files and cross-tab copy/paste.
 
 # v3.2 release — October 2026
 

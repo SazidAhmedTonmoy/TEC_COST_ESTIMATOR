@@ -212,6 +212,10 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         traceback.print_exc()
         self._send_json({"success": False, "error": f"The server could not complete this request. Error reference: {reference}. Ask your administrator to check the server log.", "error_reference": reference}, 500)
 
+    def _workspace_tools_route(self,path):
+        from conest_app.workspace_tools import route
+        return route(self,path)
+
     def _tender_route(self, path):
         if not (path == '/tenders' or path.startswith('/tenders/') or path.startswith('/api/tenders/')):
             return False
@@ -269,6 +273,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     payload['dashboard']=self._dashboard_payload()
                 from conest_app.tender_http import send
                 send(self,self._public_payload(payload));return
+            if self._workspace_tools_route(path):return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):
                 return
@@ -400,6 +405,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         try:
             path, _ = self._route()
+            if self._workspace_tools_route(path):return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):
                 return
@@ -580,6 +586,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_PATCH(self) -> None:  # noqa: N802
         try:
             path, _ = self._route()
+            if self._workspace_tools_route(path):return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):
                 return
@@ -669,6 +676,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_PUT(self) -> None:  # noqa: N802
         try:
             path, _ = self._route()
+            if self._workspace_tools_route(path):return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):
                 return
@@ -689,6 +697,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_DELETE(self) -> None:  # noqa: N802
         try:
             path, _ = self._route()
+            if self._workspace_tools_route(path):return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):
                 return

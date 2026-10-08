@@ -8,7 +8,8 @@
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
   <link rel="stylesheet" href="/assets/styles.f11371c84658.css">
-<link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script></head>
+<link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.3-oct08">
+</head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
   <section id="login-screen" class="login-screen" aria-label="Sign in to TEC ConEst">
@@ -198,7 +199,7 @@
         <section class="panel estimate-panel">
           <div class="panel-heading">
             <div><p class="eyebrow">Live estimate</p><h2>Estimate items</h2></div>
-            <div class="estimate-find"><button type="button" class="button secondary small" id="find-estimate-button">Find in estimate</button><input id="estimate-find-input" type="search" placeholder="Find an item already added…" aria-label="Find in this estimate" class="hidden"><span class="pill" id="estimate-line-count">0 assemblies</span></div>
+            <div class="estimate-find"><button type="button" class="button secondary small" id="find-estimate-button">Find in estimate</button><input id="estimate-find-input" type="search" placeholder="Name, ref., remarks or category…" aria-label="Find in this estimate" class="hidden"><span class="pill" id="estimate-line-count">0 assemblies</span></div>
           </div>
           <p class="estimate-help">Edit a name, category or quantity directly. Use <b>+</b> for components. Drag <b>⠿</b> to reorder items or whole categories.</p>
           <div class="table-scroll">
@@ -335,7 +336,7 @@
         <label>Supplier<input id="manual-supplier" maxlength="1000"></label><label>Quote date<input type="date" id="manual-quote-date"></label><label>Price source / reference<input id="manual-price-source" maxlength="1000" placeholder="Supplier quote reference or budget allowance"></label><fieldset id="manual-markup-options" class="line-markup-options hidden"><legend>Exclude mark-up</legend><label><input type="checkbox" id="manual-exclude-material" title="Exclude Material mark-up %">Material</label><label><input type="checkbox" id="manual-exclude-hours" title="Exclude Labour hour mark-up %">Labour hours</label><label><input type="checkbox" id="manual-exclude-final" title="Exclude Final mark-up %">Final</label></fieldset>
       </div>
       <p id="manual-work-help" class="manual-note"></p>
-      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><div class="component-heading-actions"><div id="manual-rating" class="rating-editor" aria-label="Catalogue importance"></div><button class="button secondary small" id="paste-component-button" type="button" disabled>Paste component</button><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div></div>
+      <div class="component-editor-heading"><div><strong>Details per one item / assembly</strong><span>Enter base costs before mark-ups. Rows scale with the estimate quantity unless Fixed total is ticked.</span></div><div class="component-heading-actions"><div id="manual-rating" class="rating-editor" aria-label="Catalogue importance"></div><button class="button secondary small" id="paste-component-button" type="button" disabled>Paste component</button><button class="button secondary small" id="refresh-component-clipboard" type="button" title="Refresh copied component" aria-label="Refresh copied component">↻</button><button class="button secondary small" id="add-component-button" type="button">+ Detail row</button></div></div>
       <div class="component-clipboard-bar hidden" id="component-clipboard-bar"><span id="component-clipboard-label" role="status"></span><button type="button" id="clear-component-clipboard" class="text-button">Clear</button></div><div class="table-scroll"><table class="component-editor"><thead><tr><th>Description</th><th>Size / specification</th><th>Qty / 1</th><th>Unit</th><th>Product / material price</th><th>Labour basis</th><th>Labour hrs / price</th><th></th></tr></thead><tbody id="manual-components"></tbody></table></div>
       <p class="manual-note">A fixed labour price replaces hours × hourly rate. It adds no labour hours. Changing a unit changes its label; review quantities and prices for that unit.</p>
       <div id="manual-cost-preview" class="manual-cost-preview" aria-live="polite"></div>
@@ -444,6 +445,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.91603b738d0d.js" defer></script>
+  <script src="/assets/app.4ff0c5cd3fa5.js" defer></script>
 </body>
 </html>

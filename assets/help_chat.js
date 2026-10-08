@@ -1,45 +1,23 @@
-/* Live database answers, source links and validated follow-up record IDs. */
-const helpChat={owner:null,busy:false,generation:0,followUp:null,anchor:null};
-function resetHelpChat(){helpChat.generation++;helpChat.busy=false;helpChat.owner=null;helpChat.followUp=null;helpChat.anchor=null;$('#help-chat-messages').textContent='';$('#help-chat-question').value='';$('#send-help-chat').disabled=false;$('#send-help-chat').textContent='Ask';$('#help-chat-scope').value='auto';}
-function helpPageContext(){
-  const projectId=state.view==='estimate'?state.projectId:null;
-  const catalogId=state.view==='catalog'?state.currentCatalogItem?.id:null;
-  const lightId=state.view==='light-prices'&&typeof lightPriceState!=='undefined'?lightPriceState.selected:null;
-  return {page:state.view,project_id:projectId||null,catalog_item_id:catalogId||null,light_group_id:lightId?Number(lightId):null};
-}
-function refreshHelpContext(){
-  const current=helpPageContext(),anchor=JSON.stringify(current);
-  if(helpChat.anchor!==anchor){helpChat.followUp=null;helpChat.anchor=anchor;}
-  const name=current.project_id?state.projectData?.project.name:current.catalog_item_id?state.currentCatalogItem?.name:current.light_group_id?lightPriceState.item?.description:null;
-  $('#help-chat-context').textContent=name?`Current record: ${name}. Ask about this record, or name another one.`:'Search all company projects and saved catalogue/lighting records by name, number or nickname.';
-  return current;
-}
-function chatMessage(text,kind,sources=[]){
-  const box=document.createElement('div');box.className=`help-message ${kind}`;
-  const body=document.createElement('p');body.textContent=text;box.append(body);
-  if(sources.length){const links=document.createElement('div');links.className='help-sources';for(const source of sources){if(!/^#\/(catalog|estimate|light-prices)\/\d+$/.test(source.url))continue;const link=document.createElement('a');link.href=source.url;link.textContent=source.label;link.addEventListener('click',e=>{if(!e.ctrlKey&&!e.metaKey&&!e.shiftKey)$('#help-chat-dialog').close();});links.append(link);}box.append(links);}
-  $('#help-chat-messages').append(box);box.scrollIntoView({block:'nearest'});return box;
-}
-async function askHelp(){
-  const question=$('#help-chat-question').value.trim();if(!question||helpChat.busy||!state.user)return;
-  const current=refreshHelpContext(),owner=state.user.id,generation=helpChat.generation;
-  const followUp=helpChat.followUp;helpChat.busy=true;
-  chatMessage(question,'question');$('#help-chat-question').value='';
-  const pending=chatMessage('Reading saved project, catalogue and lighting-price records...','answer');$('#send-help-chat').disabled=true;$('#send-help-chat').textContent='Working...';
-  try{
-    const data=await api('/api/assistant/help',{method:'POST',body:{question,...current,scope:$('#help-chat-scope').value,follow_up:followUp}});
-    if(generation!==helpChat.generation||state.user?.id!==owner)return;
-    helpChat.followUp=data.follow_up||null;
-    pending.remove();chatMessage(`${data.answer}\n\n${data.mode}`,'answer',data.sources||[]);
-  }catch(error){if(generation===helpChat.generation&&state.user?.id===owner)pending.firstChild.textContent=error.message;}
-  finally{if(generation===helpChat.generation){helpChat.busy=false;$('#send-help-chat').disabled=false;$('#send-help-chat').textContent='Ask';$('#help-chat-question').focus();}}
-}
-document.addEventListener('DOMContentLoaded',()=>{
-  const refresh=()=>{$('#help-chat-button').classList.toggle('hidden',!state.user||Boolean(state.user.must_change_password));if(!state.user)resetHelpChat();};
-  new MutationObserver(refresh).observe($('#authenticated-app'),{attributes:true,attributeFilter:['class']});refresh();
-  $('#help-chat-button').addEventListener('click',()=>{if(helpChat.owner!==state.user?.id){resetHelpChat();helpChat.owner=state.user?.id;}refreshHelpContext();$('#help-chat-dialog').showModal();$('#help-chat-question').focus();});
-  $('#close-help-chat').addEventListener('click',()=>$('#help-chat-dialog').close());
-  $('#help-chat-form').addEventListener('submit',event=>{event.preventDefault();askHelp();});
-  $('#help-chat-scope').addEventListener('change',()=>{helpChat.followUp=null;});
-  $$('.help-chat-starters button').forEach(button=>button.addEventListener('click',()=>{$('#help-chat-scope').value='auto';$('#help-chat-question').value=button.dataset.helpQuestion;$('#help-chat-question').focus();}));
-});
+/* Shared, account-scoped assistant for Estimator and Tenders. */
+(function(){
+ let user=null,csrf='',busy=false,generation=0;
+ const el=id=>document.getElementById(id);
+ async function request(path,body){const r=await fetch(path,{method:body===undefined?'GET':'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-ConEst-Request':'1','X-CSRF-Token':csrf},...(body===undefined?{}:{body:JSON.stringify(body)})});const d=await r.json();if(!r.ok)throw Error(d.error||'Request failed');return d;}
+ function message(text,kind,sources=[]){const article=document.createElement('div');article.className='help-message '+kind;const p=document.createElement('p');p.textContent=text;article.append(p);for(const source of sources){if(!/^#\/(catalog|estimate|light-prices)\/\d+$/.test(source.url)&&source.url!=='/tenders/chase-up')continue;const a=document.createElement('a');a.href=source.url.startsWith('#')?'/'+source.url:source.url;a.textContent=source.label;a.className='help-source-link';article.append(a);}el('help-chat-messages').append(article);return article;}
+ function renderMemory(data){el('help-chat-messages').textContent='';for(const m of data.messages||[])message(m.text,m.role,m.sources||[]);el('help-memory-note').value=data.note||'';el('help-documents').textContent='';for(const d of data.documents||[]){const row=document.createElement('div');row.textContent=d.name+' · '+d.characters.toLocaleString()+' text characters ';const remove=document.createElement('button');remove.type='button';remove.className='button secondary small';remove.textContent='Remove';remove.onclick=async()=>{try{renderMemory(await request('/api/assistant/memory',{removeDocument:d.id}));}catch(e){message(e.message,'answer');}};row.append(remove);el('help-documents').append(row);}}
+ function pageContext(){if(typeof state!=='undefined'){return {page:state.view,project_id:state.view==='estimate'?state.projectId:null,catalog_item_id:state.view==='catalog'?state.currentCatalogItem?.id:null,light_group_id:state.view==='light-prices'&&typeof lightPriceState!=='undefined'?lightPriceState.selected:null};}return {page:'tenders'};}
+ async function open(){try{const session=await request('/api/auth/session');if(!session.user||session.user.must_change_password)throw Error('Complete sign-in before using Help.');user=session.user;csrf=session.csrf_token;generation++;el('help-chat-dialog').showModal();renderMemory(await request('/api/assistant/memory'));el('help-chat-question').focus();}catch(e){if(el('help-chat-dialog').open)message(e.message,'answer');else alert(e.message);}}
+ function resetHelpChat(){generation++;user=null;csrf='';if(el('help-chat-dialog')){el('help-chat-dialog').close();el('help-chat-messages').textContent='';el('help-memory-note').value='';el('help-documents').textContent='';}}
+ window.resetHelpChat=resetHelpChat;
+ function init(){
+  el('help-chat-dialog')?.remove();el('help-chat-button')?.remove();
+  const host=document.createElement('div');host.innerHTML=`<button id="help-chat-button" class="help-chat-launch" type="button">? <span>Help</span></button><dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title"><div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst Help</h2><p>Estimator, Tenders and your documents</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div><p class="help-chat-notice">Your latest 30 messages, memory note and up to 3 extracted documents are saved to your account. Answers are read-only.</p><div class="help-tools"><label>Look in <select id="help-chat-scope"><option value="auto">Auto / current page</option><option value="project">Estimator projects</option><option value="tender">Tenders & chase-ups</option><option value="catalog">Catalogue</option><option value="light">Light prices</option><option value="guide">App guide</option></select></label><label class="help-ai-choice"><input type="checkbox" id="help-use-ai">Use configured Gemini — sends question, relevant records, memory and document excerpts</label></div><details class="help-memory"><summary>Memory & attachments</summary><label>What should Help remember?<textarea id="help-memory-note" maxlength="2000" rows="2" placeholder="Your preferences or working context"></textarea></label><button id="help-save-memory" type="button" class="button secondary small">Save memory</button><label class="help-upload">Read a file <input id="help-file" type="file" accept=".pdf,.xlsx,.docx,.txt,.csv,.json,.md"></label><small>Up to 10 MB · text PDF, XLSX, DOCX, TXT, CSV, JSON, MD. Reads up to 60,000 characters; scanned PDFs need OCR.</small><div id="help-documents"></div><button id="help-clear-memory" class="button secondary small" type="button">Clear conversation, memory & files</button></details><div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div><form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" required placeholder="Ask about an estimate, tender, workflow or uploaded document…"></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form></dialog>`;document.body.append(host);
+  el('help-chat-button').onclick=open;el('close-help-chat').onclick=()=>el('help-chat-dialog').close();
+  const app=el('authenticated-app');if(app){const sync=()=>{const active=typeof state!=='undefined'&&state.user&&!state.user.must_change_password;el('help-chat-button').classList.toggle('hidden',!active);if(!active)resetHelpChat();};new MutationObserver(sync).observe(app,{attributes:true,attributeFilter:['class']});sync();}
+  el('help-save-memory').onclick=async()=>{try{await request('/api/assistant/memory',{note:el('help-memory-note').value});message('Memory saved.','answer');}catch(e){message(e.message,'answer');}};
+  el('help-clear-memory').onclick=async()=>{try{generation++;renderMemory(await request('/api/assistant/memory',{clear:true}));}catch(e){message(e.message,'answer');}};
+  el('help-file').onchange=async e=>{const file=e.target.files[0];if(!file)return;e.target.disabled=true;try{if(file.size>10*1024*1024)throw Error('Choose a file up to 10 MB.');const content=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('Cannot read file'));reader.readAsDataURL(file);});renderMemory(await request('/api/assistant/document',{name:file.name,content}));message('File ready. Ask a question about '+file.name+'.','answer');}catch(error){message(error.message,'answer');}finally{e.target.disabled=false;e.target.value='';}};
+  el('help-chat-form').onsubmit=async e=>{e.preventDefault();if(busy)return;const question=el('help-chat-question').value.trim();if(!question)return;busy=true;const token=generation;el('send-help-chat').disabled=true;message(question,'question');el('help-chat-question').value='';const pending=message('Reading…','answer');try{const d=await request('/api/assistant/chat',{question,scope:el('help-chat-scope').value,useAI:el('help-use-ai').checked,...pageContext()});if(token!==generation)return;pending.remove();message(d.answer+'\n\n'+d.mode,'answer',d.sources||[]);}catch(error){if(token===generation)pending.textContent=error.message;}finally{busy=false;el('send-help-chat').disabled=false;}};
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+})();
