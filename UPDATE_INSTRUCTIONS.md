@@ -1,6 +1,14 @@
 # TEC ConEst v3.3 — 8 October update
 
-## Latest patch — live values, contribution correction and Closed
+## Latest layout and chat patch
+
+- View Contribution retains summary counts and activity charts. Removed the historical explanation panel, detailed recent activity list and long footnote; recorded data and attribution are unchanged.
+- All five progress cards share one desktop row. Small screens can scroll the row horizontally.
+- Help header buttons have equal dimensions. The Project/Normal button switches between workspace questions and general chat. Greetings no longer trigger catalog searches.
+- The model selector below the composer uses the app's existing Gemini model list, with App default initially selected. General AI answers require the configured Gemini service and the existing explicit AI opt-in. Normal chat does not retrieve workspace records or include prior Project-mode messages in its AI context; saved memory and uploaded attachments remain available.
+- Nine targeted tests and desktop/mobile browser checks passed. Model selection and context isolation were verified with a mocked AI provider; live provider availability was not tested.
+
+## Previous patch — live values, contribution correction and Closed
 
 - Rates and mark-ups save automatically after a 450 ms typing pause, recalculate totals and show saving/error feedback. Save now remains available. Sequential saves preserve edits made while a request is in flight; existing revision checks protect against conflicting edits.
 - Tonmoy is credited with **two historical tender Excel uploads**, not 333 submissions worked on. Importing rows is not submission work. Future imports count as additional documents. The two undated historical uploads appear under All Time only; dated website contributions remain unchanged.
@@ -45,26 +53,19 @@ Latest browser verification: automatic rate/mark-up saving and totals, consecuti
 
 - README.md
 - UPDATE_V3.3.md
-- assets/app.fe8aff0f6061.js
-- assets/app.js
+- assets/app.c21ea600d619.js
 - assets/help_chat.js
 - assets/help_shared.css
 - assets/index.html
 - assets/performance.js
-- assets/v23.js
-- assets/workspace.js
-- conest_app/help_chat.py
-- conest_app/performance.py
-- conest_app/productivity.py
-- conest_app/project_json.py
-- conest_app/tenders.py
-- conest_app/workspace.py
+- assets/styles.48e084448ef9.css
+- assets/styles.css
 - conest_app/workspace_tools.py
 - tenders_frontend/index.html
 - tenders_web/index.html
-- tests/test_v33.py
-- tests/test_v33_oct08b.py
+- tests/test_v33_oct08c.py
 
 Old fingerprinted assets no longer referenced (optional cleanup after deployment):
 
-- assets/app.4ff0c5cd3fa5.js
+- assets/app.fe8aff0f6061.js
+- assets/styles.f11371c84658.css

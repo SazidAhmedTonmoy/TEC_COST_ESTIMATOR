@@ -2157,3 +2157,7 @@ html[data-theme="dark"] #project-json-dialog{background:#142a35}html[data-theme=
 @media(max-width:650px){.performance-kpis,.performance-columns{grid-template-columns:1fr}.performance-toolbar{align-items:flex-start;flex-direction:column}.performance-recent article{flex-wrap:wrap}.performance-recent time{width:100%;padding-left:78px}#performance-dialog .dialog-card{padding:18px}}
 .users-table{min-width:920px}.users-table th:nth-child(1){width:25%}.users-table th:nth-child(2){width:13%}.users-table th:nth-child(3){width:8%}.users-table th:nth-child(4){width:17%}.users-table th:nth-child(5){width:13%}.users-table th:nth-child(6){width:24%}.user-action-buttons .button{white-space:nowrap;flex-shrink:0}
 html[data-theme="dark"] .performance-app,html[data-theme="dark"] #project-json-dialog .json-card-heading>span{color:#79d6cb}
+
+/* All five workflow totals stay together on desktop. */
+#home-metrics.five-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:700px){#home-metrics.five-metrics{display:flex;overflow-x:auto}#home-metrics.five-metrics>.metric{flex:0 0 140px}}

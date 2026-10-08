@@ -1,6 +1,8 @@
 # Current release: v3.3
 
-Latest v3.3 patch: live rate/mark-up autosave; two historical Excel uploads credited to Tonmoy without crediting imported submissions as work; Closed progress excluded from calendar totals; redesigned Help with inline attachments, memory settings and keyboard shortcuts. See UPDATE_V3.3.md for deployment and verification.
+Latest UI/chat patch: simplified View Contribution; five progress cards in one row; equal Help buttons, Normal/Project chat switch and composer model selection.
+
+Previous v3.3 patch: live rate/mark-up autosave; two historical Excel uploads credited to Tonmoy without crediting imported submissions as work; Closed progress excluded from calendar totals; redesigned Help with inline attachments, memory settings and keyboard shortcuts. See UPDATE_V3.3.md for deployment and verification.
 
 See [UPDATE_V3.3.md](UPDATE_V3.3.md) for attribution, editable chase history, per-person contributions and deployment instructions. The 8 October v3.3 update uses estimator schema 31; it adds View Contribution date ranges, Help memory/files and cross-tab copy/paste.
 
