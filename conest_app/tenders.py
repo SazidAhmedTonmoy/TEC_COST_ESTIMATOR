@@ -49,6 +49,16 @@ def date_value(value, timed=False, required=False):
             raise ValidationError('Choose a valid date and time.' if timed else 'Choose a valid date.')
     return value
 
+def default_submission_team(due):
+    # Owner-specified historical cutoff; undated records remain unassigned.
+    return ('TEC BD TEAM' if due >= '2026-07-20' else 'TEC AU TEAM') if due else ''
+
+def submission_teams():
+    from .database import connect
+    with connect() as conn:
+        names=[r[0] for r in conn.execute('SELECT name FROM teams ORDER BY name COLLATE NOCASE')]
+    return list(dict.fromkeys(names+['TEC AU TEAM','TEC BD TEAM']))
+
 def timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='microseconds')
 
@@ -71,6 +81,10 @@ class Store:
                 if has_settings and not migrated and not backup.exists():
                     with sqlite3.connect(backup) as target:
                         old.backup(target)
+                if has_settings and not old.execute("SELECT 1 FROM settings WHERE id='submission-teams-v34'").fetchone():
+                    backup34=self.path.with_suffix('.pre-v34.db')
+                    if not backup34.exists():
+                        with sqlite3.connect(backup34) as target:old.backup(target)
         self.initialize()
 
     @contextmanager
@@ -111,11 +125,18 @@ class Store:
             ''')
         with self.connect(write=True) as db:
             if not db.execute("SELECT 1 FROM settings WHERE id='import-v1'").fetchone():
-                db.executemany('INSERT OR IGNORE INTO submissions VALUES(?,?,0)', [(s['id'], json.dumps(s, ensure_ascii=False)) for s in self.seed['submissions']])
+                db.executemany('INSERT OR IGNORE INTO submissions VALUES(?,?,0)', [(s['id'], json.dumps({**s,'submittedByTeam':s.get('submittedByTeam',default_submission_team(s.get('due','')))}, ensure_ascii=False)) for s in self.seed['submissions']])
                 db.executemany('INSERT OR IGNORE INTO chases VALUES(?,?,?)', [(c['id'], c['submissionId'], json.dumps(c, ensure_ascii=False)) for c in self.seed['chases']])
                 db.execute("INSERT INTO settings VALUES('import-v1','true')")
 
             self.migrate_attribution(db)
+            if not db.execute("SELECT 1 FROM settings WHERE id='submission-teams-v34'").fetchone():
+                for row in db.execute('SELECT id,body FROM submissions').fetchall():
+                    item=json.loads(row['body'])
+                    if 'submittedByTeam' not in item:
+                        item['submittedByTeam']=default_submission_team(item.get('due',''))
+                        db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),row['id']))
+                db.execute("INSERT INTO settings VALUES('submission-teams-v34','true')")
 
             # Idempotent correction; existing history and manually entered records stay intact.
             for row in db.execute('SELECT id,body FROM submissions').fetchall():
@@ -253,6 +274,8 @@ class Store:
         value = b.get('value')
         if value is not None and (type(value) not in (int,float) or not math.isfinite(value) or value < 0):
             raise ValidationError('Tender value must be zero or greater.')
+        team=text(b.get('submittedByTeam'),'Submitted by team',limit=200) if 'submittedByTeam' in b else None
+        if team and team not in submission_teams():raise ValidationError('Choose an existing submission team.')
         identifier = text(b.get('id'), 'Submission ID', limit=100) or str(uuid.uuid4())
         with self.connect(write=True) as db:
             if b.get('id'):
@@ -264,6 +287,8 @@ class Store:
             else:
                 item, revision = {'latest':'','chaseNumber':''}, 0
             item.update(fields, id=identifier, value=value, revision=revision)
+            if team is not None:item['submittedByTeam']=team
+            else:item.setdefault('submittedByTeam',default_submission_team(fields['due']))
             if not b.get('id'):
                 item.update(createdBy=b.get('_actor_id'),createdByName=b.get('author',''),createdAt=timestamp(),origin='Website')
             else:

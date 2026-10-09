@@ -195,6 +195,8 @@ def import_workbook(store, filename, content, actor, expected=None):
                 item={**{k:'' for k in TEXT_FIELDS},'latest':'','chaseNumber':'',**values,'id':sid,'revision':0,'createdBy':actor['id'],'createdAt':timestamp()}
             else: item={**old,**updates,'revision':old['revision']+(1 if updates else 0)}
             if old is None:
+                from .tenders import default_submission_team
+                item['submittedByTeam']=default_submission_team(item.get('due',''))
                 item.update(origin='Excel import',importedBy=actor['id'],importedByName=actor['name'],importedAt=timestamp())
             if old is None or updates:
                 item.update(lastImportedBy=actor['id'],lastImportedByName=actor['name'],lastImportedAt=timestamp())

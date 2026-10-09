@@ -1,71 +1,70 @@
-# TEC ConEst v3.3 — 8 October update
+# TEC ConEst v3.4 — 9 October 2026
 
-## Latest layout and chat patch
+## Changes
 
-- View Contribution retains summary counts and activity charts. Removed the historical explanation panel, detailed recent activity list and long footnote; recorded data and attribution are unchanged.
-- All five progress cards share one desktop row. Small screens can scroll the row horizontally.
-- Help header buttons have equal dimensions. The Project/Normal button switches between workspace questions and general chat. Greetings no longer trigger catalog searches.
-- The model selector below the composer uses the app's existing Gemini model list, with App default initially selected. General AI answers require the configured Gemini service and the existing explicit AI opt-in. Normal chat does not retrieve workspace records or include prior Project-mode messages in its AI context; saved memory and uploaded attachments remain available.
-- Nine targeted tests and desktop/mobile browser checks passed. Model selection and context isolation were verified with a mocked AI provider; live provider availability was not tested.
-
-## Previous patch — live values, contribution correction and Closed
-
-- Rates and mark-ups save automatically after a 450 ms typing pause, recalculate totals and show saving/error feedback. Save now remains available. Sequential saves preserve edits made while a request is in flight; existing revision checks protect against conflicting edits.
-- Tonmoy is credited with **two historical tender Excel uploads**, not 333 submissions worked on. Importing rows is not submission work. Future imports count as additional documents. The two undated historical uploads appear under All Time only; dated website contributions remain unchanged.
-- Estimator progress now includes **Closed** after Submitted, for rejected or unsubmitted work. Closed projects remain visible and retain their estimate, but their values and hours are excluded from calendar totals. Closing removes review deadlines and schedule reminders. Project JSON import accepts Closed.
-- Help uses a chat layout with Clear beside Close, an attachment button in the composer, and Settings for saved memory and attachments. Look in is removed; scope is always Auto. Enter sends and Shift+Enter adds a new line. Clear removes the conversation while retaining memory/files; Reset in Settings removes all three.
-
-## Included changes
-
-- **View Contribution** replaces View Performance. It defaults to **All Time**, with a specific month, specific year or custom inclusive date range. Date boundaries use Australia/Sydney.
-- Three summary cards show Estimator projects, tender submissions contributed to, and documents uploaded. Action breakdowns and recent activity remain available.
-- Historical tender imports are linked to the **Tonmoy** account and display **Md Sazid Ahmed Tonmoy**. Historical workbook chase-ups are linked to **Yunus** and display **Muhammad Yunus**. These are account IDs, not just display labels. Existing website authors and editors remain intact.
-- Dated historical chase-ups contribute within their original chase dates. The two confirmed historical Excel uploads contribute to documents under All Time only. A tender submission is counted once per contributor even if they performed several actions.
-- Document totals use retained catalogue workbooks, lighting upload/source records, project JSON import actions, completed tender Excel imports and Help attachments. The owner-confirmed historical tender file count is two. One workbook containing 333 submissions is not counted as 333 documents. Unchanged tender import checks count once when completed, not during preview.
-- Estimate item search includes name, Ref., remarks, category, size and component descriptions, case-insensitively.
-- Component Copy/Paste is saved per account and synchronized between tabs. A new copy replaces the previous one. It survives refresh, and a refresh icon sits beside Paste component. Other accounts cannot read the clipboard. Copied content is not added to an estimate until pasted and saved.
-
-## Help assistant
-
-Help is available in Estimator and Tenders and saves the latest 30 messages, an editable memory note and up to three extracted attachments to the signed-in account. Clear removes only the conversation; Reset in Settings also removes the note and extracted attachments. Historical upload counts remain as contribution records.
-
-Supported attachments: text-based PDF (up to 100 pages), XLSX, DOCX, TXT, CSV, JSON and Markdown, up to 10 MB each. Extraction retains up to 60,000 characters per file; spreadsheets read up to 2,000 rows and 40 columns per sheet within that text limit. Scanned PDFs/images need OCR first. Original file bytes are not retained by Help.
-
-Local lookups work without AI. **Use configured Gemini** explicitly enables AI assistance and sends the question, relevant retrieved information, memory and document excerpts to the configured Gemini service. It uses the existing App Settings key/model. A missing, disabled, busy or unavailable AI service falls back to local results. Replies are read-only and do not change estimates or tenders. Live Gemini connectivity was not tested; the opt-in and request construction were tested with a mocked provider.
+1. **Tenders on mobile:** Estimator-style brand header with logo, workspace switch and Menu control. Navigation closes after selecting a page. Summary cards scroll horizontally on small screens.
+2. **Full-width pages:** Tenders uses the available workspace width, including when zooming out. Tables keep readable column widths and scroll within their containers on phones.
+3. **Help theme:** The Help button and chat send button use the Tender gold accent in light and dark modes.
+4. **Expand All / Shrink All:** One Estimator button beside Find in estimate expands every category and item component list, or collapses both. This changes the view only.
+5. **Sortable tables:** Click any data-column heading in Project Chase-up, Projects or Builders to sort descending, then ascending. Numeric amounts/counts sort numerically; dates sort chronologically; text and status types sort alphabetically. Blank values remain last. The arrow shows the active direction.
+6. **New columns:** Pricing feedback in Project Chase-up; submission deadline in Projects. For a project with different submission deadlines, the table shows the earliest and labels it as one of multiple deadlines.
+7. **Submitted by team:** Tender details and Edit tender include the team selector. This is separate from the user who imported or edited the tender. Existing dated submissions are assigned TEC AU TEAM before **20 July 2026**, and TEC BD TEAM on or after that date. Undated records remain unassigned. Current teams are available alongside the two historical team labels. Manual selections are preserved through restarts and workbook updates; new imports receive the date-based default.
+8. **Grouped filters:** Filters opens labelled sections for TEC status, region, builder outcome, pricing feedback, submission team and builder/project. Filters combine with the case-insensitive search. Calendar and Reminders use the same filters. Dashboard has prominent region, team and builder-outcome selectors, with further options beside its search bar. Defaults are All.
+9. **Live result summaries:** Summary counts follow search, filters and the selected chase-up tab. They include submissions, unique projects, builders, highest quotes counted once per project, and recorded chase-ups. Excel exports use the matching submissions.
+10. **Tender overviews:** Builder/region text is larger and bold. Project and Builder overviews include Back, restoring the previous detail view. Submissions and Builder awards cards open/filter the submission list.
+11. **Calendar summary:** Monthly projects due, builder submissions and distinct builders, recorded chase-ups, and quoted sum replace the explanatory paragraph. Quoted sum counts only the highest quote for each project in that month's matching submissions. Event-type selection changes the visible event list; the summary continues to describe the full month under the search filters.
+12. **Dashboard filters:** KPI cards, outcome charts, monthly activity, reminders and the open-tender list all use the selected filters.
+13. **Monthly activity:** Gold bars show unique projects by submission-deadline month; purple bars show recorded chase-up entries by chase date. A project counts once within a month even when quoted to several builders. Bar clicks open the related submissions; all-months view and year selection remain available. Undated records are excluded.
+14. **Open tenders:** Dashboard shows the latest ten open submissions instead of five, ordered by deadline by default.
 
 ## Deployment
 
-1. Back up both live databases. Keep all live `.db`, `.db-wal` and `.db-shm` files excluded from Git.
-2. Apply this changed-files ZIP over the previous v3.3 release, preserving paths, or deploy the full updated code ZIP. Neither archive includes databases. Both frontend builds are included.
-3. Keep source and compiled assets together. This update includes new `conest_app/workspace_tools.py` and `assets/help_shared.css` files. Do not omit them.
-4. Restart Passenger after deployment. Keep the existing v3.3 `passenger_wsgi.py`; it is included in the full package and unchanged in this patch.
-5. `/api/health` should report release **3.3**, schema **31**. Automatic migration creates account-scoped workspace state and document-upload records, using the existing pre-upgrade backup process. The tender account-link correction and confirmed two-file attribution run on first Tender access.
-
-The original supplied database was not modified. A temporary copy upgraded successfully, with unchanged existing record counts, valid integrity/foreign keys, and a pre-upgrade backup. To roll back, stop all workers and restore matching code and database backups; do not run older code against schema 31.
+- Back up `conest_catalog.db` and `tec_tenders.db`. Keep all live database files and WAL/SHM files excluded from Git. Neither release ZIP includes databases.
+- Overlay the changed-files ZIP on the latest v3.3 code, preserving relative paths. Alternatively, use the full v3.4 ZIP and retain the live databases and server configuration.
+- Both frontends are built and included. Deploy source files and their fingerprinted assets together. No npm build is needed on the host for these ZIPs.
+- Restart Passenger after copying the code. The existing `passenger_wsgi.py` remains compatible and is included in the full ZIP.
+- Health should report **version 3.4**, **Estimator schema 31**. No Estimator schema change is needed. On first Tender access, a one-time migration assigns missing submission teams and invalidates stale edit revisions. An existing Tender database is backed up to `tec_tenders.pre-v34.db` before this migration, unless that backup already exists.
+- No user, contributor, submission value, chase history or estimate is deleted by this update. Team assignment does not grant project access or count as a staff contribution.
 
 ## Verification
 
-26 targeted automated tests passed, covering contribution dates, author identity, edit conflicts, workbook import regression, authentication/CSRF, account isolation, saved Help data, upload counting and explicit AI opt-in. Browser checks passed for all four contribution period modes, Help upload/history across both apps, cross-tab clipboard replacement and refresh, case-insensitive reference/remarks search and mobile overflow. No live deployment or production concurrency benchmark was performed.
+16 targeted Python tests passed, covering cutoff boundaries, editable teams, idempotent migration, conflict protection, authenticated bootstrap, workbook import/export regression and Tender integration. Frontend checks covered highest-quote deduplication, monthly project/chase counting, missing dates and numeric/text sorting. TypeScript checking and both frontend builds passed.
 
-Latest browser verification: automatic rate/mark-up saving and totals, consecutive edits, Closed calendar exclusion, Auto scope, Enter/Shift+Enter, composer upload, memory retention after Clear, desktop and mobile layouts.
+Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layout at a 5,000-pixel viewport, dashboard and combined filters, ascending/descending sorting, editable teams, overview Back and summary cards, calendar totals, mobile menu and gold Help button, and desktop/mobile light and dark layouts. Checks used isolated test databases. No live deployment or production load benchmark was performed.
 
 ## Changed files
 
 - README.md
-- UPDATE_V3.3.md
-- assets/app.c21ea600d619.js
-- assets/help_chat.js
+- UPDATE_V3.4.md
+- assets/app.543203e46313.js
+- assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
-- assets/performance.js
-- assets/styles.48e084448ef9.css
-- assets/styles.css
-- conest_app/workspace_tools.py
+- assets/tender_boot.css
+- assets/tender_theme.js
+- conest_app/__init__.py
+- conest_app/tender_http.py
+- conest_app/tender_import.py
+- conest_app/tenders.py
 - tenders_frontend/index.html
+- tenders_frontend/package-lock.json
+- tenders_frontend/package.json
+- tenders_frontend/src/components/group-detail.tsx
+- tenders_frontend/src/components/tender-activity.tsx
+- tenders_frontend/src/components/tender-app.tsx
+- tenders_frontend/src/globals.css
+- tenders_frontend/src/lib/activity.ts
+- tenders_frontend/src/lib/reporting.ts
+- tenders_frontend/src/lib/types.ts
+- tenders_web/assets/index-D1k5YPCp.js
+- tenders_web/assets/index-TW1RvUKo.css
 - tenders_web/index.html
-- tests/test_v33_oct08c.py
+- tests/tender_activity.test.mjs
+- tests/test_v34.py
+- tests/v34_reporting.test.cjs
 
 Old fingerprinted assets no longer referenced (optional cleanup after deployment):
 
-- assets/app.fe8aff0f6061.js
-- assets/styles.f11371c84658.css
+- assets/app.c21ea600d619.js
+- tenders_web/assets/index-BCJvm32p.css
+- tenders_web/assets/index-CDht-Xeg.js

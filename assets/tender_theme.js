@@ -1,1 +1,2 @@
 (()=>{let t;try{t=localStorage.getItem('tec-theme')}catch{}t=t|| (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');document.documentElement.dataset.theme=t;document.documentElement.classList.toggle('dark',t==='dark')})();
+document.documentElement.dataset.workspace='tenders';

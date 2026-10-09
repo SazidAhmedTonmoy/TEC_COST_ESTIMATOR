@@ -32,6 +32,7 @@ function renderGroupedEstimate(lines){
   $$('.scope-move').forEach(button=>{const at=names.indexOf(button.dataset.scope);button.disabled=!names[at+Number(button.dataset.direction)]||!state.projectData?.project?.can_edit;});
   fitEstimateText();
   syncCategoryToggle();
+  syncExpandEstimateAll();
   if(state.projectData?.project?.can_edit===false){
     $$('#estimate-lines input, #estimate-lines textarea, #estimate-lines select, #estimate-lines button').forEach(field=>field.disabled=!field.matches('.toggle-details,.toggle-scope'));
   }
@@ -152,4 +153,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     estimateOperation(path,payload,record).catch(error=>toast(error.message,true));
   });
   document.addEventListener('dragend',()=>{estimateViewState.drag=null;clearDropHint();});
+});
+
+function syncExpandEstimateAll(){
+ const button=$('#expand-estimate-all');if(!button)return;
+ const lines=state.projectData?.lines||[];
+ const all=lines.length>0&&lines.every(l=>!estimateViewState.collapsed.has(scopeKey(l.category_snapshot||'Other'))&&estimateViewState.expanded.has(l.id));
+ button.textContent=all?'Shrink All':'Expand All';button.setAttribute('aria-expanded',String(all));button.disabled=!lines.length;
+}
+$('#expand-estimate-all')?.addEventListener('click',()=>{
+ const lines=state.projectData?.lines||[],shrink=$('#expand-estimate-all').getAttribute('aria-expanded')==='true';
+ for(const line of lines){const key=scopeKey(line.category_snapshot||'Other');if(shrink){estimateViewState.collapsed.add(key);estimateViewState.expanded.delete(line.id);}else{estimateViewState.collapsed.delete(key);estimateViewState.expanded.add(line.id);}}
+ estimateViewState.bulkCollapsed=shrink;renderGroupedEstimate(lines);
 });

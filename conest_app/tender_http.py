@@ -48,13 +48,13 @@ def route(h,path):
             payload={'user':h.user,'csrf_token':accounts.csrf_token(h.session_token)}
             if not h.user['must_change_password']:
                 data={k:v for k,v in tenders.get_store().all_data().items() if k not in ('report','projectSummary')}
-                data['settings']={**data['settings'],'author':h.user['name']}
+                data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
                 payload['data']=data
             send(h,payload);return
         h._guard(path)
         store=tenders.get_store()
         if path=='/api/tenders/data' and h.command=='GET':
-            data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']}
+            data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
             send(h,data);return
         if h.command not in ('POST','DELETE'):raise tenders.ValidationError('Not found',404)
         body=h._json_body()
