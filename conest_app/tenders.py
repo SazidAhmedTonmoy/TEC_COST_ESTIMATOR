@@ -57,7 +57,40 @@ def submission_teams():
     from .database import connect
     with connect() as conn:
         names=[r[0] for r in conn.execute('SELECT name FROM teams ORDER BY name COLLATE NOCASE')]
-    return list(dict.fromkeys(names+['TEC AU TEAM','TEC BD TEAM']))
+    return names
+
+def team_directory():
+    from .database import connect
+    with connect() as conn:
+        current={r['id']:r['name'] for r in conn.execute('SELECT id,name FROM teams')}
+        aliases={r['name'].casefold():r['team_id'] for r in conn.execute('SELECT name,team_id FROM tender_team_aliases')}
+    aliases.update({name.casefold():identifier for identifier,name in current.items()})
+    return current,aliases
+
+def live_teams(data):
+    current,aliases=team_directory()
+    def resolve(item):
+        identifier=item.get('submittedByTeamId',aliases.get(item.get('submittedByTeam','').casefold()))
+        return {**item,'submittedByTeam':current.get(identifier,''),'submittedByTeamId':identifier}
+    result={**data,'teams':list(current.values())}
+    if 'submissions' in result:result['submissions']=[resolve(s) for s in result['submissions']]
+    if result.get('submission'):result['submission']=resolve(result['submission'])
+    if 'relatedSubmissions' in result:result['relatedSubmissions']=[resolve(s) for s in result['relatedSubmissions']]
+    return result
+
+def project_key(value):
+    import unicodedata
+    return ' '.join(unicodedata.normalize('NFKC',value or '').split()).casefold()
+
+def submission_month(due):
+    return date.fromisoformat(due).strftime('%b %Y') if due else ''
+
+def normalize_fields(item):
+    item['region']=str(item.get('region') or '').strip().upper()
+    item['month']=submission_month(item.get('due',''))
+    if '1900' in str(item.get('statusUpdated','')):item['statusUpdated']=''
+    item['pricing']=item.get('pricing') or 'Nil'
+    return item
 
 def timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='microseconds')
@@ -85,6 +118,10 @@ class Store:
                     backup34=self.path.with_suffix('.pre-v34.db')
                     if not backup34.exists():
                         with sqlite3.connect(backup34) as target:old.backup(target)
+                if has_settings and not old.execute("SELECT 1 FROM settings WHERE id='normalized-fields-v34b'").fetchone():
+                    backup_fields=self.path.with_suffix('.pre-v34b.db')
+                    if not backup_fields.exists():
+                        with sqlite3.connect(backup_fields) as target:old.backup(target)
         self.initialize()
 
     @contextmanager
@@ -124,7 +161,8 @@ class Store:
                 CREATE INDEX IF NOT EXISTS reminder_submission ON reminders(submission_id);
             ''')
         with self.connect(write=True) as db:
-            if not db.execute("SELECT 1 FROM settings WHERE id='import-v1'").fetchone():
+            fresh=not db.execute("SELECT 1 FROM settings WHERE id='import-v1'").fetchone()
+            if fresh:
                 db.executemany('INSERT OR IGNORE INTO submissions VALUES(?,?,0)', [(s['id'], json.dumps({**s,'submittedByTeam':s.get('submittedByTeam',default_submission_team(s.get('due','')))}, ensure_ascii=False)) for s in self.seed['submissions']])
                 db.executemany('INSERT OR IGNORE INTO chases VALUES(?,?,?)', [(c['id'], c['submissionId'], json.dumps(c, ensure_ascii=False)) for c in self.seed['chases']])
                 db.execute("INSERT INTO settings VALUES('import-v1','true')")
@@ -145,6 +183,10 @@ class Store:
                     item['pricing'] = 'High'
                     db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',
                                (json.dumps(item,ensure_ascii=False), row['id']))
+
+            if not db.execute("SELECT 1 FROM settings WHERE id='normalized-fields-v34b'").fetchone():
+                self.normalize_records(db,fresh,shared=True)
+                db.execute("INSERT INTO settings VALUES('normalized-fields-v34b','true')")
 
     def link_contributors(self):
         from .database import connect
@@ -224,7 +266,7 @@ class Store:
             old=self.find(db,'submissions',sid);item=json.loads(old['body'])
             history=[{k:v for k,v in json.loads(r[0]).items() if k!='edits'} for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))]
             latest=max(history,key=lambda h:(h.get('date',''),h.get('createdAt','')))
-            item.update(latest=latest['note'],revision=old['revision']+1)
+            item.update(latest=latest['note'],statusUpdated=latest['date'],revision=old['revision']+1)
             db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),sid))
             self.activity(db,b.get('_actor_id'),b['author'],'Edited chase-up',item,{'chaseId':identifier,'before':before})
         return {'ok':True}
@@ -271,11 +313,11 @@ class Store:
         if fields['status'] not in ('Open','Won','Lost','Close','Hold'):
             raise ValidationError('Choose a valid TEC status.')
         fields['due'] = date_value(fields['due'])
+        normalize_fields(fields)
         value = b.get('value')
         if value is not None and (type(value) not in (int,float) or not math.isfinite(value) or value < 0):
             raise ValidationError('Tender value must be zero or greater.')
         team=text(b.get('submittedByTeam'),'Submitted by team',limit=200) if 'submittedByTeam' in b else None
-        if team and team not in submission_teams():raise ValidationError('Choose an existing submission team.')
         identifier = text(b.get('id'), 'Submission ID', limit=100) or str(uuid.uuid4())
         with self.connect(write=True) as db:
             if b.get('id'):
@@ -286,8 +328,24 @@ class Store:
                 revision = old['revision'] + 1
             else:
                 item, revision = {'latest':'','chaseNumber':''}, 0
+            if team and team not in submission_teams():
+                if team==item.get('submittedByTeam'):team=''
+                else:raise ValidationError('Choose an existing submission team.')
+            if not b.get('id'):
+                peers=[json.loads(r[0]) for r in db.execute('SELECT body FROM submissions') if project_key(json.loads(r[0]).get('project'))==project_key(fields['project'])]
+                if peers:
+                    for key in ('region','due'):
+                        if not fields[key]:fields[key]=next((p.get(key,'') for p in peers if p.get(key)), '')
+                    fields['month']=submission_month(fields['due'])
+            history=[json.loads(r[0]) for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(identifier,))]
+            fields['statusUpdated']=max((c.get('date','') for c in history),default='')
             item.update(fields, id=identifier, value=value, revision=revision)
-            if team is not None:item['submittedByTeam']=team
+            if team is not None:
+                item['submittedByTeam']=team
+                if team:
+                    _,aliases=team_directory()
+                    item['submittedByTeamId']=aliases.get(team.casefold())
+                else:item['submittedByTeamId']=None
             else:item.setdefault('submittedByTeam',default_submission_team(fields['due']))
             if not b.get('id'):
                 item.update(createdBy=b.get('_actor_id'),createdByName=b.get('author',''),createdAt=timestamp(),origin='Website')
@@ -298,7 +356,40 @@ class Store:
                 db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?', (json.dumps(item,ensure_ascii=False),revision,identifier))
             else:
                 db.execute('INSERT INTO submissions VALUES(?,?,?)', (identifier,json.dumps(item,ensure_ascii=False),revision))
+            self.sync_project(db,item,b.get('_actor_id'),b.get('author',''))
         return {'ok':True,'id':identifier}
+
+    def sync_project(self, db, source, actor_id=None, actor_name=''):
+        fields={k:source.get(k,'') for k in ('region','due','month')}
+        for row in db.execute('SELECT id,body FROM submissions WHERE id!=?',(source['id'],)).fetchall():
+            item=json.loads(row['body'])
+            if project_key(item.get('project'))!=project_key(source['project']):continue
+            if all(item.get(k,'')==v for k,v in fields.items()):continue
+            item.update(fields,updatedBy=actor_id,updatedByName=actor_name,updatedAt=timestamp())
+            db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),row['id']))
+            self.activity(db,actor_id,actor_name,'Updated project fields',item,{'sourceSubmission':source['id'],'fields':fields})
+
+    def normalize_records(self, db, fresh=False, shared=False):
+        history={}
+        for row in db.execute('SELECT submission_id,body FROM chases'):
+            chase=json.loads(row['body']);dt=chase.get('date','')
+            if dt and not dt.startswith('1900'):history[row['submission_id']]=max(history.get(row['submission_id'],''),dt)
+        rows=db.execute('SELECT id,body FROM submissions').fetchall()
+        grouped={}
+        if shared:
+            from collections import Counter
+            for row in rows:
+                item=json.loads(row['body']);grouped.setdefault(project_key(item.get('project')),[]).append(item)
+            for key,items in grouped.items():
+                regions=Counter(str(i.get('region') or '').strip().upper() for i in items if str(i.get('region') or '').strip())
+                grouped[key]={'due':max((i.get('due') or '' for i in items),default=''),'region':sorted(regions,key=lambda v:(-regions[v],v))[0] if regions else ''}
+        for row in rows:
+            before=json.loads(row['body']);item=dict(before)
+            if shared:item.update(grouped[project_key(item.get('project'))])
+            normalize_fields(item)
+            item['statusUpdated']=history.get(row['id'],'')
+            if item!=before:
+                db.execute('UPDATE submissions SET body=?,revision=revision+? WHERE id=?',(json.dumps(item,ensure_ascii=False),0 if fresh else 1,row['id']))
 
     def add_chase(self, b):
         sid = text(b.get('submissionId'), 'Submission ID', True, 100)
@@ -321,7 +412,9 @@ class Store:
             c = {'id':str(uuid.uuid4()),'submissionId':sid,'date':chase_date,'note':note,'method':method,'author':author,'authorId':b.get('_actor_id'),'createdAt':timestamp(),'revision':0}
             db.execute('INSERT INTO chases VALUES(?,?,?)',(c['id'],sid,json.dumps(c,ensure_ascii=False)))
             item = json.loads(old['body'])
-            item.update(latest=note, statusUpdated=chase_date, revision=old['revision']+1)
+            history=[json.loads(r[0]) for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))]
+            latest=max(history,key=lambda h:(h.get('date',''),h.get('createdAt','')))
+            item.update(latest=latest['note'], statusUpdated=latest['date'], revision=old['revision']+1)
             db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),sid))
             self.activity(db,b.get('_actor_id'),author,'Recorded chase-up',item,{'chaseId':c['id']})
             if next_due:
@@ -382,6 +475,7 @@ class Store:
             item=json.loads(row['body']) if row else None
             if item:item['revision']=row['revision']
             return {'submissionId':sid,'submission':item,
+                    'relatedSubmissions':[{**json.loads(r['body']),'revision':r['revision']} for r in db.execute('SELECT * FROM submissions WHERE id!=?',(sid,)) if item and project_key(json.loads(r['body']).get('project'))==project_key(item.get('project'))],
                     'chases':[{k:v for k,v in json.loads(r[0]).items() if k!='edits'} for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))],
                     'reminders':[json.loads(r[0]) for r in db.execute('SELECT body FROM reminders WHERE submission_id=?',(sid,))]}
 

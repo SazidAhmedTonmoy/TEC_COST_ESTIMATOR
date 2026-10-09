@@ -1,5 +1,25 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Team and tender refinements — 9 October 2026
+
+- **Teams:** Administrators can delete a team. Confirmation explains that members become unassigned and team-based editing access is removed; users and projects remain. Tender selectors show only currently managed teams. Future renames follow existing assignments; deletion displays Not specified/Unassigned. Old unmatched team labels are not guessed or added as extra choices. Returning to a tender tab refreshes its data and team list.
+- **Activity chart:** Replaced recorded chase-ups with builder awards. Gold is unique projects; purple is awarded builder submissions. Both use submission-deadline month, because an award date is not recorded. Clicking an award bar opens those awarded submissions.
+- **Shared project fields:** Region and submission deadline apply to all builders for a project, matched without case/spacing differences. Regions are trimmed and uppercased. Submission month is derived from the deadline. Sibling rows update together and receive new revisions, preventing stale edits from overwriting the change.
+- **Existing inconsistent records:** One-time cleanup keeps the latest existing deadline and the most-used nonblank region (alphabetical tie-break) for each project. Month is recalculated. A `tec_tenders.pre-v34b.db` backup is created before this cleanup on an existing tender database.
+- **Chase dates:** Status updated is read-only and derived from the latest dated chase-up, including edits and imported history. A backdated entry does not move it backwards. Without a dated chase-up it is blank/Not recorded; January 1900 placeholders are removed.
+- **Overview editing:** Each submission in project/builder overviews has a pencil Edit action. The editor allows quote value, TEC status, builder outcome, pricing feedback, contact person and email changes. Contact details are displayed in the overview row.
+- **Imports:** Blank optional fields remain blank, Nil or Not specified, and blank quote values remain unknown rather than zero. Missing TEC status defaults to Open. Project and builder identity are still required. Workbook project-field updates propagate to other builder submissions and are included in preview counts. Conflicting nonblank project fields in one upload produce a row/project validation message rather than silently choosing between them. Existing unchanged workbook cells still preserve website edits.
+- **Pricing header:** Repeated clicks cycle No feedback, Competitive, High, Mid-Range, Lower, Mix and any additional stored categories to the top. All results remain available. The header identifies which category is first; the Filters panel can show only a chosen category.
+- **Text cleanup:** Removed the redundant submission count beside builder counts on Projects, and contact names beneath builder names on the Builders list. Contact details remain available in overviews and tender details.
+
+### Installation and checks
+
+Use the full ZIP or overlay the cumulative changed-files ZIP on the existing v3.3/v3.4 source. Keep your live databases and uploads. Commit/push the code and restart Passenger after deployment. Release stays **3.4** and schema version stays **31**; an idempotent `v3.4-team-directory` migration adds the team alias table to an existing installation without replaying historical team initialization.
+
+Verified: all 30 Python test modules; additional import/preview regressions; TypeScript compilation; activity-chart checks; production builds; browser checks for overview editing, contacts, project propagation, pricing cycling, team-delete controls, mobile overflow and console errors. No live deployment was performed.
+
+The original v3.4 notes below describe the initial release; the refinements above supersede the chart, team-list and project-date behaviour where they differ.
+
 ## Deployment validation fix
 
 Corrected the HTTP health-check test to expect release 3.4 instead of 3.3. The stale assertion stopped deployment during validation, before uploading application code. No database or application behaviour change is required for this fix. If v3.4 is already in your repository, replace `tests/test_http_v232.py`, commit and push, then rerun deployment.
@@ -40,13 +60,17 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 
 - README.md
 - UPDATE_V3.4.md
-- assets/app.543203e46313.js
+- assets/app.57ec87590b5c.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/tender_boot.css
 - assets/tender_theme.js
+- assets/workspace.js
 - conest_app/__init__.py
+- conest_app/auto_upgrade.py
+- conest_app/http_workspace.py
+- conest_app/teams.py
 - conest_app/tender_http.py
 - conest_app/tender_import.py
 - conest_app/tenders.py
@@ -60,12 +84,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - tenders_frontend/src/lib/activity.ts
 - tenders_frontend/src/lib/reporting.ts
 - tenders_frontend/src/lib/types.ts
-- tenders_web/assets/index-D1k5YPCp.js
-- tenders_web/assets/index-TW1RvUKo.css
+- tenders_web/assets/index-BEKV6x3p.js
+- tenders_web/assets/index-DPZm7Tft.css
 - tenders_web/index.html
 - tests/tender_activity.test.mjs
 - tests/test_http_v232.py
 - tests/test_v34.py
+- tests/test_v34_followup.py
 - tests/v34_reporting.test.cjs
 
 Old fingerprinted assets no longer referenced (optional cleanup after deployment):

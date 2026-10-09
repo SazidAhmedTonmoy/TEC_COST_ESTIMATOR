@@ -17,6 +17,7 @@ def initialize_teams(conn):
             assigned_by INTEGER REFERENCES users(id), assigned_at TEXT NOT NULL,
             PRIMARY KEY(project_id,team_id)
         );
+        CREATE TABLE IF NOT EXISTS tender_team_aliases(name TEXT PRIMARY KEY COLLATE NOCASE, team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL);
         CREATE INDEX IF NOT EXISTS idx_project_teams_team ON project_teams(team_id,project_id);
     ''')
     additions={'users':{'team_id':'INTEGER REFERENCES teams(id)'},'projects':{
@@ -100,7 +101,9 @@ def save_team(conn, payload, actor, team_id=None):
     name=str(payload.get('name',current['name'] if current else '')).strip()
     if not 1<=len(name)<=100:raise ValueError('Team name must contain 1 to 100 characters')
     now=utc_now()
-    if current:conn.execute('UPDATE teams SET name=?,updated_at=? WHERE id=?',(name,now,team_id))
+    if current:
+        conn.execute('INSERT INTO tender_team_aliases VALUES(?,?) ON CONFLICT(name) DO UPDATE SET team_id=excluded.team_id',(current['name'],team_id))
+        conn.execute('UPDATE teams SET name=?,updated_at=? WHERE id=?',(name,now,team_id))
     else:team_id=conn.execute('INSERT INTO teams(name,created_at,updated_at) VALUES (?,?,?)',(name,now,now)).lastrowid
     if 'member_ids' in payload:
         ids=payload['member_ids']
@@ -112,3 +115,14 @@ def save_team(conn, payload, actor, team_id=None):
         conn.execute('UPDATE users SET team_id=NULL,updated_at=? WHERE team_id=?',(now,team_id))
         for uid in set(ids):conn.execute('UPDATE users SET team_id=?,updated_at=? WHERE id=?',(team_id,now,uid))
     return next(t for t in list_teams(conn,actor) if t['id']==team_id)
+
+
+def delete_team(conn, team_id, actor):
+    if actor['role']!='admin':raise AccessError(403,'Administrator access is required')
+    row=conn.execute('SELECT name FROM teams WHERE id=?',(team_id,)).fetchone()
+    if not row:raise LookupError('Team not found')
+    conn.execute('INSERT INTO tender_team_aliases VALUES(?,?) ON CONFLICT(name) DO UPDATE SET team_id=excluded.team_id',(row['name'],team_id))
+    conn.execute('UPDATE users SET team_id=NULL,updated_at=? WHERE team_id=?',(utc_now(),team_id))
+    conn.execute('DELETE FROM project_teams WHERE team_id=?',(team_id,))
+    conn.execute('DELETE FROM teams WHERE id=?',(team_id,))
+    return {'success':True}

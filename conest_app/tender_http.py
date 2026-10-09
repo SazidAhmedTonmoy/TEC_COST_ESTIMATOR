@@ -49,13 +49,13 @@ def route(h,path):
             if not h.user['must_change_password']:
                 data={k:v for k,v in tenders.get_store().all_data().items() if k not in ('report','projectSummary')}
                 data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
-                payload['data']=data
+                payload['data']=tenders.live_teams(data)
             send(h,payload);return
         h._guard(path)
         store=tenders.get_store()
         if path=='/api/tenders/data' and h.command=='GET':
             data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
-            send(h,data);return
+            send(h,tenders.live_teams(data));return
         if h.command not in ('POST','DELETE'):raise tenders.ValidationError('Not found',404)
         body=h._json_body()
         if path=='/api/tenders/export.xlsx' and h.command=='POST':
@@ -88,6 +88,6 @@ def route(h,path):
             with store.connect() as db:sid=store.find(db,'reminders',body['id'])['submission_id']
         result=routes[kind](body)
         if kind=='submissions':sid=result['id']
-        send(h,store.delta(sid))
+        send(h,tenders.live_teams(store.delta(sid)))
     except tenders.ValidationError as e:
         h._send_json({'error':str(e)},e.status)

@@ -12,3 +12,9 @@ export function activityMonths(rows:{id?:string;project?:string;due:string}[],ch
  for(let index=fy*12+fm-1;index<=ly*12+lm-1;index++){const month=`${String(Math.floor(index/12)).padStart(4,'0')}-${String(index%12+1).padStart(2,'0')}`;result.push({month,count:projects.get(month)?.size||0,chases:chaseCounts.get(month)||0})}
  return result;
 }
+
+/** Builder awards grouped by submission deadline, not an inferred award date. */
+export function awardActivityMonths(rows:{id?:string;project?:string;due:string;builderStatus:string}[]){
+ const months=activityMonths(rows);
+ return months.map(m=>({month:m.month,count:m.count,awards:rows.filter(s=>s.due?.startsWith(m.month)&&s.builderStatus==='Awarded').length}));
+}

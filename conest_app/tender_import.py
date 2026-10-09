@@ -10,7 +10,7 @@ from xml.etree import ElementTree as ET
 from datetime import date, datetime
 from pathlib import Path
 from zipfile import ZipFile, BadZipFile
-from .tenders import ValidationError, TEXT_FIELDS, date_value, text, timestamp
+from .tenders import ValidationError, TEXT_FIELDS, date_value, text, timestamp, normalize_fields, project_key, submission_month
 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_ROWS = 20000
@@ -34,7 +34,8 @@ def string(v):
     if isinstance(v, (date, datetime)): return v.isoformat()[:10]
     return text('' if v is None else str(v), 'Cell')
 def iso(v, timed=False):
-    if v in (None, ''): return ''
+    if v in (None, '') or norm(v) in ('nil','n/a','not specified','not recorded','-'): return ''
+    if (isinstance(v,(date,datetime)) and v.year==1900) or (isinstance(v,(int,float)) and 0<=v<=31) or '1900' in str(v):return ''
     if isinstance(v, (int, float)):
         from openpyxl.utils.datetime import from_excel
         v = from_excel(v)
@@ -103,6 +104,7 @@ def parse_workbook(filename, content):
                 for key in ('project','builder'):
                     if not item.get(key): raise ValidationError(key.title()+' is required.')
                 item['id']=text(item.get('id'),'Submission ID',limit=100)
+                if not norm(item.get('status')):item['status']='Open'
                 item['status']={'closed':'Close', **{s.lower():s for s in ('Open','Won','Lost','Close','Hold')}}.get(norm(item['status']))
                 if not item['status']: raise ValidationError('TEC status must be Open, Won, Lost, Closed or Hold.')
                 for field, choices in [('builderStatus', ('Awarded','Unsuccessful','In Progress','Hold','Builder Withdrawn','Suspended')), ('pricing', ('Nil','Competitive','High','Mid-Range','Lower','Mix'))]:
@@ -111,9 +113,13 @@ def parse_workbook(filename, content):
                 if item.get('pricing') in ('4','4.0'): item['pricing']='High'
                 if norm(item.get('pricing'))=='no feedback': item['pricing']='Nil'
                 vi=next(i for i,k in fields.items() if k=='value'); value=row[vi]
-                item['value']=None if value in (None,'') else float(str(value).replace('$','').replace(',','').strip())
+                item['value']=None if value in (None,'') or norm(value) in ('nil','n/a','not specified','not recorded','-') else float(str(value).replace('$','').replace(',','').strip())
                 if item['value'] is not None and (not math.isfinite(item['value']) or item['value']<0): raise ValidationError('Value must be zero or greater.')
                 if 'due' in fields.values(): item['due']=iso(row[next(i for i,k in fields.items() if k=='due')])
+                if 'region' in item:item['region']=item['region'].upper()
+                item['pricing']=item.get('pricing') or 'Nil'
+                if 'due' in item:item['month']=submission_month(item['due'])
+                item.pop('statusUpdated',None)  # Derived exclusively from chase history.
                 item['_row']=rn; records.append(item)
                 if raw:
                     for i,h in enumerate(headers):
@@ -169,6 +175,8 @@ def import_workbook(store, filename, content, actor, expected=None):
         baselines=json.loads(saved['body']) if saved else {}
         # Seed is the baseline for the original workbook, so unchanged cells do not undo app edits.
         seed={s['id']:s for s in store.seed['submissions']}
+        project_changes={}
+        change_by_id={};actions={}
         changes=[]; seen={}; resolved=[]; counts={'added':0,'updated':0,'unchanged':0,'duplicates':0,'followupsAdded':0,'followupsUpdated':0,'remindersAdded':0,'remindersUpdated':0}
         for incoming in parsed['records']:
             sid=incoming.get('id'); key=pair(incoming)
@@ -184,12 +192,17 @@ def import_workbook(store, filename, content, actor, expected=None):
             old=current.get(sid)
             base=baselines.get(sid,seed.get(sid,{}) if parsed['raw'] else {})
             updates={k:v for k,v in values.items() if old is None or (v!=old.get(k) and (k not in base or v!=base[k]))}
-            if old and values.get('statusUpdated')=='' and '1900' in old.get('statusUpdated',''):
-                updates.pop('statusUpdated',None)  # Legacy missing-date sentinel exports as blank.
+            shared={k:updates[k] for k in ('region','due') if k in updates}
+            if shared:
+                pk=project_key(values['project']);pending=project_changes.setdefault(pk,{})
+                for k,v in shared.items():
+                    if k in pending and pending[k] and v and pending[k]!=v:raise ValidationError(f'Project {values["project"]}: conflicting {k} values. Use one project-wide value for every builder.')
+                    if v or k not in pending:pending[k]=v
             action='added' if old is None else 'updated' if updates else 'unchanged'
-            counts[action]+=1
+            counts[action]+=1;actions[sid]=action
             if updates:
-                changes.append({'action':action,'project':values['project'],'builder':values['builder'],'fields':list(updates)})
+                change_by_id[sid]={'action':action,'project':values['project'],'builder':values['builder'],'fields':list(updates)}
+                changes.append(change_by_id[sid])
             baselines[sid]={**base,**values}
             if old is None:
                 item={**{k:'' for k in TEXT_FIELDS},'latest':'','chaseNumber':'',**values,'id':sid,'revision':0,'createdBy':actor['id'],'createdAt':timestamp()}
@@ -204,6 +217,19 @@ def import_workbook(store, filename, content, actor, expected=None):
             if sid not in by_pair.setdefault(key,[]): by_pair[key].append(sid)
             if expected is not None and (old is None or updates):
                 db.execute('INSERT INTO submissions VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,revision=excluded.revision',(sid,json.dumps(item,ensure_ascii=False),item['revision']))
+        for sid,item in current.items():
+            shared=project_changes.get(project_key(item.get('project')),{}).copy()
+            if 'due' in shared:shared['month']=submission_month(shared['due'])
+            if shared and any(item.get(k,'')!=v for k,v in shared.items()):
+                item.update(shared);item['revision']+=1
+                if sid in change_by_id:change_by_id[sid]['fields']=list(dict.fromkeys(change_by_id[sid]['fields']+list(shared)))
+                else:
+                    change_by_id[sid]={'action':'updated','project':item['project'],'builder':item['builder'],'fields':list(shared)}
+                    changes.append(change_by_id[sid])
+                if actions.get(sid)=='unchanged':counts['unchanged']-=1;counts['updated']+=1
+                elif sid not in actions:counts['updated']+=1
+                actions[sid]=actions.get(sid) if actions.get(sid)=='added' else 'updated'
+                if expected is not None:db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?',(json.dumps(item,ensure_ascii=False),item['revision'],sid))
         known_history={kind:{r['id']:json.loads(r['body']) for r in db.execute('SELECT id,body FROM '+kind)} for kind in ('chases','reminders')}
         seen_history={}
         for entry in parsed['history']:
@@ -244,6 +270,7 @@ def import_workbook(store, filename, content, actor, expected=None):
             if expected is not None:
                 db.execute(f'INSERT INTO {kind} VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body',(identifier,sid,json.dumps(item,ensure_ascii=False)))
         if expected is not None:
+            store.normalize_records(db)
             if True:  # A completed upload is counted even when all rows are unchanged.
                 store.activity(db,actor['id'],actor['name'],'Imported Excel',details={'filename':filename,**counts})
             db.execute("INSERT INTO settings VALUES('excel-import-baselines',?) ON CONFLICT(id) DO UPDATE SET body=excluded.body",(json.dumps(baselines,ensure_ascii=False),))

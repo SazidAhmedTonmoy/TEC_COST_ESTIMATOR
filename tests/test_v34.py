@@ -4,7 +4,10 @@ from conest_app import tenders
 
 class V34Tests(unittest.TestCase):
  request=helpers.HttpPatchTests.request
- def setUp(self):tenders._store=None;helpers.HttpPatchTests.setUp(self)
+ def setUp(self):
+  tenders._store=None;helpers.HttpPatchTests.setUp(self)
+  with helpers.connect() as db:
+   for name in ('TEC AU TEAM','TEC BD TEAM'):db.execute("INSERT OR IGNORE INTO teams(name,created_at,updated_at) VALUES(?,'2026-10-09','2026-10-09')",(name,))
  def tearDown(self):tenders._store=None;helpers.HttpPatchTests.tearDown(self)
  def test_cutoff_and_editable_team(self):
   self.assertEqual(tenders.default_submission_team('2026-07-19'),'TEC AU TEAM')

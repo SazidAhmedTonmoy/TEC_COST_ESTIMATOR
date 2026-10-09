@@ -230,6 +230,11 @@ class WorkspaceHTTP:
             self._send_json({'success': True, 'teams': result})
             return True
         match = re.fullmatch(r'/api/teams/(\d+)', path)
+        if match and method == 'DELETE':
+            with self._write_connection() as conn:
+                result = teams.delete_team(conn, int(match[1]), self.user)
+            self._send_json(result)
+            return True
         if (path == '/api/teams' and method == 'POST') or (match and method == 'PATCH'):
             payload = self._json_body()
             with self._write_connection() as conn:

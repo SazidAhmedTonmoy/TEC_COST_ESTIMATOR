@@ -190,7 +190,7 @@ async function loadUsers(render=true) {
   return result.users;
 }
 function renderTeams() {
-  $('#team-cards').innerHTML=workspaceState.teams.map(t=>`<article class="team-card"><div><h3>${escapeHtml(t.name)}</h3><span>${t.members.filter(m=>m.is_active).length} active members</span></div><p>${t.members.length?t.members.map(m=>escapeHtml(m.name)+(m.is_active?'':' (inactive)')).join(', '):'No members yet'}</p><button class="button secondary small" type="button" data-edit-team="${t.id}">Edit team & members</button></article>`).join('');
+  $('#team-cards').innerHTML=workspaceState.teams.map(t=>`<article class="team-card"><div><h3>${escapeHtml(t.name)}</h3><span>${t.members.filter(m=>m.is_active).length} active members</span></div><p>${t.members.length?t.members.map(m=>escapeHtml(m.name)+(m.is_active?'':' (inactive)')).join(', '):'No members yet'}</p><button class="button secondary small" type="button" data-edit-team="${t.id}">Edit team & members</button><button class="button secondary small danger-text" type="button" data-delete-team="${t.id}">Delete team</button></article>`).join('');
 }
 async function openProjectBrief(id) {
   const request=++workspaceState.briefRequest;
@@ -583,6 +583,10 @@ function bindWorkspaceEvents() {
     if(performance)openPerformance(performance.dataset.performance);
     const user=event.target.closest('[data-edit-user]');
     if(user) openUserEditor(user.dataset.editUser);
+    const removedTeam=event.target.closest('[data-delete-team]');
+    if(removedTeam && confirm('Delete this team? Members become unassigned and team-based project access is removed. Users and projects are kept.')) {
+      api(`/api/teams/${removedTeam.dataset.deleteTeam}`,{method:'DELETE'}).then(async()=>{await loadUsers();await loadDashboard(false);toast('Team deleted');}).catch(error=>toast(error.message,true));
+    }
     const team=event.target.closest('[data-edit-team]');
     if(team) openTeamEditor(team.dataset.editTeam);
     const refresh=event.target.closest('[data-refresh-estimate]');
