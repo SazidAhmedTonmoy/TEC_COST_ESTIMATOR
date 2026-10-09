@@ -1,5 +1,9 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Deployment validation fix
+
+Corrected the HTTP health-check test to expect release 3.4 instead of 3.3. The stale assertion stopped deployment during validation, before uploading application code. No database or application behaviour change is required for this fix. If v3.4 is already in your repository, replace `tests/test_http_v232.py`, commit and push, then rerun deployment.
+
 ## Changes
 
 1. **Tenders on mobile:** Estimator-style brand header with logo, workspace switch and Menu control. Navigation closes after selecting a page. Summary cards scroll horizontally on small screens.
