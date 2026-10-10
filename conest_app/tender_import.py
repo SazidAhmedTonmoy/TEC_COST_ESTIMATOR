@@ -15,6 +15,8 @@ from .tenders import ValidationError, TEXT_FIELDS, date_value, text, timestamp, 
 MAX_BYTES = 15 * 1024 * 1024
 MAX_ROWS = 20000
 ALIASES = {
+    'submitted by team':'submittedByTeam',
+    'quote no':'quoteNo', 'quote no.':'quoteNo', 'quote number':'quoteNo',
     'submission id':'id', 'project':'project', 'project name':'project',
     'builder':'builder', 'builders':'builder', 'tec status':'status', 'tec quote':'status',
     'builder outcome':'builderStatus', 'project status (builders)':'builderStatus',
@@ -117,7 +119,7 @@ def parse_workbook(filename, content):
                 if item['value'] is not None and (not math.isfinite(item['value']) or item['value']<0): raise ValidationError('Value must be zero or greater.')
                 if 'due' in fields.values(): item['due']=iso(row[next(i for i,k in fields.items() if k=='due')])
                 if 'region' in item:item['region']=item['region'].upper()
-                item['pricing']=item.get('pricing') or 'Nil'
+                item['pricing']=item.get('pricing') or ''
                 if 'due' in item:item['month']=submission_month(item['due'])
                 item.pop('statusUpdated',None)  # Derived exclusively from chase history.
                 item['_row']=rn; records.append(item)
@@ -188,16 +190,21 @@ def import_workbook(store, filename, content, actor, expected=None):
             if sid in seen:
                 if seen[sid]!=values: raise ValidationError(f'Row {incoming["_row"]}: conflicting duplicate submission. Keep one row per submission.')
                 counts['duplicates']+=1;resolved.append(sid);continue
-            seen[sid]=values;resolved.append(sid)
+            seen[sid]=dict(values);resolved.append(sid)
             old=current.get(sid)
+            if 'submittedByTeam' in values and values['submittedByTeam']!=(old or {}).get('submittedByTeam',''):
+                from .tenders import team_directory
+                names,aliases=team_directory()
+                tid=aliases.get(values['submittedByTeam'].casefold())
+                values['submittedByTeam']=names.get(tid,'');values['submittedByTeamId']=tid
             base=baselines.get(sid,seed.get(sid,{}) if parsed['raw'] else {})
-            updates={k:v for k,v in values.items() if old is None or (v!=old.get(k) and (k not in base or v!=base[k]))}
-            shared={k:updates[k] for k in ('region','due') if k in updates}
+            updates={k:v for k,v in values.items() if old is None or (v!=old.get(k,None if k in ('value','submittedByTeamId') else '') and (k not in base or v!=base[k]))}
+            shared={k:updates[k] for k in ('region','due','value','quoteNo','submittedByTeam','submittedByTeamId') if k in updates}
             if shared:
                 pk=project_key(values['project']);pending=project_changes.setdefault(pk,{})
                 for k,v in shared.items():
-                    if k in pending and pending[k] and v and pending[k]!=v:raise ValidationError(f'Project {values["project"]}: conflicting {k} values. Use one project-wide value for every builder.')
-                    if v or k not in pending:pending[k]=v
+                    if k in pending and pending[k] not in ('',None) and v not in ('',None) and pending[k]!=v:raise ValidationError(f'Project {values["project"]}: conflicting {k} values. Use one project-wide value for every builder.')
+                    if v not in ('',None) or k not in pending:pending[k]=v
             action='added' if old is None else 'updated' if updates else 'unchanged'
             counts[action]+=1;actions[sid]=action
             if updates:
@@ -209,7 +216,7 @@ def import_workbook(store, filename, content, actor, expected=None):
             else: item={**old,**updates,'revision':old['revision']+(1 if updates else 0)}
             if old is None:
                 from .tenders import default_submission_team
-                item['submittedByTeam']=default_submission_team(item.get('due',''))
+                item.setdefault('submittedByTeam',default_submission_team(item.get('due','')))
                 item.update(origin='Excel import',importedBy=actor['id'],importedByName=actor['name'],importedAt=timestamp())
             if old is None or updates:
                 item.update(lastImportedBy=actor['id'],lastImportedByName=actor['name'],lastImportedAt=timestamp())

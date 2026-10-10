@@ -138,3 +138,10 @@ jobs:
           echo "$RESPONSE"
           echo 'Updated application or automatic database migration is not ready. Check Passenger logs.' >&2
           exit 1
+
+      - name: Schedule daily database backups
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
+            "cd '$DEPLOY_PATH' && sh tools/install_backup_cron.sh"

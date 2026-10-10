@@ -62,7 +62,7 @@ class TenderIntegrationTests(unittest.TestCase):
         status,chase=self.request('POST','/api/tenders/chases',{'submissionId':sid,'note':'Check price','date':'2026-09-24','author':'Forged author','nextDue':'2026-09-26T09:00'})
         self.assertEqual(status,200,chase)
         self.assertNotEqual(chase['chases'][0]['author'],'Forged author')
-        self.assertEqual(len(chase['reminders']),1)
+        self.assertEqual(len(chase['reminders']),0)  # Recording history never schedules a follow-up.
         status,res=self.request('DELETE','/api/tenders/submissions',{'id':sid,'revision':item['revision']})
         self.assertEqual(status,409)
         status,res=self.request('DELETE','/api/tenders/submissions',{'id':sid,'revision':chase['submission']['revision']})

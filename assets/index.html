@@ -261,7 +261,7 @@
       </section>
 
       <section id="settings-view" class="view">
-        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">The latest backup set is kept automatically. Backups run daily while the server is running, and before imports. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
+        <section class="panel"><div class="panel-heading"><h2>Database backups</h2><div><button class="button secondary" id="refresh-backups">Refresh</button> <button class="button primary" id="create-backup">Back up now</button></div></div><p class="helper-text">The latest Catalog / Estimator and Tenders backups are kept separately. Daily backups are scheduled for 12:10 am server time; deployment installs the scheduled job. Back up now saves both databases. Download a copy to another device for protection against disk failure. Restoring replaces the whole database and signs everyone out.</p><div id="backup-list"></div></section>
         <div class="split-heading"><div><p class="eyebrow">Application defaults</p><h2>Settings</h2><p>These values are used when a new estimate is created. Each project can override them.</p></div></div>
         <section class="panel settings-panel">
           <form id="app-settings-form" class="settings-grid">
@@ -445,6 +445,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.57ec87590b5c.js" defer></script>
+  <script src="/assets/app.3cd70e6735a0.js" defer></script>
 </body>
 </html>

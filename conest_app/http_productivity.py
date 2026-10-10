@@ -36,8 +36,8 @@ class ProductivityHTTP:
             # Backup/restore have no open write transaction: SQLite backup copies a committed database.
             with write_lock:
                 with connect() as conn:self._authorize_connection(conn,path)
-                if method=='GET' and not name:result={'backups':backups.list_backups()}
-                elif method=='POST' and not name:result={'backup':backups.create_backup('manual',self.user['id'])}
+                if method=='GET' and not name:result={'backups':backups.list_all_backups()}
+                elif method=='POST' and not name:result={'backups':backups.create_backup_set('manual',self.user['id'])}
                 elif method=='GET' and action=='download':
                     self._send_file(backups.backup_path(name),name);return True
                 elif method=='POST' and action=='restore':

@@ -1,5 +1,32 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Multi-builder entry and scheduled backups — latest update
+
+1. **Both databases:** Settings now lists Catalog / Estimator and Tenders snapshots separately, with downloads for both. Back up now backs up both existing databases. The latest successful snapshot of each is retained. Existing legacy tender snapshots remain downloadable. Catalog restore keeps its existing confirmation/sign-out behaviour; tender restores remain administrator-managed from the downloaded file.
+2. **12:10 am server time:** The deployment workflow installs an idempotent daily cron job after the health check succeeds. Cron runs even when Passenger is idle. It uses the database paths registered by the actual running website, rather than guessing a new database location. A successful-day marker prevents duplicate daily runs even after a manual backup. Failure leaves the day incomplete so a retry can succeed. The standalone server checks once per minute after 00:10 and catches up if it starts later.
+3. **Shared values:** Editing tender value, submission team or Quote No. updates all builder submissions for the same project. Region/deadline/month sharing continues. Builder outcome, TEC status, pricing, contacts, remarks and chase histories remain per submission. Existing differing values/teams are aligned when a project is next saved; no new historical value/team inference is applied.
+4. **Builder entry:** Existing builder names are suggested in new/edit forms. Case, whitespace and punctuation variants reuse the existing builder spelling. New duplicate project/builder pairs are rejected. Suggestions do not automatically merge genuinely different company names.
+5. **Multiple builders:** Add/select builders in one New tender form. Each gets a separate submission with the entered initial details and independent history. The whole batch saves transactionally: a duplicate or validation failure rolls back the batch. Creating a tender does not invent a recorded chase-up.
+6. **Explicit scheduling:** Saving a chase-up records history only. A follow-up is created through Schedule only after choosing its date/time. Switching between log and schedule clears the date, and no one-week date is prefilled. Existing scheduled follow-ups are kept.
+7. **Pricing totals:** Nil is a separate category from missing/No feedback. Charts, legends, filters and category sorting use the same labels and counts.
+8. **Cleaner editor:** Quote No. is beside Project name and is included in Excel export/import. Month of submission and Status updated are hidden from the editor and remain automatic. Empty location messages are hidden in project rows and tender details.
+
+### Deploying this update
+
+Keep existing database files and uploads. Apply the full code or cumulative changed-files ZIP and restart Passenger. Include `.github/workflows/deploy-cpanel.yml` when committing the update: its new final step installs the backup schedule. The job reports failure if the host does not permit cron installation; it does not silently claim scheduling succeeded.
+
+For a manual deployment, first open your website's `/api/health` endpoint after restarting, then run this once from the application folder on the server:
+
+```sh
+sh tools/install_backup_cron.sh
+```
+
+The script schedules `10 0 * * *` (12:10 am in the cron server's default timezone), preserves unrelated cron jobs and prints a cPanel Cron Jobs alternative if direct installation is unavailable. Ensure the cron service is running. A custom `CRON_TZ` setting in the account crontab must match the intended server timezone. Check `tmp/backup.log` after the first run. Backups are not installed on your live server by downloading this ZIP; they are installed during deployment or by the command above.
+
+Verified: 31 Python test modules, additional legacy-backup coverage, TypeScript checks, production builds and browser checks for batch creation, suggestions, shared values/quotes, separate histories, no automatic follow-up, pricing totals and both backup listings. Release remains **3.4**, schema **31**. No live deployment or server cron modification was performed here.
+
+Earlier notes below are retained as release history; this section supersedes them where behaviour differs.
+
 ## Team and tender refinements — 9 October 2026
 
 - **Teams:** Administrators can delete a team. Confirmation explains that members become unassigned and team-based editing access is removed; users and projects remain. Tender selectors show only currently managed teams. Future renames follow existing assignments; deletion displays Not specified/Unassigned. Old unmatched team labels are not guessed or added as extra choices. Returning to a tender tab refreshes its data and team list.
@@ -58,19 +85,25 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 
 ## Changed files
 
+- .github/workflows/deploy-cpanel.yml
 - README.md
 - UPDATE_V3.4.md
-- assets/app.57ec87590b5c.js
+- app.py
+- assets/app.3cd70e6735a0.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
+- assets/productivity.js
 - assets/tender_boot.css
 - assets/tender_theme.js
 - assets/workspace.js
 - conest_app/__init__.py
 - conest_app/auto_upgrade.py
+- conest_app/backups.py
+- conest_app/http_productivity.py
 - conest_app/http_workspace.py
 - conest_app/teams.py
+- conest_app/tender_export.py
 - conest_app/tender_http.py
 - conest_app/tender_import.py
 - conest_app/tenders.py
@@ -79,19 +112,26 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - tenders_frontend/package.json
 - tenders_frontend/src/components/group-detail.tsx
 - tenders_frontend/src/components/tender-activity.tsx
+- tenders_frontend/src/components/tender-analytics.tsx
 - tenders_frontend/src/components/tender-app.tsx
 - tenders_frontend/src/globals.css
 - tenders_frontend/src/lib/activity.ts
 - tenders_frontend/src/lib/reporting.ts
 - tenders_frontend/src/lib/types.ts
-- tenders_web/assets/index-BEKV6x3p.js
-- tenders_web/assets/index-DPZm7Tft.css
+- tenders_web/assets/index-CmOakOTM.js
+- tenders_web/assets/index-fNiZF_pd.css
 - tenders_web/index.html
 - tests/tender_activity.test.mjs
 - tests/test_http_v232.py
+- tests/test_tender_import.py
+- tests/test_tender_integration.py
 - tests/test_v34.py
 - tests/test_v34_followup.py
+- tests/test_v34_project_entry.py
 - tests/v34_reporting.test.cjs
+- tools/backup_database.py
+- tools/install_backup_cron.py
+- tools/install_backup_cron.sh
 
 Old fingerprinted assets no longer referenced (optional cleanup after deployment):
 

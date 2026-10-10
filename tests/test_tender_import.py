@@ -49,7 +49,7 @@ class TenderImportTests(unittest.TestCase):
         new={**s,'id':'new-tender','project':'New tender project','builder':'New builder'}
         d['submissions']=[s,new,dict(new)];d['chases']=[];d['reminders']=[]
         blob=self.export(d);p=self.run_import(blob)
-        self.assertEqual((p['counts']['added'],p['counts']['updated'],p['counts']['duplicates']),(1,1,1))
+        self.assertEqual((p['counts']['added'],p['counts']['updated'],p['counts']['duplicates']),(1,sum(x['project']==s['project'] for x in self.data['submissions']),1))
         self.assertEqual(len(self.store.all_data()['submissions']),291)
         self.run_import(blob,True)
         current=self.store.all_data();self.assertEqual(len(current['submissions']),292)
@@ -69,7 +69,7 @@ class TenderImportTests(unittest.TestCase):
         self.assertEqual(next(s for s in self.store.all_data()['submissions'] if s['id']==sid)['remarks'],'New app note')
         raw[0][0]+=100
         changed=self.run_import(self.raw(raw),True)
-        self.assertEqual(changed['counts']['updated'],1)
+        self.assertEqual(changed['counts']['updated'],sum(x['project']==self.data['submissions'][0]['project'] for x in self.data['submissions']))
         self.assertEqual(len(self.store.all_data()['submissions']),291)
     def test_conflicting_duplicate_is_rejected_atomically(self):
         d=copy.deepcopy(self.data);a=d['submissions'][0];b={**a,'value':a['value']+1};d['submissions']=[a,b]

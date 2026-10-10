@@ -52,7 +52,7 @@ class FollowupTests(unittest.TestCase):
   ws.append(['Shared import','Two',None,'Nil',None,None,None,'January 1900'])
   stream=BytesIO();wb.save(stream);blob=stream.getvalue()
   parsed=parse_workbook('test.xlsx',blob)
-  self.assertEqual(parsed['records'][0]['pricing'],'Nil');self.assertIsNone(parsed['records'][0]['value'])
+  self.assertEqual(parsed['records'][0]['pricing'],'');self.assertIsNone(parsed['records'][0]['value'])
   self.assertNotIn('statusUpdated',parsed['records'][0])
   store=tenders.get_store();actor={'id':self.user_id,'name':'Test importer'}
   preview=import_workbook(store,'test.xlsx',blob,actor)

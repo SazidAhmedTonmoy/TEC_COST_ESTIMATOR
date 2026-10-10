@@ -290,6 +290,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/health":
                 with connect() as conn:
                     schema = conn.execute('SELECT version FROM schema_version').fetchone()[0]
+                backups.register_runtime()
                 self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": __version__})
                 return
             if path == '/api/light-prices':

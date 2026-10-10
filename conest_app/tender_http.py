@@ -62,7 +62,7 @@ def route(h,path):
             from .tender_export import export_workbook
             ids=body.get('ids')
             if not isinstance(ids,list) or any(not isinstance(i,str) for i in ids):raise tenders.ValidationError('Choose submissions to export.')
-            send(h,export_workbook(store.all_data(),ids,tenders.text(body.get('description'),'Filters',limit=4000)),
+            send(h,export_workbook(tenders.live_teams(store.all_data()),ids,tenders.text(body.get('description'),'Filters',limit=4000)),
                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','TEC-Tenders.xlsx');return
         if path=='/api/tenders/import' and h.command=='POST':
             import base64
@@ -76,10 +76,13 @@ def route(h,path):
             mode=body.get('mode','preview')
             if mode not in ('preview','apply'):raise tenders.ValidationError('Invalid import action.')
             expected=tenders.text(body.get('token'),'Preview token',required=True,limit=100) if mode=='apply' else None
+            if mode=='apply':
+                from .backups import create_tender_backup
+                create_tender_backup('before-import',h.user['id'])
             send(h,import_workbook(store,tenders.text(body.get('filename'),'Filename',required=True,limit=255),content,h.user,expected));return
         if path=='/api/tenders/submissions' and h.command=='DELETE':
             send(h,store.delete_submission(body,h.user));return
-        routes={'submissions':store.save_submission,'chases':store.add_chase,'chases/edit':store.edit_chase,'reminders':store.save_reminder}
+        routes={'submissions':store.save_submission,'submissions/batch':store.save_submissions,'chases':store.add_chase,'chases/edit':store.edit_chase,'reminders':store.save_reminder}
         kind=path.removeprefix('/api/tenders/')
         if kind not in routes or h.command!='POST':raise tenders.ValidationError('Not found',404)
         body['author']=h.user['name'];body['_actor_id']=h.user['id']
@@ -87,7 +90,7 @@ def route(h,path):
         if kind=='reminders' and body.get('id'):
             with store.connect() as db:sid=store.find(db,'reminders',body['id'])['submission_id']
         result=routes[kind](body)
-        if kind=='submissions':sid=result['id']
+        if kind in ('submissions','submissions/batch'):sid=result['id']
         send(h,tenders.live_teams(store.delta(sid)))
     except tenders.ValidationError as e:
         h._send_json({'error':str(e)},e.status)

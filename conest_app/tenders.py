@@ -16,7 +16,7 @@ from urllib.parse import urlsplit, unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 VIEWS = {'/', '/dashboard', '/chase-up', '/search', '/projects', '/builders', '/calendar', '/reminders', '/settings'}
-TEXT_FIELDS = ('project','builder','status','builderStatus','location','region','contact','email','month','due','statusUpdated','pricing','remarks')
+TEXT_FIELDS = ('project','builder','status','builderStatus','location','region','contact','email','month','due','statusUpdated','pricing','remarks','quoteNo')
 
 class ValidationError(Exception):
     def __init__(self, message, status=400):
@@ -78,6 +78,10 @@ def live_teams(data):
     if 'relatedSubmissions' in result:result['relatedSubmissions']=[resolve(s) for s in result['relatedSubmissions']]
     return result
 
+def builder_key(value):
+    import re
+    return re.sub(r'[^\w]', '', project_key(value))
+
 def project_key(value):
     import unicodedata
     return ' '.join(unicodedata.normalize('NFKC',value or '').split()).casefold()
@@ -89,7 +93,7 @@ def normalize_fields(item):
     item['region']=str(item.get('region') or '').strip().upper()
     item['month']=submission_month(item.get('due',''))
     if '1900' in str(item.get('statusUpdated','')):item['statusUpdated']=''
-    item['pricing']=item.get('pricing') or 'Nil'
+    item['pricing']=item.get('pricing') or ''
     return item
 
 def timestamp():
@@ -306,7 +310,8 @@ class Store:
                 'projectSummary': self.seed['projectSummary'],
             }
 
-    def save_submission(self, b):
+    def save_submission(self, b, _db=None):
+        from contextlib import nullcontext
         fields = {k: text(b.get(k), k, k in ('project','builder')) for k in TEXT_FIELDS}
         if fields['pricing'] in ('4', '4.0'):
             fields['pricing'] = 'High'
@@ -319,7 +324,12 @@ class Store:
             raise ValidationError('Tender value must be zero or greater.')
         team=text(b.get('submittedByTeam'),'Submitted by team',limit=200) if 'submittedByTeam' in b else None
         identifier = text(b.get('id'), 'Submission ID', limit=100) or str(uuid.uuid4())
-        with self.connect(write=True) as db:
+        with (self.connect(write=True) if _db is None else nullcontext(_db)) as db:
+            existing=[json.loads(row[0]) for row in db.execute('SELECT body FROM submissions')]
+            canonical=next((s['builder'] for s in existing if builder_key(s.get('builder'))==builder_key(fields['builder'])),None)
+            if canonical:fields['builder']=canonical
+            duplicate=next((s for s in existing if s['id']!=identifier and project_key(s.get('project'))==project_key(fields['project']) and builder_key(s.get('builder'))==builder_key(fields['builder'])),None)
+            if duplicate:raise ValidationError('This project already has a submission for '+fields['builder']+'. Edit the existing tender instead.',409)
             if b.get('id'):
                 old = self.find(db, 'submissions', identifier)
                 if type(b.get('revision')) is not int or b['revision'] != old['revision']:
@@ -328,6 +338,7 @@ class Store:
                 revision = old['revision'] + 1
             else:
                 item, revision = {'latest':'','chaseNumber':''}, 0
+            if 'quoteNo' not in b:fields['quoteNo']=item.get('quoteNo','')
             if team and team not in submission_teams():
                 if team==item.get('submittedByTeam'):team=''
                 else:raise ValidationError('Choose an existing submission team.')
@@ -346,7 +357,11 @@ class Store:
                     _,aliases=team_directory()
                     item['submittedByTeamId']=aliases.get(team.casefold())
                 else:item['submittedByTeamId']=None
-            else:item.setdefault('submittedByTeam',default_submission_team(fields['due']))
+            else:
+                item.setdefault('submittedByTeam',default_submission_team(fields['due']))
+                if 'submittedByTeamId' not in item:
+                    _,aliases=team_directory()
+                    item['submittedByTeamId']=aliases.get(item['submittedByTeam'].casefold())
             if not b.get('id'):
                 item.update(createdBy=b.get('_actor_id'),createdByName=b.get('author',''),createdAt=timestamp(),origin='Website')
             else:
@@ -359,8 +374,19 @@ class Store:
             self.sync_project(db,item,b.get('_actor_id'),b.get('author',''))
         return {'ok':True,'id':identifier}
 
+    def save_submissions(self, b):
+        builders=b.get('builders')
+        if not isinstance(builders,list) or not 1<=len(builders)<=100:raise ValidationError('Choose between 1 and 100 builders.')
+        if b.get('id'):raise ValidationError('Multiple builders are only supported for a new tender.')
+        names=[text(v,'Builder',True,1000) for v in builders]
+        if len({builder_key(v) for v in names})!=len(names):raise ValidationError('Choose each builder only once.')
+        with self.connect(write=True) as db:
+            results=[self.save_submission({**b,'builder':name},_db=db) for name in names]
+        return {'ok':True,'id':results[0]['id'],'ids':[x['id'] for x in results]}
+
     def sync_project(self, db, source, actor_id=None, actor_name=''):
-        fields={k:source.get(k,'') for k in ('region','due','month')}
+        fields={k:source.get(k,'') for k in ('region','due','month','value','submittedByTeam','quoteNo')}
+        if 'submittedByTeamId' in source:fields['submittedByTeamId']=source['submittedByTeamId']
         for row in db.execute('SELECT id,body FROM submissions WHERE id!=?',(source['id'],)).fetchall():
             item=json.loads(row['body'])
             if project_key(item.get('project'))!=project_key(source['project']):continue
@@ -417,8 +443,7 @@ class Store:
             item.update(latest=latest['note'], statusUpdated=latest['date'], revision=old['revision']+1)
             db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),sid))
             self.activity(db,b.get('_actor_id'),author,'Recorded chase-up',item,{'chaseId':c['id']})
-            if next_due:
-                self.insert_reminder(db, sid, next_due, reminder_note)
+            # Follow-ups are created only through the explicit reminder endpoint.
         return {'ok':True}
 
     @staticmethod

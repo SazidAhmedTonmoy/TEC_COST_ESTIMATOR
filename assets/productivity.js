@@ -40,7 +40,7 @@ async function pollPresence(){
 }
 async function loadBackups(){
   const result=await api('/api/backups');
-  $('#backup-list').innerHTML=result.backups.length?result.backups.map(b=>`<article class="tool-row"><div><strong>${escapeHtml(b.reason||'Backup')}</strong><small>${escapeHtml(b.created_at||b.name)} · ${(b.bytes/1048576).toFixed(1)} MB</small></div><a class="button secondary small" href="/api/backups/${encodeURIComponent(b.name)}/download">Download</a><button class="button secondary small" data-restore-backup="${escapeHtml(b.name)}">Restore</button></article>`).join(''):'<p>No backups yet. The first daily backup is created shortly after the server starts.</p>';
+  $('#backup-list').innerHTML=result.backups.length?result.backups.map(b=>`<article class="tool-row"><div><strong>${b.database==='tenders'?'Tenders':'Catalog / Estimator'} · ${escapeHtml(b.reason||'Backup')}</strong><small>${escapeHtml(b.created_at||b.name)} · ${(b.bytes/1048576).toFixed(1)} MB</small></div><a class="button secondary small" href="/api/backups/${encodeURIComponent(b.name)}/download">Download</a>${b.database==='tenders'?'':`<button class="button secondary small" data-restore-backup="${escapeHtml(b.name)}">Restore</button>`}</article>`).join(''):'<p>No backups yet. Daily backups are scheduled for 12:10 am server time.</p>';
 }
 async function openRevisions(pid){
   productivityState.revisionProject=Number(pid);

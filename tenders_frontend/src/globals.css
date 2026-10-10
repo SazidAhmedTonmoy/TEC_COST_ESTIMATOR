@@ -235,3 +235,7 @@ tbody [data-slot=table-row]:hover,.tender-table tbody tr:hover{background:var(--
 .activity-series.awards .bar-track i{background:#a07bd7}.register-contact{display:flex;flex-wrap:wrap;gap:8px 24px;margin:8px 0 12px;color:var(--muted-foreground);font-size:13px}.sort-heading small{font-size:11px;display:block;text-transform:none}input[readonly]{opacity:.8;cursor:default}
 
 .sort-heading{white-space:normal;line-height:1.4;min-width:0}.pricing-sort{flex-direction:column;align-items:flex-start;gap:2px}.pricing-sort span{margin-left:0}.pricing-sort small{color:var(--muted-foreground)}.submission-record .register-heading .project-name{margin-right:auto}.register-contact span{overflow-wrap:anywhere}
+
+.builder-picker{grid-column:1/-1}.builder-input-row{display:flex;gap:10px;margin-top:7px}.builder-input-row input{flex:1;min-width:0}.builder-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.builder-chips button{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--muted);color:var(--foreground);font-size:13px}
+
+.builder-input-row input{min-height:42px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--muted);color:var(--foreground)}
