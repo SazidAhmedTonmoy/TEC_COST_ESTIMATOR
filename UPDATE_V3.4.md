@@ -1,6 +1,14 @@
 # TEC ConEst v3.4 — 9 October 2026
 
-## Multi-builder entry and scheduled backups — latest update
+## Tender search refinement — 13 October 2026
+
+- Dashboard and Project Chase-up searches exclude recorded chase-up comments and the duplicated latest-update comment. Matching remains case-insensitive. Project/builder details, Quote No., remarks, team, TEC status, builder outcome and pricing feedback remain searchable. Other Tender pages keep their existing search behaviour.
+- No records, notes, database schemas or reminder schedules are changed by this search update.
+- Verified with targeted search regression tests, TypeScript checking and a production Tenders build. The separately supplied COST SHEET REV project JSON also passed authenticated HTTP import, per-assembly reconciliation, quantity-edit recalculation and export/reimport checks against a temporary database.
+- Deploy the included `tenders_web/index.html` and fingerprinted asset together. Source and test changes are also included. No npm build is required on the host. Retain your live databases and uploaded documents.
+- Release remains **v3.4**, schema **31**. No live deployment was performed.
+
+## Multi-builder entry and scheduled backups
 
 1. **Both databases:** Settings now lists Catalog / Estimator and Tenders snapshots separately, with downloads for both. Back up now backs up both existing databases. The latest successful snapshot of each is retained. Existing legacy tender snapshots remain downloadable. Catalog restore keeps its existing confirmation/sign-out behaviour; tender restores remain administrator-managed from the downloaded file.
 2. **12:10 am server time:** The deployment workflow installs an idempotent daily cron job after the health check succeeds. Cron runs even when Passenger is idle. It uses the database paths registered by the actual running website, rather than guessing a new database location. A successful-day marker prevents duplicate daily runs even after a manual backup. Failure leaves the day incomplete so a retry can succeed. The standalone server checks once per minute after 00:10 and catches up if it starts later.

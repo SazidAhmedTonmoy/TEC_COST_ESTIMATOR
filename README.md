@@ -438,3 +438,6 @@ python -m compileall -q app.py conest_app
 
 The release tests use temporary databases. They check date boundaries, backup retention, metadata cleanup and restoring the older snapshot. Additional development regression checks cover estimation, permissions, import/export, sessions and migration. Browser rendering should also be checked at your team's actual screen sizes.
 
+
+### v3.4 search refinement (13 October 2026)
+Dashboard and Project Chase-up searches exclude chase comments, including the latest-update copy. See UPDATE_V3.4.md for deployment notes.
