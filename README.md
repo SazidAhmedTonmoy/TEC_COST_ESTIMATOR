@@ -441,3 +441,6 @@ The release tests use temporary databases. They check date boundaries, backup re
 
 ### v3.4 search refinement (13 October 2026)
 Dashboard and Project Chase-up searches exclude chase comments, including the latest-update copy. See UPDATE_V3.4.md for deployment notes.
+
+### v3.4 quality and usability pass (13 October 2026)
+See QUALITY_REVIEW_V3.4.txt for verified fixes, validation coverage and recommended next features. Existing databases are preserved.

@@ -1,5 +1,11 @@
 import type {Submission,Chase} from './types';
-export const projectKey=(name:string)=>name.normalize('NFKC').trim().toLocaleLowerCase();
+export const projectKey=(name:string)=>name.normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase();
+export function groupProjects(rows:Submission[]){
+ const groups=new Map<string,{name:string;rows:Submission[]}>();
+ for(const row of rows){const key=projectKey(row.project);const group=groups.get(key)||{name:row.project.trim(),rows:[]};group.rows.push(row);groups.set(key,group)}
+ return [...groups.values()];
+}
+export const boundedPage=(page:number,total:number,size=20)=>Math.max(1,Math.min(page,Math.max(1,Math.ceil(total/size))));
 export function tenderSummary(rows:Submission[],chases:Chase[]=[]){
  const projects=new Map<string,number>();const ids=new Set(rows.map(s=>s.id));
  for(const s of rows){const key=projectKey(s.project);projects.set(key,Math.max(projects.get(key)||0,s.value||0));}

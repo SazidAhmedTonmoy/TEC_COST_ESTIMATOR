@@ -9,3 +9,11 @@ assert.deepEqual(monthlySummary(rows,chases,'2026-07'),{projects:2,submissions:3
 assert.deepEqual(activityMonths(rows,chases),[{month:'2026-07',count:2,chases:1},{month:'2026-08',count:0,chases:2},{month:'2026-09',count:1,chases:0}]);
 assert.equal(compareValues(20,100,'desc')>0,true);assert.equal(compareValues(null,20,'desc')>0,true);assert.equal(compareValues('alpha','ALPHA','asc'),0);
 console.log('PASS: unique project totals, highest quote once, monthly chase dates, filtered attribution, numeric/text/null sorting.');
+
+const {groupProjects,boundedPage}=require(root+'/tenders_frontend/src/lib/reporting.ts');
+const variants=[{id:'a',project:'City  Hall',builder:'A',value:100,due:'2026-07-01'},{id:'b',project:' CITY HALL ',builder:'B',value:120,due:'2026-07-01'}];
+assert.equal(tenderSummary(variants).projects,1);assert.equal(tenderSummary(variants).value,120);
+assert.equal(groupProjects(variants).length,1);assert.equal(groupProjects(variants)[0].rows.length,2);
+assert.equal(activityMonths(variants)[0].count,1);
+assert.equal(boundedPage(4,21),2);assert.equal(boundedPage(4,0),1);
+console.log('PASS: whitespace-normalized project grouping and pagination after shrinking results.');

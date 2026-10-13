@@ -1,5 +1,11 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Quality and usability pass — 13 October 2026
+
+Search now distinguishes No feedback from Nil and excludes internal identifiers. Project totals, grouped pages and overviews normalize repeated whitespace. Pagination remains valid after result counts shrink. Tender requests have bounded timeouts, duplicate-save protection and guarded background refreshes. Catalog Show more preserves existing results when a following page is empty. Mobile controls, keyboard focus, dark-mode secondary controls and reduced-motion support are improved. Monthly award aggregation avoids repeated scans.
+
+All 31 backend test modules passed, along with targeted frontend regressions, TypeScript checks and production builds. Private browser tests and visual review covered Tender search/forms/mobile navigation and Estimator project opening. No production load benchmark or live deployment was performed. See QUALITY_REVIEW_V3.4.txt for the exact scope, limitations and recommended next features. Release remains v3.4, schema 31; no database migration is introduced.
+
 ## Tender search refinement — 13 October 2026
 
 - Dashboard and Project Chase-up searches exclude recorded chase-up comments and the duplicated latest-update comment. Matching remains case-insensitive. Project/builder details, Quote No., remarks, team, TEC status, builder outcome and pricing feedback remain searchable. Other Tender pages keep their existing search behaviour.
@@ -90,3 +96,62 @@ Corrected the HTTP health-check test to expect release 3.4 instead of 3.3. The s
 16 targeted Python tests passed, covering cutoff boundaries, editable teams, idempotent migration, conflict protection, authenticated bootstrap, workbook import/export regression and Tender integration. Frontend checks covered highest-quote deduplication, monthly project/chase counting, missing dates and numeric/text sorting. TypeScript checking and both frontend builds passed.
 
 Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layout at a 5,000-pixel viewport, dashboard and combined filters, ascending/descending sorting, editable teams, overview Back and summary cards, calendar totals, mobile menu and gold Help button, and desktop/mobile light and dark layouts. Checks used isolated test databases. No live deployment or production load benchmark was performed.
+
+## Changed files
+
+- .github/workflows/deploy-cpanel.yml
+- QUALITY_REVIEW_V3.4.txt
+- README.md
+- UPDATE_V3.4.md
+- app.py
+- assets/app.0de718c19270.js
+- assets/app.js
+- assets/estimate_workspace.js
+- assets/help_shared.css
+- assets/index.html
+- assets/productivity.js
+- assets/styles.60b42d4dbeec.css
+- assets/styles.css
+- assets/tender_boot.css
+- assets/tender_theme.js
+- assets/workspace.js
+- conest_app/__init__.py
+- conest_app/auto_upgrade.py
+- conest_app/backups.py
+- conest_app/http_productivity.py
+- conest_app/http_workspace.py
+- conest_app/teams.py
+- conest_app/tender_export.py
+- conest_app/tender_http.py
+- conest_app/tender_import.py
+- conest_app/tenders.py
+- tenders_frontend/index.html
+- tenders_frontend/package-lock.json
+- tenders_frontend/package.json
+- tenders_frontend/src/components/group-detail.tsx
+- tenders_frontend/src/components/tender-activity.tsx
+- tenders_frontend/src/components/tender-analytics.tsx
+- tenders_frontend/src/components/tender-app.tsx
+- tenders_frontend/src/globals.css
+- tenders_frontend/src/lib/activity.ts
+- tenders_frontend/src/lib/reporting.ts
+- tenders_frontend/src/lib/request.ts
+- tenders_frontend/src/lib/search.ts
+- tenders_frontend/src/lib/types.ts
+- tenders_frontend/src/main.tsx
+- tenders_web/assets/index-C5j0Jjns.css
+- tenders_web/assets/index-D0p5lSP9.js
+- tenders_web/index.html
+- tests/tender_activity.test.mjs
+- tests/tender_request.test.cjs
+- tests/tender_search.test.cjs
+- tests/test_http_v232.py
+- tests/test_tender_import.py
+- tests/test_tender_integration.py
+- tests/test_v34.py
+- tests/test_v34_followup.py
+- tests/test_v34_project_entry.py
+- tests/v34_reporting.test.cjs
+- tools/backup_database.py
+- tools/install_backup_cron.py
+- tools/install_backup_cron.sh

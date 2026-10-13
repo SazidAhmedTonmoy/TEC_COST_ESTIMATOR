@@ -981,6 +981,7 @@ async function loadCatalog(query = null,more=false) {
   if(request!==catalogSearchRequest)return;
   const box = $("#catalog-results");
   if (!result.results.length) {
+    if(more){box.querySelector(".catalog-search-more")?.remove();return;}
     box.innerHTML = `<div class="empty-state"><p>No catalog results found.</p></div>`;
     return;
   }

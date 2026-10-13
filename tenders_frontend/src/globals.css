@@ -239,3 +239,15 @@ tbody [data-slot=table-row]:hover,.tender-table tbody tr:hover{background:var(--
 .builder-picker{grid-column:1/-1}.builder-input-row{display:flex;gap:10px;margin-top:7px}.builder-input-row input{flex:1;min-width:0}.builder-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}.builder-chips button{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--muted);color:var(--foreground);font-size:13px}
 
 .builder-input-row input{min-height:42px;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--muted);color:var(--foreground)}
+
+/* Audit polish: retain the theme while improving keyboard and touch use. */
+button:focus-visible,a:focus-visible,[data-slot=select-trigger]:focus-visible{outline:2px solid #d3af37;outline-offset:3px}
+textarea{resize:vertical}.project-name,.builder-chips button,[data-slot=sheet-title]{overflow-wrap:anywhere}
+.pagination{flex-wrap:wrap;gap:12px}.inline-search input{min-width:0}.inline-search .icon-btn{flex-shrink:0}
+@media(pointer:coarse){.icon-btn,.chase-edit-btn{min-width:44px;min-height:44px}.primary-btn,.secondary-btn,.schedule-link{min-height:44px}}
+@media(max-width:480px){.filter-row .inline-search{flex-basis:100%;width:100%}.filter-sections{grid-template-columns:1fr}.dialog-actions>*{flex:1}.register-heading{flex-wrap:wrap}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+.secondary-btn:not(.mobile-menu){background:var(--card);color:var(--foreground);border-color:var(--border)}
+.secondary-btn:not(.mobile-menu):hover{background:var(--muted)}
+.dashboard-filters [data-slot=select-trigger]{background:var(--card);color:var(--foreground);border-color:var(--border)}
+.tec-sidebar .nav-button:hover,.tec-sidebar .nav-button[data-active=true]{color:#dfebf0!important}

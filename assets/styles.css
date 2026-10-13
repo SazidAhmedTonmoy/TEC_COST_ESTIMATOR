@@ -2161,3 +2161,8 @@ html[data-theme="dark"] .performance-app,html[data-theme="dark"] #project-json-d
 /* All five workflow totals stay together on desktop. */
 #home-metrics.five-metrics{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:700px){#home-metrics.five-metrics{display:flex;overflow-x:auto}#home-metrics.five-metrics>.metric{flex:0 0 140px}}
+
+/* v3.4 audit: clear keyboard focus and predictable long-text layout. */
+button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--teal,#14b8a6);outline-offset:3px}
+textarea{resize:vertical}.catalog-result strong,.quick-search-result strong{overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}

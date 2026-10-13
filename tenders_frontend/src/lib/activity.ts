@@ -1,4 +1,4 @@
-const projectKey=(name:string)=>name.normalize('NFKC').trim().toLocaleLowerCase();
+const projectKey=(name:string)=>name.normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase();
 /** Unique projects by deadline month; recorded chase events by their own dates. */
 export function activityMonths(rows:{id?:string;project?:string;due:string}[],chases:{submissionId:string;date:string}[]=[]){
  const projects=new Map<string,Set<string>>(),chaseCounts=new Map<string,number>();
@@ -16,5 +16,7 @@ export function activityMonths(rows:{id?:string;project?:string;due:string}[],ch
 /** Builder awards grouped by submission deadline, not an inferred award date. */
 export function awardActivityMonths(rows:{id?:string;project?:string;due:string;builderStatus:string}[]){
  const months=activityMonths(rows);
- return months.map(m=>({month:m.month,count:m.count,awards:rows.filter(s=>s.due?.startsWith(m.month)&&s.builderStatus==='Awarded').length}));
+ const counts=new Map<string,number>();
+ for(const row of rows)if(row.builderStatus==='Awarded'&&row.due){const month=row.due.slice(0,7);counts.set(month,(counts.get(month)||0)+1)}
+ return months.map(m=>({month:m.month,count:m.count,awards:counts.get(m.month)||0}));
 }

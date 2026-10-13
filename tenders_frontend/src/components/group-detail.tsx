@@ -1,4 +1,5 @@
 import {useMemo,useState} from 'react';
+import {projectKey} from '@/lib/reporting';
 import {Pencil} from 'lucide-react';
 import {feedbackColors,feedbackLabel} from './tender-analytics';
 import {Sheet,SheetContent,SheetHeader,SheetTitle,SheetDescription} from '@/components/ui/sheet';
@@ -7,13 +8,13 @@ const money=(n:number)=>new Intl.NumberFormat('en-AU',{style:'currency',currency
 const colors:Record<string,string>={Open:'#d9aa00',Won:'#16834a',Lost:'#db3f4b',Close:'#4d73d8',Hold:'#a055cc'};
 export function GroupDetail({group,visible,onClose,onBack,submissions,chases,reminders,onOpen,onRelated,onEdit}:{group:{kind:'project'|'builder';name:string}|null;visible:boolean;onClose:()=>void;onBack:()=>void;submissions:Submission[];chases:Chase[];reminders:Reminder[];onOpen:(s:Submission)=>void;onEdit:(s:Submission)=>void;onRelated:(kind:'project'|'builder',name:string)=>void}){
  const [filter,setFilter]=useState<{field:'pricing'|'status'|'builderStatus';value:string}|null>(null),[limit,setLimit]=useState(20),[historyLimit,setHistoryLimit]=useState(20),[pendingLimit,setPendingLimit]=useState(20);
- const rows=useMemo(()=>group?submissions.filter(s=>s[group.kind]===group.name).sort((a,b)=>(b.value||0)-(a.value||0)):[],[group,submissions]);
+ const rows=useMemo(()=>group?submissions.filter(s=>group.kind==='project'?projectKey(s.project)===projectKey(group.name):s.builder===group.name).sort((a,b)=>(b.value||0)-(a.value||0)):[],[group,submissions]);
  const byId=useMemo(()=>new Map(rows.map(s=>[s.id,s])),[rows]);
  const history=useMemo(()=>chases.filter(c=>byId.has(c.submissionId)).sort((a,b)=>b.date.localeCompare(a.date)),[chases,byId]);
  const pending=useMemo(()=>reminders.filter(r=>byId.has(r.submissionId)&&!r.done).sort((a,b)=>a.due.localeCompare(b.due)),[reminders,byId]);
  const pricing=Object.entries(rows.reduce((out,s)=>{const key=feedbackLabel(s.pricing);out[key]=(out[key]||0)+1;return out},{} as Record<string,number>));
  const counts=Object.entries(colors).map(([status,color])=>({status,color,count:rows.filter(s=>s.status===status).length}));
- const values=new Map<string,number>();for(const row of rows)values.set(row.project,Math.max(values.get(row.project)||0,row.value||0));
+ const values=new Map<string,number>();for(const row of rows){const key=projectKey(row.project);values.set(key,Math.max(values.get(key)||0,row.value||0))}
  const list=rows.filter(s=>!filter||(filter.field==='pricing'?feedbackLabel(s.pricing):s[filter.field])===filter.value);
  const choose=(field:'pricing'|'status'|'builderStatus',value:string)=>{setFilter(filter?.field===field&&filter.value===value?null:{field,value});setLimit(20);requestAnimationFrame(()=>document.querySelector('.submission-register')?.scrollIntoView({block:'start',behavior:'smooth'}))};
  const other=(s:Submission)=>group?.kind==='project'?s.builder:s.project;

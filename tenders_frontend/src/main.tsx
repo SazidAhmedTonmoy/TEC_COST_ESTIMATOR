@@ -2,9 +2,10 @@ import React from 'react';
 import {createRoot} from 'react-dom/client';
 import TenderApp from './components/tender-app';
 import './globals.css';
+import {request} from './lib/request';
 export const session={user:null as any,csrf:''};
 export function apiFetch(path:string,options:RequestInit={}){
- return fetch('/api/tenders/'+path,{...options,headers:{'Content-Type':'application/json','X-ConEst-Request':'1','X-CSRF-Token':session.csrf,...options.headers}}).then(r=>{if(r.status===401){location.href='/?return=tenders';throw Error('Please sign in');}return r});
+ return request('/api/tenders/'+path,{...options,headers:{'Content-Type':'application/json','X-ConEst-Request':'1','X-CSRF-Token':session.csrf,...options.headers}}).then(r=>{if(r.status===401){location.href='/?return=tenders';throw Error('Please sign in');}if(!r.ok&&!(r.headers.get('content-type')||'').includes('application/json'))throw Error('The server is busy or returned an unexpected response. Refresh to check the latest saved information.');return r});
 }
 const startupSidebar=document.querySelector('.boot-sidebar')?.outerHTML||'';
 class TenderRecovery extends React.Component<{children:React.ReactNode},{failed:boolean}>{

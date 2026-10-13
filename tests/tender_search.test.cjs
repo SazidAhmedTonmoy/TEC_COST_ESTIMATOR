@@ -3,7 +3,7 @@ const exportsObject={};vm.runInNewContext(ts.transpile(fs.readFileSync('tenders_
 const closed={status:'Close',builderStatus:'Awarded',pricing:'High'},open={status:'Open',builderStatus:'In Progress',pricing:'Competitive'},won={status:'Won',builderStatus:'Unsuccessful',pricing:'Nil'};
 for(const q of ['open','OPEN','Open']){assert.ok(match(open,'sydney',q));assert.ok(!match(closed,'historical note: open tender',q));}
 assert.ok(match(closed,'','AWARDED'));assert.ok(!match(won,'builder once awarded', 'awarded'));
-assert.ok(match(won,'','TEC won'));assert.ok(match(closed,'','closed'));assert.ok(match(open,'','IN PROGRESS'));assert.ok(match(won,'','No pricing feedback'));assert.ok(match(open,'sydney library','open SYDNEY'));assert.ok(!match(closed,'sydney open','open sydney'));
+assert.ok(match(won,'','TEC won'));assert.ok(match(closed,'','closed'));assert.ok(match(open,'','IN PROGRESS'));assert.ok(!match(won,'','No pricing feedback'));assert.ok(match({...open,pricing:''},'','NO PRICING FEEDBACK'));assert.ok(match(won,'','Nil'));assert.ok(match(open,'sydney library','open SYDNEY'));assert.ok(!match(closed,'sydney open','open sydney'));
 console.log('Tender category search passed: case, aliases, mixed terms, historical-note exclusion and separate awards/wins.');
 
 const searchText=exportsObject.tenderSearchText;
@@ -18,3 +18,6 @@ for(const view of ['dashboard','chase-up','search']){
 assert.ok(match(sample,searchText({...sample,project:'Historicalcommentonly'},chases,reminders,'dashboard'),'historicalcommentonly'),'A comment word still matches when independently present in project details');
 assert.ok(match(sample,searchText(sample,chases,reminders,'projects'),'historicalcommentonly'),'Other pages retain their existing search');
 console.log('Dashboard and Chase-up exclude latest and historical comments while retaining tender details.');
+
+assert.ok(!match(sample,searchText({...sample,id:'privateinternalid',revision:987654321},[],[],'dashboard'),'privateinternalid'));
+assert.ok(!match(sample,searchText({...sample,revision:987654321},[],[],'dashboard'),'987654321'));

@@ -1,0 +1,109 @@
+TEC ConEst v3.4 — Quality review, 13 October 2026
+
+This is a focused, tested quality pass on the current source. It is not a
+claim that every possible defect has been eliminated. The existing Estimator
+and Tender themes, financial calculations and database schema are preserved.
+
+FIXES AND IMPROVEMENTS INCLUDED
+
+Search accuracy
+- No feedback now finds missing/unrecorded feedback. Nil remains a separate
+  explicit category, matching the charts and filters.
+- Internal database identifiers and revision numbers no longer produce
+  unexpected Tender keyword matches. Search indexes user-facing fields.
+- Dashboard and Project Chase-up continue excluding chase-up comments.
+- Clear-search buttons remove keywords without clearing selected filters.
+- The shortcut hint shows Ctrl K on Windows and Command K on Apple devices.
+
+Consistent reporting and navigation
+- Project grouping, highest-quote totals, monthly counts and overview values
+  normalize repeated spaces and letter case. A spelling variant caused only
+  by these differences no longer appears as an extra project.
+- Project overviews include all submissions with the normalized project name.
+- Pagination clamps to the last available page when refreshed/deleted data
+  reduces the result count; it cannot remain on a blank out-of-range page.
+- Closed is displayed consistently in Tender status badges. Stored status
+  values remain backward compatible.
+- Existing overview filter-reset behaviour was reviewed and retained.
+
+Loading and saving
+- Tender API calls have bounded timeouts: 90 seconds for reads, 120 seconds
+  for writes. The timeout also covers a response body that stalls after
+  headers arrive. This bounds waiting; it does not speed up a slow server.
+- Interrupted saves warn that the server may have received the change.
+  Writes are never retried automatically.
+- Duplicate in-flight Tender saves are blocked, and the Tender editor cannot
+  be cancelled while a save is in progress.
+- Simultaneous focus refreshes share one request. A stale refresh response
+  cannot overwrite a newer successful mutation in the UI.
+- Unexpected non-JSON server errors show an understandable message.
+- Estimator Catalog's Show more action preserves already displayed results
+  if the next page is empty because the catalog changed.
+- Monthly award counts are accumulated in one pass instead of rescanning
+  all submissions for each displayed month.
+
+UI polish and accessibility
+- Dark-mode secondary buttons and Dashboard selectors use theme colours.
+- Active/hovered Tender sidebar labels remain readable in dark mode.
+- Keyboard focus is visible and follows each workspace's accent colour.
+- Touch users get larger targets for action icons and primary controls.
+- Narrow filter panels become a single column. Pagination can wrap.
+- Long project/item names wrap instead of breaking their containers.
+- Textareas resize vertically, protecting form alignment.
+- Both workspaces respect the operating system's reduced-motion preference.
+
+VALIDATION
+- All 31 Python test modules passed in isolated temporary databases.
+- TypeScript checks and both production frontend builds passed.
+- Targeted frontend checks passed for feedback categories, excluded chase
+  comments/internal metadata, project deduplication, pagination boundaries,
+  request-body timeouts, empty responses and no automatic write retry.
+- Browser checks used private test records: desktop Tender form, Tender
+  search and pagination, mobile Dashboard/Chase-up navigation, mobile
+  Estimator project opening, and absence of page-level JavaScript errors.
+- Desktop and mobile screenshots were reviewed, including Tender dark mode.
+- No live deployment, production database edit or production load benchmark
+  was performed. Host-specific timeouts, CPU limits and SQLite contention
+  still require measurement on the actual hosting environment.
+
+RECOMMENDED NEXT QUALITY-OF-LIFE FEATURES (NOT ADDED IN THIS UPDATE)
+
+1. Saved views per user
+   Save combinations such as VIC + BD Team + Open + this month, with a clear
+   reset-to-default action. Saves repeated filtering without affecting others.
+
+2. Recent and pinned projects
+   A compact project switcher for recently opened and deliberately pinned
+   projects. Keep project pins separate from shared catalog importance stars.
+
+3. Draft recovery and explicit save status
+   Recover unsent tender/chase-up drafts after accidental navigation. Show
+   Saving, Saved at [time], and Failed consistently. Scope drafts by user,
+   clear them on logout, and never overwrite newer server data silently.
+
+4. Estimate review checklist before submission
+   Highlight zero-priced quantities, missing supplier prices, manual labour
+   adjustments, excluded mark-ups, missing quote references and deadlines.
+   Let the estimator acknowledge intentional exceptions rather than blocking
+   legitimate zero-cost or installation-only allowances.
+
+5. Revision comparison
+   Show added/removed items and changes to quantities, rates, mark-ups, hours
+   and quoted totals side by side. Make the financial delta easy to explain.
+
+6. Safer bulk actions
+   Select several submissions to assign a team or schedule explicit follow-ups.
+   Preview exactly which records and shared project fields will change.
+
+7. Backup and service health panel
+   Show last successful backup for each database, last failure, backup age and
+   recent request timings. Alert administrators when the daily backup is late.
+
+Suggested order: saved views and recent projects first, then draft recovery
+and the estimate review checklist, followed by revision comparison.
+
+DEPLOYMENT
+Use the cumulative changed-files ZIP or full release ZIP. Keep live databases,
+uploads and server-specific configuration. Deploy source and fingerprinted
+assets together and restart Passenger. No database migration is introduced.
+Release remains v3.4, schema 31. The earlier backup cron instructions still apply.
