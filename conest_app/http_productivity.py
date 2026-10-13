@@ -24,7 +24,7 @@ class ProductivityHTTP:
             else:raise AccessError(405,'Method not allowed')
             self._send_json(result);return True
 
-        project=re.fullmatch(r'/api/projects/(\d+)/(revisions(?:/\d+(?:/export)?)?|presence)',path)
+        project=re.fullmatch(r'/api/projects/(\d+)/(revisions(?:/\d+(?:/export|/redeploy)?)?|presence)',path)
         price=re.fullmatch(r'/api/catalog/(\d+)/price-history',path)
         backup=re.fullmatch(r'/api/backups(?:/([^/]+)(?:/(restore|download))?)?',path)
         reminder=path in ('/api/reminders','/api/reminders/read')
@@ -80,6 +80,10 @@ class ProductivityHTTP:
                 with self._write_connection() as conn:
                     rid=p.save_revision(conn,pid,self.user,payload)
                     result={'id':rid,'revisions':p.revisions(conn,pid,self.user)}
+            elif re.fullmatch(r'revisions/\d+/redeploy',suffix) and method=='POST':
+                payload=self._json_body()
+                with self._write_connection() as conn:
+                    result=p.redeploy_revision(conn,pid,int(suffix.split('/')[1]),self.user,payload)
             elif re.fullmatch(r'revisions/\d+',suffix) and method=='DELETE':
                 with self._write_connection() as conn:
                     p.delete_revision(conn,pid,int(suffix.split('/')[1]),self.user)

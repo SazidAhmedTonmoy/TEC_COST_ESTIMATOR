@@ -52,7 +52,7 @@ async function openRevisions(pid){
   if(productivityState.revisionProject===Number(pid))renderRevisions(result.revisions);
 }
 function renderRevisions(rows){
-  $('#revision-list').innerHTML=rows.length?`<label>Compare selected revision against<select id="revision-compare-target"><option value="current">Current working estimate</option>${rows.map(r=>`<option value="${r.id}">${escapeHtml(r.label)}</option>`).join('')}</select></label>`+rows.map(r=>`<article class="tool-row"><div><strong>${escapeHtml(r.label)}</strong><small>${escapeHtml(r.author||'Unknown')} · ${escapeHtml(new Date(r.created_at).toLocaleString('en-AU'))} · ${escapeHtml(r.currency)} ${fmtMoney(r.quoted,r.currency)}</small></div><div class="revision-actions"><button class="button secondary small" data-compare-revision="${r.id}">View & compare</button><a class="button secondary small" href="/api/projects/${productivityState.revisionProject}/revisions/${r.id}/export">Excel</a>${r.can_delete?`<button class="button secondary small danger-text" data-delete-revision="${r.id}" data-revision-label="${escapeHtml(r.label)}">Delete</button>`:''}</div></article>`).join(''):'<p>No saved revisions. Save Original before making your next changes.</p>';
+  $('#revision-list').innerHTML=rows.length?`<label>Compare selected revision against<select id="revision-compare-target"><option value="current">Current working estimate</option>${rows.map(r=>`<option value="${r.id}">${escapeHtml(r.label)}</option>`).join('')}</select></label>`+rows.map(r=>`<article class="tool-row"><div><strong>${escapeHtml(r.label)}</strong><small>${escapeHtml(r.author||'Unknown')} · ${escapeHtml(new Date(r.created_at).toLocaleString('en-AU'))} · ${escapeHtml(r.currency)} ${fmtMoney(r.quoted,r.currency)}</small></div><div class="revision-actions"><button class="button secondary small" data-compare-revision="${r.id}">View & compare</button><a class="button secondary small" href="/api/projects/${productivityState.revisionProject}/revisions/${r.id}/export">Excel</a>${r.can_redeploy?`<button class="button secondary small" data-redeploy-revision="${r.id}" data-revision-label="${escapeHtml(r.label)}">Redeploy</button>`:''}${r.can_delete?`<button class="button secondary small danger-text" data-delete-revision="${r.id}" data-revision-label="${escapeHtml(r.label)}">Delete</button>`:''}</div></article>`).join(''):'<p>No saved revisions. Save Original before making your next changes.</p>';
 }
 async function compareRevision(rid){
   const pid=productivityState.revisionProject,target=$('#revision-compare-target').value;
@@ -89,6 +89,17 @@ function bindProductivityEvents(){
       if(target.dataset.close)$('#'+target.dataset.close).close();
       if(target.dataset.revisions)await openRevisions(target.dataset.revisions);
       if(target.dataset.compareRevision)await compareRevision(target.dataset.compareRevision);
+      if(target.dataset.redeployRevision){
+        if(projectSettingsBusy||projectSettingsQueued){toast('Wait for your current changes to finish saving, then reopen revisions.',true);return;}
+        if(!confirm(`Redeploy “${target.dataset.revisionLabel}” as the working estimate? A safety revision of the current estimate will be saved first. Project access, deadlines and progress will stay unchanged.`))return;
+        target.disabled=true;
+        const pid=productivityState.revisionProject;
+        await api(`/api/projects/${pid}/revisions/${target.dataset.redeployRevision}/redeploy`,{method:'POST',body:{expected_revision:productivityState.revisionVersion}});
+        $('#revision-dialog').close();
+        await loadDashboard(false);
+        await loadProject(pid);
+        toast('Revision redeployed. Previous estimate saved as a safety revision.');
+      }
       if(target.dataset.deleteRevision && confirm(`Delete revision “${target.dataset.revisionLabel}”? The current estimate will stay unchanged.`)){
         target.disabled=true;
         const pid=productivityState.revisionProject;

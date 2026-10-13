@@ -48,7 +48,7 @@ def revisions(conn,pid,user):
     project = require_project(conn,pid,user,'view')
     from .workspace import permissions
     access = permissions(conn,project,user)
-    return [{**dict(r),'can_delete':access['can_edit'] and (access['can_manage'] or r['created_by']==user['id'])} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
+    return [{**dict(r),'can_redeploy':access['can_edit'],'can_delete':access['can_edit'] and (access['can_manage'] or r['created_by']==user['id'])} for r in conn.execute('''SELECT r.id,r.label,r.created_at,r.created_by,COALESCE(u.name,r.author_name_snapshot) AS author,
       json_extract(r.snapshot_json,'$.totals.quoted') AS quoted,
       json_extract(r.snapshot_json,'$.project.currency') AS currency
       FROM tender_revisions r LEFT JOIN users u ON u.id=r.created_by WHERE r.project_id=? ORDER BY r.id DESC''',(pid,))]
@@ -70,6 +70,40 @@ def revision_snapshot(conn,pid,rid,user):
     row=conn.execute('SELECT * FROM tender_revisions WHERE project_id=? AND id=?',(pid,rid)).fetchone()
     if not row: raise LookupError('Tender revision not found')
     return json.loads(row['snapshot_json'])
+
+
+def redeploy_revision(conn, pid, rid, user, payload):
+    """Restore estimate contents atomically, preserving access and workflow history."""
+    project = require_project(conn, pid, user, 'edit')
+    if 'expected_revision' not in payload:
+        raise ValueError('Refresh the estimate before redeploying a revision')
+    check_revision(project, payload)
+    snapshot = revision_snapshot(conn, pid, rid, user)
+    label = conn.execute('SELECT label FROM tender_revisions WHERE id=? AND project_id=?', (rid, pid)).fetchone()[0]
+    from uuid import uuid4
+    safety = save_revision(conn, pid, user, {'label': 'Before redeploy · ' + utc_now() + ' · ' + uuid4().hex[:8]})
+    fields = ('name', 'client', 'currency', 'material_markup', 'labor_rate',
+              'overhead_markup', 'labor_hours_markup', 'hours_per_day', 'crew_size', 'notes', 'scope_order')
+    values = {k: snapshot['project'][k] for k in fields if k in snapshot['project']}
+    conn.execute('UPDATE projects SET ' + ','.join(k+'=?' for k in values) + ' WHERE id=?', (*values.values(), pid))
+    conn.execute('DELETE FROM project_lines WHERE project_id=?', (pid,))
+    def insert(table, row):
+        columns = {r[1] for r in conn.execute('PRAGMA table_info('+table+')')}
+        data = {k: v for k, v in row.items() if k in columns}
+        # Archived IDs preserve useful revision comparisons; never overwrite another row.
+        if data.get('id') and conn.execute('SELECT 1 FROM '+table+' WHERE id=?', (data['id'],)).fetchone():
+            data.pop('id')
+        return conn.execute('INSERT INTO '+table+' ('+','.join(data)+') VALUES ('+','.join('?' for _ in data)+')', tuple(data.values())).lastrowid
+    for line in snapshot['lines']:
+        row = {**line, 'project_id': pid}
+        if row.get('catalog_item_id') and not conn.execute('SELECT 1 FROM catalog_items WHERE id=?', (row['catalog_item_id'],)).fetchone():
+            row['catalog_item_id'] = None
+        line_id = insert('project_lines', row)
+        for component in line.get('components', []):
+            insert('project_line_components', {**component, 'project_line_id': line_id})
+    conn.execute('DELETE FROM check_acknowledgements WHERE project_id=?', (pid,))
+    record_activity(conn, pid, user, 'Redeployed tender revision', label)
+    return {'safety_revision_id': safety, 'revisions': revisions(conn, pid, user)}
 
 
 def compare_snapshots(before,after):

@@ -1,5 +1,12 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Saved-revision Redeploy — 13 October 2026
+
+- Saved estimate revisions now have a **Redeploy** button for users with edit access. Redeploy restores the selected estimate items, components and pricing settings, retaining project access, deadlines, workflow status and history.
+- The current estimate is automatically saved as a safety revision before replacement. Redeploy that safety revision to undo. Concurrent changes cause a refresh-required response rather than overwriting newer work. Every redeploy records the acting user.
+- Removed the idle “Changes save automatically” text and aligned **Save Now** to the right. Saving and error feedback remain available.
+- Authenticated HTTP checks passed for restored rows/totals, safety copies, permissions, stale revisions and foreign-key integrity. A private browser test passed the Redeploy flow and Save Now alignment. No live data was changed or deployed. Version stays v3.4, schema 31.
+
 ## Quality and usability pass — 13 October 2026
 
 Search now distinguishes No feedback from Nil and excludes internal identifiers. Project totals, grouped pages and overviews normalize repeated whitespace. Pagination remains valid after result counts shrink. Tender requests have bounded timeouts, duplicate-save protection and guarded background refreshes. Catalog Show more preserves existing results when a following page is empty. Mobile controls, keyboard focus, dark-mode secondary controls and reduced-motion support are improved. Monthly award aggregation avoids repeated scans.
@@ -104,13 +111,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - README.md
 - UPDATE_V3.4.md
 - app.py
-- assets/app.0de718c19270.js
+- assets/app.9dcd73ff7821.js
 - assets/app.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/productivity.js
-- assets/styles.60b42d4dbeec.css
+- assets/styles.7bd181a8a1c3.css
 - assets/styles.css
 - assets/tender_boot.css
 - assets/tender_theme.js
@@ -155,3 +162,5 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - tools/backup_database.py
 - tools/install_backup_cron.py
 - tools/install_backup_cron.sh
+- conest_app/productivity.py
+- tests/test_revision_redeploy.py
