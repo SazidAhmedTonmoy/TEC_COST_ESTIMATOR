@@ -1,5 +1,11 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Home statistics and Save Now alignment — 14 October 2026
+
+- Save Now spans the full form grid and aligns with the far-right edge on desktop and mobile.
+- Home summary cards show projects due this month on This month, assigned projects on My Team, and all-time counts on other tabs. Counts refresh immediately when switching tabs using already-loaded project data.
+- Verified in a private browser on desktop/mobile and with month/team/all/status-tab count checks. No schema changes or live deployment.
+
 ## Saved-revision Redeploy — 13 October 2026
 
 - Saved estimate revisions now have a **Redeploy** button for users with edit access. Redeploy restores the selected estimate items, components and pricing settings, retaining project access, deadlines, workflow status and history.
@@ -111,13 +117,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - README.md
 - UPDATE_V3.4.md
 - app.py
-- assets/app.9dcd73ff7821.js
+- assets/app.af5066408b15.js
 - assets/app.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/productivity.js
-- assets/styles.7bd181a8a1c3.css
+- assets/styles.b17e58aece7b.css
 - assets/styles.css
 - assets/tender_boot.css
 - assets/tender_theme.js

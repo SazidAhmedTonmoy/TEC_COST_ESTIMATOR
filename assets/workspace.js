@@ -97,9 +97,6 @@ function renderHome() {
   const projects = state.projects;
   $('#welcome-name').textContent = `Welcome, ${state.user.name}`;
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key).length,key]);
-  $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='in_review'?'Review before the deadline':filter==='closed'?'Closed / not submitted':'Submitted estimate'}</small></button>`).join('');
-  $('#home-metrics').classList.add('five-metrics');
   renderProjectBoard();
   if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(()=>{});
   renderSchedule();
@@ -120,10 +117,24 @@ function renderSchedule(){
   $('#deadline-agenda').innerHTML=due.length?due.slice(0,5).map(render).join('')+(due.length>5?`<details class="schedule-more"><summary>${due.length-5} more deadlines</summary>${due.slice(5).map(render).join('')}</details>`:''):'<p class="board-empty">You’re up to date. No pending deadlines.</p>';
 }
 
+function homeMetricProjects(projects, filter, month) {
+  if(filter==='month')return projects.filter(p=>(p.submission_deadline||'').slice(0,7)===month);
+  if(filter==='team')return projects.filter(p=>p.is_assigned);
+  return projects;
+}
+function renderHomeMetrics() {
+  const projects=homeMetricProjects(state.projects,workspaceState.filter,sydneyMonth());
+  const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key).length,key]);
+  $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='in_review'?'Review before the deadline':filter==='closed'?'Closed / not submitted':'Submitted estimate'}</small></button>`).join('');
+  $('#home-metrics').classList.add('five-metrics');
+  $('#home-metrics').setAttribute('aria-label',workspaceState.filter==='month'?'This month project statistics':workspaceState.filter==='team'?'My team project statistics':'All time project statistics');
+}
+
 function renderProjectBoard() {
   const term = $('#project-search').value.trim().toLowerCase();
   const filter = ['all','month','team',...Object.keys(statusNames)].includes(workspaceState.filter)?workspaceState.filter:'all';
   workspaceState.filter=filter;
+  renderHomeMetrics();
   const board=$('#project-board');board.dataset.view=workspaceState.boardView;$('#project-view-style').value=workspaceState.boardView;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   const projects = state.projects.filter(p=>{

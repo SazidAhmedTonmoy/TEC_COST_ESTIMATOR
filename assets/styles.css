@@ -2168,4 +2168,4 @@ textarea{resize:vertical}.catalog-result strong,.quick-search-result strong{over
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 /* Keep project save controls aligned with the right edge of the form. */
-.project-save-actions{display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap}.project-save-actions #project-autosave-status:empty{display:none}
+.project-save-actions{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap}.project-save-actions #project-autosave-status:empty{display:none}
