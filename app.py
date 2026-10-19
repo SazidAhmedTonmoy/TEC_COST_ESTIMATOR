@@ -95,7 +95,8 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         return valid
 
     def log_message(self, fmt: str, *args: object) -> None:
-        print(f"[{self.log_date_time_string()}] {self.address_string()} {fmt % args}")
+        message=re.sub(r"/share/project/[A-Za-z0-9_-]+", "/share/project/[redacted]", fmt % args)
+        print(f"[{self.log_date_time_string()}] {self.address_string()} {message}")
 
     def _security_headers(self) -> None:
         started=getattr(self,'_request_started',None)
@@ -265,6 +266,8 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         try:
             path, query = self._route()
+            from conest_app.project_sharing import route as sharing_route
+            if sharing_route(self,path):return
             if path == '/api/bootstrap':
                 self._guard('/api/auth/session')
                 payload={'success':True,'user':self.user,'csrf_token':accounts.csrf_token(self.session_token)}
@@ -406,6 +409,8 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         try:
             path, _ = self._route()
+            from conest_app.project_sharing import route as sharing_route
+            if sharing_route(self,path):return
             if self._workspace_tools_route(path):return
             if self._tender_route(path):return
             if self._productivity_route(path) or self._workspace_route(path):

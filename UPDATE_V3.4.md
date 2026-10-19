@@ -1,5 +1,13 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Frozen estimate headings and public sharing — 19 October 2026
+
+- Estimate column headings remain visible during vertical scrolling and aligned during horizontal scrolling. The floating heading is limited to the estimate table and reuses its measured widths. Mobile keeps its existing labelled card layout.
+- Share, beside Export Excel, lets project owners and administrators create and copy a public read-only link. The page shows the latest project details, rates, mark-ups, totals, references, remarks, items and expandable component build-ups, including material/labour calculations. Refresh the shared page to see later saved changes.
+- Anyone holding a link can view that estimate without login. It does not grant access to other projects, private APIs, account information, document storage or editing. Create a replacement link or use Revoke link to withdraw the old link. The page is excluded from indexing and uses no-store and no-referrer headers; tokens are random and only hashes are stored. Application request logs redact public tokens.
+- The small project_public_links table is created automatically on first use, without changing existing estimate data. Keep your live databases and uploaded files during deployment. No live deployment was performed.
+- Focused HTTP tests passed for anonymous access, permission/CSRF checks, escaped project text, invalid/replaced/revoked links, project deletion and private API isolation. Browser checks passed for Share, the anonymous page and frozen-header alignment. Release stays v3.4.
+
 ## Home statistics and Save Now alignment — 14 October 2026
 
 - Save Now spans the full form grid and aligns with the far-right edge on desktop and mobile.
@@ -117,13 +125,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - README.md
 - UPDATE_V3.4.md
 - app.py
-- assets/app.af5066408b15.js
+- assets/app.7b26fd4efab4.js
 - assets/app.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/productivity.js
-- assets/styles.b17e58aece7b.css
+- assets/styles.2e324e1db523.css
 - assets/styles.css
 - assets/tender_boot.css
 - assets/tender_theme.js
@@ -170,3 +178,8 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - tools/install_backup_cron.sh
 - conest_app/productivity.py
 - tests/test_revision_redeploy.py
+- assets/project_sharing.js
+- assets/public_project.css
+- conest_app/project_sharing.py
+- tests/test_project_sharing.py
+- tools/build_frontend.py

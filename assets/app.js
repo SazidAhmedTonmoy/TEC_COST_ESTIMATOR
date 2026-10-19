@@ -212,6 +212,7 @@ function setView(name, load = true, remember = true) {
   const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline Calendar', users: 'Manage Users', profile: 'My Profile', estimate: "Build Estimate", catalog: "Catalog Explorer", imports: "Import Files", settings: "Application Settings" };
   $("#view-title").textContent = titles[name] || "TEC ConEst";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
+  $("#share-project-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
   syncCategoryToggle();
   $('#project-select').classList.toggle('hidden', name !== 'estimate');
@@ -281,6 +282,7 @@ async function loadProject(projectId) {
 }
 
 function renderProject() {
+  $("#share-project-button").disabled=!state.projectData?.project.can_manage;
   $$("#estimate-view input, #estimate-view textarea, #estimate-view select, #estimate-view button").forEach(field=>field.disabled=false);
   const available = Boolean(state.projectData);
   for (const selector of ["#delete-project-button", "#export-button", "#floating-search-button", "#manual-item-button", "#toggle-project-settings"]) $(selector).disabled = !available;
@@ -1415,6 +1417,8 @@ function bindEvents() {
 document.addEventListener("DOMContentLoaded", async () => {
   $('#startup-retry').addEventListener('click',()=>bootWorkspace());
   bindEvents();
+  bindProjectSharing();
+  bindFrozenEstimateHeader();
   bindWorkspaceEvents();
   if(typeof bindProductivityEvents==='function')bindProductivityEvents();
   await bootWorkspace();
