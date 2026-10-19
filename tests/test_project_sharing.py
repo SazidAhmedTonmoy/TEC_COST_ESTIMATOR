@@ -16,6 +16,9 @@ class SharingTests(unittest.TestCase):
         status,body=self.request('GET',link);self.assertEqual(status,200,body)
         self.assertIn(b'&lt;script&gt;',body);self.assertNotIn(b'<script>',body)
         self.assertIn(b'Component',body);self.assertNotIn(b'password_hash',body)
+        self.assertIn(b'class="category"',body)
+        for hidden in [b'mark-up',b'Labour rate',b'Material factor',b'Direct cost',b'unit_material']:
+            self.assertNotIn(hidden,body)
         self.assertEqual(self.last_headers['Cache-Control'],'no-store')
         for endpoint2 in [f'/api/projects/{pid}','/api/projects',f'/api/projects/{pid}/activity']:
             self.assertEqual(self.request('GET',endpoint2)[0],401)

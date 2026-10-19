@@ -2171,3 +2171,5 @@ textarea{resize:vertical}.catalog-result strong,.quick-search-result strong{over
 .project-save-actions{grid-column:1 / -1;display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap}.project-save-actions #project-autosave-status:empty{display:none}
 .frozen-estimate-heading{position:fixed;z-index:35;overflow:hidden;pointer-events:none;background:var(--surface,#182f39);box-shadow:0 2px 5px #0003}.frozen-estimate-heading[hidden]{display:none}.frozen-estimate-heading table{margin:0}.frozen-estimate-heading th{background:var(--surface,#182f39)}
 #project-share-dialog{width:min(620px,calc(100vw - 32px));border-radius:18px}#project-share-url{width:100%}
+
+#project-share-dialog .form-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}#project-share-dialog .form-actions .button{margin:0;min-height:44px}#project-share-dialog{padding:24px}body.estimate-heading-frozen .floating-estimate-total{top:auto;bottom:150px}

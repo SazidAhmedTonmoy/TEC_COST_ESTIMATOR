@@ -22,7 +22,7 @@ function bindFrozenEstimateHeader(){
   const rect=table.getBoundingClientRect(),frame=wrapper.getBoundingClientRect(),head=table.tHead;
   const top=0,height=head.getBoundingClientRect().height;
   const visible=innerWidth>820&&state.view==='estimate'&&rect.top<top&&rect.bottom>top+height;
-  floating.hidden=!visible;if(!visible)return;
+  floating.hidden=!visible;document.body.classList.toggle('estimate-heading-frozen',visible);if(!visible)return;
   floating.style.cssText=`top:${top}px;left:${Math.max(0,frame.left)}px;width:${Math.min(frame.right,innerWidth)-Math.max(0,frame.left)}px`;
   const widths=[...head.rows[0].cells].map(c=>c.getBoundingClientRect().width),next=widths.join(',');
   if(next!==signature||!copy){

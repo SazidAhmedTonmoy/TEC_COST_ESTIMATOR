@@ -15,20 +15,28 @@ def table_exists(conn):
 
 
 def shared_html(data):
-    def text(value):return escape(str(value if value is not None else ''))
-    def number(value):return f'{float(value or 0):,.2f}'
-    def pairs(values):return '<dl>'+''.join('<div><dt>'+text(k)+'</dt><dd>'+text(v)+'</dd></div>' for k,v in values if v is not None and v!='')+'</dl>'
+    def text(v):return escape(str(v if v is not None else ''))
+    def number(v):return f'{float(v or 0):,.2f}'
     p=data['project'];currency=text(p['currency'])
-    details=[('Builders',p.get('client')),('Status',str(p.get('status','')).replace('_',' ').title()),('Submission deadline',p.get('submission_deadline')),('Review deadline',p.get('review_deadline')),('Scope of work',p.get('scope_of_work')),('Project remarks',p.get('notes')),('Currency',p.get('currency')),('Labour rate / hour',number(p.get('labor_rate'))),('Material mark-up',number(100*p.get('material_markup',0))+'%'),('Labour hour mark-up',number(100*p.get('labor_hours_markup',0))+'%'),('Final mark-up',number(100*p.get('overhead_markup',0))+'%'),('Crew size',p.get('crew_size')),('Hours / person / day',p.get('hours_per_day')),('Person days',number(data.get('crew_plan',{}).get('person_days'))),('Crew working days',number(data.get('crew_plan',{}).get('working_days')))]
-    totals='<div class="totals">'+''.join('<article><span>'+label+'</span><strong>'+('' if key=='hours' else currency+' ')+number(data['totals'][key])+(' hrs' if key=='hours' else '')+'</strong></article>' for label,key in [('Materials','material'),('Labour hours','hours'),('Labour','labor'),('Quoted total','quoted')])+'</div>'
-    rows=[]
-    for line in data['lines']:
-        line={**line, 'direct_total':line.get('total_material',0)+line.get('total_labor',0)}
-        info=pairs([('Reference',line.get('reference_name')),('Size',line.get('size_snapshot')),('Description',line.get('description_snapshot')),('Remarks',line.get('notes')),('Work type',line.get('work_type_snapshot')),('Material mark-up excluded', 'Yes' if line.get('exclude_material_markup') else 'No'),('Hours mark-up excluded','Yes' if line.get('exclude_hours_markup') else 'No'),('Final mark-up excluded','Yes' if line.get('exclude_final_markup') else 'No')])
-        components=''.join('<tr>'+''.join('<td>'+text(c.get(k,''))+'</td>' for k in ['description','size','uom'])+''.join('<td>'+number(c.get(k))+'</td>' for k in ['quantity_per_unit','scaled_quantity','unit_material','material_factor','unit_hours','labor_factor','unit_labor_price','total_material','total_hours','total_labor','grand_total'])+'<td>'+text(c.get('labor_pricing','hourly'))+'</td><td>'+text(c.get('notes',''))+'</td></tr>' for c in line.get('components',[]))
-        info+='<div class="scroll"><table><thead><tr>'+''.join('<th>'+s+'</th>' for s in ['Component','Size','Unit','Qty / item','Total quantity','Material / unit','Material factor','Hours / unit','Labour factor','Fixed labour / unit','Total material','Total hours','Total labour','Direct cost','Labour basis','Remarks'])+'</tr></thead><tbody>'+components+'</tbody></table></div>'
-        rows.append('<tr><td><details><summary>'+text(line.get('name_snapshot'))+'</summary>'+info+'</details></td><td>'+text(line.get('category_snapshot'))+'</td><td>'+number(line.get('quantity'))+' '+text(line.get('uom'))+'</td>'+''.join('<td>'+number(line.get(k))+'</td>' for k in ['unit_supply_material','unit_installation_material','total_material','unit_hours','total_hours','total_labor','direct_total','quoted_total'])+'</tr>')
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+text(p['name'])+' — TEC ConEst</title><link rel="stylesheet" href="/assets/public_project.css"></head><body><main><header><b>TEC ConEst Estimator</b><span>Shared project · Read only</span></header><h1>'+text(p['name'])+'</h1>'+totals+'<section><h2>Project details</h2>'+pairs(details)+'</section><section><h2>Estimate items and components</h2><p>All amounts in '+currency+'. Expand an item to view its component build-up.</p><div class="scroll"><table><thead><tr>'+''.join('<th>'+s+'</th>' for s in ['Item / component','Category','Quantity','Supply / unit','Install material / unit','Material','Hours / unit','Hours','Labour','Direct cost','Quoted'])+'</tr></thead><tbody>'+''.join(rows)+'</tbody></table></div></section></main></body></html>'
+    def totals(values):
+        return '<div class="totals">'+''.join('<div><span>'+label+'</span><strong>'+('' if key=='hours' else currency+' ')+number(values.get(key))+(' hrs' if key=='hours' else '')+'</strong></div>' for label,key in [('Total material','material'),('Total hours','hours'),('Total labour','labor'),('Quoted total','quoted')])+'</div>'
+    def info(values):return '<dl>'+''.join('<div><dt>'+text(k)+'</dt><dd>'+text(v)+'</dd></div>' for k,v in values if v is not None and v!='')+'</dl>'
+    groups={}
+    for line in data['lines']:groups.setdefault(line.get('category_snapshot') or 'Other',[]).append(line)
+    categories=[]
+    for category,lines in groups.items():
+        aggregate={k:sum(float(l.get(f) or 0) for l in lines) for k,f in [('material','total_material'),('hours','total_hours'),('labor','total_labor'),('quoted','quoted_total')]}
+        items=[]
+        for line in lines:
+            values={k:line.get(f) for k,f in [('material','total_material'),('hours','total_hours'),('labor','total_labor'),('quoted','quoted_total')]}
+            components=''.join('<tr><td>'+text(c.get('description'))+'</td><td>'+text(c.get('size'))+'</td><td>'+number(c.get('scaled_quantity'))+' '+text(c.get('uom'))+'</td><td>'+text(c.get('notes'))+'</td></tr>' for c in line.get('components',[]))
+            details=info([('Reference',line.get('reference_name')),('Description',line.get('description_snapshot')),('Size',line.get('size_snapshot')),('Remarks',line.get('notes'))])
+            if components:details+='<div class="component-scroll"><table><thead><tr><th>Component</th><th>Size / specification</th><th>Total quantity</th><th>Remarks</th></tr></thead><tbody>'+components+'</tbody></table></div>'
+            items.append('<details class="estimate-item"><summary><div class="item-title"><b>'+text(line.get('name_snapshot'))+'</b><small>'+number(line.get('quantity'))+' '+text(line.get('uom'))+'</small></div>'+totals(values)+'</summary><div class="item-detail">'+details+'</div></details>')
+        categories.append('<details class="category"><summary><div class="category-title"><h3>'+text(category)+'</h3><span>'+str(len(lines))+' items</span></div>'+totals(aggregate)+'</summary><div class="category-items">'+''.join(items)+'</div></details>')
+    status={'draft':'Not started','in_progress':'In progress','in_review':'In review','submitted':'Submitted','closed':'Closed'}.get(p.get('status'),p.get('status',''))
+    details=info([('Builders',p.get('client')),('Status',status),('Submission deadline',p.get('submission_deadline')),('Review deadline',p.get('review_deadline')),('Scope of work',p.get('scope_of_work')),('Project remarks',p.get('notes'))])
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+text(p['name'])+' — TEC ConEst</title><link rel="stylesheet" href="/assets/public_project.css"></head><body><main><header><b>TEC ConEst Estimator</b><span>Shared project · Read only</span></header><h1>'+text(p['name'])+'</h1><section class="project-totals">'+totals(data['totals'])+'</section><section><h2>Project details</h2>'+details+'</section><section class="estimate-section"><h2>Estimate categories</h2><p>All amounts in '+currency+'. Select + to expand a category or item, and − to shrink it.</p>'+''.join(categories)+'</section></main></body></html>'
 
 
 def route(handler,path):

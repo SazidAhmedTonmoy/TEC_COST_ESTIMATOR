@@ -1,5 +1,13 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Shared-view layout refinement — 19 October 2026
+
+- The floating estimate total moves below the frozen-header area while headings are pinned, avoiding their overlap. Share dialog buttons have consistent 12px spacing.
+- Public project pages now group items into collapsible categories with +/− controls, initially collapsed. Each category and item shows total material, total hours, total labour and quoted total.
+- Public HTML omits mark-up settings, exclusions, labour rates, per-unit prices, pricing factors and direct-cost breakdowns. Internal estimator pricing is unchanged. Component descriptions, sizes, total quantities and remarks remain available in full-width expanded sections.
+- Removed the narrow 650px component panel and nested vertical scroll areas. Increased shared-page typography and added responsive category layouts.
+- Private desktop/mobile browser checks passed for expanding categories/items, full-width details, public-page content and viewport overflow. Anonymous access and link-control HTTP tests passed. Existing share links use the revised display automatically after deployment. No live deployment was performed.
+
 ## Frozen estimate headings and public sharing — 19 October 2026
 
 - Estimate column headings remain visible during vertical scrolling and aligned during horizontal scrolling. The floating heading is limited to the estimate table and reuses its measured widths. Mobile keeps its existing labelled card layout.
@@ -125,13 +133,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - README.md
 - UPDATE_V3.4.md
 - app.py
-- assets/app.7b26fd4efab4.js
+- assets/app.2b95ca07a4fd.js
 - assets/app.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/productivity.js
-- assets/styles.2e324e1db523.css
+- assets/styles.c6d8b57dc7ce.css
 - assets/styles.css
 - assets/tender_boot.css
 - assets/tender_theme.js
