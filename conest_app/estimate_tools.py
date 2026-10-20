@@ -102,3 +102,21 @@ def copy_project(conn,pid,user,payload):
             insert_copy(conn,'project_line_components',row,changes)
     record_activity(conn,new,user,'Copied project',source['name'])
     return new
+
+
+def delete_section(conn,pid,user,payload):
+    project=require_project(conn,pid,user,'edit')
+    if 'expected_revision' not in payload:raise ValueError('Refresh the estimate before deleting a section')
+    check_revision(project,payload)
+    category=payload.get('category')
+    if not isinstance(category,str) or not category:raise ValueError('Choose a section to delete')
+    rows=conn.execute("SELECT id FROM project_lines WHERE project_id=? AND COALESCE(NULLIF(category_snapshot,''),'Other')=?",(pid,category)).fetchall()
+    if not rows:raise LookupError('This section no longer exists. Refresh the estimate.')
+    from .productivity import save_revision
+    from uuid import uuid4
+    save_revision(conn,pid,user,{'label':'Before section deletion · '+utc_now()+' · '+uuid4().hex[:8]})
+    conn.execute("DELETE FROM project_lines WHERE project_id=? AND COALESCE(NULLIF(category_snapshot,''),'Other')=?",(pid,category))
+    try:order=json.loads(project['scope_order'] or '[]')
+    except (ValueError,TypeError):order=[]
+    conn.execute('UPDATE projects SET scope_order=? WHERE id=?',(json.dumps([x for x in order if x!=category]),pid))
+    record_activity(conn,pid,user,'Deleted estimate section',f'{category} · {len(rows)} items')

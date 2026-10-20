@@ -1,5 +1,11 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Delete estimate section — 19 October 2026
+
+- Each estimate category has a × beside its ordering buttons. Confirming removes all items and components in that category from the current project only, including items hidden by a search. Shared catalogue data and other projects are unchanged.
+- A safety revision is saved before deletion and can be restored with Redeploy. Totals refresh immediately; the activity history records the user and deleted section. Read-only users cannot delete sections, and stale changes are rejected.
+- Focused authenticated HTTP testing passed for permissions, stale revisions, section isolation, recalculated totals, unchanged catalogue records, safety revision creation and foreign-key integrity. No live deployment was performed.
+
 ## Shared-view layout refinement — 19 October 2026
 
 - The floating estimate total moves below the frozen-header area while headings are pinned, avoiding their overlap. Share dialog buttons have consistent 12px spacing.
@@ -133,13 +139,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - README.md
 - UPDATE_V3.4.md
 - app.py
-- assets/app.2b95ca07a4fd.js
+- assets/app.d91fa6c31542.js
 - assets/app.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/productivity.js
-- assets/styles.c6d8b57dc7ce.css
+- assets/styles.dd074e41bd5f.css
 - assets/styles.css
 - assets/tender_boot.css
 - assets/tender_theme.js
@@ -191,3 +197,5 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - conest_app/project_sharing.py
 - tests/test_project_sharing.py
 - tools/build_frontend.py
+- conest_app/estimate_tools.py
+- tests/test_delete_section.py

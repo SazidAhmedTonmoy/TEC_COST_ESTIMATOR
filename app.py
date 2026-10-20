@@ -437,13 +437,15 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     lambda conn: self._authorize_connection(conn, path))
                 self._send_json({'success': True, **result})
                 return
-            tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|lines/(\d+)/(copy|components/reorder|components/(\d+)/(?:copy|remove)))',path)
+            tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|sections/remove|lines/(\d+)/(copy|components/reorder|components/(\d+)/(?:copy|remove)))',path)
             if tools_match:
                 from conest_app import estimate_tools
                 payload=self._json_body();pid=int(tools_match[1]);lid=int(tools_match[3]) if tools_match[3] else None
                 with self._write_connection() as conn:
                     if tools_match[2]=='copy':
                         pid=estimate_tools.copy_project(conn,pid,self.user,payload)
+                    elif tools_match[2]=='sections/remove':
+                        estimate_tools.delete_section(conn,pid,self.user,payload)
                     elif tools_match[2]=='reorder':
                         estimate_tools.reorder_lines(conn,pid,payload)
                         self._audit(conn,pid,'Reordered categories' if 'scope_order' in payload else 'Reordered estimate items')

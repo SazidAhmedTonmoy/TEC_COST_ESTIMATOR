@@ -2173,3 +2173,5 @@ textarea{resize:vertical}.catalog-result strong,.quick-search-result strong{over
 #project-share-dialog{width:min(620px,calc(100vw - 32px));border-radius:18px}#project-share-url{width:100%}
 
 #project-share-dialog .form-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}#project-share-dialog .form-actions .button{margin:0;min-height:44px}#project-share-dialog{padding:24px}body.estimate-heading-frozen .floating-estimate-total{top:auto;bottom:150px}
+
+.scope-delete{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-left:6px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--red);font-size:22px;cursor:pointer}.scope-delete:hover{border-color:var(--red)}.scope-delete:disabled{opacity:.4;cursor:default}
