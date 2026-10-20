@@ -21,7 +21,7 @@ function previewEstimateTimeSummary(){
   renderEstimateTimeSummary(state.projectData,Number($('#project-hours-per-day').value),Number($('#project-crew-size').value));
 }
 function refreshFloatingTotal(){
-  const target=$('#metric-quoted');$('#floating-estimate-total').classList.toggle('hidden',state.view!=='estimate'||!state.projectId||target.getBoundingClientRect().bottom>=0);
+  $('#floating-estimate-total').classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
 }
 document.addEventListener('DOMContentLoaded',()=>{
   ['#project-hours-per-day','#project-crew-size'].forEach(selector=>$(selector).addEventListener('input',previewEstimateTimeSummary));

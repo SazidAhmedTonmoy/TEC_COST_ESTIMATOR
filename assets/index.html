@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst Estimator</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.dd074e41bd5f.css">
+  <link rel="stylesheet" href="/assets/styles.2885093efe63.css">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.4-r1">
 </head>
 <body class="app-loading">
@@ -48,6 +48,7 @@
         <a class="nav-button admin-only" data-view="users" href="#/users"><span>♙</span> Manage Users</a>
         <a class="nav-button admin-only" data-view="settings" href="#/settings"><span>⚙</span> App Settings</a>
       </nav>
+      <button type="button" id="floating-estimate-total" class="floating-estimate-total hidden" title="Return to estimate totals"></button>
       <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><a class="account-name-link" href="#/profile" aria-label="Open my profile"><strong id="account-name"></strong></a><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
     </aside>
 
@@ -435,7 +436,7 @@
 <div id="revision-list"></div><div id="revision-comparison"></div></dialog>
 <dialog id="price-dialog" class="productivity-dialog"><div class="dialog-heading"><h2>Price history & source</h2><button class="button secondary" data-close="price-dialog">Close</button></div>
 <form id="price-source-form" class="inline-form"><label>Supplier<input id="price-supplier" maxlength="1000"></label><label>Quote date<input id="price-date" type="date"></label><label>Source / reference<input id="price-source" maxlength="1000" required></label><button class="button primary">Record current price source</button></form><div id="price-history-list"></div></dialog>
-  <button type="button" id="floating-estimate-total" class="floating-estimate-total hidden" title="Return to estimate totals"></button>
+  
   <button id="help-chat-button" class="help-chat-launch hidden" type="button" aria-haspopup="dialog">? <span>Help</span></button>
   <dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title">
     <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst help</h2><p>Ask about projects, catalogue components and saved lighting quotations</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
@@ -446,6 +447,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.d91fa6c31542.js" defer></script>
+  <script src="/assets/app.5dc1ad790d40.js" defer></script>
 </body>
 </html>

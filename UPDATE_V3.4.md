@@ -1,5 +1,13 @@
 # TEC ConEst v3.4 — 9 October 2026
 
+## Sidebar estimate summary — 20 October 2026
+
+Moved the quoted total, hours and crew days into the left sidebar between navigation and profile. It appears only on Estimate with a selected project, including before scrolling, and never overlays estimate rows. Clicking it returns to the main totals.
+
+## Floating total position — 19 October 2026
+
+Moved the floating quoted-total box to the upper-right, 10px below the actual frozen column-heading height. Built updated browser assets.
+
 ## Delete estimate section — 19 October 2026
 
 - Each estimate category has a × beside its ordering buttons. Confirming removes all items and components in that category from the current project only, including items hidden by a search. Shared catalogue data and other projects are unchanged.
@@ -139,13 +147,13 @@ Browser checks passed for Expand/Shrink All, ten dashboard rows, full-width layo
 - README.md
 - UPDATE_V3.4.md
 - app.py
-- assets/app.d91fa6c31542.js
+- assets/app.5dc1ad790d40.js
 - assets/app.js
 - assets/estimate_workspace.js
 - assets/help_shared.css
 - assets/index.html
 - assets/productivity.js
-- assets/styles.dd074e41bd5f.css
+- assets/styles.2885093efe63.css
 - assets/styles.css
 - assets/tender_boot.css
 - assets/tender_theme.js
