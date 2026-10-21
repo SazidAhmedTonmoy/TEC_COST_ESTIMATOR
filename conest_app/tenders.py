@@ -129,7 +129,7 @@ class Store:
         self.initialize()
 
     @contextmanager
-    def connect(self, write=False, bump_generation=True):
+    def connect(self, write=False):
         db = sqlite3.connect(self.path, timeout=15)
         db.row_factory = sqlite3.Row
         db.execute('PRAGMA foreign_keys=ON')
@@ -137,7 +137,7 @@ class Store:
             if write:
                 db.execute('BEGIN IMMEDIATE')
             yield db
-            if write and bump_generation:
+            if write:
                 db.execute("UPDATE tender_generation SET value=value+1")
             db.commit()
         except Exception:
@@ -147,7 +147,6 @@ class Store:
             db.close()
 
     def initialize(self):
-        from .opportunities import initialize as initialize_opportunities
         with self.connect() as db:
             db.execute('PRAGMA journal_mode=WAL')
             db.executescript('''
@@ -165,7 +164,6 @@ class Store:
                 CREATE INDEX IF NOT EXISTS chase_submission ON chases(submission_id);
                 CREATE INDEX IF NOT EXISTS reminder_submission ON reminders(submission_id);
             ''')
-            initialize_opportunities(db)
         with self.connect(write=True) as db:
             fresh=not db.execute("SELECT 1 FROM settings WHERE id='import-v1'").fetchone()
             if fresh:

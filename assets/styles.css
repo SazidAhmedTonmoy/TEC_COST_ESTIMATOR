@@ -2181,6 +2181,3 @@ textarea{resize:vertical}.catalog-result strong,.quick-search-result strong{over
 .sidebar #floating-estimate-total .floating-project-name{font-size:12px;line-height:1.45;margin-bottom:10px}
 @media(min-width:821px){.sidebar #floating-estimate-total:not(.hidden){margin-top:auto}.sidebar:has(#floating-estimate-total:not(.hidden)) .account-summary{margin-top:16px}}
 @media(max-width:820px){.sidebar #floating-estimate-total{grid-column:1/-1;margin:0;font-size:13px}}
-
-/* v3.5 Home actions match the existing project controls. */
-.home-project-actions{order:2;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.home-project-actions .button{min-height:44px}@media(max-width:600px){.home-project-actions{width:100%;justify-content:flex-start}.home-project-actions .button{flex:1;white-space:nowrap}}

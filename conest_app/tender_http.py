@@ -53,9 +53,6 @@ def route(h,path):
             send(h,payload);return
         h._guard(path)
         store=tenders.get_store()
-        if path=='/api/tenders/opportunities' or path.startswith('/api/tenders/opportunities/'):
-            from .opportunities import route as opportunity_route
-            opportunity_route(h,path,store);return
         if path=='/api/tenders/data' and h.command=='GET':
             data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
             send(h,tenders.live_teams(data));return

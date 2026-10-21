@@ -1,6 +1,6 @@
-# Current release: v3.5
+# Current release: v3.4
 
-See [UPDATE_V3.5.md](UPDATE_V3.5.md) for the Home New Project button and the new Tenders Opportunities workflow, permissions, teams, deadline notifications, deployment and verification. Existing v3.4 features are retained. Estimator schema remains 31; new opportunity tables are added to the tender database.
+See [UPDATE_V3.4.md](UPDATE_V3.4.md) for the latest Tenders mobile layout, full-width pages, sorting and grouped filters, editable submission teams, monthly reporting, overview navigation, and Estimator Expand All / Shrink All. The release retains Estimator schema 31 and safely migrates missing Tender team labels.
 
 Latest UI/chat patch: simplified View Contribution; five progress cards in one row; equal Help buttons, Normal/Project chat switch and composer model selection.
 
@@ -39,7 +39,7 @@ Database schema remains 29. Existing migration names and data are preserved.
 
 See [TENDERS_UPDATE.md](TENDERS_UPDATE.md) for the shared-login workspace, database migration and update instructions.
 
-# TEC ConEst · v3.5
+# TEC ConEst · v3.4
 
 ### Electrical estimating, connected costs and team collaboration
 
