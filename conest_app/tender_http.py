@@ -53,6 +53,8 @@ def route(h,path):
             send(h,payload);return
         h._guard(path)
         store=tenders.get_store()
+        from .opportunity_http import route as opportunity_route
+        if opportunity_route(h,path,store,send):return
         if path=='/api/tenders/data' and h.command=='GET':
             data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
             send(h,tenders.live_teams(data));return
@@ -90,6 +92,11 @@ def route(h,path):
         if kind=='reminders' and body.get('id'):
             with store.connect() as db:sid=store.find(db,'reminders',body['id'])['submission_id']
         result=routes[kind](body)
+        if kind=='reminders':
+            # Refresh the combined inbox immediately after scheduling/changing
+            # a reminder; polling still uses the normal throttled sweep.
+            from .opportunities import process_due
+            process_due(store,force=True)
         if kind in ('submissions','submissions/batch'):sid=result['id']
         send(h,tenders.live_teams(store.delta(sid)))
     except tenders.ValidationError as e:

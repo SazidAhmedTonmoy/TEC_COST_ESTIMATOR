@@ -779,12 +779,19 @@ class ConEstServer(ThreadingHTTPServer):
             def run_backup():
                 try:backups.daily_backup()
                 except Exception as exc:print('Daily database backup failed:',exc)
+                try:
+                    from conest_app import tenders, opportunities
+                    if backups.tender_path().is_file():
+                        opportunities.process_due(tenders.get_store())
+                except Exception as exc:print('Opportunity deadline check failed:',exc)
             self._backup_thread=threading.Thread(target=run_backup,daemon=True)
             self._backup_thread.start()
 
     def server_close(self):
         super().server_close()
         if self._backup_thread:self._backup_thread.join(timeout=30)
+        from conest_app import tenders
+        tenders.close_store()
         if self._database_keeper is not None:
             self._database_keeper.close()
             self._database_keeper = None
