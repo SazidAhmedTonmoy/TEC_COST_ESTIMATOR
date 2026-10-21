@@ -1,0 +1,35 @@
+TEC ConEst v3.5.3 — Changed and new files
+Compared with the previously delivered TEC_COST_ESTIMATOR_v3.5.2_FULL.zip.
+
+8 existing files modified; 5 new application/documentation files.
+Two new package metadata files are also included in both ZIPs.
+The changed-file ZIP contains exactly those modified/new files and metadata.
+
+MODIFIED FILES
+README.md
+conest_app/__init__.py
+conest_app/opportunities.py
+tenders_frontend/package-lock.json
+tenders_frontend/package.json
+tools/check_runtime.py
+tools/install_runtime.sh
+tools/select_python.py
+
+NEW FILES
+QUALITY_REVIEW_V3.5.3.txt
+UPDATE_INSTRUCTIONS_V3.5.3.txt
+conest_app/opportunity_schema.py
+tests/test_opportunity_schema_migration.py
+tests/test_runtime_selection.py
+
+NEW PACKAGE METADATA
+CHANGED_FILES_V3.5.3.txt
+V3.5.3_FILE_MANIFEST.json
+
+RETIRED BUILD ASSETS (not included in either ZIP)
+None.
+
+The existing compiled frontend is unchanged in this release.
+No live database, credentials, uploads, Git history or node_modules are included.
+Install at the existing app root and preserve live runtime files.
+Read UPDATE_INSTRUCTIONS_V3.5.3.txt before updating.

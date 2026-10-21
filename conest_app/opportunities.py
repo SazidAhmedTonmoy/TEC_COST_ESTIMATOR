@@ -35,60 +35,8 @@ def initialize(store):
     with _initialization_lock:
         if getattr(store, '_opportunities_ready', False):
             return
-        with store.connect() as db:
-            db.executescript('''
-                CREATE TABLE IF NOT EXISTS opportunities (
-                    id TEXT PRIMARY KEY, body TEXT NOT NULL,
-                    revision INTEGER NOT NULL DEFAULT 0,
-                    status TEXT NOT NULL, region TEXT NOT NULL, due TEXT NOT NULL DEFAULT '',
-                    project_key TEXT NOT NULL, created_by INTEGER,
-                    deleted_at TEXT, updated_at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS opportunity_generation(value INTEGER NOT NULL);
-                INSERT INTO opportunity_generation SELECT 0
-                    WHERE NOT EXISTS (SELECT 1 FROM opportunity_generation);
-                CREATE INDEX IF NOT EXISTS opportunity_status_due
-                    ON opportunities(deleted_at,status,due);
-                CREATE INDEX IF NOT EXISTS opportunity_region_project
-                    ON opportunities(region,project_key);
-                CREATE INDEX IF NOT EXISTS opportunity_updated
-                    ON opportunities(deleted_at,updated_at DESC);
-                CREATE TABLE IF NOT EXISTS opportunity_people (
-                    opportunity_id TEXT NOT NULL REFERENCES opportunities(id),
-                    kind TEXT NOT NULL, person_id INTEGER NOT NULL,
-                    PRIMARY KEY(opportunity_id,kind,person_id));
-                CREATE INDEX IF NOT EXISTS opportunity_people_lookup
-                    ON opportunity_people(kind,person_id,opportunity_id);
-                CREATE TABLE IF NOT EXISTS opportunity_activity (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    opportunity_id TEXT NOT NULL,
-                    actor_id INTEGER NOT NULL, actor_name TEXT NOT NULL,
-                    project TEXT NOT NULL, action TEXT NOT NULL,
-                    details TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
-                CREATE INDEX IF NOT EXISTS opportunity_activity_record
-                    ON opportunity_activity(opportunity_id,id DESC);
-                CREATE INDEX IF NOT EXISTS opportunity_activity_actor
-                    ON opportunity_activity(actor_id,created_at);
-                CREATE TABLE IF NOT EXISTS opportunity_regions (
-                    code TEXT PRIMARY KEY, origin TEXT NOT NULL,
-                    timezone TEXT NOT NULL DEFAULT 'Australia/Sydney');
-                CREATE TABLE IF NOT EXISTS opportunity_builders (
-                    builder_key TEXT PRIMARY KEY, name TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS opportunity_events (
-                    event_key TEXT PRIMARY KEY, created_at TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS tender_notifications (
-                    id TEXT PRIMARY KEY, user_id INTEGER NOT NULL,
-                    kind TEXT NOT NULL, target_kind TEXT NOT NULL,
-                    target_id TEXT NOT NULL, title TEXT NOT NULL, message TEXT NOT NULL,
-                    due TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, read_at TEXT,
-                    event_key TEXT NOT NULL,
-                    UNIQUE(user_id,event_key));
-                CREATE INDEX IF NOT EXISTS tender_notification_user
-                    ON tender_notifications(user_id,created_at DESC,id DESC);
-                CREATE INDEX IF NOT EXISTS tender_notification_unread
-                    ON tender_notifications(user_id,read_at);
-            ''')
-            for code, (origin, zone) in DEFAULT_REGIONS.items():
-                db.execute('INSERT OR IGNORE INTO opportunity_regions VALUES(?,?,?)', (code, origin, zone))
+        from .opportunity_schema import initialize as initialize_schema
+        initialize_schema(store, DEFAULT_REGIONS)
         store._opportunity_sweep_lock = threading.Lock()
         store._opportunity_sweep_at = 0
         store._opportunities_ready = True
@@ -236,7 +184,7 @@ def _register_directory(db, item):
     for name in item['builders']:
         key = tenders.builder_key(name)
         if key:
-            db.execute('INSERT OR IGNORE INTO opportunity_builders VALUES(?,?)', (key, name))
+            db.execute('INSERT OR IGNORE INTO opportunity_builders(builder_key,name) VALUES(?,?)', (key, name))
 
 
 def _write(db, item, new=False):
@@ -252,7 +200,7 @@ def _write(db, item, new=False):
                    (*values, item['id']))
     db.execute('DELETE FROM opportunity_people WHERE opportunity_id=?', (item['id'],))
     for kind in AUTHORITY_FIELDS:
-        db.executemany('INSERT INTO opportunity_people VALUES(?,?,?)',
+        db.executemany('INSERT INTO opportunity_people(opportunity_id,kind,person_id) VALUES(?,?,?)',
                        [(item['id'], kind, uid) for uid in item.get(kind, [])])
     db.execute('UPDATE opportunity_generation SET value=value+1')
 
@@ -624,7 +572,7 @@ def regions(store, user, payload=None):
         except Exception:
             raise tenders.ValidationError('Choose a valid IANA time zone, for example Australia/Sydney.') from None
         with _transaction(store) as db:
-            db.execute('INSERT INTO opportunity_regions VALUES(?,?,?) ON CONFLICT(code) DO UPDATE SET origin=excluded.origin,timezone=excluded.timezone',
+            db.execute('INSERT INTO opportunity_regions(code,origin,timezone) VALUES(?,?,?) ON CONFLICT(code) DO UPDATE SET origin=excluded.origin,timezone=excluded.timezone',
                        (code, origin, zone))
             db.execute('UPDATE opportunity_generation SET value=value+1')
             _activity(store, db, actor, 'Updated opportunity region', {'id': '', 'project': 'Region ' + code},
@@ -636,7 +584,7 @@ def regions(store, user, payload=None):
 def _record_time_event(store, db, item, users, kind, action, message, now=None):
     key = f'opportunity:{item["id"]}:{item["due"]}:{kind}'
     moment = (now.isoformat() if now else tenders.timestamp())
-    if not db.execute('INSERT OR IGNORE INTO opportunity_events VALUES(?,?)', (key, moment)).rowcount:
+    if not db.execute('INSERT OR IGNORE INTO opportunity_events(event_key,created_at) VALUES(?,?)', (key, moment)).rowcount:
         return
     _activity(store, db, SYSTEM, action, item, {'due': item['due']}, timestamp=moment)
     _notify(db, _recipients(item, users), key, kind, item, message, created_at=moment)

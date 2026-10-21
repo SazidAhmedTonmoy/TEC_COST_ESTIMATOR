@@ -1,4 +1,16 @@
-# Current release: v3.5.2
+# Current release: v3.5.3
+
+**Confirmed startup repair:** the hosted diagnostic identified `sqlite3.OperationalError: no such column: deleted_at`. Older Opportunities tables were not upgraded before index creation. This release inspects and upgrades supported existing tables before creating those indexes, with a verified backup before migrating populated opportunity data.
+
+**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.3.txt](UPDATE_INSTRUCTIONS_V3.5.3.txt). Apply the changed-files ZIP over the delivered **v3.5.2**, or use the full ZIP for a complete code update. Keep the current runtime databases and host-specific configuration. The reported Passenger process runs Python **3.9**; configure the existing application to use **3.11** and install its requirements in that same environment before restarting.
+
+**Verification:** `/api/health?check=tenders` must return release `3.5.3`, schema `31`, and successful Tender, Opportunities, SQLite and timezone checks. The installer now requires an explicit production-interpreter selection and checks Python/SQLite before installing dependencies. A shell or GitHub runner using Python 3.11 does not change Passenger's interpreter.
+
+**Opportunity data:** the migration preserves existing records and history. The earlier owner-requested clear retains its original `opportunities-owner-reset-v351` marker: it can finish once after startup is repaired if still pending; an already completed clear is not repeated. The blank Excel template and existing interface are unchanged.
+
+**Live status:** the confirmed failure was reproduced and the repair tested with isolated databases. This package has not been deployed to the hosting account during its preparation. See [QUALITY_REVIEW_V3.5.3.txt](QUALITY_REVIEW_V3.5.3.txt) for the release verification and limits.
+
+## Previous release: v3.5.2
 
 **Startup diagnostics:** captures new server startup exceptions privately from the running application and makes them available through an administrator's existing session. This provides an alternative when the host does not expose `stderr.log`.
 
