@@ -1,0 +1,204 @@
+TEC ConEst v3.5 — Update instructions
+Release date: 21 October 2026
+Application release: 3.5
+Estimator database schema: 31
+
+Use these instructions for v3.5. Older instructions elsewhere in the project
+describe their named historical releases.
+
+1. CHOOSE THE PACKAGE AND LOCATE THE APP ROOT
+
+The full ZIP contains the application code. The changed/new-file ZIP contains
+only files added or changed relative to the supplied TEC_COST_ESTIMATOR source.
+Use the changed package when updating that same source baseline; use the full
+package if your current code differs or files are missing.
+
+The application root is the existing folder containing app.py, conest_app/,
+assets/, and tenders_web/. If the ZIP has an outer TEC_COST_ESTIMATOR folder,
+open that folder first and copy its contents into the existing application root.
+Avoid creating a second nested application directory.
+
+Both packages include built frontend assets. Copy source, HTML and referenced
+assets together. A Node/npm build is not needed on the machine running these
+prepared ZIPs.
+
+2. BACK UP THE CURRENT INSTALLATION
+
+A consistent backup of both live databases is strongly recommended before the
+update. Keep a copy separately from rotating scheduled backups until checked.
+The existing app backup controls and tools/backup_database.py create SQLite
+backups. Keep the existing code version available for recovery as well.
+
+The normal databases are data/conest_catalog.db and data/tec_tenders.db, but
+your deployment may use CONEST_DB_PATH or CONEST_TENDERS_DB_PATH to select
+different files. Use the actual runtime database paths.
+
+The delivered ZIPs contain no live database snapshot. Preserve all of these:
+  - data/ and any separately configured runtime database directories;
+  - .db/.sqlite files and their SQLite sidecars;
+  - .env and other environment or credentials files;
+  - uploaded files and user-created runtime content;
+  - .git and your existing repository history;
+  - the existing virtual environment and server-owned hosting configuration.
+
+3. STOP OR PREPARE THE EXISTING SERVER, THEN OVERLAY THE CODE
+
+For a local server, stop the existing process with Ctrl+C before copying.
+For Passenger/cPanel, use your normal maintenance/update procedure and restart
+the application after the file copy and dependency installation are complete.
+
+Merge the extracted package contents into the existing application root and
+replace matching application files. Retain the directory structure. Do not
+delete the current application folder or replace the live data directory.
+
+Preserve server-specific settings in .htaccess and passenger_wsgi.py when they
+contain local interpreter or hosting customizations. The supplied GitHub
+workflow preserves these server-owned files; an existing compatible Passenger
+adapter can continue to load the updated application modules.
+
+The changes-only package is an overlay. Older fingerprinted browser assets
+may remain on the server during rollout; the updated HTML references the new
+build. Follow the package's final change manifest for any explicitly retired
+code files rather than deleting unrelated files.
+
+4. INSTALL THE UPDATED PYTHON REQUIREMENTS
+
+Use the same interpreter or virtual environment that runs the application.
+This release adds tzdata for regional dates and daylight saving, including
+Windows systems without a system time-zone database. Install requirements
+using the application's interpreter. The updated local launchers also check
+for tzdata and install the requirements when it is missing.
+
+Windows, from the existing application directory:
+
+  .venv\Scripts\python.exe -m pip install -r requirements.txt
+
+Linux/macOS, when the app uses the local .venv:
+
+  .venv/bin/python -m pip install -r requirements.txt
+
+For cPanel, activate the application's existing environment using the command
+shown in its Python App settings, then run:
+
+  python -m pip install -r requirements.txt
+
+Do not create a different production environment solely for this update.
+The existing launchers can still be used to start a local installation.
+
+5. RESTART AND CHECK THE APPLICATION
+
+Restart the existing local server with START_TEC_SERVER.bat or sh run.sh,
+or restart the application's Passenger process in cPanel. Open the same URL
+you already use. Refresh the browser once after the new code is running.
+
+Visit /api/health on that installation. It should report:
+
+  release: "3.5"
+  schema_version: 31
+  status: "ok"
+
+The Estimator schema stays at 31. Opportunity, notification and audit tables
+are initialized automatically in the separate Tender database. Open Tenders
+after the restart so its database is initialized if this is its first visit.
+
+Check that your existing users and estimates remain available. Then check:
+  - Estimator Home has New Project beside Project JSON.
+  - Tenders has Opportunities in its navigation.
+  - NSW and VIC opportunities and their source details are available.
+  - The Tender bell opens the notification panel.
+
+6. SUPPLIED OPPORTUNITY DATA
+
+The packaged source contains 54 actual rows: NSW 7 and VIC 47. On 21 October
+2026, the original deadlines yield 11 Awaiting approval, 11 Rejected and 32
+Expired records. Later dates and user actions will change these counts.
+
+Each supplied workbook is loaded once. Repeated starts preserve edits,
+assignments, decisions and deleted records. Budget ranges, source dates,
+comments, named builders and provenance are retained. One VIC source row has
+no named builder; another mentions six builders but names three. Both issues
+are visible as source notes. A historical approval with an elapsed deadline
+is retained as the source decision while the opportunity appears Expired.
+The source does not identify its historical approver.
+
+Distance origins:
+  NSW: 63-79 Parramatta Rd Silverwater, NSW 2128
+  VIC: CBD, Melbourne
+
+Distances are supplied or entered values. They are not automatically calculated
+road distances. A route link is available when a project location is recorded.
+Additional regions appear when added; provide a distance origin for each one.
+
+7. DEADLINES WHEN NOBODY HAS THE PAGE OPEN
+
+The local Python server checks approximately every 60 seconds while running,
+once its Tender database exists. Relevant page/API requests also check deadlines.
+
+For Passenger/cPanel, update the existing scheduled tasks after the new app
+has served /api/health and Tenders has been opened. From the application root,
+with its Python environment active, run:
+
+  python tools/install_backup_cron.py
+
+Alternatively, the existing interpreter-selection wrapper can be used:
+
+  sh tools/install_backup_cron.sh
+
+The installer preserves unrelated cron jobs and updates this installation's
+tagged entries. It schedules database backups at 00:10 server time and adds
+the opportunity deadline worker every five minutes. It uses the runtime paths
+registered in tmp/backup-runtime.json. The worker operates on existing database
+files and skips a Tender database that has not yet been created.
+
+If shell access cannot install crontab entries, the installer prints the exact
+commands to add through cPanel Cron Jobs. Review them there using the correct
+application interpreter. Scheduling these jobs is an operator deployment step;
+preparing the ZIP has not installed them.
+
+8. USING THE OPPORTUNITY WORKFLOW
+
+New opportunities enter Awaiting approval, or Expired if their date has passed.
+An administrator or an active user belonging to a team can approve or reject.
+The creator and administrators control assignment, deletion and editing access.
+Delegated people or teams can edit project details. Assignment and editing
+access are separate controls. Approvals, rejections, changes and deadline events
+are recorded with actor/time information and appear in contribution history.
+
+The unified Tender notification centre contains opportunity alerts and existing
+chase-up reminders. Displayed alerts are marked as read for the current person;
+reminder completion remains a separate action. Older alerts stay in the panel.
+There is no Deleted tab; retained deleted audit information remains controlled.
+
+9. EXCEL IMPORT BEHAVIOUR
+
+Choose Import Excel or drag an .xlsx workbook into its dialog. The supplied
+NSW/VIC layout and the exported Opportunities table are supported. Download the
+blank template from the dialog if needed. Imports accept up to 15 MB and 10,000
+actual opportunities, subject to the displayed validation limits.
+
+Preview first. Import adds missing opportunities only. It keeps existing app
+records and clearly flags changed duplicates as skipped/kept app values.
+Use the opportunity editor to change an existing record. Exported Opportunity
+IDs support stable matching; otherwise matching uses region and project name.
+Deleted records are not restored by importing an old workbook.
+
+Correct invalid rows or conflicting duplicates before applying. If data changes
+after preview, preview again. Uploaded approval/status columns are retained as
+source information and cannot bypass the application's approval permissions.
+Filtered export follows the filters in the opportunity register.
+
+10. RECOVERY AND SCOPE
+
+If the updated code does not start, inspect the server error and verify that
+requirements were installed into the actual application interpreter. A
+ZoneInfoNotFoundError generally means that tzdata was not installed there.
+Retain the database backup and existing runtime files while investigating.
+
+If a rollback is required, stop the app and use the prior code and the matching
+verified backup according to your normal recovery procedure. Do not copy an old
+database over an active server or mix unrelated database snapshots.
+
+Read UPDATE_V3.5.md for the feature and permission details and
+opportunities_seed/SOURCE_NOTES.md for the complete source-data explanation.
+This release package has been prepared locally. No live deployment, production
+data replacement, or remote cron installation has been performed.

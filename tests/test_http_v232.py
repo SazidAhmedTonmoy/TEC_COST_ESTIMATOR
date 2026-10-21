@@ -1,6 +1,6 @@
 """Real local HTTP checks for company-wide read access and immutable viewing."""
 import unittest
-from conest_app import accounts, workspace, project_notes, productivity
+from conest_app import accounts, workspace, project_notes, productivity, __version__
 from conest_app.database import connect
 from conest_app.projects import calculate_project
 import test_http_v231 as previous_http
@@ -118,7 +118,7 @@ class Http232Tests(unittest.TestCase):
         with connect() as c:self.assertEqual(calculate_project(c,pid),original)
 
     def test_release_health_and_new_assets(self):
-        status,result=self.request('GET','/api/health');self.assertEqual((status,result['release'],result['schema_version']),(200,'3.4',31))
+        status,result=self.request('GET','/api/health');self.assertEqual((status,result['release'],result['schema_version']),(200,__version__,31))
         status,html=self.request('GET','/');self.assertEqual(status,200)
         self.assertIn(b'help-chat-scope',html);self.assertIn(b'notes-readonly',html)
         status,css=self.request('GET','/assets/styles.css');self.assertEqual(status,200);self.assertIn(b'calendar-metric-grid',css)
