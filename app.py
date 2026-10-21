@@ -1,5 +1,3 @@
-#Main Code
-
 from __future__ import annotations
 
 from conest_app import __version__
