@@ -1,0 +1,250 @@
+TEC ConEst v3.5.4 — Complete the legacy builder-table migration
+Prepared 21 October 2026
+
+CONFIRMED HOST STATUS AND CAUSE
+
+The latest supplied diagnostic confirms that the hosted application now runs
+v3.5.3 using Python 3.11.13 in its dedicated application environment. The
+reported worker PID was 3097138. The configured interpreter is:
+
+  /home/ampecportal/tec-conest-py311/bin/python
+
+Keep this working environment and the existing Passenger interpreter setting.
+This release requires no Python environment recreation or new dependency.
+
+The next startup failure identifies a separate part of the retained database:
+
+  The existing opportunity_builders table needs a schema migration for:
+  builder_key. No opportunity schema changes were committed.
+
+The v3.5.3 code added the opportunity-table upgrade needed for the previously
+reported missing deleted_at column. Its pre-migration check exposed an older
+builder lookup table that the repair did not yet support, and startup stopped
+before committing that opportunity schema transaction. v3.5.4 includes the
+earlier opportunity-column repair and adds the builder-table migration.
+
+The underlying difference between local and hosted startup is the retained
+database structure. A fresh local database receives the current tables when
+created. An existing hosted database retains its earlier table definitions;
+CREATE TABLE IF NOT EXISTS does not add new columns to those tables.
+
+The supplied SQLite version, 3.34.1, supports the operations needed for this
+repair. A SQLite upgrade is not required to address this missing column.
+
+WHAT THE BUILDER MIGRATION PRESERVES
+
+The supported legacy table has a name column and lacks builder_key. The
+migration preserves that entire original table inside the Tender database,
+normally under this name:
+
+  opportunity_builders_legacy_v354
+
+If that archive name already exists, a numbered suffix is used without
+overwriting the earlier archive. Original spellings, extra columns, historical
+references and unsuitable name values remain with the archived table.
+
+A new active builder directory uses the current builder_key/name structure.
+Usable names are cleaned with the application's existing builder rules. Names
+that produce the same normalized builder key share one suggestion; a stable
+source ordering selects its display name. Invalid, empty or nontext values
+remain preserved in the archive and are omitted from active suggestions.
+Opportunity records and contribution/audit history are retained by this
+conversion. Current application writes use the new active directory.
+
+Before converting a legacy builder table, the application makes a verified
+snapshot of the entire Tender database, including when the opportunity
+register is empty or its table has not yet been created. The snapshot is
+stored beside the runtime Tender database under:
+
+  upgrade_backups/
+  <database-stem>-before-opportunity-schema-v354-<timestamp>-<suffix>.db
+
+For the supplied runtime database location, the backup folder is:
+
+  /home/ampecportal/tec-const.ampecportal.com/data/upgrade_backups/
+
+The backup verifies the existing opportunity and builder row counts where
+those tables exist, uses owner-only file permissions, and is a portable SQLite
+file independent of a separate WAL file. Keep the backup and the archived
+table for recovery.
+
+The builder conversion, any missing opportunity columns, lookup recovery and
+index creation share the existing opportunity-schema transaction and process
+lock. A failure rolls back that migration transaction; a completed safety
+backup remains available. Reopening the current schema does not repeat the
+builder conversion or create another archive.
+
+INSTALL OVER THE EXISTING v3.5.3 APPLICATION
+
+1. Use TEC_COST_ESTIMATOR_v3.5.4_CHANGED_FILES.zip over the delivered v3.5.3
+   code. TEC_COST_ESTIMATOR_v3.5.4_FULL.zip provides a complete code package
+   when required. Both packages use a TEC_COST_ESTIMATOR/ top-level folder.
+   Copy that folder's CONTENTS into the existing application root, keeping
+   their relative paths:
+
+   /home/ampecportal/tec-const.ampecportal.com/
+
+   Avoid creating a second, nested TEC_COST_ESTIMATOR directory in the app.
+   For a GitHub deployment, update the existing repository's application files
+   at the same level as app.py and conest_app/.
+
+2. Preserve the server's existing passenger_wsgi.py and .htaccess, including
+   the working Python 3.11 interpreter selection. Preserve the live data/
+   directory, databases, uploaded files and environment settings. The dedicated
+   /home/ampecportal/tec-conest-py311 environment stays in place outside the
+   application upload directory. The GitHub workflow already preserves the
+   server startup/configuration files and runtime data.
+
+3. For a manual upload, run the verification-and-restart block below after
+   copying the code. It first verifies release 3.5.4 on disk, checks the existing
+   runtime, and confirms that the durable startup setting selects the intended
+   interpreter. It requests a restart only after those checks pass.
+
+   The block runs in a child shell so a failed check stops the recovery steps
+   without changing the settings of your interactive cPanel terminal.
+
+bash <<'SH'
+set -eu
+unset PYTHONHOME PYTHONPATH CONEST_PYTHON
+cd /home/ampecportal/tec-const.ampecportal.com
+
+/home/ampecportal/tec-conest-py311/bin/python - <<'PY'
+from conest_app import __version__
+print('Application release on disk:', __version__)
+if __version__ != '3.5.4':
+    raise SystemExit('Stopped: the application files are not release 3.5.4.')
+PY
+
+/home/ampecportal/tec-conest-py311/bin/python tools/check_runtime.py
+
+TEC_SELECTED_PYTHON="$(env -u CONEST_PYTHON /home/ampecportal/tec-conest-py311/bin/python tools/select_python.py --require-configured)"
+if [ "$TEC_SELECTED_PYTHON" != '/home/ampecportal/tec-conest-py311/bin/python' ]; then
+  echo 'Stopped: the configured application interpreter does not match the working environment.' >&2
+  exit 1
+fi
+
+mkdir -p tmp
+touch tmp/restart.txt
+echo 'Passenger restart requested. Verify the running application with the deep health URL.'
+SH
+
+4. For a GitHub deployment, the existing workflow installs/checks requirements
+   using the preserved interpreter configuration, requests the Passenger
+   restart, and verifies deep health. No separate manual Python installation
+   is required. Confirm that the restart and health steps actually complete;
+   an Upload application code success alone does not establish that the new
+   worker has started.
+
+5. Open the deep health URL below. The new web worker uses its actual runtime
+   database location to perform required migrations. Do not run an ad hoc
+   database rebuild or manually clear the database to make startup succeed.
+
+VERIFY THE RUNNING APPLICATION
+
+Open:
+
+  https://tec-const.ampecportal.com/api/health?check=tenders
+
+Require HTTP 200 and the following values:
+
+  {
+    "success": true,
+    "status": "ok",
+    "release": "3.5.4",
+    "schema_version": 31,
+    "checks": {
+      "tenders": "ok",
+      "opportunities": "ok",
+      "timezones": "ok",
+      "sqlite": "ok"
+    }
+  }
+
+This request exercises Tender startup, the opportunity schema and the actual
+serving runtime. A plain /api/health request without check=tenders is not a
+substitute. A version check from the terminal describes files on disk; the
+deep health response identifies the application serving the request.
+
+Then sign in and open Tenders > Opportunities. Check the expected register
+and the builder suggestions when adding or editing an opportunity. If you
+import a workbook, review the import preview before confirming the import.
+
+IF A NEW STARTUP ERROR REMAINS
+
+Use the error_reference returned by that new failed request. While signed in
+as an administrator, open the diagnostic for that exact reference:
+
+  https://tec-const.ampecportal.com/api/admin/startup-diagnostics?reference=<error_reference-from-the-new-failed-request>
+
+Replace the angle-bracketed text with the complete 12-character reference in
+the new error response. The latest saved diagnostic can also be retrieved at:
+
+  https://tec-const.ampecportal.com/api/admin/startup-diagnostics
+
+Check its reference, created_at, release and runtime before treating it as a
+current failure. A saved v3.5.3 diagnostic can remain available after a
+successful v3.5.4 repair. Diagnostic history does not replace the live health
+check, and an older worker PID is not the expected PID after restart.
+
+If the health response still reports v3.5.3, the request has not reached a
+worker serving the updated release. Confirm the files were copied into the
+existing app root and restart the existing application in cPanel. A failed
+deployment step does not automatically roll back already uploaded files.
+
+THE PREVIOUSLY REQUESTED OPPORTUNITY CLEAR
+
+The one-time owner-requested reset keeps its existing key:
+
+  opportunities-owner-reset-v351
+
+v3.5.4 does not introduce a new reset key. If the earlier reset is still
+pending, successful schema initialization allows that same reset to make its
+separate verified backup and clear the old opportunity register. If the reset
+has already completed, newly imported and manually added opportunities remain
+on later starts. The reset retains Tender submissions, reminders, account/team
+data and contribution/audit history. A pending reset clears the active builder
+directory but retains the archived legacy builder table. The packaged
+opportunity seed stays empty.
+
+EXCEL IMPORT TEMPLATE
+
+Keep using the existing blank template:
+
+  templates/opportunities_import.xlsx
+
+It is also available from Download template in the import dialog. This release
+does not change its columns or import format. Enter one opportunity per row,
+choose NSW or VIC, put multiple builders on separate lines in the Builders
+cell, and upload or drag and drop the workbook for preview.
+
+NSW uses 63-79 Parramatta Rd Silverwater, NSW 2128 as its default distance
+origin. VIC uses CBD, Melbourne. Distance in kilometres is supplied in the
+workbook or form; it is not automatically calculated by a routing service.
+
+RELEASE SCOPE AND VERIFICATION
+
+This package repairs the supported legacy opportunity and builder table
+layouts. Other structurally different legacy layouts require their own
+explicit migration; the application does not invent historical assignments,
+approval events or notification records.
+
+The targeted release gate passed 72 tests across seven modules using private
+local database fixtures, Python 3.12.3 and SQLite 3.34.1 built with JSON
+support. This checks compatibility with the supplied server's SQLite version.
+The tests did not run the actual hosted Python 3.11.13 executable.
+
+Coverage includes schema migration, opportunity operations, Excel imports,
+the one-time reset, hosted startup, deployment health and Tender integration.
+A WSGI integration fixture upgraded a legacy builder table with extra required
+metadata and a minimal opportunity table, returned HTTP 200 with release 3.5.4,
+schema 31 and all four checks, completed the pending reset once, accepted a new
+builder through an HTTP request, and retained the new data after reopening.
+
+These instructions do not assert that production has been updated or that any
+live opportunities have been cleared. The post-restart deep health response
+and the live register establish the result. See QUALITY_REVIEW_V3.5.4.txt for
+the completed release checks and their limits.
+
+Official SQLite references:
+https://www.sqlite.org/lang_createtable.html
+https://www.sqlite.org/lang_altertable.html

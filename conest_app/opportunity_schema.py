@@ -86,12 +86,12 @@ def _columns(db, table):
     return {row['name'] for row in db.execute('PRAGMA table_info("' + table + '")')}
 
 
-def _backup(store, expected_count):
+def _backup(store, expected_counts):
     """Snapshot committed data while the migration holds the writer reservation."""
     folder = store.path.parent / 'upgrade_backups'
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    target = folder / f'{store.path.stem}-before-opportunity-schema-v353-{stamp}-{uuid.uuid4().hex[:6]}.db'
+    target = folder / f'{store.path.stem}-before-opportunity-schema-v354-{stamp}-{uuid.uuid4().hex[:6]}.db'
     pending = target.with_suffix('.pending')
     try:
         # Keep the snapshot private even while SQLite is filling the file.
@@ -108,8 +108,11 @@ def _backup(store, expected_count):
                 source.backup(saved, pages=256, progress=progress)
                 if saved.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
                     raise UpgradeError('The opportunity schema backup failed verification. No opportunity schema changes were committed.')
-                if saved.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0] != expected_count:
-                    raise UpgradeError('The opportunity schema backup is incomplete. No opportunity schema changes were committed.')
+                # A legacy builder directory can exist without any opportunity
+                # rows, or even without the opportunities table itself.
+                for table, expected in expected_counts.items():
+                    if saved.execute('SELECT COUNT(*) FROM "' + table + '"').fetchone()[0] != expected:
+                        raise UpgradeError('The opportunity schema backup is incomplete. No opportunity schema changes were committed.')
                 saved.execute('PRAGMA journal_mode=DELETE')
         os.chmod(pending, 0o600)
         os.replace(pending, target)
@@ -215,6 +218,65 @@ def _restore_new_lookups(db, absent, default_regions):
                                '. No opportunity schema changes were committed.') from exc
 
 
+def _builder_archive_name(db):
+    # A retry rolls back the rename, but a separately restored legacy table may
+    # coexist with an earlier archive. Never replace or reuse that archive.
+    for number in range(1, 101):
+        name = 'opportunity_builders_legacy_v354' + ('' if number == 1 else '_' + str(number))
+        if not db.execute('SELECT 1 FROM sqlite_master WHERE name=? COLLATE NOCASE', (name,)).fetchone():
+            return name
+    raise UpgradeError('The legacy builder archive names are already in use. No opportunity schema changes were committed.')
+
+
+def _migrate_builders(db):
+    """Retain the original directory and construct a writable current lookup.
+
+    Adding a key alone leaves legacy required columns/constraints in place and
+    can silently reject current INSERT OR IGNORE(builder_key,name) writes.
+    Native RENAME preserves the original rows, columns, indexes and constraints;
+    modern SQLite also keeps dependent views/triggers and foreign keys attached
+    to those archived historical rows. The archive must never be dropped.
+    """
+    from .builders import validate_builders
+    from .tenders import builder_key
+
+    if sqlite3.sqlite_version_info < (3, 26, 0):
+        raise UpgradeError('Migrating the legacy builder directory requires SQLite 3.26 or newer so references are preserved. No opportunity schema changes were committed.')
+    if db.execute('PRAGMA foreign_keys').fetchone()[0] != 1:
+        raise UpgradeError('Foreign-key enforcement must be enabled before migrating the legacy builder directory. No opportunity schema changes were committed.')
+    db.execute('PRAGMA legacy_alter_table=OFF')
+    if db.execute('PRAGMA legacy_alter_table').fetchone()[0] != 0:
+        raise UpgradeError('SQLite could not enable safe builder-table renaming. No opportunity schema changes were committed.')
+    before = {tuple(row) for row in db.execute('PRAGMA foreign_key_check')}
+    archive = _builder_archive_name(db)
+    db.execute('ALTER TABLE opportunity_builders RENAME TO "' + archive + '"')
+    db.execute('CREATE TABLE opportunity_builders (builder_key TEXT PRIMARY KEY, name TEXT NOT NULL)')
+    # Binary source ordering makes the retained display spelling deterministic.
+    # Every raw spelling and invalid/empty entry remains in the archived table.
+    for row in db.execute('SELECT name FROM "' + archive + '" ORDER BY name COLLATE BINARY'):
+        if not isinstance(row['name'], str):
+            continue
+        try:
+            names = validate_builders([row['name']])
+        except ValueError:
+            continue
+        if not names:
+            continue
+        name = names[0]
+        key = builder_key(name)
+        if key:
+            db.execute('INSERT OR IGNORE INTO opportunity_builders(builder_key,name) VALUES(?,?)', (key, name))
+    # Existing violations are not repaired or hidden by this focused migration.
+    # Account for SQLite's reference renames before checking for new violations.
+    expected = {
+        (archive if table.casefold() == 'opportunity_builders' else table, row_id,
+         archive if parent.casefold() == 'opportunity_builders' else parent, key_id)
+        for table, row_id, parent, key_id in before
+    }
+    if {tuple(row) for row in db.execute('PRAGMA foreign_key_check')} != expected:
+        raise UpgradeError('The legacy builder migration changed foreign-key integrity. No opportunity schema changes were committed.')
+
+
 def initialize(store, default_regions):
     """Create or upgrade once per Store, safely across Passenger workers."""
     lock = store.path.with_name('.' + store.path.name + '.opportunity-schema.lock')
@@ -230,18 +292,25 @@ def initialize(store, default_regions):
                 primary = [row['name'] for row in db.execute('PRAGMA table_info(opportunities)') if row['pk']]
                 if primary != ['id']:
                     raise UpgradeError('The existing opportunities table has an unsupported layout: id must be its primary key. No opportunity schema changes were committed.')
+            builder_columns = _columns(db, 'opportunity_builders') if 'opportunity_builders' in present else set()
+            legacy_builders = 'name' in builder_columns and 'builder_key' not in builder_columns
             # Unknown related-table layouts need an explicit migration, not an
             # invented reconstruction of assignment, notification or audit data.
             for table, required in _RELATED_COLUMNS.items():
                 if table in present:
                     absent = required - _columns(db, table)
+                    if table == 'opportunity_builders' and legacy_builders:
+                        continue
                     if absent:
                         raise UpgradeError('The existing ' + table + ' table needs a schema migration for: ' +
                                            ', '.join(sorted(absent)) + '. No opportunity schema changes were committed.')
-            count = db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0] if existing else 0
+            counts = {table: db.execute('SELECT COUNT(*) FROM "' + table + '"').fetchone()[0]
+                      for table in ('opportunities', 'opportunity_builders') if table in present}
             absent = set(_RELATED_COLUMNS) - present
-            if (missing or absent) and count:
-                _backup(store, count)
+            if legacy_builders or ((missing or absent) and any(counts.values())):
+                _backup(store, counts)
+            if legacy_builders:
+                _migrate_builders(db)
             for statement in _TABLES:
                 db.execute(statement)
             for column in missing:

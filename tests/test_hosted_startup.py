@@ -4,6 +4,7 @@ import io
 import json
 import os
 from pathlib import Path
+import sqlite3
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -52,15 +53,19 @@ class HostedStartupTests(unittest.TestCase):
         self.diagnostic_paths.stop()
         self.temp.cleanup()
 
-    def request(self, target, signed_in=False, method='GET'):
+    def request(self, target, signed_in=False, method='GET', data=None):
         url = urlsplit(target)
+        body = json.dumps(data).encode() if data is not None else b''
         environ = {
             'REQUEST_METHOD': method, 'PATH_INFO': url.path,
-            'QUERY_STRING': url.query, 'wsgi.input': io.BytesIO(),
+            'QUERY_STRING': url.query, 'wsgi.input': io.BytesIO(body),
             'HTTP_HOST': 'localhost', 'REMOTE_ADDR': '127.0.0.1',
+            'HTTP_X_CONEST_REQUEST': '1',
+            'CONTENT_LENGTH': str(len(body)), 'CONTENT_TYPE': 'application/json',
         }
         if signed_in:
             environ['HTTP_COOKIE'] = 'conest_session=' + self.token
+            environ['HTTP_X_CSRF_TOKEN'] = accounts.csrf_token(self.token)
         response = {}
 
         def start(status, headers):
@@ -146,6 +151,62 @@ class HostedStartupTests(unittest.TestCase):
                 with self.assertLogs(runtime_health.log, level='ERROR'):
                     response = self.request('/api/health?check=tenders')
                 self.assert_safe_failure(response, 'TENDERS_STARTUP_FAILED')
+
+    def test_legacy_builder_migration_recovers_health_and_accepts_new_builder(self):
+        from conest_app.opportunity_reset import RESET_KEY
+
+        path = Path(os.environ['CONEST_TENDERS_DB_PATH'])
+        # Reproduce a retained hosted database, before the real Passenger
+        # readiness request constructs the Store and applies the pending reset.
+        with sqlite3.connect(path) as db:
+            db.execute('CREATE TABLE opportunities(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
+            db.execute('INSERT INTO opportunities VALUES(?,?)', ('legacy-project', json.dumps({
+                'id': 'legacy-project', 'project': 'Legacy VIC project', 'region': 'VIC',
+                'builders': ['Old Builder'], 'distanceOrigin': 'CBD, Melbourne',
+            })))
+            db.execute('''CREATE TABLE opportunity_builders (
+                id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL,
+                legacy_contact TEXT NOT NULL)''')
+            db.execute('INSERT INTO opportunity_builders VALUES(?,?,?)',
+                       ('old-builder', 'Old Builder', 'Retain historical contact'))
+
+        health = self.request('/api/health?check=tenders')
+        self.assertEqual(health['status'], 200, health['data'])
+        self.assertEqual(health['data']['release'], __version__)
+        self.assertEqual(health['data']['schema_version'], 31)
+        self.assertEqual(health['data']['checks'], {
+            'tenders': 'ok', 'opportunities': 'ok', 'timezones': 'ok', 'sqlite': 'ok',
+        })
+        self.assertEqual(self.request('/api/tenders/bootstrap', signed_in=True)['status'], 200)
+
+        store = tenders.get_store()
+        with store.connect() as db:
+            self.assertEqual(tuple(db.execute(
+                'SELECT * FROM opportunity_builders_legacy_v354').fetchone()),
+                ('old-builder', 'Old Builder', 'Retain historical contact'))
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 0)
+            marker = db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0]
+
+        created = self.request('/api/tenders/opportunities/save', signed_in=True, method='POST', data={
+            'project': 'Created after hosted migration', 'region': 'VIC',
+            'builders': ['New Builder'], 'workingScope': 'Electrical services',
+        })
+        self.assertEqual(created['status'], 200, created['data'])
+        with store.connect() as db:
+            self.assertEqual(tuple(db.execute('SELECT builder_key,name FROM opportunity_builders').fetchone()),
+                             ('newbuilder', 'New Builder'))
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 1)
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+        self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
+
+        tenders.close_store()
+        self.assertEqual(self.request('/api/health?check=tenders')['status'], 200)
+        with tenders.get_store().connect() as db:
+            self.assertEqual(db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0], marker)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 1)
+        self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
 
 
 if __name__ == '__main__':

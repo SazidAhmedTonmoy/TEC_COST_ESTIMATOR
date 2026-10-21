@@ -1,4 +1,4 @@
-"""Regression fixtures for the production pre-deleted_at opportunity schema."""
+"""Regression fixtures for confirmed legacy opportunity and builder schemas."""
 from contextlib import closing
 import json
 import os
@@ -82,11 +82,163 @@ class OpportunitySchemaMigrationTests(unittest.TestCase):
             self.original = [tuple(row) for row in db.execute('SELECT * FROM opportunities ORDER BY id')]
 
     def backups(self):
-        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-schema-v353-*.db'))
+        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-schema-v354-*.db'))
 
     def columns(self):
         with self.store.connect() as db:
             return [row['name'] for row in db.execute('PRAGMA table_info(opportunities)')]
+
+    def builder_archives(self):
+        with self.store.connect() as db:
+            return [row['name'] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name GLOB 'opportunity_builders_legacy_v354*' ORDER BY name")]
+
+    def legacy_builders(self, rich=False):
+        with self.store.connect() as db:
+            db.execute('PRAGMA journal_mode=WAL')
+            if rich:
+                db.execute('''CREATE TABLE opportunity_builders (
+                    id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL,
+                    registered_by TEXT NOT NULL CHECK(registered_by!=''))''')
+                db.executemany('INSERT INTO opportunity_builders(id,name,registered_by) VALUES(?,?,?)', [
+                    ('old-1', ' ACME & Sons ', 'Legacy administrator'),
+                    ('old-2', 'Acme-Sons', 'Another original user'),
+                    ('old-3', 'Independent Builder', 'Historical importer'),
+                ])
+            else:
+                db.execute('CREATE TABLE opportunity_builders(name TEXT PRIMARY KEY)')
+                db.executemany('INSERT INTO opportunity_builders(name) VALUES(?)', [
+                    (' ACME & Sons ',), ('Acme-Sons',), ('Independent Builder',),
+                    ('',), ('---',), (None,), (sqlite3.Binary(b'not a text name'),),
+                    ('Invalid\nmultiline name',), ('x' * 501,),
+                ])
+            return [tuple(row) for row in db.execute('SELECT * FROM opportunity_builders')]
+
+    def test_builder_only_name_table_is_archived_deduplicated_and_backed_up(self):
+        original = self.legacy_builders()
+        op.initialize(self.store)
+        archives = self.builder_archives()
+        self.assertEqual(archives, ['opportunity_builders_legacy_v354'])
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM "' + archives[0] + '"')], original)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders ORDER BY builder_key')],
+                             [('acmesons', 'ACME & Sons'), ('independentbuilder', 'Independent Builder')])
+            self.assertEqual([row['name'] for row in db.execute('PRAGMA table_info(opportunity_builders)')], ['builder_key', 'name'])
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 0)
+            db.execute("INSERT INTO opportunity_builders(builder_key,name) VALUES('newbuilder','New Builder')")
+        backups = self.backups()
+        self.assertEqual(len(backups), 1)
+        with closing(sqlite3.connect(f'{backups[0].as_uri()}?mode=ro', uri=True)) as db:
+            self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0], 'ok')
+            self.assertEqual(db.execute('SELECT * FROM opportunity_builders').fetchall(), original)
+            self.assertIsNone(db.execute("SELECT 1 FROM sqlite_master WHERE name='opportunities'").fetchone())
+        self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
+        with patch.object(schema, '_backup', side_effect=AssertionError('Repeated builder migration')):
+            op.initialize(self.new_store())
+        self.assertEqual(self.builder_archives(), archives)
+
+    def test_legacy_builder_id_and_required_metadata_do_not_block_current_inserts(self):
+        original = self.legacy_builders(rich=True)
+        op.initialize(self.store)
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders_legacy_v354')], original)
+            changed = db.execute('INSERT OR IGNORE INTO opportunity_builders(builder_key,name) VALUES(?,?)',
+                                 ('addedafterupgrade', 'Added after upgrade'))
+            self.assertEqual(changed.rowcount, 1)
+            self.assertEqual(db.execute("SELECT name FROM opportunity_builders WHERE builder_key='addedafterupgrade'").fetchone()[0],
+                             'Added after upgrade')
+
+    def test_builder_migration_retains_foreign_keys_views_and_triggers_on_archive(self):
+        original = self.legacy_builders(rich=True)
+        with self.store.connect() as db:
+            db.execute('CREATE TABLE historical_builder_use(id INTEGER PRIMARY KEY, builder_id TEXT NOT NULL REFERENCES opportunity_builders(id))')
+            db.execute("INSERT INTO historical_builder_use VALUES(11,'old-2')")
+            db.execute('CREATE VIEW historical_builder_directory AS SELECT id,name,registered_by FROM opportunity_builders')
+            db.execute('CREATE TABLE historical_builder_audit(name TEXT NOT NULL)')
+            db.execute('''CREATE TRIGGER legacy_builder_added AFTER INSERT ON opportunity_builders
+                BEGIN INSERT INTO historical_builder_audit(name) VALUES(NEW.name); END''')
+        op.initialize(self.store)
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM historical_builder_directory')], original)
+            self.assertEqual(db.execute('PRAGMA foreign_key_list(historical_builder_use)').fetchone()['table'],
+                             'opportunity_builders_legacy_v354')
+            self.assertEqual(db.execute("SELECT tbl_name FROM sqlite_master WHERE name='legacy_builder_added'").fetchone()[0],
+                             'opportunity_builders_legacy_v354')
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+            # Existing references continue to target complete historical records;
+            # new application suggestions use the separate canonical directory.
+            db.execute("INSERT INTO opportunity_builders(builder_key,name) VALUES('currentbuilder','Current Builder')")
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM historical_builder_audit').fetchone()[0], 0)
+            db.execute("INSERT INTO opportunity_builders_legacy_v354 VALUES('old-4','Historical addition','Legacy writer')")
+            self.assertEqual(db.execute('SELECT name FROM historical_builder_audit').fetchone()[0], 'Historical addition')
+
+    def test_builder_archive_name_collision_preserves_previous_archive(self):
+        self.legacy_builders(rich=True)
+        with self.store.connect() as db:
+            db.execute('CREATE TABLE opportunity_builders_legacy_v354(note TEXT NOT NULL)')
+            db.execute("INSERT INTO opportunity_builders_legacy_v354 VALUES('An earlier retained archive')")
+        op.initialize(self.store)
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT note FROM opportunity_builders_legacy_v354').fetchone()[0], 'An earlier retained archive')
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders_legacy_v354_2').fetchone()[0], 3)
+        self.assertEqual(len(self.builder_archives()), 2)
+
+    def test_builder_backup_failure_preserves_legacy_table_without_partial_rename(self):
+        original = self.legacy_builders(rich=True)
+        with patch.object(schema, '_backup', side_effect=OSError('Injected builder backup failure')):
+            with self.assertRaisesRegex(OSError, 'Injected builder backup failure'):
+                op.initialize(self.store)
+        self.assertEqual(self.builder_archives(), [])
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders')], original)
+            self.assertNotIn('builder_key', [row['name'] for row in db.execute('PRAGMA table_info(opportunity_builders)')])
+        self.assertFalse(getattr(self.store, '_opportunities_ready', False))
+        op.initialize(self.store)
+        self.assertEqual(len(self.builder_archives()), 1)
+
+    def test_late_builder_migration_failure_restores_original_dependencies_on_retry(self):
+        original = self.legacy_builders(rich=True)
+        with self.store.connect() as db:
+            db.execute('CREATE TABLE retained_use(builder_id TEXT REFERENCES opportunity_builders(id))')
+            db.execute("INSERT INTO retained_use VALUES('old-1')")
+            db.execute('CREATE VIEW retained_directory AS SELECT id,name FROM opportunity_builders')
+        with patch.object(schema, '_INDEXES', schema._INDEXES + ('CREATE INDEX injected_builder_failure ON opportunity_builders(nonexistent_column)',)):
+            with self.assertRaisesRegex(sqlite3.OperationalError, 'nonexistent_column'):
+                op.initialize(self.store)
+        self.assertEqual(self.builder_archives(), [])
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders')], original)
+            self.assertEqual(db.execute('PRAGMA foreign_key_list(retained_use)').fetchone()['table'], 'opportunity_builders')
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM retained_directory').fetchone()[0], 3)
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+        self.assertEqual(len(self.backups()), 1)
+        op.initialize(self.store)
+        number = len(self.backups())
+        op.initialize(self.new_store())
+        self.assertEqual(len(self.backups()), number)
+        self.assertEqual(len(self.builder_archives()), 1)
+
+    def test_old_foreign_key_violations_remain_identifiable_after_builder_rename(self):
+        self.legacy_builders(rich=True)
+        with self.store.connect() as db:
+            db.execute('PRAGMA foreign_keys=OFF')
+            # SQLite preserves reference spelling until a native table rename.
+            db.execute('CREATE TABLE legacy_orphan(builder_id TEXT REFERENCES OPPORTUNITY_BUILDERS(id))')
+            db.execute("INSERT INTO legacy_orphan VALUES('unresolved-legacy-reference')")
+            before = tuple(db.execute('PRAGMA foreign_key_check').fetchone())
+        op.initialize(self.store)
+        with self.store.connect() as db:
+            self.assertEqual(tuple(db.execute('PRAGMA foreign_key_check').fetchone()),
+                             (before[0], before[1], 'opportunity_builders_legacy_v354', before[3]))
+
+    def test_unrelated_unknown_schema_still_fails_without_converting_builders(self):
+        original = self.legacy_builders(rich=True)
+        with self.store.connect() as db:
+            db.execute('CREATE TABLE opportunity_events(event_key TEXT PRIMARY KEY)')
+        with self.assertRaisesRegex(UpgradeError, 'opportunity_events.*created_at'):
+            op.initialize(self.store)
+        self.assertEqual(self.builder_archives(), [])
+        with self.store.connect() as db:
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders')], original)
 
     def test_confirmed_missing_deleted_at_preserves_rows_and_hides_deleted_record(self):
         self.legacy()
@@ -258,6 +410,7 @@ class OpportunitySchemaMigrationTests(unittest.TestCase):
 
     def test_concurrent_processes_upgrade_once_and_all_observe_new_column(self):
         self.legacy()
+        self.legacy_builders(rich=True)
         script = '''from pathlib import Path
 import sys
 from conest_app import opportunities, tenders
@@ -266,6 +419,7 @@ store.path = Path(sys.argv[1])
 opportunities.initialize(store)
 with store.connect() as db:
     assert db.execute("SELECT deleted_at FROM opportunities WHERE id='deleted'").fetchone()[0]
+    assert db.execute("SELECT name FROM opportunity_builders WHERE builder_key='acmesons'").fetchone()[0]
 '''
         children = [subprocess.Popen([sys.executable, '-c', script, str(self.store.path)],
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -280,6 +434,7 @@ with store.connect() as db:
                     child.kill()
                     child.communicate()
         self.assertEqual(len(self.backups()), 1)
+        self.assertEqual(len(self.builder_archives()), 1)
         with self.store.connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_generation').fetchone()[0], 1)
 
@@ -294,7 +449,7 @@ with store.connect() as db:
             marker = db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0]
             history = [tuple(row) for row in db.execute('SELECT * FROM opportunity_activity ORDER BY id')]
             # Rebuild only the private fixture as the older production table;
-            # migration code itself must never use DROP/RENAME reconstruction.
+            # the production migration retains the original opportunities table.
             db.execute('PRAGMA foreign_keys=OFF')
             db.execute('''CREATE TABLE old_shape (
                 id TEXT PRIMARY KEY, body TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0,
@@ -318,6 +473,54 @@ with store.connect() as db:
         again = tenders.Store(self.store.path)
         self.assertEqual(set(op.existing_keys(again).values()), {first['id'], created['id']})
         self.assertEqual(len(self.backups()), 1)
+
+    def test_store_builder_upgrade_supports_create_edit_and_completed_reset_marker(self):
+        from conest_app.database import connect
+
+        with connect() as db:
+            actor = dict(db.execute("SELECT id,name,role,team_id FROM users WHERE role='admin' LIMIT 1").fetchone())
+        current = tenders.Store(self.store.path)
+        first = op.save(current, {'project': 'Retained project and attribution', 'region': 'VIC',
+                                 'builders': ['Original Builder']}, actor)['opportunity']
+        with current.connect() as db:
+            marker = db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0]
+            history = [tuple(row) for row in db.execute('SELECT * FROM opportunity_activity ORDER BY id')]
+            contribution = [tuple(row) for row in db.execute('SELECT * FROM tender_activity ORDER BY id')]
+            db.execute('DROP TABLE opportunity_builders')  # Replace only this private fixture.
+        original = self.legacy_builders(rich=True)
+        reopened = tenders.Store(self.store.path)
+        retained = op.detail(reopened, first['id'], actor)['opportunity']
+        changed = op.save(reopened, {**retained, 'builders': ['Edited Project Builder']}, actor)['opportunity']
+        created = op.save(reopened, {'project': 'Project after builder upgrade', 'region': 'NSW',
+                                    'builders': ['New Project Builder']}, actor)['opportunity']
+        self.assertEqual(changed['builders'], ['Edited Project Builder'])
+        self.assertEqual(created['builders'], ['New Project Builder'])
+        with reopened.connect() as db:
+            self.assertEqual(db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0], marker)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_activity ORDER BY id')][:len(history)], history)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM tender_activity ORDER BY id')][:len(contribution)], contribution)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders_legacy_v354')], original)
+            self.assertEqual(db.execute("SELECT name FROM opportunity_builders WHERE builder_key='editedprojectbuilder'").fetchone()[0], 'Edited Project Builder')
+            self.assertEqual(db.execute("SELECT name FROM opportunity_builders WHERE builder_key='newprojectbuilder'").fetchone()[0], 'New Project Builder')
+        again = tenders.Store(self.store.path)
+        self.assertEqual(set(op.existing_keys(again).values()), {first['id'], created['id']})
+        self.assertEqual(len(self.backups()), 1)
+
+    def test_owner_reset_clears_canonical_directory_but_keeps_archive_without_reseed(self):
+        from conest_app.opportunity_reset import reset_once
+
+        original = self.legacy_builders(rich=True)
+        current = tenders.Store(self.store.path)
+        with current.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 0)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders_legacy_v354')], original)
+            self.assertIsNotNone(db.execute('SELECT 1 FROM settings WHERE id=?', (RESET_KEY,)).fetchone())
+        self.assertFalse(reset_once(current)['applied'])
+        again = tenders.Store(self.store.path)
+        with again.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 0)
+            self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders_legacy_v354')], original)
+        self.assertEqual(len(self.builder_archives()), 1)
 
 
 if __name__ == '__main__':

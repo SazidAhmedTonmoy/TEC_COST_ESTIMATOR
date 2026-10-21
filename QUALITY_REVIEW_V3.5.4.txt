@@ -1,0 +1,149 @@
+TEC ConEst v3.5.4 — Legacy builder migration and release verification
+Prepared 21 October 2026
+
+CONFIRMED FINDING
+
+The user's production diagnostic, reference 9df0835b681c, confirms that the
+website now uses /home/ampecportal/tec-conest-py311/bin/python, Python 3.11.13,
+SQLite 3.34.1, and application release 3.5.3. The runtime-selection repair has
+taken effect. The new failure is an explicit UpgradeError because the existing
+opportunity_builders table contains name but lacks builder_key.
+
+The previous release migrated missing opportunity columns but deliberately
+stopped at unsupported related-table layouts. That migration coverage was
+incomplete for the hosted builder directory. The supplied diagnostic confirms
+that no opportunity schema changes were committed by the failed transaction.
+
+The immutable, previously delivered v3.5.3 ZIP reproduced the exact exception
+against a private legacy builder table while running SQLite 3.34.1. Its table
+and rows remained unchanged after the failure. The fix therefore addresses a
+reproduced migration defect rather than an assumed hosting configuration issue.
+
+IMPLEMENTED REPAIR
+
+conest_app/opportunity_schema.py now supports an existing builder table with
+name but no builder_key. It uses the existing OS process lock and a single
+BEGIN IMMEDIATE transaction to:
+
+1. Create a private, verified portable snapshot of the Tender database before
+   changing the legacy directory. Builder counts are verified even when no
+   opportunities table or opportunity rows exist.
+2. Retain the entire original directory as opportunity_builders_legacy_v354,
+   using a numbered suffix if that name is occupied. An earlier archive is
+   never overwritten.
+3. Create the current builder_key/name lookup and populate it using existing
+   builder validation and normalization. A deterministic display spelling is
+   retained for each normalized name. All original spellings and duplicates
+   remain in the archive.
+4. Leave invalid, blank, or nontext names in the archive without offering them
+   as builder suggestions.
+5. Preserve historical foreign keys, views, triggers, indexes, constraints,
+   extra columns, and rows through SQLite's native rename behavior. Historical
+   references follow the retained archive; new application writes use the
+   current two-column lookup. The archive must remain in the database.
+6. Verify that renaming did not change foreign-key integrity, allowing for
+   SQLite's rewritten table names, including case differences.
+
+The migration retains the previous missing-deleted_at repair and all supported
+opportunity-column backfills. The complete transaction rolls back if backup,
+renaming, integrity checks, later backfill, or index creation fails. The ready
+flag is set only after successful initialization. A successful subsequent
+startup uses the current directory without creating another migration archive
+or importing archived names again.
+
+The backup filename includes before-opportunity-schema-v354 and is stored in
+the Tender database directory's upgrade_backups subdirectory. For the supplied
+host configuration this is:
+
+  /home/ampecportal/tec-const.ampecportal.com/data/upgrade_backups/
+
+DATA RESET AND APPLICATION BEHAVIOR
+
+The existing opportunities-owner-reset-v351 marker and reset implementation
+are unchanged. A completed reset is not repeated, and later imported or created
+opportunities remain. If the owner-requested reset is still pending, it runs
+after schema migration with its own existing backup procedure. It clears the
+active opportunity register and its active lookup entries while retaining the
+legacy archive, history, and unrelated Tender records. Later restarts do not
+repopulate the cleared directory from that archive.
+
+The compiled frontend, visual theme, mobile interface, approval/access rules,
+notifications, contribution behavior, and blank Excel import template are
+unchanged. The release adds no dependency and changes no hosting configuration.
+Application and frontend package version metadata are updated to 3.5.4.
+
+VERIFICATION
+
+72 tests passed across seven focused modules using Python 3.12.3 linked to
+SQLite 3.34.1 with JSON support. The SQLite amalgamation was downloaded from
+sqlite.org, checked against its published SHA3-256, and compiled into a private
+verification library. This verifies the database engine version reported by
+the host without replacing any system library or contacting the live website.
+
+  Module                                      Tests
+  Opportunity schema migration                   23
+  Opportunity workflow and permissions           10
+  Opportunity Excel import                       19
+  One-time opportunity reset                      7
+  Passenger startup and health                    7
+  Deployment health validation                    2
+  Tender integration                              4
+  TOTAL                                          72
+
+The exact SQLite-version gate completed in 6.655 seconds with no failures.
+The full runtime check also passed for required imports, JSON/UPSERT behavior,
+and Australia/Sydney and Australia/Melbourne timezones in that environment.
+The migration and Passenger startup tests also passed using the primary local
+Python 3.12.14 / SQLite 3.53.1 runtime during development.
+
+Fixtures cover name-only directories, required legacy metadata columns,
+normalized duplicates, invalid names, builder-only data, archive collisions,
+foreign keys, views, triggers, prior foreign-key violations, failed backups,
+late failure with rollback, retry, concurrent initialization, and actual Store
+creation and editing after migration.
+
+The Passenger integration fixture starts with both an old opportunity table
+and a builder table containing an additional required legacy field. A real
+WSGI request to /api/health?check=tenders initializes them and returns HTTP 200,
+release 3.5.4, schema 31, and all four successful checks. The pending reset runs
+once. An authenticated HTTP request then creates a project with a new builder.
+Reopening the Store retains that project, the new builder, and the reset marker.
+
+All database fixtures were temporary. The supplied source catalog file remains
+byte-for-byte unchanged, with SHA-256:
+
+  b7e61718dc74d0883e27b0ed593336609f4596387314fbf690bad1ac0e75bf92
+
+RELEASE AND PRACTICAL LIMITS
+
+The full ZIP contains application code; the separate changed-files ZIP is
+compared with the immutable delivered v3.5.3 full ZIP. Archive integrity,
+membership, and content hashes are verified during packaging. Package metadata
+lists the exact modified and new files. Runtime databases, credentials,
+uploads, Git history, node_modules, and verification fixtures are excluded.
+
+Use the changed-files ZIP for this already-uploaded v3.5.3 installation. Keep
+the host's passenger_wsgi.py and .htaccess when using a full-code package.
+Follow UPDATE_INSTRUCTIONS_V3.5.4.txt to deploy and restart the existing app.
+
+The supplied diagnostic establishes the legacy name column and missing key;
+the entire production schema and its records were not supplied. This release
+supports that observed builder layout without guessing the meaning of unknown
+assignment, notification, or audit columns. Unsupported unrelated table layouts
+still produce an explicit error and commit no opportunity schema changes.
+
+The actual hosted Python 3.11.13 executable was not run in local tests. No live
+deployment, production migration, or data deletion was performed while building
+this release. Verify the deployed worker with a fresh deep-health response:
+release 3.5.4, schema 31, and tenders/opportunities/timezones/sqlite all "ok".
+
+AUTHORITATIVE SQLITE REFERENCES
+
+Table rename and dependency preservation:
+https://www.sqlite.org/lang_altertable.html
+
+SQLite 3.34.1 release and official sqlite3.c SHA3-256:
+https://www.sqlite.org/releaselog/3_34_1.html
+
+Verified source SHA3-256:
+799a7be90651fc7296113b641a70b028c142d767b25af1d0a78f93dcf1a2bf20

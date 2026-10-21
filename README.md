@@ -1,4 +1,16 @@
-# Current release: v3.5.3
+# Current release: v3.5.4
+
+**Hosted compatibility repair:** the latest production diagnostic confirms that Passenger now runs Python **3.11.13**, SQLite **3.34.1**, and the uploaded **v3.5.3** application. Startup then stops because the existing `opportunity_builders` table has a `name` column but no `builder_key`. This release adds the missing builder-directory migration alongside the opportunity-column migration delivered in v3.5.3.
+
+**What changes:** the migration retains the entire legacy builder table under an archive name and creates the current builder lookup from its usable names. Normalized duplicates share one suggestion; the original rows, spellings, extra columns, and metadata remain in the archive. SQLite preserves existing references to that retained table. New opportunities can register new builder names without depending on old required columns.
+
+**Data handling:** migration uses the existing process lock and one transaction, with a verified portable database backup before changing populated legacy data, including a populated builder directory with no opportunity rows. The original v3.5.1 opportunity-reset marker is unchanged: a completed reset is not repeated, and a pending owner-requested reset still follows successful schema initialization.
+
+**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.4.txt](UPDATE_INSTRUCTIONS_V3.5.4.txt). Apply the changed-files ZIP over **v3.5.3** or use the full source ZIP for a complete application-code update. Preserve the hosting configuration, the working Python 3.11 environment, and runtime databases. The release introduces no new dependency and keeps the existing compiled interface and import template.
+
+**Verify:** `/api/health?check=tenders` must return release `3.5.4`, schema `31`, and successful Tender, Opportunities, SQLite, and timezone checks. See [QUALITY_REVIEW_V3.5.4.txt](QUALITY_REVIEW_V3.5.4.txt) for verification evidence and its limits. Preparing these files does not deploy them to the hosting account.
+
+## Previous release: v3.5.3
 
 **Confirmed startup repair:** the hosted diagnostic identified `sqlite3.OperationalError: no such column: deleted_at`. Older Opportunities tables were not upgraded before index creation. This release inspects and upgrades supported existing tables before creating those indexes, with a verified backup before migrating populated opportunity data.
 
