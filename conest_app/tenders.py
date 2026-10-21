@@ -132,9 +132,9 @@ class Store:
                         with closing(sqlite3.connect(backup_fields)) as target:old.backup(target)
         self.initialize()
         from .opportunities import initialize as initialize_opportunities
-        from .opportunity_import import initialize_seed as initialize_opportunity_seed
+        from .opportunity_reset import reset_once as reset_opportunities_once
         initialize_opportunities(self)
-        initialize_opportunity_seed(self)
+        reset_opportunities_once(self)
 
     def keep_open(self):
         """Keep the shared server database's WAL attached between requests.

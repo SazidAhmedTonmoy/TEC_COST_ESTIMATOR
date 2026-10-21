@@ -1,0 +1,269 @@
+TEC ConEst v3.5.1 — Update instructions
+Release date: 21 October 2026
+Application release: 3.5.1
+Estimator database schema: 31
+
+This package has been prepared locally. It has not been deployed and has not
+cleared the opportunity register on the live website.
+
+INSTALLATION EFFECT: the first Tender initialization under this release will
+perform the owner's requested one-time clear of all existing opportunities.
+The deeper health check also initializes Tenders and can trigger that clear.
+Read section 2 before opening Tenders or running the deeper health check.
+
+1. CHOOSE THE PACKAGE AND FIND THE EXISTING APP ROOT
+
+Use the changed-files ZIP over the previously delivered v3.5 code. Use the full
+ZIP for a complete code update or when the installed code is not that baseline.
+
+The app root contains app.py, conest_app/, assets/, and tenders_web/. If the ZIP
+has an outer TEC_COST_ESTIMATOR folder, copy its contents into the existing app
+root. Avoid creating a second nested application folder.
+
+Both ZIPs include built frontend assets and templates/opportunities_import.xlsx.
+Copy the complete structure, including the template. A Node/npm build is not
+required to run these prepared ZIPs.
+
+Keep live database files and their runtime directories, .env files, uploads,
+user-created files, .git, the existing Python environment and server-specific
+hosting configuration. The ZIPs do not contain a live database snapshot.
+
+Default databases are data/conest_catalog.db and data/tec_tenders.db.
+CONEST_DB_PATH and CONEST_TENDERS_DB_PATH may select different files. Use the
+actual runtime settings when locating or backing up the databases.
+
+2. PREPARE FOR THE ONE-TIME OPPORTUNITY RESET
+
+A consistent backup of both live databases is strongly recommended before the
+update. Keep the prior code and backup separately until the update is verified.
+Pause opportunity work during the update and restart the relevant processes
+together so old workers do not continue through a partial deployment.
+
+On its first Tender initialization, v3.5.1 checks the marker
+opportunities-owner-reset-v351. If it is absent, the app clears the old register
+once. A website request, deadline worker or deeper health check can initialize
+the store first.
+
+For existing opportunity data, the app first creates and verifies a SQLite
+backup of the active Tender database. It is under that database's folder:
+
+  upgrade_backups/<database-stem>-before-opportunity-reset-v351-<timestamp>-<suffix>.db
+
+For the normal database, this is inside data/upgrade_backups/. A custom path
+uses its own adjacent upgrade_backups/ folder. The server log records the file
+location. An already empty register needs no reset backup. If backup creation
+or verification fails, opportunity records are not cleared.
+
+The reset removes:
+  - all opportunities, including old deleted records and duplicate-matching keys;
+  - opportunity assignments and delegated editing access;
+  - the opportunity-specific builder directory;
+  - opportunity deadline-event keys and opportunity notifications.
+
+It preserves Estimator data, accounts and teams, Tender submissions, chase
+history, reminders, region configuration and audit/contribution history.
+Historical actions remain history; the old projects leave the working register.
+
+The clear and its completion marker commit together. Future starts and health
+checks do not repeat it. New projects added or imported afterwards remain.
+The packaged seed is empty and earlier workbooks are no longer auto-imported.
+
+3. OVERLAY THE CODE AND MERGE THE PASSENGER ADAPTER
+
+For a local server, stop the existing process before copying. For cPanel, use
+the existing application's maintenance/update procedure. Copy matching files
+into the app root while preserving runtime data and local configuration.
+
+IMPORTANT FOR CPANEL: the deployment workflow deliberately excludes
+passenger_wsgi.py from automatic synchronization. Merge the supplied v3.5.1
+adapter into the server's passenger_wsgi.py, preserving any local interpreter
+selection, paths or hosting settings. Its startup error handling also covers
+failures before the normal HTTP application has loaded.
+
+Preserve server-owned .htaccess settings and the current app registration.
+Copying other files does not automatically update the Passenger adapter.
+
+4. INSTALL REQUIREMENTS IN THE ACTUAL APPLICATION PYTHON
+
+Use the Python configured for this Passenger application. Packages installed
+into an unrelated shell Python do not update that application's environment.
+Activate the exact existing environment shown in the application's settings,
+or use its interpreter by absolute path.
+
+From the app root, with that exact environment active:
+
+  python -m pip install -r requirements.txt
+  python tools/check_runtime.py
+
+Alternatively, replace /path/to/passenger/python with the configured interpreter:
+
+  /path/to/passenger/python -m pip install -r requirements.txt
+  /path/to/passenger/python tools/check_runtime.py
+
+The check prints the interpreter and dependency locations, verifies Python 3.10
+or newer, checks openpyxl/pdfplumber/Pillow/tzdata, and checks SQLite JSON/UPSERT
+and regional timezones. Its SQLite probes run in memory. This command does not
+initialize the live Tender store.
+
+The existing sh tools/install_runtime.sh helper selects an interpreter and runs
+this check. Confirm that its printed Python is the one Passenger uses. Keep the
+existing environment and app configuration rather than creating another one.
+
+For a local .venv, use its Python for the same commands. Linux/macOS examples:
+
+  .venv/bin/python -m pip install -r requirements.txt
+  .venv/bin/python tools/check_runtime.py
+
+Windows examples:
+
+  .venv\Scripts\python.exe -m pip install -r requirements.txt
+  .venv\Scripts\python.exe tools/check_runtime.py
+
+5. RESTART THE EXISTING APPLICATION
+
+Restart the existing application through its cPanel controls, or request a
+Passenger restart from the app root with:
+
+  mkdir -p tmp
+  touch tmp/restart.txt
+
+For a local installation, restart with the existing launcher, such as
+START_TEC_SERVER.bat or sh run.sh. Refresh the browser after the process starts.
+
+cPanel's Python WSGI guide documents this application-local restart.txt
+mechanism. Its Application Manager guide covers settings and Python log
+locations. Reference links are in section 10.
+
+6. VERIFY THE RELEASE AND TENDER READINESS
+
+Check /api/health. The new process should report release "3.5.1" and schema_version
+31. If it still reports "3.5", that response is not serving the updated release.
+
+After reviewing section 2, visit:
+
+  /api/health?check=tenders
+
+This endpoint can trigger the first-run reset. A successful JSON response has:
+
+  success: true
+  status: "ok"
+  release: "3.5.1"
+  schema_version: 31
+  checks:
+    tenders: "ok"
+    opportunities: "ok"
+    timezones: "ok"
+    sqlite: "ok"
+
+The check exercises the actual Tender store and directory, required tables,
+regional timezones, SQLite features and database write access. The write-access
+probe is rolled back; initialization and the one-time reset are separate.
+The deployment workflow now requires these deeper readiness checks.
+
+Then sign in with the normal account and open Tenders > Opportunities. Verify
+that the register starts empty, the template downloads, and normal Tender and
+reminder data remains available. Use the template for the new projects you want
+to add. They should remain after another application restart.
+
+7. IF THE HOSTED STARTUP ERROR CONTINUES
+
+Before this update, live /api/health returned HTTP 200 with release 3.5 and schema
+31, /tenders returned its page shell, unauthenticated session/bootstrap calls
+returned 401, and the browser reached the login page. These checks did not
+confirm the exception experienced by a signed-in user.
+
+The update returns a safe 503 with SESSION_STARTUP_FAILED or
+TENDERS_STARTUP_FAILED for the relevant startup failures. Record the browser's
+error reference, time and HTTP status. Find that reference in the configured
+Passenger/server log to obtain the actual exception.
+
+cPanel documents an application-local stderr.log for Python applications. Use
+the host's configured log location if different. Full tracebacks stay in the
+administrator's diagnostic workflow; browser messages contain bounded, safe
+information and a reference instead of raw filesystem paths.
+
+Use the actual error to choose a fix. Possible causes include dependencies in
+the wrong Python environment, missing timezone or SQLite features, an unexpected
+database path, permissions, insufficient backup storage, or an older worker.
+These are possibilities, not a diagnosis of the reported hosted problem.
+
+The startup screen preserves the current session on server errors and offers
+Retry or Reload with feedback. A genuine 401 still requires sign-in. If a save
+was interrupted, refresh and check whether it saved before sending it again.
+
+8. FILL AND IMPORT THE BLANK TEMPLATE
+
+Use templates/opportunities_import.xlsx, the separately supplied Excel file,
+or Import Excel > Download template in the app. They are the same workbook.
+
+The Opportunities sheet has 100 blank rows from row 8. Headings and identifying
+columns are frozen. An NSW/VIC dropdown and date/numeric validation are included.
+Read the Instructions worksheet before filling it in.
+
+The 15 columns are:
+  Project Name, Region, Closing Date, Builders, Working Scope, Location,
+  Category, Budget, Estimated value (AUD), Distance (km), Distance Origin,
+  Contact person, Email, Added Date, Notes.
+
+Project Name and Region are required. Leave unknown optional values blank.
+Enter real dates displayed as dd/mm/yyyy. Put builders on separate lines in
+the Builders cell; Alt+Enter creates a new line in Excel for Windows. Keep
+budget ranges in Budget and numeric tender amounts in Estimated value (AUD).
+Contact person and Email import/export into their corresponding app fields.
+
+Blank Distance Origin uses:
+  NSW: 63-79 Parramatta Rd Silverwater, NSW 2128
+  VIC: CBD, Melbourne
+
+Enter another origin when appropriate. Distance (km) is entered or imported;
+road distance is not automatically calculated. No origin formulas or example
+opportunity records are included in the template.
+
+Save as .xlsx. In Tenders > Opportunities > Import Excel, choose the file or
+drag it onto the upload area. Preview, correct errors, then apply. Keep the
+headings unchanged and unused rows blank. Add rows to the Excel table if needed,
+within the 10,000-project and 15 MB limits.
+
+Import adds missing opportunities only. Existing records are kept and changed
+duplicates are reported as skipped. Edit existing records in the app. Manage
+approvals, assignments and editing permissions there too; uploaded status
+values do not bypass those permissions.
+
+9. RECOVERING FROM THE PRE-RESET BACKUP
+
+Decide which state must be restored. The safety backup is the whole Tender
+database at that time, so a full restore can replace later submissions,
+reminders and other changes as well as recovering opportunities. Preserve a
+verified copy of the current state before recovery.
+
+Stop all web application processes, deadline workers and other processes using
+the affected database. Restore through the operator's verified SQLite backup
+procedure while those processes remain stopped.
+
+A pre-reset backup lacks the completed opportunities-owner-reset-v351 marker.
+Before restarting, prevent the reset from running again: use compatible code
+that will not perform it, or have the administrator deliberately establish the
+appropriate completed marker after reviewing the restored state. Do not make
+an improvised marker change on a running production database.
+
+Do not copy an old database over a live database, and do not delete WAL files
+to make a restore appear to work. Verify restored data and runtime paths before
+restarting normal workers. Keep the backup until recovery is confirmed.
+
+10. REFERENCE
+
+Release behaviour and confirmed live findings:
+  UPDATE_V3.5.1.md
+
+Current empty-register source notes:
+  opportunities_seed/SOURCE_NOTES.md
+
+cPanel: How to Install a Python WSGI Application
+  https://docs.cpanel.net/knowledge-base/web-services/how-to-install-a-python-wsgi-application/
+
+cPanel: Application Manager
+  https://docs.cpanel.net/cpanel/software/application-manager/
+
+No live deployment, remote cron installation or live opportunity deletion was
+performed while preparing this update. The clear happens when the release is
+installed and the active Tender store first initializes.

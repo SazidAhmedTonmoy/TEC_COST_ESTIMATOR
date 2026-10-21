@@ -1,0 +1,128 @@
+TEC ConEst v3.5.1 — Verification and deployment notes
+Prepared 21 October 2026. Estimator schema remains 31.
+
+RESULT
+
+The updated code, blank import template and owner-requested one-time
+opportunity reset passed the checks below. This package has not been deployed
+to the live website. Its production opportunity data has not been cleared
+during this work. The clear runs on the first Tender initialization after
+installing this release, including the deeper deployment health check.
+
+CONFIRMED HOSTED OBSERVATIONS
+
+The public /api/health endpoint returned HTTP 200, release 3.5 and schema 31.
+/tenders/ returned its shell. Unauthenticated session and Tender bootstrap
+requests correctly returned 401. A browser without an existing session reached
+the normal sign-in page.
+
+The old frontend discarded unsuccessful bootstrap JSON and replaced it with
+the generic session error in the screenshot. The update preserves HTTP status
+and safe error references, logs the original exception under that reference,
+and keeps valid sessions during Tender startup failures. The actual
+authenticated production exception remains unconfirmed: no production
+traceback or authenticated hosted session was available.
+
+AUTOMATED REGRESSION CHECKS
+
+- 238 Python tests across 40 test modules passed.
+- 14 JavaScript test files passed, including 7 focused startup failure cases.
+- TypeScript checking and the production Tender build passed.
+- The runtime check passed for required dependencies, SQLite JSON/UPSERT and
+  Australia/Sydney and Australia/Melbourne timezones.
+
+The Python total includes 19 importer tests, 7 reset tests, 6 hosted Passenger
+startup tests, deployment health checks, workflow permissions, contributions,
+existing Estimator behavior and transport checks. The test runner now supplies
+private database paths to each module subprocess, including fallback paths
+used outside a module's own fixture. A full run was followed by targeted
+reruns of two legacy modules after correcting the Tender fallback to follow
+each test's account database; all 40 modules are covered by passing results.
+The extracted original catalog is
+byte-identical to the uploaded source and is excluded from the release ZIPs.
+
+RESET VERIFICATION
+
+Private fixtures confirmed a consistent, verified pre-reset Tender backup;
+removal of active and soft-deleted opportunity rows, assignments, edit grants,
+deadline keys, opportunity builders and opportunity notifications; and release
+of matching keys so old exported IDs and project names can be imported again.
+
+The portable backup does not depend on WAL/SHM sidecars. Contribution/audit
+history, Tender submissions/chases/reminders, reminder read state and regions
+are retained. The marker commits with the clear. New imports survive restart.
+
+Backup failure and a later transactional failure leave no partial clear. Two
+separate reset processes perform one reset and create one backup. An existing
+worker's write waits during reset, then its new record survives. An empty
+register gets a completion marker without a fabricated activity entry.
+
+REAL BROWSER CHECKS
+
+A private static-server gate passed 6 startup workflow groups covering JSON
+server errors and references, Retry feedback/recovery, HTML gateway errors,
+401 sign-in redirection, unexpected HTML responses, network failures and mobile
+layout. No JavaScript runtime errors occurred.
+
+The real-application gate passed the empty register; New Project on Home;
+creation with multiple builders, scope, contact/email and regional origin;
+team/person assignment; delegated access; team approval; activity history;
+notification read behavior; exact template download; unfilled-template
+rejection; contribution display; and desktop/mobile layouts.
+
+There were no unexpected HTTP failures or JavaScript runtime errors. The
+unfilled workbook produced its expected HTTP 400 validation message asking
+the user to add project rows.
+
+After a clean stop and restart, the new opportunity was still approved and
+its records and notifications were unchanged. Both private databases passed
+integrity and foreign-key checks before and after restart. The deeper health
+endpoint reported release 3.5.1, schema 31 and all four checks as ok: tenders,
+opportunities, timezones and sqlite.
+
+EXCEL TEMPLATE
+
+TEC_Opportunities_Import_Template.xlsx has 100 blank input rows, 15 supported
+columns, NSW/VIC selection, date/numeric validation, frozen identifying columns
+and an Instructions sheet. Both worksheets were rendered and visually checked.
+The final workbook parses to zero project rows.
+
+A temporary filled NSW/VIC copy verified dates, multiple builders, scope,
+notes, contacts, budget ranges, numeric values/distances and default origins.
+Those sample records were removed, including their archived XML strings.
+The website template download was byte-identical to the delivered workbook.
+
+Default distance origins:
+  NSW: 63-79 Parramatta Rd Silverwater, NSW 2128
+  VIC: CBD, Melbourne
+
+Distance is entered or imported; road distance is not calculated automatically.
+
+DEPLOYMENT
+
+Use the changed-files ZIP over the previously delivered v3.5, or the full ZIP
+for a complete code update. Both contain built browser assets and the blank
+template. Preserve live databases, uploads and environment settings.
+
+The GitHub workflow preserves server-owned passenger_wsgi.py. Merge the new
+adapter while keeping local interpreter/environment setup. Install requirements
+and run tools/check_runtime.py with the Python actually used by Passenger.
+Restart the configured application after all files have been copied.
+
+The first Tender initialization can trigger the requested clear. A populated
+register is backed up beside its active Tender database under upgrade_backups/,
+with a filename beginning <database-stem>-before-opportunity-reset-v351-.
+Read UPDATE_INSTRUCTIONS_V3.5.1.txt in the ZIP for full installation and recovery
+steps. The completion marker prevents later starts from clearing new projects.
+
+POSSIBLE REMAINING HOST ISSUE
+
+If an error continues after deploying 3.5.1, use the displayed reference to
+find the actual traceback in the application/Passenger log. Differences in
+Python dependencies, SQLite/timezone support, database paths or permissions,
+missing files, storage availability, or older processes are possible causes;
+none has been established as the screenshot's production cause.
+
+Official cPanel references:
+https://docs.cpanel.net/knowledge-base/web-services/how-to-install-a-python-wsgi-application/
+https://docs.cpanel.net/cpanel/software/application-manager/

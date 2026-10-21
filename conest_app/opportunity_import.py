@@ -33,6 +33,8 @@ ALIASES = {
     'project name': 'project', 'opportunity': 'project', 'opportunity name': 'project',
     'region': 'region', 'state': 'region', 'location': 'location',
     'project location': 'location', 'address': 'location',
+    'contact': 'contact', 'contact person': 'contact', 'contact name': 'contact',
+    'email': 'email', 'e-mail': 'email', 'email address': 'email',
     'working scope': 'workingScope', 'work scope': 'workingScope', 'scope': 'workingScope',
     'scope of works': 'workingScope', 'category': 'category',
     'budget': 'budget', 'project budget': 'budget', 'budget range': 'budget',
@@ -378,11 +380,13 @@ def parse_workbook(filename, content, region_hint=''):
                         'value': _number(val('value'), 'Estimated value'),
                         'distanceKm': _number(val('distanceKm'), 'Distance', True),
                         'distanceOrigin': origin, 'remarks': _text(val('remarks')),
+                        'contact': _text(val('contact')), 'email': _text(val('email')),
                         'sourceRecordId': _text(val('sourceRecordId')),
                         'sourceStatus': source_status,
                         '_providedFields': sorted(set(mapping.values()).intersection({
                             'project', 'builders', 'location', 'workingScope', 'due', 'addedDate',
                             'category', 'budget', 'value', 'distanceKm', 'distanceOrigin', 'remarks',
+                            'contact', 'email',
                         }) | {'region'} | ({'distanceOrigin'} if 'distanceKm' in mapping.values() else set())),
                         'sourceData': {'filename': filename, 'sheet': ws.title, 'row': rn, 'cells': source_cells},
                     }
@@ -391,9 +395,12 @@ def parse_workbook(filename, content, region_hint=''):
                         ('remarks', 'Comments', 20000), ('category', 'Category', 500),
                         ('budget', 'Budget', 500), ('distanceOrigin', 'Distance Origin', 1000),
                         ('sourceRecordId', 'Opportunity ID', 100),
+                        ('contact', 'Contact person', 500), ('email', 'Email', 254),
                     ):
                         if len(item[field]) > limit:
                             raise ValidationError(f'{label} must be {limit:,} characters or shorter.')
+                    if item['email'] and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', item['email']):
+                        raise ValidationError('Enter a valid email address or leave Email blank.')
                     row_warnings = []
                     if not builders:
                         row_warnings.append('No builder is named in the source; left unassigned.')
@@ -431,7 +438,7 @@ def _comparable(record):
 def _different_fields(incoming, current):
     differences = []
     for key in incoming.get('_providedFields', incoming.keys()):
-        if key not in ('project', 'builders', 'region', 'location', 'workingScope', 'due', 'addedDate', 'category', 'budget', 'value', 'distanceKm', 'distanceOrigin', 'remarks'):
+        if key not in ('project', 'builders', 'region', 'location', 'workingScope', 'due', 'addedDate', 'category', 'budget', 'value', 'distanceKm', 'distanceOrigin', 'remarks', 'contact', 'email'):
             continue
         before, after = current.get(key), incoming.get(key)
         if key == 'builders':
@@ -526,7 +533,11 @@ def import_workbook(store, filename, content, actor, expected_token=None, region
 
 
 def initialize_seed(store):
-    """Apply the two immutable source imports once, including on existing installs."""
+    """Legacy explicit seed import; never called automatically at startup.
+
+    Release 3.5.1 ships an empty sources list. New records are added through the
+    reviewed Excel import or the New opportunity form instead.
+    """
     from . import opportunities
     path = ROOT / 'opportunities_seed' / 'seed.json'
     if not path.is_file():
@@ -538,7 +549,7 @@ def initialize_seed(store):
         records = source['records']
         result = opportunities.import_records(store, records, actor, source['filename'], seed_key=source['seedKey'])
         added += result.get('added', 0)
-    return {'added': added, 'seeded': True}
+    return {'added': added, 'seeded': bool(data.get('sources'))}
 
 
 EXPORT_HEADERS = [
@@ -546,11 +557,17 @@ EXPORT_HEADERS = [
     'Added Date', 'Closing Date', 'Category', 'Budget', 'Estimated value (AUD)',
     'Distance (km)', 'Distance Origin', 'Builders', 'Comments', 'Status',
     'Source decision', 'Assigned teams', 'Assigned people',
+    'Contact person', 'Email',
 ]
 
 
 def export_workbook(store, ids=None, template=False):
     """Generate the application's Excel export using its existing XML helpers."""
+    if template:
+        path = ROOT / 'templates' / 'opportunities_import.xlsx'
+        if not path.is_file():
+            raise ValidationError('The import template is unavailable. Ask an administrator to restore the template from the update package.', 503)
+        return path.read_bytes()
     from .tender_export import cell, col, styles, serial
     from .opportunities import directory
     teams, users = directory() if not template else ([], [])
@@ -576,8 +593,9 @@ def export_workbook(store, ids=None, template=False):
             labels.get(item.get('sourceStatus'), item.get('sourceStatus', '')),
             '\n'.join(team_names.get(tid, 'Removed team') for tid in item.get('assignedTeamIds', [])),
             '\n'.join(user_names.get(uid, 'Inactive or removed user') for uid in item.get('assignedUserIds', [])),
+            item.get('contact', ''), item.get('email', ''),
         ])
-    widths = [38, 54, 13, 38, 58, 19, 19, 23, 20, 24, 17, 48, 42, 58, 23, 24, 28, 28]
+    widths = [38, 54, 13, 38, 58, 19, 19, 23, 20, 24, 17, 48, 42, 58, 23, 24, 28, 28, 28, 34]
     last = max(6, 5 + len(rows))
     content = []
     notes = [
@@ -598,7 +616,7 @@ def export_workbook(store, ids=None, template=False):
         content.append(f'<row r="{rn}" ht="{min(180, max(46, 17 * line_count + 14))}" customHeight="1">' + ''.join(out) + '</row>')
     columns = ''.join(f'<col min="{i}" max="{i}" width="{width}" customWidth="1"/>' for i, width in enumerate(widths, 1))
     merges = ''.join(f'<mergeCell ref="A{i}:H{i}"/>' for i in range(1, 5))
-    sheet = f'''<worksheet xmlns="{NS['s']}"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="2" ySplit="5" topLeftCell="C6" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>{columns}</cols><sheetData>{''.join(content)}</sheetData><autoFilter ref="A5:R{last}"/><mergeCells count="4">{merges}</mergeCells><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="2" fitToHeight="0"/></worksheet>'''
+    sheet = f'''<worksheet xmlns="{NS['s']}"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="2" ySplit="5" topLeftCell="C6" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>{columns}</cols><sheetData>{''.join(content)}</sheetData><autoFilter ref="A5:{col(len(EXPORT_HEADERS))}{last}"/><mergeCells count="4">{merges}</mergeCells><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="2" fitToHeight="0"/></worksheet>'''
     mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml'
     package = io.BytesIO()
     with ZipFile(package, 'w', ZIP_DEFLATED) as archive:

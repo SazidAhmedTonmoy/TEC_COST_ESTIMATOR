@@ -293,8 +293,19 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/health":
                 with connect() as conn:
                     schema = conn.execute('SELECT version FROM schema_version').fetchone()[0]
+                checks = None
+                if query.get('check', [''])[0] == 'tenders':
+                    from conest_app.runtime_health import tender_readiness, startup_failure
+                    try:
+                        checks = tender_readiness()
+                    except Exception as exc:
+                        self._send_json(startup_failure(exc, 'TENDERS_STARTUP_FAILED'), 503)
+                        return
                 backups.register_runtime()
-                self._send_json({"success": True, "status": "ok", "schema_version": schema, "release": __version__})
+                payload = {"success": True, "status": "ok", "schema_version": schema, "release": __version__}
+                if checks is not None:
+                    payload['checks'] = checks
+                self._send_json(payload)
                 return
             if path == '/api/light-prices':
                 from conest_app import light_prices

@@ -126,10 +126,10 @@ jobs:
         run: |
           set -euo pipefail
           for ATTEMPT in $(seq 1 18); do
-            RESPONSE="$(curl -fsS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health" || true)"
-            if printf '%s' "$RESPONSE" | python tools/check_deployment_health.py; then
+            RESPONSE="$(curl -sS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health?check=tenders" || true)"
+            if printf '%s' "$RESPONSE" | python tools/check_deployment_health.py --require-tenders; then
               echo "$RESPONSE"
-              echo 'Updated code is serving traffic and the runtime database has migrated.'
+              echo 'Updated code, runtime databases, Tender startup, SQLite features and timezones are ready.'
               exit 0
             fi
             echo "Waiting for the updated Passenger worker and database (attempt $ATTEMPT/18)."

@@ -53,6 +53,8 @@ class TenderLifetimeTests(unittest.TestCase):
 
     def test_concurrent_reads_writes_backups_and_checkpoint_preserve_wal(self):
         store = tenders.get_store()
+        with store.connect() as db:
+            initial_count = db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0]
         items = [opportunities.save(store, {
             'project': f'Concurrent WAL project {number}', 'region': 'NSW', 'due': '2099-03-04',
             'builders': ['Concurrent builder'],
@@ -70,7 +72,7 @@ class TenderLifetimeTests(unittest.TestCase):
                 detail = opportunities.detail(store, items[number % 2]['id'], self.actor)
                 self.assertEqual(detail['opportunity']['status'], 'pending')
                 with store.connect() as db:
-                    self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 56)
+                    self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], initial_count + 2)
             return True
 
         def inbox():
@@ -103,7 +105,7 @@ class TenderLifetimeTests(unittest.TestCase):
         tenders.close_store()
         with closing(sqlite3.connect(path)) as db:
             self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 56)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], initial_count + 2)
 
     def test_repeated_shared_store_shutdown_and_restart_preserve_data(self):
         store = tenders.get_store()

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import gzip
+import json
 from wsgiref.util import is_hop_by_hop
 import os
 import sys
@@ -19,7 +20,17 @@ if str(ROOT) not in sys.path:
 os.environ.setdefault('CONEST_COOKIE_SECURE', '1')
 os.environ.setdefault('CONEST_DB_PATH', str(ROOT / 'data' / 'conest_catalog.db'))
 
-import app as conest
+from conest_app import __version__
+from conest_app.runtime_health import startup_failure
+
+_startup_import_error = None
+try:
+    import app as conest
+except Exception as exc:
+    # An incomplete production environment can fail before the HTTP handler is
+    # imported. Preserve that cause in the log and return a bounded JSON error.
+    conest = None
+    _startup_import_error = exc
 
 _init_lock = threading.Lock()
 _initialized = False
@@ -42,7 +53,11 @@ def _ensure_initialized():
         # Keep the WAL attached between requests, as the standalone server does.
         # This connection holds no transaction and is never used for request work.
         keeper=sqlite3.connect(str(conest.database_path()),check_same_thread=False)
-        keeper.execute('SELECT version FROM schema_version LIMIT 1').fetchone()
+        try:
+            keeper.execute('SELECT version FROM schema_version LIMIT 1').fetchone()
+        except Exception:
+            keeper.close()
+            raise
         _database_keeper=keeper
         atexit.register(keeper.close)
         _initialized = True
@@ -134,12 +149,23 @@ def application(environ, start_response):
     started=time.perf_counter()
     path = environ.get('PATH_INFO', '/') or '/'
     # Public HTML and assets do not need database initialization.
-    if path != '/' and not path.startswith(('/assets/', '/tenders/')):
-        _ensure_initialized()
-
-    memory_socket = _MemorySocket(_request_bytes(environ))
-    client_ip = environ.get('REMOTE_ADDR', '127.0.0.1')
-    conest.ConEstHandler(memory_socket, (client_ip, 0), _DummyServer())
+    try:
+        if _startup_import_error is not None:
+            raise _startup_import_error
+        if path != '/' and not path.startswith(('/assets/', '/tenders/')):
+            _ensure_initialized()
+        memory_socket = _MemorySocket(_request_bytes(environ))
+        client_ip = environ.get('REMOTE_ADDR', '127.0.0.1')
+        conest.ConEstHandler(memory_socket, (client_ip, 0), _DummyServer())
+    except Exception as exc:
+        body = json.dumps(startup_failure(exc, 'SESSION_STARTUP_FAILED'), separators=(',', ':')).encode('utf-8')
+        start_response('503 Service Unavailable', [
+            ('Content-Type', 'application/json; charset=utf-8'),
+            ('Content-Length', str(len(body))), ('Cache-Control', 'no-store'),
+            ('X-Content-Type-Options', 'nosniff'), ('X-ConEst-Adapter', __version__),
+            ('Server-Timing', f'app;dur={(time.perf_counter()-started)*1000:.1f}'),
+        ])
+        return [b'' if environ.get('REQUEST_METHOD', 'GET').upper() == 'HEAD' else body]
 
     raw = memory_socket.response_bytes()
     head, sep, body = raw.partition(b'\r\n\r\n')
@@ -160,7 +186,7 @@ def application(environ, start_response):
         parsed_headers.append((name.decode('latin-1').strip(), value.decode('latin-1').strip()))
     status_code = int(parts[1])
     response_headers, body = prepare_response(environ, status_code, parsed_headers, body)
-    response_headers.append(('X-ConEst-Adapter','3.3'))
+    response_headers.append(('X-ConEst-Adapter',__version__))
     response_headers.append(('Server-Timing',f'app;dur={(time.perf_counter()-started)*1000:.1f}'))
     start_response(status, response_headers)
     if environ.get('REQUEST_METHOD', 'GET').upper() == 'HEAD':

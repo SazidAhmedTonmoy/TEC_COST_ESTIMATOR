@@ -4,3 +4,26 @@ html,body{margin:0}body{background:#f5f7fa;color:#1b303d;font-family:Arial,sans-
 .boot-loading,.main-shell .startup-loader{position:fixed;inset:0 0 0 236px;min-height:0;display:grid;place-items:center}.boot-loading #boot-status{text-align:center;padding:24px}.boot-loading button{display:block;margin:16px auto;padding:10px 20px;cursor:pointer}.boot-spinner{width:50px;aspect-ratio:1;display:grid;margin:auto}.boot-spinner:before,.boot-spinner:after{content:"";grid-area:1/1;--c:#0000 calc(100%/3),#f4cf38 0 calc(2*100%/3),#0000 0;--c1:linear-gradient(90deg,var(--c));--c2:linear-gradient(0deg,var(--c));background:var(--c1),var(--c2),var(--c1),var(--c2);background-size:300% 4px,4px 300%;background-repeat:no-repeat;animation:boot-spin 1s infinite linear}.boot-spinner:after{margin:10px;transform:scaleX(-1);animation-delay:-.25s}@keyframes boot-spin{0%{background-position:50% 0,100% 100%,0 100%,0 0}25%{background-position:0 0,100% 50%,0 100%,0 0}50%{background-position:0 0,100% 0,50% 100%,0 0}75%{background-position:0 0,100% 0,100% 100%,0 50%}75.01%{background-position:100% 0,100% 0,100% 100%,0 50%}100%{background-position:50% 0,100% 0,100% 100%,0 100%}}
 @media(max-width:767px){.boot-sidebar{display:none}.boot-loading,.main-shell .startup-loader{left:0}}@media(prefers-reduced-motion:reduce){.boot-spinner:before,.boot-spinner:after{animation:none}}
 @media(max-width:767px){.boot-sidebar{display:block;position:relative;width:100%;height:84px;padding:16px}.boot-sidebar nav{display:none}.boot-brand{margin:0}.boot-loading{top:84px}}
+
+/* Startup failures use the same yellow actions and light/dark workspace theme. */
+.boot-loading{box-sizing:border-box;overflow:auto;padding:24px}
+.boot-loading .boot-message{box-sizing:border-box;width:min(100%,560px);max-width:560px;margin:0 auto;padding:28px;text-align:center}
+.boot-message h1{margin:20px 0 12px;font-size:24px;line-height:1.25;font-weight:700;letter-spacing:-.025em;color:inherit}
+.boot-message p{margin:0;font-size:15px;line-height:1.65;color:#506776;overflow-wrap:anywhere}
+.boot-loading #boot-status.boot-error,.boot-loading>.boot-message[role=alert]{padding:28px;text-align:left;border:1px solid #d8e1e7;border-radius:18px;background:#fff;box-shadow:0 16px 45px #132d3b0d}
+.boot-error h1,.boot-message[role=alert] h1{margin-top:0}
+.boot-error-details{margin:22px 0 0;padding:16px;border-radius:10px;background:#f5f7fa;font-size:13px;line-height:1.5}
+.boot-error-details>div{display:grid;grid-template-columns:115px minmax(0,1fr);gap:12px}
+.boot-error-details>div+div{margin-top:8px}
+.boot-error-details dt{color:#506776;font-weight:400}
+.boot-error-details dd{margin:0;overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.boot-message .boot-actions{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:24px}
+.boot-message button{margin:20px auto 0;border:1px solid #d1ab09;border-radius:10px;padding:10px 20px;min-height:42px;background:#f4cf38;color:#142a38;font-family:inherit;font-size:14px;line-height:1.4;font-weight:700}
+.boot-message button:disabled{opacity:.6;cursor:wait}
+.boot-message .boot-actions button{margin:0}
+.boot-message .boot-actions a{padding:10px 4px;color:#526976;font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.boot-message button:focus-visible,.boot-message a:focus-visible{outline:3px solid #aa8b00;outline-offset:3px}
+html[data-theme=dark] .boot-loading #boot-status.boot-error,html[data-theme=dark] .boot-loading>.boot-message[role=alert]{background:#172d38;border-color:#314e5d;box-shadow:0 16px 45px #0002}
+html[data-theme=dark] .boot-message p,html[data-theme=dark] .boot-error-details dt,html[data-theme=dark] .boot-message .boot-actions a{color:#afc5d4}
+html[data-theme=dark] .boot-error-details{background:#102430}
+@media(max-width:767px){.boot-loading{padding:20px 16px;align-items:start}.boot-loading .boot-message{margin:12px auto}.boot-loading #boot-status.boot-error,.boot-loading>.boot-message[role=alert]{padding:22px}.boot-message h1{font-size:23px}.boot-error-details>div{grid-template-columns:1fr;gap:2px}.boot-error-details>div+div{margin-top:12px}}

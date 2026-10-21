@@ -47,9 +47,14 @@ def route(h,path):
             h._guard('/api/auth/session')
             payload={'user':h.user,'csrf_token':accounts.csrf_token(h.session_token)}
             if not h.user['must_change_password']:
-                data={k:v for k,v in tenders.get_store().all_data().items() if k not in ('report','projectSummary')}
-                data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
-                payload['data']=tenders.live_teams(data)
+                try:
+                    data={k:v for k,v in tenders.get_store().all_data().items() if k not in ('report','projectSummary')}
+                    data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
+                    payload['data']=tenders.live_teams(data)
+                except Exception as exc:
+                    from .runtime_health import startup_failure
+                    h._send_json(startup_failure(exc,'TENDERS_STARTUP_FAILED'),503)
+                    return
             send(h,payload);return
         h._guard(path)
         store=tenders.get_store()

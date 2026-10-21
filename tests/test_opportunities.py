@@ -138,13 +138,12 @@ class OpportunityTests(unittest.TestCase):
         self.assertIsNone(extended['decisionBy'])
 
     def test_delete_retains_audit_and_seed_is_not_replayed(self):
-        seed = op.list_opportunities(self.store, {'pageSize': 100}, self.admin)
-        self.assertEqual(seed['total'], 54)
-        target = seed['items'][0]
+        self.assertEqual(op.list_opportunities(self.store, {}, self.admin)['total'], 0)
+        target = self.create()
         op.delete(self.store, target, self.admin)
         self.assertEqual(initialize_seed(self.store)['added'], 0)
         items = op.list_opportunities(self.store, {'pageSize': 100}, self.admin)
-        self.assertEqual(items['total'], 53)
+        self.assertEqual(items['total'], 0)
         self.assertNotIn(target['id'], {row['id'] for row in items['items']})
         audit = op.detail(self.store, target['id'], self.admin)
         self.assertEqual(audit['activity'][0]['action'], 'Deleted opportunity')

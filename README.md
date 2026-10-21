@@ -1,20 +1,16 @@
-# Current release: v3.5
+# Current release: v3.5.1
 
-See [UPDATE_V3.5.md](UPDATE_V3.5.md) for the Opportunities register, approvals, assignments, unified Tender notifications, Excel import/export, source data and contribution reporting. The Estimator Home page now includes **New Project**. Existing teal/yellow themes and responsive layouts are retained.
+This update improves hosted Tender startup diagnostics, supplies a blank Excel import template, and applies the owner's requested one-time clear of the opportunity register. Existing visual themes and the v3.5 workflow remain in place.
 
-**Installation:** follow [UPDATE_INSTRUCTIONS_V3.5.txt](UPDATE_INSTRUCTIONS_V3.5.txt). Application release is **3.5** and Estimator schema remains **31**; the separate Tender database initializes the new tables automatically. Install the updated requirements, including `tzdata`, and restart the existing app. Both frontend builds are supplied. Preserve live databases, uploads, environment files and repository history when overlaying either ZIP.
+**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.1.txt](UPDATE_INSTRUCTIONS_V3.5.1.txt). Use the full ZIP for a complete code update or the changed-files ZIP over the previously delivered **v3.5**. Both include compiled frontend files. The release is **3.5.1**; Estimator schema remains **31**. Update the server's Passenger adapter while retaining any local interpreter settings, install requirements in the actual application environment, and restart Passenger.
 
-**Source data:** 54 opportunity records are included: NSW 7 and VIC 47. The supplied data is loaded once; later Excel imports add missing opportunities and report changed existing records as skipped. See [source notes](opportunities_seed/SOURCE_NOTES.md). No live deployment was performed when preparing this release. The v3.5 instructions are current; earlier sections below describe their named historical releases.
+**Opportunity data:** this release contains zero bundled opportunities. On the first startup of each existing Tender database, the application makes a verified safety backup and clears the old opportunity register, assignments, and opportunity notices. Historical contribution activity is retained. A committed migration marker prevents later imports and manually added projects from being cleared on future restarts. Read the reset and backup details before installing the update.
 
-## Previous release: v3.4
+**Excel template:** [templates/opportunities_import.xlsx](templates/opportunities_import.xlsx) contains a blank Opportunities table and an Instructions sheet. It is also the file served by the application's Download template button. Enter one project per row, choose NSW or VIC, and preview the upload before importing. Contact person and Email now import and export correctly.
 
-See [UPDATE_V3.4.md](UPDATE_V3.4.md) for the prior Tenders mobile layout, sorting and grouped filters, editable submission teams, monthly reporting, overview navigation, and Estimator Expand All / Shrink All.
+**Hosted check:** `/api/health?check=tenders` verifies the Tender store and required runtime features. Startup failures show a safe error reference with the corresponding detailed traceback in the server log. The screenshot alone does not identify the production exception; see [UPDATE_V3.5.1.md](UPDATE_V3.5.1.md) for the confirmed findings and remaining live check.
 
-Previous v3.4 UI/chat patch: simplified View Contribution; five progress cards in one row; equal Help buttons, Normal/Project chat switch and composer model selection.
-
-Previous v3.3 patch: live rate/mark-up autosave; two historical Excel uploads credited to Tonmoy without crediting imported submissions as work; Closed progress excluded from calendar totals; redesigned Help with inline attachments, memory settings and keyboard shortcuts. See UPDATE_V3.3.md for deployment and verification.
-
-See [UPDATE_V3.3.md](UPDATE_V3.3.md) for attribution, editable chase history, per-person contributions and deployment instructions. The 8 October v3.3 update uses estimator schema 31; it adds View Contribution date ranges, Help memory/files and cross-tab copy/paste.
+This code package has not been deployed to the live website. Earlier sections below describe their named historical releases.
 
 # v3.2 release — October 2026
 

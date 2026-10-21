@@ -1,11 +1,20 @@
 """Run every unittest module in isolated processes; fail if any module fails."""
-import argparse,concurrent.futures,subprocess,sys,time
+import argparse,concurrent.futures,os,subprocess,sys,tempfile,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 
 def run(path):
     start=time.monotonic()
-    result=subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-p',path.name,'-v'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True)
+    # Keep the account fallback private for the subprocess lifetime. Clear any
+    # inherited Tender override so it follows a fixture's current account path;
+    # a test may still set its own explicit Tender path when needed.
+    with tempfile.TemporaryDirectory(prefix='conest-test-module-') as folder:
+        environment=os.environ.copy()
+        environment.update({
+            'CONEST_DB_PATH':str(Path(folder)/'catalog.db'),
+            'CONEST_TENDERS_DB_PATH':'',
+        })
+        result=subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-p',path.name,'-v'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,env=environment)
     return path.name,result.returncode,result.stdout,time.monotonic()-start
 
 def main():
