@@ -219,6 +219,99 @@ class HostedStartupTests(unittest.TestCase):
                                        active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 1)
         self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
 
+    def test_legacy_creator_column_accepts_current_form_after_completed_reset(self):
+        """The hosted screenshot failure must recover through the real adapter."""
+        from conest_app.opportunity_reset import RESET_KEY
+        from conest_app.opportunity_retention import ensure_schema
+
+        path = Path(os.environ['CONEST_TENDERS_DB_PATH'])
+        original = {
+            'id': 'retired-creator-project', 'project': 'Retired creator project',
+            'region': 'NSW', 'status': 'pending', 'revision': 3,
+            'createdBy': self.actor_id, 'assignedUserIds': [self.actor_id],
+            'contact': 'Historical builder contact', 'email': 'legacy invalid email',
+        }
+        original_json = json.dumps(original)
+        marker = json.dumps({'release': '3.5.5', 'completedAt': '2026-10-21T08:00:00Z'})
+        with sqlite3.connect(path) as db:
+            db.execute('PRAGMA foreign_keys=ON')
+            db.execute('''CREATE TABLE opportunities (
+                id TEXT PRIMARY KEY, body TEXT NOT NULL, creator_id INTEGER NOT NULL)''')
+            db.execute('INSERT INTO opportunities VALUES(?,?,?)',
+                       (original['id'], original_json, self.actor_id))
+            db.execute('''CREATE TABLE opportunity_people (
+                opportunity_id TEXT NOT NULL REFERENCES opportunities(id),
+                kind TEXT NOT NULL, person_id INTEGER NOT NULL,
+                PRIMARY KEY(opportunity_id,kind,person_id))''')
+            db.execute('INSERT INTO opportunity_people VALUES(?,?,?)',
+                       (original['id'], 'assignedUserIds', self.actor_id))
+            db.execute('''CREATE TABLE historical_creator_note (
+                opportunity_id TEXT REFERENCES opportunities(id), note TEXT NOT NULL)''')
+            db.execute('INSERT INTO historical_creator_note VALUES(?,?)',
+                       (original['id'], 'Keep the original creator relationship'))
+            db.execute('CREATE TABLE settings(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
+            db.execute('INSERT INTO settings VALUES(?,?)', (RESET_KEY, marker))
+            ensure_schema(db)
+            db.execute('INSERT INTO opportunity_reset_entries VALUES(?,?,?,NULL)',
+                       ('opportunity', original['id'], '2026-10-21T08:00:00Z'))
+
+        health = self.request('/api/health?check=tenders')
+        self.assertEqual(health['status'], 200, health['data'])
+        self.assertEqual(health['data']['release'], __version__)
+        listed = self.request('/api/tenders/opportunities', signed_in=True)
+        self.assertEqual(listed['data']['total'], 0)
+
+        created = self.request('/api/tenders/opportunities/save', signed_in=True,
+                               method='POST', data={
+            'project': 'Current form after creator migration', 'region': 'VIC',
+            'builders': ['Builder One', 'Builder Two'], 'workingScope': 'Electrical works',
+            'due': '2099-11-25', 'link': 'example.com/tender/documents',
+            'assignedUserIds': [self.actor_id],
+            # An older browser may still submit removed shared contact fields.
+            'contact': 'Unused shared contact', 'email': 'not an email',
+        })
+        self.assertEqual(created['status'], 200, created['data'])
+        item = created['data']['opportunity']
+        self.assertEqual(item['createdBy'], self.actor_id)
+        self.assertEqual(item['link'], 'https://example.com/tender/documents')
+        self.assertEqual(item['builders'], ['Builder One', 'Builder Two'])
+        self.assertEqual(item['status'], 'pending')
+        self.assertNotIn('contact', item)
+        self.assertNotIn('email', item)
+
+        approved = self.request('/api/tenders/opportunities/decision', signed_in=True,
+                                method='POST', data={
+            'id': item['id'], 'revision': item['revision'], 'decision': 'approved',
+        })
+        self.assertEqual(approved['status'], 200, approved['data'])
+        self.assertEqual(approved['data']['opportunity']['link'], item['link'])
+        self.assertEqual(approved['data']['opportunity']['decisionBy'], self.actor_id)
+        history = self.request('/api/tenders/opportunities/activity?id=' + item['id'], signed_in=True)
+        self.assertTrue(any(row['action'] == 'Approved opportunity'
+                            for row in history['data']['activity']))
+        notices = self.request('/api/tenders/notifications', signed_in=True)
+        self.assertTrue(any(row.get('opportunityId') == item['id'] for row in notices['data']['items']))
+        contribution = self.request('/api/users/' + str(self.actor_id) + '/performance', signed_in=True)
+        self.assertEqual(contribution['data']['opportunities']['projects'], 1)
+
+        with tenders.get_store().connect() as db:
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+            self.assertEqual(db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0], marker)
+            self.assertEqual(tuple(db.execute('SELECT * FROM opportunities_legacy_v356').fetchone()),
+                             (original['id'], original_json, self.actor_id))
+            self.assertEqual(db.execute('SELECT body FROM opportunities WHERE id=?',
+                                        (original['id'],)).fetchone()[0], original_json)
+            self.assertEqual(db.execute('PRAGMA foreign_key_list(opportunity_people)').fetchone()['table'],
+                             'opportunities')
+            self.assertEqual(db.execute('PRAGMA foreign_key_list(historical_creator_note)').fetchone()['table'],
+                             'opportunities_legacy_v356')
+        tenders.close_store()
+        self.assertEqual(self.request('/api/health?check=tenders')['status'], 200)
+        listing = self.request('/api/tenders/opportunities', signed_in=True)['data']
+        self.assertEqual(listing['total'], 1)
+        self.assertEqual(listing['items'][0]['id'], item['id'])
+        self.assertEqual(listing['items'][0]['status'], 'approved')
+
     def test_legacy_relationships_support_full_hosted_opportunity_workflow(self):
         from openpyxl import Workbook, load_workbook
 

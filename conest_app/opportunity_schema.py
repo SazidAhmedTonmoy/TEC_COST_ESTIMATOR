@@ -175,21 +175,30 @@ def _value(item, column):
     return value
 
 
+def _recover_columns(row, missing):
+    """Recover new fields from stored evidence, without inventing a creator."""
+    try:
+        item = json.loads(row['body'])
+        if not isinstance(item, dict):
+            raise ValueError('body must be a JSON object')
+        if 'created_by' in missing and 'createdBy' not in item and 'creator_id' in row.keys():
+            item['createdBy'] = row['creator_id']
+        return {column: _value(item, column) for column in missing}
+    except (TypeError, ValueError) as exc:
+        raise UpgradeError('An existing opportunity cannot be upgraded: ' + str(exc) +
+                           '. Its stored record and the database backup were preserved.') from exc
+
+
 def _backfill(db, missing):
     if not missing:
         return
     assignments = ','.join('"' + column + '"=?' for column in missing)
+    extra = ',creator_id' if 'created_by' in missing and 'creator_id' in _columns(db, 'opportunities') else ''
     # Stream rows rather than loading an entire imported register into memory.
-    for row in db.execute('SELECT id,body FROM opportunities'):
-        try:
-            item = json.loads(row['body'])
-            if not isinstance(item, dict):
-                raise ValueError('body must be a JSON object')
-            values = [_value(item, column) for column in missing]
-        except (TypeError, ValueError) as exc:
-            raise UpgradeError('An existing opportunity cannot be upgraded: ' + str(exc) +
-                               '. Its stored record and the database backup were preserved.') from exc
-        db.execute('UPDATE opportunities SET ' + assignments + ' WHERE id=?', (*values, row['id']))
+    for row in db.execute('SELECT id,body' + extra + ' FROM opportunities'):
+        recovered = _recover_columns(row, missing)
+        db.execute('UPDATE opportunities SET ' + assignments + ' WHERE id=?',
+                   (*[recovered[column] for column in missing], row['id']))
 
 
 def _restore_new_lookups(db, absent, default_regions):
@@ -322,7 +331,8 @@ def initialize(store, default_regions):
                     if absent:
                         raise UpgradeError('The existing ' + table + ' table needs a schema migration for: ' +
                                            ', '.join(sorted(absent)) + '. No opportunity schema changes were committed.')
-            compatibility_plan = opportunity_compatibility.migration_plan(db, present)
+            compatibility_plan = opportunity_compatibility.migration_plan(
+                db, present, separate_archives=('opportunity_builders',) if legacy_builders else ())
             counts = {table: db.execute('SELECT COUNT(*) FROM "' + table + '"').fetchone()[0]
                       for table in dict.fromkeys(('opportunities', 'opportunity_builders', *compatibility_plan))
                       if table in present}
@@ -332,13 +342,14 @@ def initialize(store, default_regions):
             if legacy_builders:
                 _migrate_builders(db)
             if compatibility_plan:
-                opportunity_compatibility.migrate(db, compatibility_plan)
+                opportunity_compatibility.migrate(db, compatibility_plan, recover_parent=_recover_columns)
             for statement in _TABLES:
                 db.execute(statement)
             opportunity_retention.ensure_schema(db)
-            for column in missing:
-                db.execute('ALTER TABLE opportunities ADD COLUMN "' + column + '" ' + _COLUMNS[column])
-            _backfill(db, missing)
+            if 'opportunities' not in compatibility_plan:
+                for column in missing:
+                    db.execute('ALTER TABLE opportunities ADD COLUMN "' + column + '" ' + _COLUMNS[column])
+                _backfill(db, missing)
             _restore_new_lookups(db, absent, default_regions)
             for statement in _INDEXES:
                 _create_index(db, statement)

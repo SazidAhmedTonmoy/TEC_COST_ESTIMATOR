@@ -1,0 +1,271 @@
+TEC ConEst v3.5.6 — Opportunity creation repair, Link and deadline cards
+Prepared 21 October 2026
+
+WHAT THIS UPDATE FIXES
+
+The latest opportunity form screenshot reports:
+
+  NOT NULL constraint failed: opportunities.creator_id
+
+The hosted Opportunities table still has a required legacy creator_id column.
+Current application inserts use created_by. Creating the table with CREATE
+TABLE IF NOT EXISTS does not alter an existing table, so merely uploading the
+new application leaves that older requirement in place. A fresh local database
+has the current layout and can therefore behave differently from the host.
+
+v3.5.6 inspects the real table constraints before accepting opportunity writes.
+It also adds the optional Link field, removes the shared Contact person and
+Email fields from the opportunity form, and shows the time to the closing date
+on each card. The existing themes and mobile interface are maintained.
+
+DATABASE REPAIR AND PRESERVED WORK
+
+When an incompatible supported parent layout is found, the application creates
+and verifies a private Tender database backup, then migrates within the existing
+process lock and write transaction. The original parent is retained in full as:
+
+  opportunities_legacy_v356
+
+A numbered suffix is added if that archive name already exists. Affected
+current application tables are archived and copied in the same transaction.
+Their new foreign keys point to the current parent, so a newly created project
+can receive assignments. Unknown historical references, extra columns, original
+metadata, indexes and triggers remain with the archived originals. Historical
+IDs and the activity sequence are retained. Required new fields are recovered
+from real stored values; no placeholder creator is invented.
+
+The migration leaves foreign-key enforcement enabled. If copying or validation
+fails, the schema transaction rolls back and the verified backup remains.
+Compatible schemas are not archived again on every restart.
+
+The earlier one-time reset retains its existing completion key:
+
+  opportunities-owner-reset-v351
+
+A completed reset is not repeated. Its retirement membership, audit history,
+later imports and subsequent projects are preserved. If the earlier requested
+clear is still pending, it runs once after successful schema initialization and
+retires the old cohort from the active register while retaining historical
+records. Keep the completion key, archives and backups intact.
+
+For the reported hosting paths, migration backups are in:
+
+  /home/ampecportal/tec-const.ampecportal.com/data/upgrade_backups/
+
+The existing filename series is retained, including
+tec_tenders-before-opportunity-schema-v354-<timestamp>-<suffix>.db. The v354
+token identifies the migration series; a v3.5.6 backup can use this name.
+
+CHOOSE THE CORRECT PACKAGE
+
+Use TEC_COST_ESTIMATOR_v3.5.6_CHANGED_FILES.zip only over the delivered v3.5.5
+application. It contains the files changed or added relative to that package.
+
+Use TEC_COST_ESTIMATOR_v3.5.6_FULL.zip for an older application or an incomplete
+or mixed upload. It supplies the complete application code. Keep the working
+hosting configuration and live databases when applying either package.
+
+UPLOAD AND RESTART
+
+1. Extract the selected ZIP. Copy the CONTENTS of its TEC_COST_ESTIMATOR folder
+   into the existing application root:
+
+     /home/ampecportal/tec-const.ampecportal.com/
+
+   Preserve the relative paths at the existing level of app.py and conest_app/.
+   Do not create a second TEC_COST_ESTIMATOR directory inside the running app.
+   Complete the upload before restarting or accepting normal work on new code.
+
+2. Include all supplied frontend files. The updated interface is already built:
+
+     tenders_web/index.html
+     every supplied file under tenders_web/assets/
+
+   Upload the compiled JavaScript and CSS as well as index.html, including the
+   separate Opportunities JavaScript chunk. Uploading source files alone does
+   not update the served interface. Uploading only index.html can leave it
+   referencing missing bundles. No frontend build is needed on the host.
+
+   Also upload templates/opportunities_import.xlsx so Download template serves
+   the new blank workbook with Link, Notes and Added Date in the new positions.
+
+3. Preserve the host's working .htaccess, passenger_wsgi.py, data/ directory,
+   uploads, environment settings and Python virtual environment. Retain local
+   hosting settings even if the full source package includes generic copies.
+   Keep the working Passenger interpreter path:
+
+     /home/ampecportal/tec-conest-py311/bin/python
+
+   The reported Python 3.11 environment and SQLite 3.34.1 are suitable for this
+   repair. This release introduces no new dependency. Running a different shell
+   Python does not change the interpreter used by Passenger.
+
+4. After the upload, use the hosting panel's application Restart action, or run
+   the following block in the hosting terminal. It verifies the uploaded code
+   and runtime before requesting the restart. The first application request
+   performs database initialization and any required migration.
+
+bash <<'SH'
+set -eu
+unset PYTHONHOME PYTHONPATH
+cd /home/ampecportal/tec-const.ampecportal.com
+
+/home/ampecportal/tec-conest-py311/bin/python - <<'PY'
+import sqlite3
+import sys
+from conest_app import __version__
+from conest_app import opportunity_compatibility, opportunity_schema, opportunity_reset
+
+print('Application release on disk:', __version__)
+print('Python:', sys.executable, sys.version.split()[0])
+print('SQLite:', sqlite3.sqlite_version)
+if __version__ != '3.5.6':
+    raise SystemExit('Stopped: upload all v3.5.6 files to the actual app root first.')
+if opportunity_reset.RESET_KEY != 'opportunities-owner-reset-v351':
+    raise SystemExit('Stopped: the installed reset files do not match this release.')
+PY
+
+/home/ampecportal/tec-conest-py311/bin/python tools/check_runtime.py
+mkdir -p tmp
+touch tmp/restart.txt
+echo 'Restart requested. Check the running release at the deep health URL.'
+SH
+
+   Restart all application workers. A version file on disk alone does not prove
+   that every serving worker has reloaded. If the panel controls Passenger
+   restarts, use that application's Restart action to complete this step.
+
+5. Open the deep health URL:
+
+     https://tec-const.ampecportal.com/api/health?check=tenders
+
+   The essential successful fields are:
+
+   {
+     "success": true,
+     "status": "ok",
+     "release": "3.5.6",
+     "schema_version": 31,
+     "checks": {
+       "tenders": "ok",
+       "opportunities": "ok",
+       "timezones": "ok",
+       "sqlite": "ok"
+     }
+   }
+
+   The check=tenders query is necessary; basic catalogue health does not check
+   the Tender database. If an older release appears, verify the upload path and
+   restart the application workers before retrying.
+
+6. Hard-refresh the browser after the server has restarted. On Windows/Linux,
+   use Ctrl+Shift+R; on macOS, use Command+Shift+R. If the interface still shows
+   the old shared contact fields, confirm that all compiled frontend files and
+   index.html were uploaded together, then reload the page.
+
+NEW-FIELD AND WORKFLOW CHECKLIST
+
+- Open Tenders > Opportunities > New opportunity. Confirm Link is present and
+  the shared Contact person and Email inputs are absent. Existing historical
+  contact/email values remain stored; this change does not erase old history.
+- Create an opportunity with a future Closing Date, a full https:// web address,
+  multiple builders and a Working Scope. It should save without the creator_id
+  error, appear awaiting approval, and display its deadline label on the card.
+- Open the saved Link and confirm it reaches the intended project/tender page.
+  Edit, save and reopen the opportunity to confirm the link persists.
+- Assign a user or team and check that the recipient receives an opportunity
+  notification. Approve as an administrator or an eligible team member. Verify
+  that the action appears in history and the user's contribution view.
+- Compare card labels for a future date, today and a blank date. Expected labels
+  include "3 days left", "Due tomorrow", "Due today" and "No deadline". A passed
+  deadline is labelled with how many days ago it passed; the wording reflects
+  the opportunity's status.
+- Check a narrow/mobile view and your existing theme. The Link control and card
+  deadline should remain readable without horizontal page scrolling.
+- Refresh or restart once more. The new opportunity and any later imports must
+  remain present; the earlier one-time clear must not run again.
+
+HOW THE COUNTDOWN WORKS
+
+The badge counts calendar days in the opportunity's region, including weekends.
+NSW uses Australia/Sydney and VIC uses Australia/Melbourne. Other configured
+regions use their saved timezone. The closing date remains due throughout that
+region's local day; the label changes at the regional day boundary. The count
+does not depend on the viewer's device timezone and accounts for daylight-saving
+day lengths. For example, a deadline three local calendar dates ahead shows
+"3 days left". A missing Closing Date shows "No deadline".
+
+UPDATED EXCEL TEMPLATE AND IMPORT
+
+Download the new template from the Opportunities import screen, or use:
+
+  templates/opportunities_import.xlsx
+
+The workbook is blank. Keep the headings on row 7 and enter one opportunity per
+row, starting at row 8. Project Name and Region are required. The column order is:
+
+  A: Project Name             H: Budget
+  B: Region                   I: Estimated value (AUD)
+  C: Closing Date             J: Distance (km)
+  D: Builders                 K: Distance Origin
+  E: Working Scope            L: Link
+  F: Location                 M: Notes
+  G: Category                 N: Added Date
+
+Use real Excel dates or YYYY-MM-DD. Put multiple builders on separate lines
+inside the Builders cell. Leave optional fields blank when they are unknown.
+The shared Contact person and Email columns are absent from this new template;
+older imported contact cells remain historical source information.
+
+For Link, paste the complete http:// or https:// address into column L. Excel's
+native Insert > Link is also supported, including a friendly display label with
+an actual web destination. Do not use a HYPERLINK(...) formula: formula-based
+Link cells are rejected, even if Excel displays a clickable result. Replace
+such a formula with its URL or a native Excel hyperlink before previewing.
+
+Select the workbook or drag and drop it into the Opportunities import screen.
+Preview first, review errors and duplicates, then apply the import. Verify the
+Link and Added Date on an imported row and check the opportunity export. New
+imports enter the existing approval workflow. Existing records retain their
+decisions and edits under the normal duplicate rules.
+
+The region provides the default distance origin when none is entered:
+
+  NSW: 63-79 Parramatta Rd Silverwater, NSW 2128
+  VIC: CBD, Melbourne
+
+Per-project origin overrides are retained. New regions require an origin to be
+configured or supplied. An entered Distance (km) is imported as supplied; the
+importer does not calculate driving distance from the address.
+
+IF THE APP IS STILL BLOCKED — NO stderr.log REQUIRED
+
+For a new startup failure, copy its new 12-character error reference. While
+signed in as an administrator, open:
+
+  https://tec-const.ampecportal.com/api/admin/startup-diagnostics?reference=<new-reference>
+
+Replace <new-reference> with the reference from the current failure. This
+protected endpoint reads a captured startup diagnostic without starting Tenders
+and does not require stderr.log. Opening /api/admin/startup-diagnostics without
+a reference returns the latest available captured startup failure.
+
+If no record is found, open Tenders and press Retry once, then request the new
+reference. Share the diagnostic JSON, including exception type/message,
+traceback, running release, Python/SQLite versions and effective database path.
+Keep the live database, schema archives and upgrade_backups/ files available
+for inspection. If startup succeeds but only Save fails, also copy that exact
+save error and the deep-health response; an older startup diagnostic may describe
+a different problem.
+
+VERIFICATION AND LIVE STATUS
+
+See QUALITY_REVIEW_V3.5.6.txt for the final verification results. The exact
+creator_id failure was reproduced from the delivered v3.5.5 code, and the repair
+was exercised using isolated legacy fixtures with SQLite 3.34.1. The checks
+cover migration, retained relationships, completed reset markers and the normal
+opportunity workflow. The supplied catalogue database was kept unchanged.
+
+This work has not been deployed to the live hosting account. The production
+Tender database was not available for inspection. The deep health response and
+the concrete workflow checks above establish the result after installation.

@@ -55,6 +55,76 @@ class OpportunityTests(unittest.TestCase):
             operation()
         self.assertEqual(caught.exception.status, status, str(caught.exception))
 
+    def test_migrated_sql_creator_keeps_authority_reminders_and_ownership_after_writes(self):
+        from conest_app import opportunity_schema
+
+        originals = {}
+        for identifier, due in (('legacy-edit', '2099-12-30'), ('legacy-deadline', '2099-11-30')):
+            originals[identifier] = json.dumps({
+                'id': identifier, 'project': identifier, 'region': 'NSW',
+                'status': 'pending', 'revision': 0, 'due': due, 'builders': [],
+                'distanceOrigin': op.DEFAULT_REGIONS['NSW'][0],
+                'createdAt': '2026-10-21T00:00:00Z', 'updatedAt': '2026-10-21T00:00:00Z',
+            }, indent=2)
+        with self.store.connect() as db:
+            # This private fixture starts empty and keeps its completed reset
+            # marker. Only its parent is replaced with the demonstrated legacy
+            # layout; production migration never drops the original table.
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 0)
+            db.execute('DROP TABLE opportunities')
+            db.execute('''CREATE TABLE opportunities (
+                id TEXT PRIMARY KEY,body TEXT NOT NULL,creator_id INTEGER NOT NULL)''')
+            db.executemany('INSERT INTO opportunities VALUES(?,?,?)',
+                           [(identifier, body, self.creator['id']) for identifier, body in originals.items()])
+        opportunity_schema.initialize(self.store, op.DEFAULT_REGIONS)
+
+        found = op.detail(self.store, 'legacy-edit', self.creator)['opportunity']
+        listed = op.list_opportunities(self.store, {}, self.creator)['items']
+        self.assertEqual(found['createdBy'], self.creator['id'])
+        self.assertTrue(found['permissions']['manage'])
+        self.assertTrue(found['permissions']['edit'])
+        self.assertTrue(all(row['permissions']['manage'] for row in listed))
+        self.assert_denied(lambda: op.save(self.store, {
+            'id': found['id'], 'revision': found['revision'], 'remarks': 'Other user'}, self.no_team))
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT body FROM opportunities WHERE id=?',
+                                        ('legacy-edit',)).fetchone()[0], originals['legacy-edit'])
+        edited = op.save(self.store, {
+            'id': found['id'], 'revision': found['revision'], 'workingScope': 'Scope added by its creator',
+            'link': 'example.test/plans'}, self.creator)['opportunity']
+        self.assertEqual(edited['createdBy'], self.creator['id'])
+        self.assertEqual(edited['link'], 'https://example.test/plans')
+
+        # An upcoming reminder uses the recovered creator without changing the
+        # stored JSON. A later expiry is a real write and must retain that ID.
+        op.process_due(self.store, force=True, now=datetime(2099, 11, 29, tzinfo=timezone.utc))
+        notices = op.notifications(self.store, {'pageSize': 100}, self.creator)['items']
+        self.assertTrue(any(row.get('opportunityId') == 'legacy-deadline' and row['kind'] == 'due-soon'
+                            for row in notices))
+        with self.store.connect() as db:
+            self.assertEqual(db.execute("SELECT body FROM opportunities WHERE id='legacy-deadline'").fetchone()[0],
+                             originals['legacy-deadline'])
+        op.process_due(self.store, force=True, now=datetime(2099, 12, 1, tzinfo=timezone.utc))
+        with self.store.connect() as db:
+            for identifier, original_json in originals.items():
+                row = db.execute('SELECT body,created_by FROM opportunities WHERE id=?', (identifier,)).fetchone()
+                self.assertEqual(row['created_by'], self.creator['id'])
+                self.assertEqual(json.loads(row['body'])['createdBy'], self.creator['id'])
+                self.assertEqual(db.execute('SELECT body FROM opportunities_legacy_v356 WHERE id=?',
+                                            (identifier,)).fetchone()[0], original_json)
+            self.assertEqual(json.loads(db.execute("SELECT body FROM opportunities WHERE id='legacy-deadline'").fetchone()[0])['status'], 'expired')
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+    def test_explicit_json_creator_is_not_replaced_by_sql_fallback(self):
+        for creator in (None, self.member['id']):
+            with self.subTest(creator=creator):
+                row = {'body': json.dumps({'createdBy': creator}),
+                       'revision': 4, 'created_by': self.creator['id']}
+                decoded = op._decode_opportunity(row)
+                self.assertEqual(decoded['createdBy'], creator)
+                self.assertFalse(op.permissions(decoded, self.creator)['manage'])
+                self.assertEqual(decoded['revision'], 4)
+
     def test_creator_admin_and_delegated_edit_authority(self):
         item = self.create()
         self.assertEqual(item['status'], 'pending')
@@ -94,6 +164,79 @@ class OpportunityTests(unittest.TestCase):
         self.assert_denied(lambda: op.save(self.store, {**item, 'remarks': 'Stale'}, self.creator), 409)
         self.assert_denied(lambda: op.delete(self.store, item, self.creator), 409)
         self.assertEqual(op.detail(self.store, item['id'], self.creator)['opportunity']['revision'], latest['revision'])
+
+    def test_link_saves_searches_edits_and_records_contribution(self):
+        item = self.create(link='  Plans.Example.test/project?id=42&view=all#drawings  ')
+        expected = 'https://plans.example.test/project?id=42&view=all#drawings'
+        self.assertEqual(item['link'], expected)
+        matching = op.list_opportunities(self.store, {'q': 'plans.example.test'}, self.creator)
+        self.assertEqual([row['id'] for row in matching['items']], [item['id']])
+        kept = op.save(self.store, {'id': item['id'], 'revision': item['revision'],
+                                   'remarks': 'Keep the project link'}, self.creator)['opportunity']
+        self.assertEqual(kept['link'], expected)
+        cleared = op.save(self.store, {**kept, 'link': None}, self.creator)['opportunity']
+        self.assertEqual(cleared['link'], '')
+        with self.store.connect() as db:
+            activity = db.execute("SELECT details,actor_id FROM opportunity_activity WHERE opportunity_id=? AND action='Updated opportunity' ORDER BY id DESC LIMIT 1", (item['id'],)).fetchone()
+            contribution = db.execute("SELECT details FROM tender_activity WHERE actor_id=? AND action='Updated opportunity' ORDER BY id DESC LIMIT 1", (self.creator['id'],)).fetchone()
+        self.assertEqual(json.loads(activity['details'])['before']['link'], expected)
+        self.assertEqual(json.loads(activity['details'])['after']['link'], '')
+        self.assertEqual(activity['actor_id'], self.creator['id'])
+        self.assertEqual(json.loads(contribution['details'])['after']['link'], '')
+
+    def test_link_rejects_unsafe_or_malformed_addresses_without_writes(self):
+        bad_values = [
+            'javascript:alert(1)', 'data:text/html,<script>', 'file:///tmp/a',
+            'mailto:builder@example.test', 'ftp://example.test/plans',
+            'https://user:password@example.test/', 'https://user@example.test/',
+            'https:///missing-host', 'https:/example.test', 'not a web address',
+            'https://example.test/a b', 'https://example.test\\@elsewhere.test',
+            'https://example.test/\nnew', '\thttps://example.test/',
+            'https://exam\u200bple.test/', 'https://example.test:99999/',
+            'https://example.test:bad/', 'https://example.test:/',
+            'https://-example.test/', 'https://example..test/',
+            'https://example.test/' + 'a' * 2048, 123, [], {},
+        ]
+        for link in bad_values:
+            with self.subTest(link=repr(link)[:100]):
+                self.assert_denied(lambda: self.create(link=link), 400)
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_activity').fetchone()[0], 0)
+
+    def test_link_normalizes_web_hosts_and_enforces_saved_length(self):
+        valid = {
+            '': '', '   ': '', 'https://example.test/path': 'https://example.test/path',
+            'HTTP://EXAMPLE.TEST:8080/path': 'http://example.test:8080/path',
+            'example.test:8443/path': 'https://example.test:8443/path',
+            '//example.test/plans': 'https://example.test/plans',
+            'https://münich.example/plans': 'https://xn--mnich-kva.example/plans',
+            'http://[2001:db8::1]:8080/plans': 'http://[2001:db8::1]:8080/plans',
+        }
+        for raw, expected in valid.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(op.normalise_link(raw), expected)
+        exact = 'https://example.test/' + 'a' * (2048 - len('https://example.test/'))
+        self.assertEqual(op.normalise_link(exact), exact)
+        with self.assertRaises(tenders.ValidationError):
+            op.normalise_link(exact + 'a')
+
+    def test_shared_contacts_are_ignored_and_legacy_values_do_not_block_edits(self):
+        item = self.create(contact='Do not assign one shared contact', email='not-an-email')
+        self.assertNotIn('contact', item)
+        self.assertNotIn('email', item)
+        legacy = {**item, 'contact': 'Historical source contact',
+                  'email': 'Builder A: old invalid value; Builder B: another value'}
+        with self.store.connect(write=True) as db:
+            db.execute('UPDATE opportunities SET body=? WHERE id=?', (json.dumps(legacy), item['id']))
+        edited = op.save(self.store, {'id': item['id'], 'revision': item['revision'],
+            'workingScope': 'Updated scope for both builders', 'link': 'example.test/plans',
+            'contact': 'Attempted overwrite', 'email': {'invalid': 'old client data'}}, self.creator)['opportunity']
+        self.assertEqual(edited['contact'], legacy['contact'])
+        self.assertEqual(edited['email'], legacy['email'])
+        self.assertEqual(edited['builders'], ['Builder One', 'Builder Two'])
+        self.assertEqual(edited['link'], 'https://example.test/plans')
+        self.assertEqual(edited['workingScope'], 'Updated scope for both builders')
 
     def test_assignments_notify_all_team_members_and_per_user_read(self):
         item = self.create()

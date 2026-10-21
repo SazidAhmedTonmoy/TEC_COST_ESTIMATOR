@@ -16,6 +16,7 @@ import zlib
 from datetime import date, datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
+from xml.sax.saxutils import quoteattr
 from zipfile import BadZipFile, ZipFile, ZIP_DEFLATED
 
 from .tenders import ValidationError, project_key
@@ -36,6 +37,8 @@ ALIASES = {
     'project location': 'location', 'address': 'location',
     'contact': 'contact', 'contact person': 'contact', 'contact name': 'contact',
     'email': 'email', 'e-mail': 'email', 'email address': 'email',
+    'link': 'link', 'url': 'link', 'project link': 'link',
+    'opportunity link': 'link', 'website': 'link',
     'working scope': 'workingScope', 'work scope': 'workingScope', 'scope': 'workingScope',
     'scope of works': 'workingScope', 'category': 'category',
     'budget': 'budget', 'project budget': 'budget', 'budget range': 'budget',
@@ -53,6 +56,7 @@ ALIASES = {
 }
 NS = {'s': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
 REL_NS = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+INACTIVE_SOURCE_FIELDS = {'approved', 'rejected', 'sourceStatus', 'exportStatus', 'contact', 'email'}
 
 
 def norm(value):
@@ -305,7 +309,7 @@ def parse_workbook(filename, content, region_hint=''):
                         occupied = info.get('occupiedRows', {})
                         if any(column > 100 for column in occupied):
                             raise ValidationError(f'{ws.title}: use at most 100 populated columns per opportunity worksheet.')
-                        active_columns = [i + 1 for i, key in mapping.items() if key not in ('approved', 'rejected', 'sourceStatus', 'exportStatus')]
+                        active_columns = [i + 1 for i, key in mapping.items() if key not in INACTIVE_SOURCE_FIELDS]
                         if any(occupied.get(column, 0) > MAX_ROWS + 50 for column in active_columns):
                             raise ValidationError(f'{ws.title}: opportunity values occur below row {MAX_ROWS + 50:,}. Remove unused rows or split the workbook before importing; no rows were added.')
                         sheets.append(ws.title)
@@ -314,7 +318,7 @@ def parse_workbook(filename, content, region_hint=''):
                     continue
                 # Ignore source template rows containing only checkboxes and a
                 # Remaining Time formula, even if its cached text says expired.
-                active = [i for i, key in mapping.items() if key not in ('approved', 'rejected', 'sourceStatus', 'exportStatus')]
+                active = [i for i, key in mapping.items() if key not in INACTIVE_SOURCE_FIELDS]
                 if not any(values[i] not in (None, '') for i in active):
                     continue
                 if _header(values[next(i for i, key in mapping.items() if key == 'project')]) == 'project':
@@ -329,8 +333,14 @@ def parse_workbook(filename, content, region_hint=''):
                 try:
                     from openpyxl.utils import get_column_letter
                     for i, key in mapping.items():
+                        if key in ('contact', 'email'):
+                            # Preserve old shared contacts exactly as source
+                            # cells, without treating them as current fields.
+                            continue
                         address = f'{get_column_letter(i + 1)}{rn}'
                         formula = info['formulae'].get(address)
+                        if key == 'link' and formula:
+                            raise ValidationError(f'{address}: paste the web address in Link or use Excel Insert > Link; Link formulas are not imported.')
                         if formula and not formula['valid']:
                             raise ValidationError(f'{address}: formula has no valid saved result. Recalculate and save the workbook in Excel first.')
                         if cells[i].data_type == 'e':
@@ -372,6 +382,17 @@ def parse_workbook(filename, content, region_hint=''):
                         if link:
                             saved['hyperlink'] = link
                         source_cells.append(saved)
+                    from .opportunities import normalise_link
+                    link_column = next((i for i, key in mapping.items() if key == 'link'), None)
+                    link_value = val('link')
+                    if link_column is not None:
+                        address = f'{get_column_letter(link_column + 1)}{rn}'
+                        if address in info['links']:
+                            # Excel may display "Open documents" while storing
+                            # the actual URL in the worksheet relationships.
+                            link_value = info['links'][address]
+                            if not link_value:
+                                raise ValidationError(f'{address}: Link has no destination. Paste the web address or correct its Excel hyperlink.')
                     item = {
                         'project': project, 'region': region, 'builders': builders,
                         'due': _iso(val('due'), wb.epoch, heading('due')),
@@ -381,13 +402,13 @@ def parse_workbook(filename, content, region_hint=''):
                         'value': _number(val('value'), 'Estimated value'),
                         'distanceKm': _number(val('distanceKm'), 'Distance', True),
                         'distanceOrigin': origin, 'remarks': _text(val('remarks')),
-                        'contact': _text(val('contact')), 'email': _text(val('email')),
+                        'link': normalise_link(link_value),
                         'sourceRecordId': _text(val('sourceRecordId')),
                         'sourceStatus': source_status,
                         '_providedFields': sorted(set(mapping.values()).intersection({
                             'project', 'builders', 'location', 'workingScope', 'due', 'addedDate',
                             'category', 'budget', 'value', 'distanceKm', 'distanceOrigin', 'remarks',
-                            'contact', 'email',
+                            'link',
                         }) | {'region'} | ({'distanceOrigin'} if 'distanceKm' in mapping.values() else set())),
                         'sourceData': {'filename': filename, 'sheet': ws.title, 'row': rn, 'cells': source_cells},
                     }
@@ -396,12 +417,9 @@ def parse_workbook(filename, content, region_hint=''):
                         ('remarks', 'Comments', 20000), ('category', 'Category', 500),
                         ('budget', 'Budget', 500), ('distanceOrigin', 'Distance Origin', 1000),
                         ('sourceRecordId', 'Opportunity ID', 100),
-                        ('contact', 'Contact person', 500), ('email', 'Email', 254),
                     ):
                         if len(item[field]) > limit:
                             raise ValidationError(f'{label} must be {limit:,} characters or shorter.')
-                    if item['email'] and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', item['email']):
-                        raise ValidationError('Enter a valid email address or leave Email blank.')
                     row_warnings = []
                     if not builders:
                         row_warnings.append('No builder is named in the source; left unassigned.')
@@ -439,7 +457,7 @@ def _comparable(record):
 def _different_fields(incoming, current):
     differences = []
     for key in incoming.get('_providedFields', incoming.keys()):
-        if key not in ('project', 'builders', 'region', 'location', 'workingScope', 'due', 'addedDate', 'category', 'budget', 'value', 'distanceKm', 'distanceOrigin', 'remarks', 'contact', 'email'):
+        if key not in ('project', 'builders', 'region', 'location', 'workingScope', 'due', 'addedDate', 'category', 'budget', 'value', 'distanceKm', 'distanceOrigin', 'remarks', 'link'):
             continue
         before, after = current.get(key), incoming.get(key)
         if key == 'builders':
@@ -559,7 +577,7 @@ EXPORT_HEADERS = [
     'Added Date', 'Closing Date', 'Category', 'Budget', 'Estimated value (AUD)',
     'Distance (km)', 'Distance Origin', 'Builders', 'Comments', 'Status',
     'Source decision', 'Assigned teams', 'Assigned people',
-    'Contact person', 'Email',
+    'Link',
 ]
 
 
@@ -571,7 +589,7 @@ def export_workbook(store, ids=None, template=False):
             raise ValidationError('The import template is unavailable. Ask an administrator to restore the template from the update package.', 503)
         return path.read_bytes()
     from .tender_export import cell, col, styles, serial
-    from .opportunities import directory
+    from .opportunities import directory, normalise_link
     teams, users = directory() if not template else ([], [])
     team_names = {item['id']: item['name'] for item in teams}
     user_names = {item['id']: item['name'] for item in users}
@@ -596,30 +614,57 @@ def export_workbook(store, ids=None, template=False):
             labels.get(item.get('sourceStatus'), item.get('sourceStatus', '')),
             '\n'.join(team_names.get(tid, 'Removed team') for tid in item.get('assignedTeamIds', [])),
             '\n'.join(user_names.get(uid, 'Inactive or removed user') for uid in item.get('assignedUserIds', [])),
-            item.get('contact', ''), item.get('email', ''),
+            item.get('link', ''),
         ])
-    widths = [38, 54, 13, 38, 58, 19, 19, 23, 20, 24, 17, 48, 42, 58, 23, 24, 28, 28, 28, 34]
+    widths = [38, 54, 13, 38, 58, 19, 19, 23, 20, 24, 17, 48, 42, 58, 23, 24, 28, 28, 54]
     last = max(6, 5 + len(rows))
     content = []
     notes = [
         'TEC Tenders — Opportunities' + (' import template' if template else ''),
         'Exported ' + datetime.now(timezone.utc).strftime('%d %b %Y %H:%M UTC') + ' · Values in AUD; distances in km',
         'Add missing projects in this table, save as .xlsx, then import under Opportunities. Existing IDs/projects are skipped.',
-        'Use real Excel dates or YYYY-MM-DD. Put multiple builders on separate lines. Approval and assignment are managed in the app.',
+        'Use Excel dates or YYYY-MM-DD; builders on separate lines. Link: paste a web address or use Insert > Link. Manage approval/assignment in the app.',
     ]
     for rn, note in enumerate(notes, 1):
         content.append(f'<row r="{rn}" ht="{36 if rn == 1 else 28}" customHeight="1">{cell("A"+str(rn), note, 1 if rn == 1 else 2)}</row>')
     content.append('<row r="5" ht="34" customHeight="1">' + ''.join(cell(f'{col(i)}5', label, 3) for i, label in enumerate(EXPORT_HEADERS, 1)) + '</row>')
+    hyperlink_cells, hyperlink_relationships = [], []
+    link_column = EXPORT_HEADERS.index('Link') + 1
+    export_styles = ET.fromstring(styles())
+    fonts, formats = export_styles.find('s:fonts', NS), export_styles.find('s:cellXfs', NS)
+    font_id = len(fonts)
+    fonts.append(ET.fromstring(f'<font xmlns="{NS["s"]}"><sz val="10"/><color rgb="FF195D86"/><name val="Aptos"/><u/></font>'))
+    fonts.set('count', str(len(fonts)))
+    link_styles = []
+    for original in (5, 6):
+        style = ET.fromstring(ET.tostring(formats[original]))
+        style.set('fontId', str(font_id))
+        link_styles.append(len(formats))
+        formats.append(style)
+    formats.set('count', str(len(formats)))
     for rn, row in enumerate(rows or [[None] * len(EXPORT_HEADERS)], 6):
         out = []
         for cn, value in enumerate(row, 1):
             style = (9 if rn % 2 == 0 else 10) if cn in (6, 7) else (7 if rn % 2 == 0 else 8) if cn == 10 else (5 if rn % 2 == 0 else 6)
+            if cn == link_column and value:
+                try:
+                    target = normalise_link(value)
+                except ValidationError:
+                    # Unknown historical values remain visible as literal text,
+                    # but must never become unsafe executable workbook links.
+                    target = ''
+                if target:
+                    relation = 'rId' + str(len(hyperlink_relationships) + 1)
+                    hyperlink_cells.append(f'<hyperlink ref="{col(cn)}{rn}" r:id="{relation}"/>')
+                    hyperlink_relationships.append(f'<Relationship Id="{relation}" Type="{REL_NS[1:-1]}/hyperlink" Target={quoteattr(target)} TargetMode="External"/>')
+                    style = link_styles[rn % 2]
             out.append(cell(f'{col(cn)}{rn}', value, style))
         line_count = max((len(str(value or '').split('\n')) for value in row), default=1)
         content.append(f'<row r="{rn}" ht="{min(180, max(46, 17 * line_count + 14))}" customHeight="1">' + ''.join(out) + '</row>')
     columns = ''.join(f'<col min="{i}" max="{i}" width="{width}" customWidth="1"/>' for i, width in enumerate(widths, 1))
     merges = ''.join(f'<mergeCell ref="A{i}:H{i}"/>' for i in range(1, 5))
-    sheet = f'''<worksheet xmlns="{NS['s']}"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="2" ySplit="5" topLeftCell="C6" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>{columns}</cols><sheetData>{''.join(content)}</sheetData><autoFilter ref="A5:{col(len(EXPORT_HEADERS))}{last}"/><mergeCells count="4">{merges}</mergeCells><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="2" fitToHeight="0"/></worksheet>'''
+    hyperlinks = '<hyperlinks>' + ''.join(hyperlink_cells) + '</hyperlinks>' if hyperlink_cells else ''
+    sheet = f'''<worksheet xmlns="{NS['s']}" xmlns:r="{REL_NS[1:-1]}"><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane xSplit="2" ySplit="5" topLeftCell="C6" activePane="bottomRight" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>{columns}</cols><sheetData>{''.join(content)}</sheetData><autoFilter ref="A5:{col(len(EXPORT_HEADERS))}{last}"/><mergeCells count="4">{merges}</mergeCells>{hyperlinks}<pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="2" fitToHeight="0"/></worksheet>'''
     mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml'
     package = io.BytesIO()
     with ZipFile(package, 'w', ZIP_DEFLATED) as archive:
@@ -627,6 +672,8 @@ def export_workbook(store, ids=None, template=False):
         archive.writestr('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')
         archive.writestr('xl/workbook.xml', f'<workbook xmlns="{NS["s"]}" xmlns:r="{REL_NS[1:-1]}"><sheets><sheet name="Opportunities" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">\'Opportunities\'!$1:$5</definedName></definedNames></workbook>')
         archive.writestr('xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
-        archive.writestr('xl/styles.xml', styles())
+        archive.writestr('xl/styles.xml', ET.tostring(export_styles, encoding='utf-8'))
         archive.writestr('xl/worksheets/sheet1.xml', sheet)
+        if hyperlink_relationships:
+            archive.writestr('xl/worksheets/_rels/sheet1.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + ''.join(hyperlink_relationships) + '</Relationships>')
     return package.getvalue()

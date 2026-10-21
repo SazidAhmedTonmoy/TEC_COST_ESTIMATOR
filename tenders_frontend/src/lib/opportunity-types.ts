@@ -4,7 +4,7 @@ export type OpportunityUser = {id:number; name:string; teamId?:number|null; role
 export type OpportunityRegion = {code:string; origin:string; timezone?:string};
 export type Opportunity = {
   id:string; project:string; builders:string[]; region:string; location:string;
-  due:string; workingScope:string; remarks:string; contact?:string; email?:string;
+  due:string; workingScope:string; remarks:string; link?:string;
   value:number|null; distanceKm:number|null; distanceOrigin:string;
   category?:string; budget?:string; addedDate?:string; sourceData?:Record<string,unknown>;sourceStatus?:OpportunityStatus;
   status:OpportunityStatus; assignedTeamIds:number[]; assignedUserIds:number[];

@@ -7,13 +7,16 @@ uses an optimistic revision inside one SQLite write transaction.
 from __future__ import annotations
 
 import json
+import ipaddress
 import math
 import re
 import threading
 import time
+import unicodedata
 import uuid
 from contextlib import contextmanager
 from datetime import date, datetime, timezone
+from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
 from . import tenders
@@ -96,12 +99,26 @@ def _identifier(value, label='Opportunity ID'):
     return tenders.text(value, label, required=True, limit=100)
 
 
+def _decode_opportunity(row):
+    """Read a legacy creator from stored SQL without rewriting source JSON.
+
+    Parent migration can recover created_by from an original creator_id column.
+    The JSON document remains intact until a real edit, so every active read
+    that supplies permissions, recipients or later writes must use this value
+    when the document has no createdBy key. Explicit JSON ownership is retained.
+    """
+    item = json.loads(row['body'])
+    if 'createdBy' not in item:
+        item['createdBy'] = row['created_by']
+    return {**item, 'revision': row['revision']}
+
+
 def _find(db, identifier, include_deleted=False):
     row = db.execute('SELECT * FROM opportunities WHERE id=? AND ' +
                      active_sql('opportunity', 'opportunities.id'), (identifier,)).fetchone()
     if not row or (row['deleted_at'] and not include_deleted):
         raise tenders.ValidationError('This opportunity no longer exists.', 404)
-    return {**json.loads(row['body']), 'revision': row['revision']}
+    return _decode_opportunity(row)
 
 
 def _revision(item, payload):
@@ -138,17 +155,72 @@ def _today(db, region, now=None):
     return (now or datetime.now(timezone.utc)).astimezone(zone).date()
 
 
+def normalise_link(value):
+    """Validate an optional web address without following it or fetching content."""
+    if value is None:
+        return ''
+    if not isinstance(value, str):
+        raise tenders.ValidationError('Link must be text.')
+    # urllib removes some control characters while parsing. Reject them before
+    # trimming or parsing so the saved URL cannot differ from the user's input.
+    if any(unicodedata.category(char) in ('Cc', 'Cf') for char in value):
+        raise tenders.ValidationError('Link cannot contain control characters.')
+    value = value.strip()
+    if not value:
+        return ''
+    if any(char.isspace() for char in value) or any(char in value for char in '\\<>"'):
+        raise tenders.ValidationError('Link cannot contain spaces, backslashes, or quotation marks.')
+    message = 'Enter a valid http:// or https:// Link without a username or password.'
+    explicit = bool(re.match(r'^https?://', value, re.I))
+    if value.startswith('//'):
+        value = 'https:' + value
+    elif not explicit:
+        # A bare domain with an optional port is convenient to paste. Other
+        # schemes (including malformed http: addresses) must not become hosts.
+        scheme = re.match(r'^([a-z][a-z0-9+.-]*):', value, re.I)
+        bare_port = re.match(r'^[^/?#:@]+:[0-9]+(?:[/?#]|$)', value)
+        if scheme and not bare_port:
+            raise tenders.ValidationError(message)
+        value = 'https://' + value
+    try:
+        parsed = urlsplit(value)
+        host = parsed.hostname
+        if (parsed.scheme.lower() not in ('http', 'https') or not host or
+                parsed.username is not None or parsed.password is not None or
+                '%' in host or parsed.netloc.endswith(':')):
+            raise ValueError()
+        port = parsed.port  # Reading this also rejects malformed/out-of-range ports.
+        if ':' in host:
+            host = '[' + ipaddress.IPv6Address(host).compressed + ']'
+        else:
+            host = host.encode('idna').decode('ascii').lower()
+            labels = host.rstrip('.').split('.')
+            if (len(host.rstrip('.')) > 253 or any(not re.fullmatch(
+                    r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?', label) for label in labels)):
+                raise ValueError()
+            if not explicit and len(labels) == 1 and host != 'localhost':
+                raise ValueError()
+        result = urlunsplit((parsed.scheme.lower(), host + (':' + str(port) if port is not None else ''),
+                             parsed.path, parsed.query, parsed.fragment))
+    except (ValueError, UnicodeError):
+        raise tenders.ValidationError(message) from None
+    if len(result) > 2048:
+        raise tenders.ValidationError('Link must be 2,048 characters or shorter.')
+    return result
+
+
 def _normalise(db, payload, current=None):
     base = dict(current or {})
-    base.update({k: v for k, v in payload.items() if k not in ('sourceData',)})
+    # Shared contact details are legacy source information. Ignore new writes,
+    # while save() preserves any historical values already in the stored body.
+    base.update({k: v for k, v in payload.items() if k not in ('sourceData', 'contact', 'email')})
     fields = {
         'project': tenders.text(base.get('project'), 'Project name', required=True, limit=500),
         'region': _region_code(base.get('region') or 'NSW'),
         'location': tenders.text(base.get('location'), 'Location', limit=1000),
         'workingScope': tenders.text(base.get('workingScope'), 'Working scope', limit=20000),
         'remarks': tenders.text(base.get('remarks'), 'Notes', limit=20000),
-        'contact': tenders.text(base.get('contact'), 'Contact', limit=500),
-        'email': tenders.text(base.get('email'), 'Email', limit=254),
+        'link': normalise_link(base.get('link')),
         'category': tenders.text(base.get('category'), 'Category', limit=500),
         'budget': tenders.text(base.get('budget'), 'Budget', limit=500),
         'addedDate': tenders.date_value(base.get('addedDate')),
@@ -156,8 +228,6 @@ def _normalise(db, payload, current=None):
         'value': _number(base.get('value'), 'Tender value'),
         'distanceKm': _number(base.get('distanceKm'), 'Distance'),
     }
-    if fields['email'] and not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', fields['email']):
-        raise tenders.ValidationError('Enter a valid email address or leave Email blank.')
     from .builders import validate_builders
     try:
         fields['builders'] = validate_builders(base.get('builders', []))
@@ -518,8 +588,8 @@ def _query(filters, include_status=True, users=None):
     if search:
         # Parameterized LIKE with escaped wildcards: user input is plain text.
         escaped = '%' + search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_') + '%'
-        where.append("(json_extract(o.body,'$.project') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.location') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.builders') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.workingScope') LIKE ? ESCAPE '\\')")
-        args.extend([escaped] * 4)
+        where.append("(json_extract(o.body,'$.project') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.location') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.builders') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.workingScope') LIKE ? ESCAPE '\\' OR json_extract(o.body,'$.link') LIKE ? ESCAPE '\\')")
+        args.extend([escaped] * 5)
     return ' AND '.join(where), args
 
 
@@ -539,7 +609,7 @@ def list_opportunities(store, filters, user):
         order = {'due': "CASE WHEN due='' THEN 1 ELSE 0 END,due,updated_at DESC,id",
                  'updated': 'updated_at DESC,id', 'name': 'project_key,id'}.get(filters.get('sort'),
                      "CASE WHEN due='' THEN 1 ELSE 0 END,due,updated_at DESC,id")
-        rows = db.execute('SELECT body,revision FROM opportunities o WHERE ' + where +
+        rows = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where +
                           ' ORDER BY ' + order + ' LIMIT ? OFFSET ?',
                           (*args, size, (page - 1) * size)).fetchall()
         counts = {status: 0 for status in STATUSES}
@@ -566,7 +636,7 @@ def list_opportunities(store, filters, user):
             for name in str(row[0]).splitlines():
                 if name.strip():
                     builders.setdefault(tenders.builder_key(name), name.strip())
-    return {'items': [_public({**json.loads(r['body']), 'revision': r['revision']}, actor) for r in rows],
+    return {'items': [_public(_decode_opportunity(r), actor) for r in rows],
             'total': total, 'page': page, 'pageSize': size, 'counts': counts,
             'regions': regions, 'teams': teams, 'users': users,
             'builders': sorted(builders.values(), key=str.casefold),
@@ -622,10 +692,10 @@ def process_due(store, force=False, now=None):
         _, users = directory()
         instant = now or datetime.now(timezone.utc)
         with _transaction(store) as db:
-            rows = db.execute("SELECT body,revision FROM opportunities WHERE deleted_at IS NULL AND status IN ('pending','approved') AND due!='' AND " +
+            rows = db.execute("SELECT body,revision,created_by FROM opportunities WHERE deleted_at IS NULL AND status IN ('pending','approved') AND due!='' AND " +
                               active_sql('opportunity', 'opportunities.id')).fetchall()
             for row in rows:
-                item = {**json.loads(row['body']), 'revision': row['revision']}
+                item = _decode_opportunity(row)
                 days = (date.fromisoformat(item['due']) - _today(db, item['region'], instant)).days
                 if days < 0:
                     item.update(status='expired', revision=item['revision'] + 1,

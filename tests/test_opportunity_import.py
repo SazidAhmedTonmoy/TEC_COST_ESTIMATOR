@@ -14,6 +14,7 @@ from xml.etree import ElementTree as ET
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter, range_boundaries
 
 from conest_app import opportunities, opportunity_http, tenders
 from conest_app.database import connect
@@ -43,7 +44,7 @@ def workbook(rows, headers=None):
     return replace_parts(base, {'xl/worksheets/sheet1.xml': xml})
 
 
-def row(project='New import project', **kwargs):
+def row(project='New import project', headers=None, **kwargs):
     values = {
         'Project Name': project, 'Region': 'NSW', 'Closing Date': '2099-11-25',
         'Builders': 'First Builder\nSecond Builder', 'Budget': '5m-10m',
@@ -51,7 +52,7 @@ def row(project='New import project', **kwargs):
         'Working Scope': 'Lighting, power and communications',
     }
     values.update(kwargs)
-    return [values.get(header, '') for header in EXPORT_HEADERS]
+    return [values.get(header, '') for header in (headers or EXPORT_HEADERS)]
 
 
 class OpportunityImportTests(unittest.TestCase):
@@ -127,7 +128,7 @@ class OpportunityImportTests(unittest.TestCase):
         self.assertEqual(result['counts']['added'], 0)
         book = load_workbook(io.BytesIO(blob), data_only=False)
         self.assertEqual(book['Opportunities'].freeze_panes, 'C6')
-        self.assertEqual(book['Opportunities'].auto_filter.ref, 'A5:T7')
+        self.assertEqual(book['Opportunities'].auto_filter.ref, 'A5:' + get_column_letter(len(EXPORT_HEADERS)) + '7')
         book.close()
         literal = '=HYPERLINK("https://invalid.example","literal text")'
         parsed = parse_workbook('literal.xlsx', workbook([row(Comments=literal)]))
@@ -294,27 +295,118 @@ class OpportunityImportTests(unittest.TestCase):
             self.preview(oversized)
         self.assertEqual(len(self.items()), 0)
 
-    def test_contact_fields_import_export_and_changed_duplicate_are_preserved(self):
-        blob = workbook([row('Fictional contact job', **{'Contact person': 'Taylor Test', 'Email': 'taylor@example.test'})])
+    def test_legacy_contacts_remain_source_information_and_do_not_block_import(self):
+        headers = EXPORT_HEADERS[:-1] + ['Contact person', 'Email']
+        original_contact = 'Historical contact ' + 'A' * 501
+        original_email = 'Builder A: one address; Builder B: another address'
+        blob = workbook([row('Fictional contact job', headers=headers,
+            **{'Contact person': original_contact, 'Email': original_email})], headers)
         self.apply(blob)
         item = self.items()[0]
-        self.assertEqual((item['contact'], item['email']), ('Taylor Test', 'taylor@example.test'))
-        parsed = parse_workbook('export.xlsx', export_workbook(self.store))
-        self.assertEqual((parsed['records'][0]['contact'], parsed['records'][0]['email']), ('Taylor Test', 'taylor@example.test'))
-        changed = workbook([row('Fictional contact job', **{'Contact person': 'Different contact', 'Email': 'different@example.test'})])
+        self.assertNotIn('contact', item)
+        self.assertNotIn('email', item)
+        source = {cell['header']: cell['value'] for cell in item['sourceData']['cells']}
+        self.assertEqual((source['Contact person'], source['Email']), (original_contact, original_email))
+        changed = workbook([row('Fictional contact job', headers=headers,
+            **{'Contact person': 'Different contact', 'Email': 'different@example.test'})], headers)
         result = self.apply(changed)
-        self.assertEqual(result['counts']['skippedChanged'], 1)
-        self.assertIn('contact', result['rows'][0]['changedFields'])
-        self.assertIn('email', result['rows'][0]['changedFields'])
-        self.assertEqual(self.items()[0]['email'], 'taylor@example.test')
+        self.assertEqual(result['counts']['duplicates'], 1)
+        self.assertEqual(result['counts']['skippedChanged'], 0)
+        self.assertEqual(self.items()[0]['sourceData'], item['sourceData'])
+        parsed = parse_workbook('export.xlsx', export_workbook(self.store))
+        self.assertFalse(parsed['issues'])
+        self.assertNotIn('contact', parsed['records'][0])
+        self.assertNotIn('email', parsed['records'][0])
 
-    def test_invalid_contact_email_is_reported_before_apply(self):
-        for fields in ({'Email': 'not-an-email'}, {'Contact person': 'A' * 501}):
-            blob = workbook([row(**fields)])
+    def test_legacy_contact_formula_and_email_error_are_archived(self):
+        headers = ['Project Name', 'Region', 'Contact person', 'Email']
+        book = load_workbook(io.BytesIO(workbook([['Legacy values', 'NSW', '', '']], headers)))
+        sheet = book['Opportunities']
+        sheet['C6'] = '=A1'
+        sheet['D6'] = '#VALUE!'
+        output = io.BytesIO()
+        book.save(output)
+        book.close()
+        self.apply(output.getvalue())
+        item = self.items()[0]
+        source = {cell['header']: cell for cell in item['sourceData']['cells']}
+        self.assertEqual(source['Contact person']['formula'], '=A1')
+        self.assertEqual(source['Email']['value'], '#VALUE!')
+        self.assertNotIn('email', item)
+
+    def test_link_import_export_roundtrip_uses_real_clickable_target(self):
+        target = 'https://plans.example.test/view?id=42&mode=all#drawings'
+        book = load_workbook(io.BytesIO(workbook([row(Link='Open drawings')])))
+        address = get_column_letter(EXPORT_HEADERS.index('Link') + 1) + '6'
+        book['Opportunities'][address].hyperlink = target
+        output = io.BytesIO()
+        book.save(output)
+        book.close()
+        self.apply(output.getvalue())
+        item = self.items()[0]
+        self.assertEqual(item['link'], target)
+        source = next(cell for cell in item['sourceData']['cells'] if cell['header'] == 'Link')
+        self.assertEqual((source['value'], source['hyperlink']), ('Open drawings', target))
+        exported = export_workbook(self.store)
+        book = load_workbook(io.BytesIO(exported))
+        self.assertEqual(book['Opportunities'][address].value, target)
+        self.assertEqual(book['Opportunities'][address].hyperlink.target, target)
+        self.assertEqual(book['Opportunities'][address].font.u, 'single')
+        headers = [cell.value for cell in book['Opportunities'][5]]
+        self.assertIn('Link', headers)
+        self.assertNotIn('Contact person', headers)
+        self.assertNotIn('Email', headers)
+        book.close()
+        parsed = parse_workbook('export.xlsx', exported)
+        self.assertFalse(parsed['issues'])
+        self.assertEqual(parsed['records'][0]['link'], target)
+        result = self.apply(exported)
+        self.assertEqual((result['counts']['added'], result['counts']['duplicates']), (0, 1))
+        changed = workbook([row(Link='plans.example.test/changed')])
+        preview = self.preview(changed)
+        self.assertEqual(preview['counts']['skippedChanged'], 1)
+        self.assertIn('link', preview['rows'][0]['changedFields'])
+        self.apply(changed)
+        self.assertEqual(self.items()[0]['link'], target)
+
+    def test_link_alias_and_bare_domain_import_without_shared_contacts(self):
+        headers = ['Project Name', 'Region', 'Builders', 'URL']
+        self.apply(workbook([['Named web link', 'VIC', 'Builder A\nBuilder B', 'plans.example.test/job']], headers))
+        item = self.items()[0]
+        self.assertEqual(item['link'], 'https://plans.example.test/job')
+        self.assertEqual(item['builders'], ['Builder A', 'Builder B'])
+        self.assertNotIn('contact', item)
+        self.assertNotIn('email', item)
+
+    def test_invalid_links_are_reported_before_any_import_is_applied(self):
+        for link in ('javascript:alert(1)', 'https://person:secret@example.test/',
+                     'https://example.test/' + 'a' * 2048, 'https://example.test/ has space'):
+            blob = workbook([row('A valid project'), row('Invalid linked project', Link=link)])
             preview = self.preview(blob)
             self.assertEqual(preview['counts']['errors'], 1)
+            self.assertIn('Link', preview['issues'][0]['message'])
             with self.assertRaisesRegex(ValidationError, 'Correct the highlighted'):
                 import_workbook(self.store, 'import.xlsx', blob, self.actor, expected_token=preview['token'])
+        self.assertEqual(self.items(), [])
+
+    def test_unsafe_hyperlink_target_and_formula_are_rejected_in_preview(self):
+        address = get_column_letter(EXPORT_HEADERS.index('Link') + 1) + '6'
+        for target, formula in [('javascript:alert(1)', False), ('#Opportunities!A1', False),
+                                ('=HYPERLINK("https://example.test/","Open drawings")', True)]:
+            book = load_workbook(io.BytesIO(workbook([row(Link='Open drawings')])))
+            cell = book['Opportunities'][address]
+            if formula:
+                cell.value = target
+            else:
+                cell.hyperlink = target
+            output = io.BytesIO()
+            book.save(output)
+            book.close()
+            preview = self.preview(output.getvalue())
+            self.assertEqual(preview['counts']['errors'], 1)
+            self.assertIn('Link', preview['issues'][0]['message'])
+            if formula:
+                self.assertIn('Insert > Link', preview['issues'][0]['message'])
         self.assertEqual(self.items(), [])
 
     def test_packaged_template_is_blank_and_uses_supported_columns(self):
@@ -323,13 +415,16 @@ class OpportunityImportTests(unittest.TestCase):
         self.assertEqual(book.sheetnames, ['Opportunities', 'Instructions'])
         sheet = book['Opportunities']
         self.assertEqual(sheet.freeze_panes, 'C8')
-        self.assertEqual(sheet.tables['OpportunityEntries'].ref, 'A7:O107')
-        self.assertEqual(sheet['C8'].number_format, 'dd/mm/yyyy')
-        self.assertEqual(sheet['N8'].number_format, 'dd/mm/yyyy')
-        self.assertEqual(sheet['L7'].value, 'Contact person')
-        self.assertEqual(sheet['M7'].value, 'Email')
-        self.assertTrue(all(cell.value is None for cells in sheet.iter_rows(min_row=8, max_row=107, max_col=15) for cell in cells))
-        self.assertEqual(len(sheet.data_validations.dataValidation), 5)
+        min_col, min_row, max_col, max_row = range_boundaries(sheet.tables['OpportunityEntries'].ref)
+        self.assertEqual((min_col, min_row, max_row), (1, 7, 107))
+        headers = {str(sheet.cell(7, column).value).split('\n')[0]: column for column in range(1, max_col + 1)}
+        self.assertIn('Link', headers)
+        self.assertNotIn('Contact person', headers)
+        self.assertNotIn('Email', headers)
+        for heading in ('Closing Date', 'Added Date'):
+            self.assertEqual(sheet.cell(8, headers[heading]).number_format, 'dd/mm/yyyy')
+        self.assertTrue(all(cell.value is None for cells in sheet.iter_rows(min_row=8, max_row=107, max_col=max_col) for cell in cells))
+        self.assertGreaterEqual(len(sheet.data_validations.dataValidation), 5)
         book.close()
         with self.assertRaisesRegex(ValidationError, 'No opportunity rows found'):
             parse_workbook('template.xlsx', blob)
