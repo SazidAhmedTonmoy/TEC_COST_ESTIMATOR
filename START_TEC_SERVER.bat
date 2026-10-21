@@ -21,9 +21,9 @@ if not exist ".venv\Scripts\python.exe" (
     if errorlevel 1 goto :failed
 )
 
-".venv\Scripts\python.exe" -c "import openpyxl, pdfplumber, PIL, tzdata" >nul 2>&1
+".venv\Scripts\python.exe" -c "import openpyxl, pdfplumber, PIL" >nul 2>&1
 if errorlevel 1 (
-    echo Installing the application dependencies...
+    echo Installing the Excel, PDF and image dependencies...
     ".venv\Scripts\python.exe" -m pip install --upgrade pip
     if errorlevel 1 goto :failed
     ".venv\Scripts\python.exe" -m pip install -r requirements.txt

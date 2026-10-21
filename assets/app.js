@@ -1310,7 +1310,6 @@ function bindEvents() {
     openManualDialog(true, null, false, null, Number($("#quick-search-quantity").value || 1));
   });
   $("#new-project-button").addEventListener("click", () => openProjectForm());
-  $("#home-new-project-button").addEventListener("click", () => openProjectForm());
   $("#new-project-form").addEventListener("submit", (event) => submitWithButton(event, () => createNewProject(event)));
   $$(".close-dialog").forEach((button) => button.addEventListener("click", () => {
     if (button.closest("dialog").id === "manual-dialog" && state.manualSaving) return;

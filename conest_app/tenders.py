@@ -8,8 +8,7 @@ import math
 import mimetypes
 import sqlite3
 import uuid
-import weakref
-from contextlib import closing, contextmanager
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -106,66 +105,28 @@ class Store:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._cache = None
         self._cache_lock = threading.Lock()
-        self._keeper_lock = threading.Lock()
-        self._database_keeper = None
-        self._keeper_finalizer = None
         legacy = self.path.with_suffix('.sqlite3')
         if not self.path.exists() and legacy.is_file():
-            with closing(sqlite3.connect(f'{legacy.as_uri()}?mode=ro',uri=True)) as source, closing(sqlite3.connect(self.path)) as target:
+            with sqlite3.connect(f'{legacy.as_uri()}?mode=ro',uri=True) as source, sqlite3.connect(self.path) as target:
                 source.backup(target)
         self.seed = json.loads((ROOT / 'tenders_seed' / 'seed.json').read_text(encoding='utf-8'))
         if self.path.is_file():
-            with closing(sqlite3.connect(self.path)) as old:
+            with sqlite3.connect(self.path) as old:
                 has_settings=old.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='settings'").fetchone()
                 migrated=has_settings and old.execute("SELECT 1 FROM settings WHERE id='attribution-v33'").fetchone()
                 backup=self.path.with_suffix('.pre-v33.db')
                 if has_settings and not migrated and not backup.exists():
-                    with closing(sqlite3.connect(backup)) as target:
+                    with sqlite3.connect(backup) as target:
                         old.backup(target)
                 if has_settings and not old.execute("SELECT 1 FROM settings WHERE id='submission-teams-v34'").fetchone():
                     backup34=self.path.with_suffix('.pre-v34.db')
                     if not backup34.exists():
-                        with closing(sqlite3.connect(backup34)) as target:old.backup(target)
+                        with sqlite3.connect(backup34) as target:old.backup(target)
                 if has_settings and not old.execute("SELECT 1 FROM settings WHERE id='normalized-fields-v34b'").fetchone():
                     backup_fields=self.path.with_suffix('.pre-v34b.db')
                     if not backup_fields.exists():
-                        with closing(sqlite3.connect(backup_fields)) as target:old.backup(target)
+                        with sqlite3.connect(backup_fields) as target:old.backup(target)
         self.initialize()
-        from .opportunities import initialize as initialize_opportunities
-        from .opportunity_import import initialize_seed as initialize_opportunity_seed
-        initialize_opportunities(self)
-        initialize_opportunity_seed(self)
-
-    def keep_open(self):
-        """Keep the shared server database's WAL attached between requests.
-
-        This idle connection is never used for request work and holds no read or
-        write transaction. The cached Store owns it for the worker lifetime,
-        matching the catalogue keeper. Short-lived Store(path) callers may use
-        this explicitly, then call close() before removing their directory.
-        """
-        with self._keeper_lock:
-            if self._database_keeper is None:
-                keeper = sqlite3.connect(self.path, timeout=15, check_same_thread=False)
-                try:
-                    keeper.execute('SELECT value FROM tender_generation').fetchone()
-                except Exception:
-                    keeper.close()
-                    raise
-                self._database_keeper = keeper
-                # A discarded cached Store (including test replacement) closes
-                # promptly; weakref also supplies an interpreter-exit fallback.
-                self._keeper_finalizer = weakref.finalize(self, keeper.close)
-        return self
-
-    def close(self):
-        """Release the idle keeper; existing request connections stay independent."""
-        with self._keeper_lock:
-            finalizer = self._keeper_finalizer
-            self._keeper_finalizer = None
-            self._database_keeper = None
-            if finalizer is not None:
-                finalizer()
 
     @contextmanager
     def connect(self, write=False):
@@ -528,7 +489,7 @@ class Store:
         if destination == self.path:
             raise ValueError('Backup destination must differ from the live database.')
         destination.parent.mkdir(parents=True,exist_ok=True)
-        with self.connect() as db, closing(sqlite3.connect(destination)) as target:
+        with self.connect() as db, sqlite3.connect(destination) as target:
             db.backup(target)
 
 
@@ -563,25 +524,9 @@ def get_store():
     global _store
     with _store_lock:
         if _store is None:
-            candidate=Store()
-            try:
-                candidate.keep_open()
-                candidate.link_contributors()
-            except Exception:
-                candidate.close()
-                raise
-            _store=candidate
+            _store=Store()
+            _store.link_contributors()
         return _store
-
-
-def close_store():
-    """Close the process-shared Store during an orderly server shutdown."""
-    global _store
-    with _store_lock:
-        previous=_store
-        _store=None
-        if previous is not None:
-            previous.close()
 
 def daily_backup():
     """Snapshot an existing tender database without loading the tender app."""
@@ -595,7 +540,7 @@ def daily_backup():
     pending=folder/(name+'.'+uuid.uuid4().hex+'.tmp')
     with _store_lock:
         if output.exists():return
-        with closing(sqlite3.connect(f'{target.resolve().as_uri()}?mode=ro',uri=True)) as source,closing(sqlite3.connect(pending)) as dest:
+        with sqlite3.connect(f'{target.resolve().as_uri()}?mode=ro',uri=True) as source,sqlite3.connect(pending) as dest:
             source.backup(dest)
         os.replace(pending,output)
         for old in folder.glob('*.db'):

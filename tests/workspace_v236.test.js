@@ -1,8 +1,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const elements={};
-const element=s=>elements[s]||(elements[s]={value:'',innerHTML:'',dataset:{},setAttribute(){},classList:{toggle(){},remove(){},add(){}}});
+const element=s=>elements[s]||(elements[s]={value:'',innerHTML:'',dataset:{},classList:{toggle(){},remove(){},add(){}}});
 const ctx={console,Date,Map,Set,document:{addEventListener(){}},$:element,$$:()=>[],
- state:{user:{id:1,role:'admin'},projects:[]},sydneyMonth:()=> '2026-09',escapeHtml:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),fmtMoney:n=>String(n||0),projectOutcome:()=>''};
+ state:{user:{id:1,role:'admin'},projects:[]},escapeHtml:s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;'),fmtMoney:n=>String(n||0),projectOutcome:()=>''};
 vm.createContext(ctx);
 for(const file of ['builders.js','workspace.js'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets',file),'utf8'),ctx);
 ctx.state.projects=[{id:1,name:'New <project>',status:'draft',needs_admin_review:true,submission_deadline:'2026-09-22',currency:'AUD',can_edit:true}, {id:2,name:'Finished',status:'submitted',submission_deadline:'2026-09-20',currency:'AUD',can_edit:true}];

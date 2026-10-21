@@ -4,10 +4,6 @@ from datetime import date, datetime, time, timezone, timedelta
 from zoneinfo import ZoneInfo
 from . import tenders
 
-# Opportunity events are mirrored into the general Tender audit for traceability.
-# Keep their contribution totals separate so one event is never counted twice.
-_TENDER_ONLY = "json_extract(details,'$.opportunityId') IS NULL AND COALESCE(json_extract(details,'$.opportunityImport'),0)=0"
-
 
 def contribution_report(conn, user_id, since='', until=''):
     for value in (since,until):
@@ -30,24 +26,13 @@ def contribution_report(conn, user_id, since='', until=''):
         FROM project_activity WHERE user_id=? AND created_at>=? AND created_at<? ORDER BY created_at DESC,id DESC LIMIT 30''',(user_id,start,end))]
     store=tenders.get_store()
     with store.connect() as db:
-        groups=[dict(r) for r in db.execute(f'''SELECT action,COUNT(*) AS count FROM tender_activity
-            WHERE actor_id=? AND created_at>=? AND created_at<? AND {_TENDER_ONLY}
-            GROUP BY action ORDER BY count DESC,action''',(user_id,start,end))]
+        groups=[dict(r) for r in db.execute('''SELECT action,COUNT(*) AS count FROM tender_activity
+            WHERE actor_id=? AND created_at>=? AND created_at<? GROUP BY action ORDER BY count DESC,action''',(user_id,start,end))]
+        tender_count=db.execute('''SELECT COUNT(DISTINCT submission_id) FROM tender_activity
+            WHERE actor_id=? AND created_at>=? AND created_at<?''',(user_id,start,end)).fetchone()[0]
         imports=[json.loads(r[0]) for r in db.execute("SELECT details FROM tender_activity WHERE actor_id=? AND created_at>=? AND created_at<? AND action='Imported Excel'",(user_id,start,end))]
-        recent.extend({**dict(r),'app':'Tenders'} for r in db.execute(f'''SELECT action,project,created_at FROM tender_activity
-            WHERE actor_id=? AND created_at>=? AND created_at<? AND {_TENDER_ONLY}
-            ORDER BY created_at DESC,id DESC LIMIT 30''',(user_id,start,end)))
-        opportunity_groups=[]
-        opportunity_count=0
-        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='opportunity_activity'").fetchone():
-            opportunity_groups=[dict(r) for r in db.execute('''SELECT action,COUNT(*) AS count FROM opportunity_activity
-                WHERE actor_id=? AND created_at>=? AND created_at<? GROUP BY action ORDER BY count DESC,action''',(user_id,start,end))]
-            opportunity_count=db.execute('''SELECT COUNT(DISTINCT NULLIF(opportunity_id,'')) FROM opportunity_activity
-                WHERE actor_id=? AND created_at>=? AND created_at<?''',(user_id,start,end)).fetchone()[0]
-            recent.extend({**dict(r),'app':'Opportunities'} for r in db.execute('''SELECT action,project,created_at FROM opportunity_activity
-                WHERE actor_id=? AND created_at>=? AND created_at<? ORDER BY created_at DESC,id DESC LIMIT 30''',(user_id,start,end)))
-        opportunity_imports=[json.loads(r[0]) for r in db.execute('''SELECT details FROM tender_activity
-            WHERE actor_id=? AND created_at>=? AND created_at<? AND json_extract(details,'$.opportunityImport')=1''',(user_id,start,end))]
+        recent.extend({**dict(r),'app':'Tenders'} for r in db.execute('''SELECT action,project,created_at FROM tender_activity
+            WHERE actor_id=? AND created_at>=? AND created_at<? ORDER BY created_at DESC,id DESC LIMIT 30''',(user_id,start,end)))
     # Historical attribution is explicitly separate from measured website activity.
     data=store.all_data()
     username=user['username'].casefold()
@@ -58,8 +43,7 @@ def contribution_report(conn, user_id, since='', until=''):
     historical_chases=[c for c in data['chases'] if c.get('legacyChase') and (c.get('authorId')==user_id or (not c.get('authorId') and username=='yunus')) and (not since or c.get('date','')>=since) and (not until or c.get('date','')<=until)]
     credited_ids={c['submissionId'] for c in historical_chases}
     with store.connect() as db:
-        credited_ids.update(r[0] for r in db.execute(f'''SELECT DISTINCT submission_id FROM tender_activity
-            WHERE actor_id=? AND created_at>=? AND created_at<? AND submission_id IS NOT NULL AND {_TENDER_ONLY}''',(user_id,start,end)))
+        credited_ids.update(r[0] for r in db.execute('SELECT DISTINCT submission_id FROM tender_activity WHERE actor_id=? AND created_at>=? AND created_at<? AND submission_id IS NOT NULL',(user_id,start,end)))
     tender_count=len(credited_ids)
     historical['periodChaseUps']=len(historical_chases)
     from .import_history import _HISTORY_SQL, _LEGACY_UPLOADER
@@ -77,12 +61,7 @@ def contribution_report(conn, user_id, since='', until=''):
     historical['importedTenders']=0  # Uploading rows is not estimating/chasing those submissions.
     if not since and not until:file_count+=confirmed
     if file_count:uploads.append({'kind':'tender Excel','count':file_count})
-    if opportunity_imports:uploads.append({'kind':'opportunities Excel','count':len(opportunity_imports)})
     return {'person':dict(user),'since':since,'until':until,'uploads':{'total':sum(r['count'] for r in uploads),'byType':uploads},'estimator':{'projects':projects,'actions':grouped,'total':sum(r['count'] for r in grouped)},
             'tenders':{'submissions':tender_count,'actions':groups,'total':sum(r['count'] for r in groups),
                        'rowsAdded':sum(r.get('added',0) for r in imports),'rowsUpdated':sum(r.get('updated',0) for r in imports)},
-            'opportunities':{'projects':opportunity_count,'actions':opportunity_groups,
-                             'total':sum(r['count'] for r in opportunity_groups),
-                             'rowsAdded':sum(r.get('added',0) for r in opportunity_imports),
-                             'rowsUpdated':sum(r.get('updated',0) for r in opportunity_imports)},
             'historical':historical,'recent':sorted(recent,key=lambda r:r['created_at'],reverse=True)[:30]}
