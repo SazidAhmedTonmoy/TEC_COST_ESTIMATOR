@@ -1,0 +1,150 @@
+TEC ConEst v3.5.2 — Retrieve startup errors without stderr.log
+Prepared 21 October 2026
+
+PURPOSE
+
+The hosted website returns HTTP 503 with TENDERS_STARTUP_FAILED. Its existing
+error handler writes a traceback to Python logging, but does not itself create
+an application-local stderr.log. Passenger may direct that output to a shared
+server log that the hosting account cannot see.
+
+This update records new startup failures privately from the actual running
+application process. An administrator can retrieve the captured exception in
+the browser using the existing TEC ConEst session. This removes the dependency
+on finding the host's log file. It does not claim to repair an underlying
+database, permission, data, or runtime error that has not yet been identified.
+
+INSTALL
+
+1. Use TEC_COST_ESTIMATOR_v3.5.2_CHANGED_FILES.zip over the previously delivered
+   v3.5.1 application, or use the full v3.5.2 ZIP for a complete code update.
+   Both ZIPs have a TEC_COST_ESTIMATOR/ top-level folder. Copy its CONTENTS to
+   the existing application root; do not create a nested application folder.
+
+   The supplied deployment workflow uses:
+   /home/ampecportal/tec-const.ampecportal.com/
+
+2. Preserve your runtime databases, uploads, and hosting environment. The ZIPs
+   contain application code and do not include live runtime data.
+
+3. Deploy through your existing GitHub workflow or upload the files in cPanel.
+   This diagnostic update introduces no new Python package dependency.
+   Its capture and retrieval code does not require an additional change to
+   passenger_wsgi.py. Retain the server's interpreter and environment setup.
+
+4. Restart the existing application in cPanel. The existing deployment workflow
+   already requests a Passenger restart. For a manual deployment, these commands
+   request the same restart from the application root:
+
+   mkdir -p tmp
+   touch tmp/restart.txt
+
+5. A deployment may still show a failed Tender health check while the original
+   startup exception persists. A failed verification step does not automatically
+   roll back the files already uploaded by this workflow. Proceed to retrieve the
+   diagnostic below once the updated worker is serving requests.
+
+RETRIEVE THE ACTUAL ERROR
+
+1. Sign in to TEC ConEst with an administrator account using the normal website.
+2. Open Tenders and press Retry ONCE after deploying this update. This produces a
+   new error reference and captures the exception if the failure still occurs.
+3. In another tab in that same browser, open:
+
+   https://tec-const.ampecportal.com/api/admin/startup-diagnostics
+
+4. Copy the JSON diagnostic response for troubleshooting. The useful fields are
+   the exception type, exception message, traceback, and runtime details.
+
+To request a specific NEW error, append its reference:
+
+   /api/admin/startup-diagnostics?reference=YOUR_NEW_12_CHARACTER_REFERENCE
+
+Replace the placeholder with the lowercase 12-character reference shown on
+the new error response. Without a reference, the endpoint returns the newest
+readable stored record for this application.
+
+Old references such as 847ae77af483, 163966cd71f4, and eab9c260dfd7 were generated
+before this capture existed. They cannot be reconstructed by the new feature.
+Generate a fresh failure after installing the update.
+
+RESPONSE MEANINGS
+
+200 + success:true + diagnostic:
+  A saved error is available. This success flag means the diagnostic was read;
+  it does not mean the Tender workspace has recovered.
+
+401 / Please sign in:
+  Sign in normally, then open the diagnostic URL in the same browser.
+
+403 / Administrator access is required:
+  Use an active administrator account. Ordinary team members do not receive
+  exception details, server paths, or runtime information.
+
+404 / STARTUP_DIAGNOSTIC_NOT_FOUND:
+  No matching capture is available. Press Retry on Tenders after the update,
+  then refresh the diagnostic URL. If Tenders now opens successfully, there may
+  be no new failure to capture. Old, expired or host-cleared captures cannot be
+  recovered through this endpoint. A new
+  public failure response also contains diagnostics_available: true or false.
+  If it is false, the capture could not be saved in an accessible private
+  location; provide that response and consult the configured host log.
+
+400 / invalid reference:
+  Use one lowercase 12-character hexadecimal reference, or omit the reference
+  query entirely to read the latest record.
+
+Plain route-not-found response:
+  Confirm the updated app.py and new conest_app/startup_diagnostics.py are in
+  the active application root, and restart the worker after uploading them.
+
+WHAT IS CAPTURED
+
+The record contains the error reference and code, UTC timestamp, exception type,
+message, chained traceback without captured local variables, Python executable
+and version, Python-linked SQLite version, application release and process ID,
+and configured/effective account and Tender database paths. It does not dump
+the request, cookies, session token, all environment variables, or database
+contents. The admin response uses Cache-Control: no-store.
+
+Records are kept in private account/application-specific temporary directories
+outside web roots. Files and directories are owner-only; symlink or unsafe
+locations are rejected. Retention is limited to at most 32 records in total,
+64 KiB per record, and seven days. A host may clear temporary storage sooner;
+retrieve the diagnostic promptly after Retry. Capture is best-effort and a
+capture or logging failure does not replace the original safe startup response.
+Private persistent capture requires the POSIX ownership and no-follow file
+primitives available on the target Linux hosting. On unsupported platforms,
+including Windows, diagnostics_available is false and normal logging continues.
+
+Reading this endpoint does not initialize the Tender store and does not trigger
+the opportunity reset. Normal account/session authorization still applies.
+The existing one-time opportunity reset uses the SAME v3.5.1 completion marker;
+this release does not introduce another reset. Normal Tender startup or the
+deep health check can still complete that earlier owner-requested reset if it
+has not completed yet. See UPDATE_INSTRUCTIONS_V3.5.1.txt for its backup and
+recovery behavior.
+
+HOST LOG ALTERNATIVES
+
+If available in your cPanel account, inspect the existing application under
+Software > Setup Python App and check its Passenger log file setting.
+
+Metrics > Errors can show recent web-server errors after Retry, although its
+domain-filtered view may not include a full shared Passenger traceback.
+
+Passenger's default Apache integration sends application stdout/stderr to its
+configured Passenger log, which normally defaults to the global Apache error
+log. A host-specific local stderr.log is therefore not guaranteed.
+
+Official references:
+https://www.phusionpassenger.com/library/admin/apache/log_file/
+https://support.cpanel.net/hc/en-us/articles/360057849753-How-to-register-an-application-with-Python-Selector
+https://docs.cpanel.net/cpanel/metrics/errors/
+
+LIVE STATUS
+
+This code package has been prepared and tested separately. It has not been
+deployed to the live hosting account during its preparation. The underlying
+production exception remains unconfirmed until a new captured diagnostic or
+the matching hosting traceback is supplied.

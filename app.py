@@ -266,6 +266,29 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         try:
             path, query = self._route()
+            if path == '/api/admin/startup-diagnostics':
+                # Read the captured failure without opening the Tender store:
+                # diagnostics must remain available when that startup fails.
+                self._guard(path)
+                if self.user['role'] != 'admin':
+                    raise ApiError(403, 'Administrator access is required')
+                diagnostic_query = parse_qs(urlparse(self.path).query, keep_blank_values=True)
+                references = diagnostic_query.get('reference')
+                if references is not None and (
+                    len(references) != 1 or not re.fullmatch(r'[a-f0-9]{12}', references[0])
+                ):
+                    raise ApiError(400, 'Use the 12-character error reference shown on the error screen')
+                from conest_app.startup_diagnostics import read_failure
+                diagnostic = read_failure(references[0] if references is not None else None)
+                if diagnostic is None:
+                    self._send_json({
+                        'success': False,
+                        'error_code': 'STARTUP_DIAGNOSTIC_NOT_FOUND',
+                        'error': 'No saved startup diagnostic was found. Open Tenders and press Retry once, then refresh this page.',
+                    }, 404)
+                    return
+                self._send_json({'success': True, 'diagnostic': diagnostic})
+                return
             from conest_app.project_sharing import route as sharing_route
             if sharing_route(self,path):return
             if path == '/api/bootstrap':

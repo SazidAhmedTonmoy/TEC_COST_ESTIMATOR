@@ -13,13 +13,16 @@ from zoneinfo import ZoneInfoNotFoundError
 import passenger_wsgi as wsgi
 from conest_app import __version__, accounts, tenders
 from conest_app.database import connect
-from conest_app import runtime_health
+from conest_app import runtime_health, startup_diagnostics
 
 
 class HostedStartupTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         root = Path(self.temp.name)
+        self.diagnostic_paths = patch.object(startup_diagnostics, '_candidate_directories',
+                                             return_value=[root / 'diagnostics'])
+        self.diagnostic_paths.start()
         self.environment = patch.dict(os.environ, {
             'CONEST_DB_PATH': str(root / 'catalog.db'),
             'CONEST_TENDERS_DB_PATH': str(root / 'tenders.db'),
@@ -46,6 +49,7 @@ class HostedStartupTests(unittest.TestCase):
         wsgi._initialized = self.previous_initialized
         self.quiet.stop()
         self.environment.stop()
+        self.diagnostic_paths.stop()
         self.temp.cleanup()
 
     def request(self, target, signed_in=False, method='GET'):

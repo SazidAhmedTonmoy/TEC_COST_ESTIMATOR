@@ -13,20 +13,30 @@ log = logging.getLogger(__name__)
 
 
 def startup_failure(exc, code):
-    """Give the browser a safe reference and keep the full cause in server logs."""
+    """Give the browser a safe reference and retain the original cause privately."""
     reference = uuid.uuid4().hex[:12]
     messages = {
         'SESSION_STARTUP_FAILED': 'The server could not start the application.',
         'TENDERS_STARTUP_FAILED': 'Tenders could not open its data on the server.',
     }
-    log.error('TEC ConEst startup error %s; reference: %s', code, reference,
-              exc_info=(type(exc), exc, exc.__traceback__))
+    diagnostics_available = False
+    try:
+        from .startup_diagnostics import record_failure
+        diagnostics_available = bool(record_failure(exc, code, reference))
+    except Exception:
+        pass  # Diagnostics must never replace the original startup response.
+    try:
+        log.error('TEC ConEst startup error %s; reference: %s', code, reference,
+                  exc_info=(type(exc), exc, exc.__traceback__))
+    except Exception:
+        pass  # Some hosting/custom logging handlers can themselves raise.
     return {
         'success': False,
         'error': messages.get(code, 'The server could not finish starting.') +
                  f' Error reference: {reference}. Ask your administrator to check the hosting setup and server log.',
         'error_code': code,
         'error_reference': reference,
+        'diagnostics_available': diagnostics_available,
     }
 
 

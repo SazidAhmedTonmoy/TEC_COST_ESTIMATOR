@@ -1,4 +1,14 @@
-# Current release: v3.5.1
+# Current release: v3.5.2
+
+**Startup diagnostics:** captures new server startup exceptions privately from the running application and makes them available through an administrator's existing session. This provides an alternative when the host does not expose `stderr.log`.
+
+**Install and use:** follow [UPDATE_INSTRUCTIONS_V3.5.2.txt](UPDATE_INSTRUCTIONS_V3.5.2.txt). Apply the changed-files ZIP over the delivered **v3.5.1**, or use the full ZIP for a complete code update. Restart the application, press Retry in Tenders, then open `/api/admin/startup-diagnostics` while signed in as an administrator.
+
+**Scope:** this release provides protected retrieval of successfully captured startup failures. It does not claim an unverified production root-cause fix. Reading diagnostics does not start the Tender store. The existing v3.5.1 opportunity reset retains its original one-time marker.
+
+**Live status:** the v3.5.2 package has not been deployed to the live hosting account during its preparation. The reported v3.5.1 Tender startup failure still needs its underlying traceback.
+
+## Previous release: v3.5.1
 
 This update improves hosted Tender startup diagnostics, supplies a blank Excel import template, and applies the owner's requested one-time clear of the opportunity register. Existing visual themes and the v3.5 workflow remain in place.
 
@@ -10,7 +20,7 @@ This update improves hosted Tender startup diagnostics, supplies a blank Excel i
 
 **Hosted check:** `/api/health?check=tenders` verifies the Tender store and required runtime features. Startup failures show a safe error reference with the corresponding detailed traceback in the server log. The screenshot alone does not identify the production exception; see [UPDATE_V3.5.1.md](UPDATE_V3.5.1.md) for the confirmed findings and remaining live check.
 
-This code package has not been deployed to the live website. Earlier sections below describe their named historical releases.
+The sections below describe their named historical releases.
 
 # v3.2 release — October 2026
 
