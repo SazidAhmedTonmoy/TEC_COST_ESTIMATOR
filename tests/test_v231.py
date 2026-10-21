@@ -22,6 +22,7 @@ from conest_app import accounts, lighting_imports, auto_upgrade
 from conest_app.database import connect, initialize
 from conest_app.light_prices import parse_xlsx, save_quotes
 from conest_app.quotation_parser import parse_content, ImportDependencyError
+from legacy_schema_fixture import drop_fixture_columns
 
 FIXTURES = Path(__file__).parent / 'fixtures'
 
@@ -67,9 +68,7 @@ class Patch231Tests(unittest.TestCase):
     def test_upgrade_is_automatic_and_keeps_protected_snapshot(self):
         with closing(sqlite3.connect(self.root/'main.db')) as conn, conn:
             conn.execute('DROP TABLE user_avatars');conn.execute('DROP TABLE lighting_import_receipts')
-            conn.execute('ALTER TABLE users DROP COLUMN contact_number')
-            conn.execute('ALTER TABLE users DROP COLUMN avatar_version')
-            conn.execute('ALTER TABLE users DROP COLUMN has_avatar')
+            drop_fixture_columns(conn,'users',('contact_number','avatar_version','has_avatar'))
             conn.execute('UPDATE schema_version SET version=23')
             before=conn.execute('SELECT id,username,name,password_hash FROM users').fetchall()
         auto_upgrade._ready.clear()

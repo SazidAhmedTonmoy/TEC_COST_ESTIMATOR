@@ -19,6 +19,7 @@ from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile, ZIP_DEFLATED
 
 from .tenders import ValidationError, project_key
+from .opportunity_retention import active_sql
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_BYTES = 15 * 1024 * 1024
@@ -458,7 +459,8 @@ def import_workbook(store, filename, content, actor, expected_token=None, region
     with store.connect() as db:
         db.execute('BEGIN')
         generation = db.execute('SELECT value FROM opportunity_generation').fetchone()[0]
-        current = list(db.execute('SELECT id,region,project_key,body,deleted_at FROM opportunities'))
+        current = list(db.execute('SELECT id,region,project_key,body,deleted_at FROM opportunities WHERE ' +
+                                  active_sql('opportunity', 'opportunities.id')))
         known_regions = {row['code'] for row in db.execute('SELECT code FROM opportunity_regions')}
     existing = {row['region'] + '|' + row['project_key']: row['id'] for row in current}
     existing_ids = {row['id'] for row in current}
@@ -577,7 +579,8 @@ def export_workbook(store, ids=None, template=False):
     records = []
     if not template:
         with store.connect() as db:
-            for row in db.execute("SELECT body,revision FROM opportunities WHERE deleted_at IS NULL OR deleted_at='' ORDER BY project_key,region,id"):
+            for row in db.execute("SELECT body,revision FROM opportunities WHERE (deleted_at IS NULL OR deleted_at='') AND " +
+                                  active_sql('opportunity', 'opportunities.id') + ' ORDER BY project_key,region,id'):
                 item = json.loads(row['body'])
                 if wanted is None or item['id'] in wanted:
                     records.append(item)

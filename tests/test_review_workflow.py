@@ -7,6 +7,7 @@ import test_http_v231 as helpers
 from fixtures_v232 import seed
 from conest_app import workspace, productivity, auto_upgrade, projects
 from conest_app.database import database_path, connect
+from legacy_schema_fixture import drop_fixture_columns
 
 class ReviewWorkflowTests(unittest.TestCase):
     request=helpers.HttpPatchTests.request
@@ -59,8 +60,7 @@ class ReviewWorkflowTests(unittest.TestCase):
             c.execute("UPDATE projects SET status='completed',completed_at='2026-09-20',completed_by=? WHERE id=?",(f['owner']['id'],pid))
             before=projects.calculate_project(c,pid)
             events=c.execute('SELECT COUNT(*) FROM project_activity').fetchone()[0]
-            c.execute('ALTER TABLE projects DROP COLUMN review_deadline')
-            c.execute('ALTER TABLE projects DROP COLUMN review_cycle')
+            drop_fixture_columns(c,'projects',('review_deadline','review_cycle'))
             c.execute('UPDATE schema_version SET version=26')
             c.execute('DELETE FROM app_migrations WHERE '+ '"'+c.execute('PRAGMA table_info(app_migrations)').fetchone()[1]+'"=?',('v3.0-review-workflow',))
         auto_upgrade._ready.pop(str(database_path()),None)

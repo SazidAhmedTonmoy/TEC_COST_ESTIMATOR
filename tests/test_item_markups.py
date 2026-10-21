@@ -8,6 +8,7 @@ from conest_app import projects, productivity, estimate_tools, auto_upgrade, lig
 from conest_app.database import connect, database_path
 from conest_app.release_v31_item_markups import FIELDS
 from conest_app.exporter import export_project
+from legacy_schema_fixture import drop_fixture_columns
 
 class ItemMarkupTests(unittest.TestCase):
     setUp=helpers.HoursMarkupTests.setUp
@@ -63,7 +64,7 @@ class ItemMarkupTests(unittest.TestCase):
     def test_schema27_upgrade_preserves_totals(self):
         with connect() as c:
             pid=self.data['project_id'];before=projects.calculate_project(c,pid)['totals']
-            for field in FIELDS:c.execute(f'ALTER TABLE project_lines DROP COLUMN {field}')
+            drop_fixture_columns(c,'project_lines',FIELDS)
             c.execute('UPDATE schema_version SET version=27')
             key=c.execute('PRAGMA table_info(app_migrations)').fetchone()[1]
             c.execute(f'DELETE FROM app_migrations WHERE "{key}"=?',('v3.1-item-markups',))

@@ -11,11 +11,13 @@ from contextlib import closing
 from datetime import datetime, timezone
 import json
 import os
+import re
 import sqlite3
 import time
 import uuid
 
 from .auto_upgrade import UpgradeError, _process_lock
+from . import opportunity_compatibility, opportunity_retention
 
 
 _COLUMNS = {
@@ -84,6 +86,22 @@ _INDEXES = (
 def _columns(db, table):
     # All identifiers come from the schema constants above, never request data.
     return {row['name'] for row in db.execute('PRAGMA table_info("' + table + '")')}
+
+
+def _create_index(db, statement):
+    """Keep archived indexes intact and index the current table as well."""
+    match = re.match(r'CREATE(?: UNIQUE)? INDEX(?: IF NOT EXISTS)? (\w+) ON (\w+)', statement)
+    if not match:
+        raise ValueError('Unsupported opportunity index definition')
+    name, table = match.groups()
+    for number in range(101):
+        candidate = name if number == 0 else name + '_v355' + ('' if number == 1 else '_' + str(number))
+        owner = db.execute('SELECT tbl_name FROM sqlite_master WHERE name=? COLLATE NOCASE',
+                           (candidate,)).fetchone()
+        if not owner or owner['tbl_name'].casefold() == table.casefold():
+            db.execute(statement[:match.start(1)] + candidate + statement[match.end(1):])
+            return
+    raise UpgradeError('An opportunity index name could not be reserved. No opportunity schema changes were committed.')
 
 
 def _backup(store, expected_counts):
@@ -304,21 +322,26 @@ def initialize(store, default_regions):
                     if absent:
                         raise UpgradeError('The existing ' + table + ' table needs a schema migration for: ' +
                                            ', '.join(sorted(absent)) + '. No opportunity schema changes were committed.')
+            compatibility_plan = opportunity_compatibility.migration_plan(db, present)
             counts = {table: db.execute('SELECT COUNT(*) FROM "' + table + '"').fetchone()[0]
-                      for table in ('opportunities', 'opportunity_builders') if table in present}
+                      for table in dict.fromkeys(('opportunities', 'opportunity_builders', *compatibility_plan))
+                      if table in present}
             absent = set(_RELATED_COLUMNS) - present
-            if legacy_builders or ((missing or absent) and any(counts.values())):
+            if legacy_builders or compatibility_plan or ((missing or absent) and any(counts.values())):
                 _backup(store, counts)
             if legacy_builders:
                 _migrate_builders(db)
+            if compatibility_plan:
+                opportunity_compatibility.migrate(db, compatibility_plan)
             for statement in _TABLES:
                 db.execute(statement)
+            opportunity_retention.ensure_schema(db)
             for column in missing:
                 db.execute('ALTER TABLE opportunities ADD COLUMN "' + column + '" ' + _COLUMNS[column])
             _backfill(db, missing)
             _restore_new_lookups(db, absent, default_regions)
             for statement in _INDEXES:
-                db.execute(statement)
+                _create_index(db, statement)
             db.execute('''INSERT INTO opportunity_generation(value) SELECT 0
                 WHERE NOT EXISTS (SELECT 1 FROM opportunity_generation)''')
             for code, (origin, zone) in default_regions.items():

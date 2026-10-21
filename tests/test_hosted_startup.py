@@ -1,5 +1,6 @@
 """Run the real Passenger adapter with isolated databases and startup failures."""
 import atexit
+import base64
 import io
 import json
 import os
@@ -38,6 +39,7 @@ class HostedStartupTests(unittest.TestCase):
         self.quiet.start()
         with connect() as db:
             identifier = db.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()[0]
+            self.actor_id = identifier
             db.execute('UPDATE users SET must_change_password=0 WHERE id=?', (identifier,))
             self.token = accounts.start_session(db, identifier)
 
@@ -74,7 +76,7 @@ class HostedStartupTests(unittest.TestCase):
 
         raw = b''.join(wsgi.application(environ, start))
         response['raw'] = raw
-        response['data'] = json.loads(raw) if raw else None
+        response['data'] = json.loads(raw) if raw and 'application/json' in response['headers'].get('Content-Type', '') else None
         return response
 
     def assert_safe_failure(self, response, code):
@@ -154,6 +156,7 @@ class HostedStartupTests(unittest.TestCase):
 
     def test_legacy_builder_migration_recovers_health_and_accepts_new_builder(self):
         from conest_app.opportunity_reset import RESET_KEY
+        from conest_app.opportunity_retention import active_sql
 
         path = Path(os.environ['CONEST_TENDERS_DB_PATH'])
         # Reproduce a retained hosted database, before the real Passenger
@@ -166,9 +169,10 @@ class HostedStartupTests(unittest.TestCase):
             })))
             db.execute('''CREATE TABLE opportunity_builders (
                 id TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL,
-                legacy_contact TEXT NOT NULL)''')
-            db.execute('INSERT INTO opportunity_builders VALUES(?,?,?)',
-                       ('old-builder', 'Old Builder', 'Retain historical contact'))
+                legacy_contact TEXT NOT NULL,
+                opportunity_id TEXT NOT NULL REFERENCES opportunities(id))''')
+            db.execute('INSERT INTO opportunity_builders VALUES(?,?,?,?)',
+                       ('old-builder', 'Old Builder', 'Retain historical contact', 'legacy-project'))
 
         health = self.request('/api/health?check=tenders')
         self.assertEqual(health['status'], 200, health['data'])
@@ -183,9 +187,12 @@ class HostedStartupTests(unittest.TestCase):
         with store.connect() as db:
             self.assertEqual(tuple(db.execute(
                 'SELECT * FROM opportunity_builders_legacy_v354').fetchone()),
-                ('old-builder', 'Old Builder', 'Retain historical contact'))
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 0)
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 0)
+                ('old-builder', 'Old Builder', 'Retain historical contact', 'legacy-project'))
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities WHERE ' +
+                                       active_sql('opportunity', 'opportunities.id')).fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders WHERE ' +
+                                       active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 0)
             marker = db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0]
 
         created = self.request('/api/tenders/opportunities/save', signed_in=True, method='POST', data={
@@ -194,9 +201,10 @@ class HostedStartupTests(unittest.TestCase):
         })
         self.assertEqual(created['status'], 200, created['data'])
         with store.connect() as db:
-            self.assertEqual(tuple(db.execute('SELECT builder_key,name FROM opportunity_builders').fetchone()),
+            self.assertEqual(tuple(db.execute('SELECT builder_key,name FROM opportunity_builders WHERE ' +
+                                             active_sql('builder', 'opportunity_builders.builder_key')).fetchone()),
                              ('newbuilder', 'New Builder'))
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 2)
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
         self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
 
@@ -204,9 +212,135 @@ class HostedStartupTests(unittest.TestCase):
         self.assertEqual(self.request('/api/health?check=tenders')['status'], 200)
         with tenders.get_store().connect() as db:
             self.assertEqual(db.execute('SELECT body FROM settings WHERE id=?', (RESET_KEY,)).fetchone()[0], marker)
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 1)
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 2)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities WHERE ' +
+                                       active_sql('opportunity', 'opportunities.id')).fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders WHERE ' +
+                                       active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 1)
         self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
+
+    def test_legacy_relationships_support_full_hosted_opportunity_workflow(self):
+        from openpyxl import Workbook, load_workbook
+
+        path = Path(os.environ['CONEST_TENDERS_DB_PATH'])
+        with sqlite3.connect(path) as db:
+            db.execute('PRAGMA foreign_keys=ON')
+            db.execute('CREATE TABLE opportunities(id TEXT PRIMARY KEY, body TEXT NOT NULL)')
+            db.execute('INSERT INTO opportunities VALUES(?,?)', ('retired-project', json.dumps({
+                'id': 'retired-project', 'project': 'Historical linked project', 'region': 'NSW',
+                'builders': ['Retired Builder'], 'assignedUserIds': [self.actor_id],
+            })))
+            db.execute('CREATE TABLE legacy_actors(id INTEGER PRIMARY KEY)')
+            db.execute('INSERT INTO legacy_actors VALUES(?)', (self.actor_id,))
+            db.execute('''CREATE TABLE opportunity_people (
+                opportunity_id TEXT NOT NULL REFERENCES opportunities(id),
+                kind TEXT NOT NULL, person_id INTEGER NOT NULL,
+                PRIMARY KEY(opportunity_id,kind,person_id))''')
+            db.execute('INSERT INTO opportunity_people VALUES(?,?,?)',
+                       ('retired-project', 'assignedUserIds', self.actor_id))
+            db.execute('CREATE INDEX opportunity_people_lookup ON opportunity_people(kind,person_id,opportunity_id)')
+            db.execute('''CREATE TABLE historical_assignment_approval (
+                opportunity_id TEXT, kind TEXT, person_id INTEGER, note TEXT,
+                FOREIGN KEY(opportunity_id,kind,person_id)
+                REFERENCES opportunity_people(opportunity_id,kind,person_id))''')
+            db.execute('INSERT INTO historical_assignment_approval VALUES(?,?,?,?)',
+                       ('retired-project', 'assignedUserIds', self.actor_id, 'Retain original approval'))
+            db.execute('''CREATE TABLE opportunity_activity (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                opportunity_id TEXT NOT NULL REFERENCES opportunities(id),
+                actor_id INTEGER NOT NULL REFERENCES legacy_actors(id),
+                actor_name TEXT NOT NULL, project TEXT NOT NULL, action TEXT NOT NULL,
+                details TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL,
+                original_source TEXT NOT NULL)''')
+            db.execute('INSERT INTO opportunity_activity VALUES(?,?,?,?,?,?,?,?,?)',
+                       (41, 'retired-project', self.actor_id, 'Original actor',
+                        'Historical linked project', 'Created opportunity', '{}',
+                        '2026-01-01T00:00:00+00:00', 'Preserve this legacy field'))
+            db.execute('CREATE INDEX opportunity_activity_record ON opportunity_activity(opportunity_id,id DESC)')
+
+        def call(route, data=None, method=None):
+            response = self.request('/api/tenders/' + route, signed_in=True,
+                                    method=method or ('POST' if data is not None else 'GET'), data=data)
+            self.assertEqual(response['status'], 200, response['data'] or response['raw'])
+            return response['data']
+
+        health = self.request('/api/health?check=tenders')
+        self.assertEqual(health['status'], 200, health['data'])
+        self.assertEqual(call('opportunities')['total'], 0)
+        self.assertEqual(self.request('/api/tenders/opportunities/detail?id=retired-project',
+                                      signed_in=True)['status'], 404)
+        created = call('opportunities/save', {
+            'project': 'New live project', 'region': 'VIC', 'builders': ['Current Builder'],
+            'workingScope': 'Electrical fitout', 'due': '2099-11-25',
+            'assignedUserIds': [self.actor_id],
+        })['opportunity']
+        self.assertEqual(created['status'], 'pending')
+        self.assertEqual(created['distanceOrigin'], 'CBD, Melbourne')
+        approved = call('opportunities/decision', {
+            'id': created['id'], 'revision': created['revision'], 'decision': 'approved',
+        })['opportunity']
+        self.assertEqual(approved['status'], 'approved')
+        self.assertEqual(approved['decisionBy'], self.actor_id)
+        unassigned = call('opportunities/assign', {
+            'id': approved['id'], 'revision': approved['revision'], 'assignedUserIds': [],
+        })['opportunity']
+        self.assertEqual(unassigned['assignedUserIds'], [])
+        call('opportunities/regions', {'code': 'VIC', 'origin': 'CBD, Melbourne',
+                                      'timezone': 'Australia/Melbourne'})
+
+        book = Workbook()
+        sheet = book.active
+        sheet.title = 'Opportunities'
+        sheet.append(['Project Name', 'Region', 'Closing Date', 'Builders', 'Working Scope'])
+        sheet.append(['New workbook project', 'NSW', '2099-11-25', 'Current Builder', 'Lighting'])
+        sheet.append(['Historical deadline import', 'VIC', '2000-01-01', 'Second Builder', 'Power'])
+        stream = io.BytesIO()
+        book.save(stream)
+        upload = {'filename': 'opportunities.xlsx', 'content': base64.b64encode(stream.getvalue()).decode()}
+        preview = call('opportunities/import', {**upload, 'mode': 'preview'})
+        imported = call('opportunities/import', {**upload, 'mode': 'apply', 'token': preview['token']})
+        self.assertEqual(imported['counts']['added'], 2)
+        listed = call('opportunities')
+        self.assertEqual(listed['total'], 3)
+        self.assertEqual({item['status'] for item in listed['items']}, {'pending', 'approved', 'expired'})
+        expired = next(item for item in listed['items'] if item['status'] == 'expired')
+        history = call('opportunities/activity?id=' + expired['id'])
+        self.assertTrue(any(event['action'] == 'Expired opportunity' for event in history['activity']))
+        inbox = call('notifications')
+        self.assertGreater(inbox['unread'], 0)
+        self.assertEqual(call('notifications/read', {'all': True})['unread'], 0)
+
+        exported = self.request('/api/tenders/opportunities/export.xlsx', signed_in=True)
+        self.assertEqual(exported['status'], 200)
+        workbook = load_workbook(io.BytesIO(exported['raw']), read_only=True, data_only=True)
+        self.assertNotIn('Historical linked project',
+                         {cell for row in workbook.active.iter_rows(values_only=True) for cell in row})
+        workbook.close()
+
+        contributions = self.request('/api/users/' + str(self.actor_id) + '/performance', signed_in=True)
+        self.assertEqual(contributions['status'], 200, contributions['data'])
+        self.assertEqual(contributions['data']['opportunities']['rowsAdded'], 2)
+        self.assertEqual(contributions['data']['opportunities']['projects'], 4)
+        created_count = next(item['count'] for item in contributions['data']['opportunities']['actions']
+                             if item['action'] == 'Created opportunity')
+        self.assertEqual(created_count, 2)
+
+        store = tenders.get_store()
+        with store.connect() as db:
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM historical_assignment_approval').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT original_source FROM opportunity_activity_legacy_v355').fetchone()[0],
+                             'Preserve this legacy field')
+            self.assertEqual(db.execute('SELECT actor_name FROM opportunity_activity WHERE id=41').fetchone()[0],
+                             'Original actor')
+            self.assertGreater(db.execute("SELECT COUNT(*) FROM opportunity_activity WHERE actor_id=0 AND action='Expired opportunity'").fetchone()[0], 0)
+            self.assertEqual(db.execute("SELECT tbl_name FROM sqlite_master WHERE name='opportunity_activity_record_v355'").fetchone()[0],
+                             'opportunity_activity')
+            self.assertEqual(db.execute("SELECT tbl_name FROM sqlite_master WHERE name='opportunity_people_lookup_v355'").fetchone()[0],
+                             'opportunity_people')
+        tenders.close_store()
+        self.assertEqual(self.request('/api/health?check=tenders')['status'], 200)
+        self.assertEqual(call('opportunities')['total'], 3)
 
 
 if __name__ == '__main__':

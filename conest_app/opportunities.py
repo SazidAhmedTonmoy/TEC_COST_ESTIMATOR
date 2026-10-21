@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from . import tenders
 from .database import connect as account_connection
+from .opportunity_retention import active_sql, reactivate_builder
 
 DEFAULT_REGIONS = {
     'NSW': ('63-79 Parramatta Rd Silverwater, NSW 2128', 'Australia/Sydney'),
@@ -96,7 +97,8 @@ def _identifier(value, label='Opportunity ID'):
 
 
 def _find(db, identifier, include_deleted=False):
-    row = db.execute('SELECT * FROM opportunities WHERE id=?', (identifier,)).fetchone()
+    row = db.execute('SELECT * FROM opportunities WHERE id=? AND ' +
+                     active_sql('opportunity', 'opportunities.id'), (identifier,)).fetchone()
     if not row or (row['deleted_at'] and not include_deleted):
         raise tenders.ValidationError('This opportunity no longer exists.', 404)
     return {**json.loads(row['body']), 'revision': row['revision']}
@@ -185,6 +187,7 @@ def _register_directory(db, item):
         key = tenders.builder_key(name)
         if key:
             db.execute('INSERT OR IGNORE INTO opportunity_builders(builder_key,name) VALUES(?,?)', (key, name))
+            reactivate_builder(db, key, item['updatedAt'])
 
 
 def _write(db, item, new=False):
@@ -198,10 +201,14 @@ def _write(db, item, new=False):
     else:
         db.execute('UPDATE opportunities SET body=?,revision=?,status=?,region=?,due=?,project_key=?,created_by=?,deleted_at=?,updated_at=? WHERE id=?',
                    (*values, item['id']))
-    db.execute('DELETE FROM opportunity_people WHERE opportunity_id=?', (item['id'],))
-    for kind in AUTHORITY_FIELDS:
-        db.executemany('INSERT INTO opportunity_people(opportunity_id,kind,person_id) VALUES(?,?,?)',
-                       [(item['id'], kind, uid) for uid in item.get(kind, [])])
+    previous = set() if new else {(row['kind'], row['person_id']) for row in db.execute(
+        'SELECT kind,person_id FROM opportunity_people WHERE opportunity_id=?', (item['id'],))}
+    assigned = {(kind, uid) for kind in AUTHORITY_FIELDS for uid in item.get(kind, [])}
+    # An ordinary edit or decision must not replace unchanged assignment rows.
+    db.executemany('DELETE FROM opportunity_people WHERE opportunity_id=? AND kind=? AND person_id=?',
+                   [(item['id'], kind, uid) for kind, uid in previous - assigned])
+    db.executemany('INSERT INTO opportunity_people(opportunity_id,kind,person_id) VALUES(?,?,?)',
+                   [(item['id'], kind, uid) for kind, uid in assigned - previous])
     db.execute('UPDATE opportunity_generation SET value=value+1')
 
 
@@ -238,7 +245,15 @@ def _notify(db, recipient_ids, event_key, kind, item, message, created_at=None):
 
 def _new_item(db, fields, actor):
     now = tenders.timestamp()
-    return {**fields, 'id': str(uuid.uuid4()), 'revision': 0, 'status': 'pending',
+    # Source workbook IDs never identify a new row. Check every physical row,
+    # including the retired reset cohort, before allocating a fresh identity.
+    for _ in range(8):
+        identifier = str(uuid.uuid4())
+        if not db.execute('SELECT 1 FROM opportunities WHERE id=?', (identifier,)).fetchone():
+            break
+    else:
+        raise tenders.ValidationError('A unique opportunity ID could not be created. Try again.', 503)
+    return {**fields, 'id': identifier, 'revision': 0, 'status': 'pending',
             'createdBy': actor['id'] or None, 'createdByName': actor['name'],
             'createdAt': now, 'updatedAt': now, 'updatedBy': actor['id'] or None,
             'updatedByName': actor['name'], 'decisionBy': None, 'decisionByName': '',
@@ -469,7 +484,7 @@ def _page(value, default, maximum):
 
 
 def _query(filters, include_status=True, users=None):
-    where = ['o.deleted_at IS NULL']
+    where = ['o.deleted_at IS NULL', active_sql('opportunity', 'o.id')]
     args = []
     status = filters.get('status', '')
     if include_status and status and status != 'all':
@@ -532,11 +547,14 @@ def list_opportunities(store, filters, user):
                        count_where + ' GROUP BY status', count_args)})
         counts['all'] = sum(counts.values())
         regions = [dict(r) for r in db.execute('SELECT code,origin,timezone FROM opportunity_regions ORDER BY code')]
-        saved_builders = [r[0] for r in db.execute('SELECT name FROM opportunity_builders ORDER BY name COLLATE NOCASE')]
+        saved_builders = [r[0] for r in db.execute('SELECT name FROM opportunity_builders WHERE ' +
+                          active_sql('builder', 'opportunity_builders.builder_key') + ' ORDER BY name COLLATE NOCASE')]
         assigned = {r['person_id']: r['n'] for r in db.execute('''SELECT p.person_id,COUNT(*) n
             FROM opportunity_people p JOIN opportunities o ON o.id=p.opportunity_id
-            WHERE p.kind='assignedTeamIds' AND o.deleted_at IS NULL GROUP BY p.person_id''')}
-        unassigned = db.execute("SELECT COUNT(*) FROM opportunities o WHERE o.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND p.kind='assignedTeamIds')").fetchone()[0]
+            WHERE p.kind='assignedTeamIds' AND o.deleted_at IS NULL AND ''' +
+            active_sql('opportunity', 'o.id') + ' GROUP BY p.person_id')}
+        unassigned = db.execute("SELECT COUNT(*) FROM opportunities o WHERE o.deleted_at IS NULL AND " +
+            active_sql('opportunity', 'o.id') + " AND NOT EXISTS (SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND p.kind='assignedTeamIds')").fetchone()[0]
     builders = {tenders.builder_key(name): name for name in saved_builders}
     for submission in store.all_data()['submissions']:
         name = submission.get('builder', '')
@@ -604,7 +622,8 @@ def process_due(store, force=False, now=None):
         _, users = directory()
         instant = now or datetime.now(timezone.utc)
         with _transaction(store) as db:
-            rows = db.execute("SELECT body,revision FROM opportunities WHERE deleted_at IS NULL AND status IN ('pending','approved') AND due!=''").fetchall()
+            rows = db.execute("SELECT body,revision FROM opportunities WHERE deleted_at IS NULL AND status IN ('pending','approved') AND due!='' AND " +
+                              active_sql('opportunity', 'opportunities.id')).fetchall()
             for row in rows:
                 item = {**json.loads(row['body']), 'revision': row['revision']}
                 days = (date.fromisoformat(item['due']) - _today(db, item['region'], instant)).days
@@ -648,6 +667,14 @@ def process_due(store, force=False, now=None):
         store._opportunity_sweep_lock.release()
 
 
+def _visible_notifications_sql():
+    # Include the parent predicate so an older worker's late notification for a
+    # retired opportunity cannot reappear after the reset snapshot was taken.
+    return (active_sql('notification', 'tender_notifications.id') +
+            " AND (target_kind!='opportunity' OR " +
+            active_sql('opportunity', 'tender_notifications.target_id') + ')')
+
+
 def notifications(store, filters, user):
     initialize(store)
     process_due(store)
@@ -655,13 +682,14 @@ def notifications(store, filters, user):
     actor = _actor(user, users)
     page = _page(filters.get('page'), 1, 100000)
     size = _page(filters.get('pageSize'), 30, 100)
+    visible = _visible_notifications_sql()
     with store.connect() as db:
         db.execute('BEGIN')
-        total = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=?', (actor['id'],)).fetchone()[0]
-        unread = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND read_at IS NULL', (actor['id'],)).fetchone()[0]
+        total = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND ' + visible, (actor['id'],)).fetchone()[0]
+        unread = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND read_at IS NULL AND ' + visible, (actor['id'],)).fetchone()[0]
         page = min(page, max(1, (total + size - 1) // size))
-        rows = db.execute('''SELECT * FROM tender_notifications WHERE user_id=?
-            ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?''', (actor['id'], size, (page - 1) * size)).fetchall()
+        rows = db.execute('SELECT * FROM tender_notifications WHERE user_id=? AND ' + visible +
+            ' ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?', (actor['id'], size, (page - 1) * size)).fetchall()
         items = []
         for row in rows:
             item = {'id': row['id'], 'kind': row['kind'], 'title': row['title'], 'message': row['message'],
@@ -681,23 +709,26 @@ def mark_read(store, payload, user):
     ids = payload.get('ids', [])
     if not isinstance(ids, list) or len(ids) > 500 or any(not isinstance(i, str) or len(i) > 100 for i in ids):
         raise tenders.ValidationError('Choose valid notifications.')
+    visible = _visible_notifications_sql()
     with _transaction(store) as db:
         if all_items:
-            db.execute('UPDATE tender_notifications SET read_at=? WHERE user_id=? AND read_at IS NULL',
+            db.execute('UPDATE tender_notifications SET read_at=? WHERE user_id=? AND read_at IS NULL AND ' + visible,
                        (tenders.timestamp(), actor['id']))
         elif ids:
             db.execute('UPDATE tender_notifications SET read_at=? WHERE user_id=? AND read_at IS NULL AND id IN (' +
-                       ','.join('?' for _ in ids) + ')', (tenders.timestamp(), actor['id'], *ids))
-        unread = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND read_at IS NULL', (actor['id'],)).fetchone()[0]
+                       ','.join('?' for _ in ids) + ') AND ' + visible, (tenders.timestamp(), actor['id'], *ids))
+        unread = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND read_at IS NULL AND ' + visible, (actor['id'],)).fetchone()[0]
     return {'ok': True, 'unread': unread, 'unreadCount': unread}
 
 
 def existing_keys(store):
     initialize(store)
     with store.connect() as db:
-        # Deleted records still count: replaying an old file must not resurrect them.
+        # Ordinary deletions still prevent replay. The owner's reset cohort can
+        # be imported again, always with new IDs and the old rows left intact.
         return {r['region'] + '|' + r['project_key']: r['id']
-                for r in db.execute('SELECT id,region,project_key FROM opportunities')}
+                for r in db.execute('SELECT id,region,project_key FROM opportunities WHERE ' +
+                                    active_sql('opportunity', 'opportunities.id'))}
 
 
 def import_records(store, records, actor, source, seed_key=None, expected_generation=None):
@@ -714,14 +745,16 @@ def import_records(store, records, actor, source, seed_key=None, expected_genera
         current_generation = db.execute('SELECT value FROM opportunity_generation').fetchone()[0]
         if expected_generation is not None and expected_generation != current_generation:
             raise tenders.ValidationError('The data changed after the preview. Preview the workbook again.', 409)
-        keys = {(r['region'], r['project_key']) for r in db.execute('SELECT region,project_key FROM opportunities')}
-        known_ids = {r[0] for r in db.execute('SELECT id FROM opportunities')}
+        current = db.execute('SELECT id,region,project_key FROM opportunities WHERE ' +
+                             active_sql('opportunity', 'opportunities.id')).fetchall()
+        keys = {(r['region'], r['project_key']) for r in current}
+        replay_ids = {r['id'] for r in current}
         for record in records:
             source_id = record.get('sourceRecordId') or record.get('id')
             # Existing rows are deliberately ignored by append-only import.
             # Resolve their identity before validating fields we will not apply;
             # otherwise an edited old export can block unrelated new records.
-            if isinstance(source_id, str) and source_id in known_ids:
+            if isinstance(source_id, str) and source_id in replay_ids:
                 duplicates += 1
                 continue
             key = (_region_code(record.get('region') or 'NSW'),
@@ -747,7 +780,7 @@ def import_records(store, records, actor, source, seed_key=None, expected_genera
                 _record_time_event(store, db, item, users, 'expired', 'Expired opportunity',
                                    'The imported deadline has passed. This opportunity is expired.')
             keys.add(key)
-            known_ids.add(item['id'])
+            replay_ids.add(item['id'])
             identifiers.append(item['id'])
             added += 1
         if seed_key:

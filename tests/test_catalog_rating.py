@@ -6,6 +6,7 @@ from conest_app import projects,auto_upgrade
 from conest_app.catalog import create_manual_catalog_item,search_catalog,get_catalog_item
 from conest_app.release_v31_rating import set_rating
 from fixtures_v232 import seed
+from legacy_schema_fixture import drop_fixture_columns
 
 class CatalogRatingTests(unittest.TestCase):
  setUp=helpers.HttpPatchTests.setUp
@@ -39,7 +40,7 @@ class CatalogRatingTests(unittest.TestCase):
  def test_schema28_upgrade_preserves_estimates_and_defaults_unstarred(self):
   with connect() as c:
    f=seed(c);before=projects.calculate_project(c,f['project_id'])['totals']
-   c.execute('ALTER TABLE catalog_items DROP COLUMN importance_rating')
+   drop_fixture_columns(c,'catalog_items',('importance_rating',))
    c.execute('UPDATE schema_version SET version=28')
    key=c.execute('PRAGMA table_info(app_migrations)').fetchone()[1]
    c.execute(f'DELETE FROM app_migrations WHERE "{key}"=?',('v3.1-catalog-rating',))

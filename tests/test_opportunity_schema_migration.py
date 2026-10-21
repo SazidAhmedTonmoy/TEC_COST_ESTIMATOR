@@ -508,17 +508,20 @@ with store.connect() as db:
 
     def test_owner_reset_clears_canonical_directory_but_keeps_archive_without_reseed(self):
         from conest_app.opportunity_reset import reset_once
+        from conest_app.opportunity_retention import active_sql
 
         original = self.legacy_builders(rich=True)
         current = tenders.Store(self.store.path)
         with current.connect() as db:
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders WHERE ' +
+                                       active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 0)
             self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders_legacy_v354')], original)
             self.assertIsNotNone(db.execute('SELECT 1 FROM settings WHERE id=?', (RESET_KEY,)).fetchone())
         self.assertFalse(reset_once(current)['applied'])
         again = tenders.Store(self.store.path)
         with again.connect() as db:
-            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders').fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders WHERE ' +
+                                       active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 0)
             self.assertEqual([tuple(row) for row in db.execute('SELECT * FROM opportunity_builders_legacy_v354')], original)
         self.assertEqual(len(self.builder_archives()), 1)
 

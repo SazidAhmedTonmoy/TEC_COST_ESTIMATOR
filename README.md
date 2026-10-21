@@ -1,4 +1,16 @@
-# Current release: v3.5.4
+# Current release: v3.5.5
+
+**Hosted reset repair:** the production diagnostic confirms v3.5.4 now passes schema initialization, then fails in the pending owner-requested clear at `DELETE FROM opportunities` with `FOREIGN KEY constraint failed`. The reset now records an indexed retirement cohort instead of deleting legacy records that other tables still reference. The active register, exports, deadlines, team counts, builder suggestions and opportunity inbox all respect this cohort.
+
+**History and imports:** original records and linked history remain available for audit and contribution reporting. A completed `opportunities-owner-reset-v351` marker is respected, so future restarts retain new work. A cleared workbook can be imported again with new record IDs; ordinary user-deleted records retain their existing replay protection. Reusing an old builder name restores that suggestion for new work.
+
+**Legacy workflow compatibility:** before normal writes, schema inspection detects incompatible activity/assignment constraints. Supported legacy tables are preserved under unique archive names and copied into the current writable layout, retaining known history IDs and original extra fields in the archives. Assignment updates change only the links that actually changed. Schema migration and the one-time clear each use a transaction, a process lock and verified backups when required.
+
+**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.5.txt](UPDATE_INSTRUCTIONS_V3.5.5.txt). Use the changed-files ZIP over the delivered **v3.5.4**, or the full code ZIP for a complete code update. Preserve the host's working Python 3.11 environment and Passenger configuration. No new dependency or frontend build is required.
+
+**Verify:** `/api/health?check=tenders` must return release `3.5.5`, schema `31`, and successful Tender, Opportunities, SQLite and timezone checks. See [QUALITY_REVIEW_V3.5.5.txt](QUALITY_REVIEW_V3.5.5.txt) for verification evidence and its limits. Deployment to the live host remains a separate installation step.
+
+# Previous release: v3.5.4
 
 **Hosted compatibility repair:** the latest production diagnostic confirms that Passenger now runs Python **3.11.13**, SQLite **3.34.1**, and the uploaded **v3.5.3** application. Startup then stops because the existing `opportunity_builders` table has a `name` column but no `builder_key`. This release adds the missing builder-directory migration alongside the opportunity-column migration delivered in v3.5.3.
 

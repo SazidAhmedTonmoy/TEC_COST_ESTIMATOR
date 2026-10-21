@@ -12,7 +12,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from conest_app import opportunities as op, opportunity_reset as reset, tenders
+from conest_app import opportunities as op, opportunity_reset as reset, opportunity_retention as retention, tenders
 from conest_app.auto_upgrade import UpgradeError
 from conest_app.database import connect
 
@@ -32,6 +32,8 @@ class OpportunityResetTests(unittest.TestCase):
         # Build a pre-update database, before this release's constructor hook.
         with patch.object(reset, 'reset_once', return_value={'applied': False, 'removed': 0}):
             self.store = tenders.Store(root / 'tenders.db').keep_open()
+        with self.store.connect() as db:
+            retention.ensure_schema(db)
 
     def tearDown(self):
         self.store.close()
@@ -89,18 +91,21 @@ class OpportunityResetTests(unittest.TestCase):
         self.assertEqual(op.existing_keys(self.store), {})
         self.assertEqual(op.generation(self.store), generation + 1)
         with self.store.connect() as db:
-            for table in ('opportunities', 'opportunity_people', 'opportunity_events', 'opportunity_builders'):
-                self.assertEqual(self.rows(db, table), [], table)
-            for table in ('submissions', 'chases', 'reminders', 'opportunity_regions'):
+            for table in self.before:
                 self.assertEqual(self.rows(db, table), self.before[table], table)
-            notices = self.rows(db, 'tender_notifications')
+            self.assertTrue(retention.is_retired(db, 'opportunity', first['id']))
+            self.assertTrue(retention.is_retired(db, 'opportunity', second['id']))
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities WHERE ' +
+                             retention.active_sql('opportunity', 'opportunities.id')).fetchone()[0], 0)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders WHERE ' +
+                             retention.active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 0)
+            notices = [tuple(row) for row in db.execute('SELECT * FROM tender_notifications WHERE ' +
+                       retention.active_sql('notification', 'tender_notifications.id') + ' ORDER BY id')]
             self.assertEqual(notices, [r for r in self.before['tender_notifications'] if r[0] == 'keep-reminder'])
-            for table in ('opportunity_activity', 'tender_activity'):
-                current = self.rows(db, table)
-                self.assertEqual(current[:-1], self.before[table], table)
-                self.assertEqual(len(current), len(self.before[table]) + 1)
-            audit = db.execute("SELECT details FROM opportunity_activity WHERE action='Cleared opportunity register'").fetchone()
-            self.assertEqual(json.loads(audit[0])['removed']['opportunities'], 2)
+            audit = db.execute("SELECT actor_name,details FROM opportunity_reset_history WHERE action='Cleared opportunity register'").fetchone()
+            self.assertEqual(audit['actor_name'], 'System')
+            self.assertEqual(json.loads(audit['details'])['removed']['opportunities'], 2)
+            self.assertEqual(json.loads(audit['details'])['previouslyVisibleOpportunities'], 1)
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
         saved = self.backups()
         self.assertEqual(len(saved), 1)
@@ -151,14 +156,18 @@ class OpportunityResetTests(unittest.TestCase):
     def test_failure_after_backup_rolls_back_clear_and_retains_the_backup(self):
         self.populate()
         generation = op.generation(self.store)
-        with patch.object(op, '_activity', side_effect=sqlite3.OperationalError('Injected audit failure')):
-            with self.assertRaisesRegex(sqlite3.OperationalError, 'Injected audit failure'):
-                reset.reset_once(self.store)
+        with self.store.connect() as db:
+            db.execute('''CREATE TRIGGER fail_reset_audit BEFORE INSERT ON opportunity_reset_history
+                BEGIN SELECT RAISE(ABORT, 'Injected audit failure'); END''')
+        with self.assertRaisesRegex(sqlite3.IntegrityError, 'Injected audit failure'):
+            reset.reset_once(self.store)
         self.assertIsNone(self.marker())
         self.assertEqual(op.generation(self.store), generation)
         with self.store.connect() as db:
             for table, old in self.before.items():
                 self.assertEqual(self.rows(db, table), old, table)
+            self.assertEqual(self.rows(db, 'opportunity_reset_entries'), [])
+            self.assertEqual(self.rows(db, 'opportunity_reset_history'), [])
         self.assertEqual(len(self.backups()), 1)
 
     def test_backup_reader_runs_while_old_worker_write_waits_for_reset_commit(self):
@@ -185,7 +194,8 @@ class OpportunityResetTests(unittest.TestCase):
             created = future.result(timeout=10)['opportunity']
         self.assertEqual(result['removed'], 2)
         with self.store.connect() as db:
-            self.assertEqual([r[0] for r in db.execute('SELECT id FROM opportunities')], [created['id']])
+            self.assertEqual([r[0] for r in db.execute('SELECT id FROM opportunities WHERE ' +
+                             retention.active_sql('opportunity', 'opportunities.id'))], [created['id']])
         with closing(sqlite3.connect(self.backups()[0])) as db:
             self.assertEqual(self.rows(db, 'opportunities'), self.before['opportunities'])
 
@@ -237,9 +247,121 @@ print(json.dumps(reset_once(store)),flush=True)
         self.assertEqual(self.backups(), [])
         with self.store.connect() as db:
             self.assertEqual(self.rows(db, 'opportunity_activity'), [])
+            self.assertEqual(self.rows(db, 'opportunity_reset_history'), [])
         fresh = op.save(self.store, {'project': 'First new opportunity', 'region': 'NSW'}, self.actor)['opportunity']
         self.assertFalse(reset.reset_once(self.store)['applied'])
         self.assertEqual(set(op.existing_keys(self.store).values()), {fresh['id']})
+
+    def test_reset_preserves_incoming_foreign_keys_for_every_former_delete_group(self):
+        first, _ = self.populate()
+        with self.store.connect() as db:
+            person = db.execute('SELECT opportunity_id,kind,person_id FROM opportunity_people LIMIT 1').fetchone()
+            builder = db.execute('SELECT builder_key FROM opportunity_builders LIMIT 1').fetchone()[0]
+            notice = db.execute("SELECT id FROM tender_notifications WHERE target_kind='opportunity' LIMIT 1").fetchone()[0]
+            event = db.execute('SELECT event_key FROM opportunity_events LIMIT 1').fetchone()[0]
+            db.execute('''CREATE TABLE opportunity_builders_legacy_v354 (
+                id TEXT PRIMARY KEY, opportunity_id TEXT NOT NULL REFERENCES opportunities(id) ON DELETE RESTRICT,
+                name TEXT NOT NULL)''')
+            db.execute('INSERT INTO opportunity_builders_legacy_v354 VALUES(?,?,?)',
+                       ('archived-builder', first['id'], 'Original archived builder'))
+            db.execute('''CREATE TABLE historical_opportunity_link (
+                id TEXT PRIMARY KEY, opportunity_id TEXT NOT NULL REFERENCES opportunities(id) ON DELETE CASCADE)''')
+            db.execute('INSERT INTO historical_opportunity_link VALUES(?,?)', ('retained-cascade-child', first['id']))
+            db.execute('''CREATE TABLE historical_assignment_link (
+                opportunity_id TEXT NOT NULL, kind TEXT NOT NULL, person_id INTEGER NOT NULL,
+                FOREIGN KEY(opportunity_id,kind,person_id)
+                    REFERENCES opportunity_people(opportunity_id,kind,person_id) ON DELETE RESTRICT)''')
+            db.execute('INSERT INTO historical_assignment_link VALUES(?,?,?)', tuple(person))
+            db.execute('CREATE TABLE historical_builder_link(builder_key TEXT NOT NULL REFERENCES opportunity_builders(builder_key))')
+            db.execute('INSERT INTO historical_builder_link VALUES(?)', (builder,))
+            db.execute('CREATE TABLE historical_event_link(event_key TEXT NOT NULL REFERENCES opportunity_events(event_key))')
+            db.execute('INSERT INTO historical_event_link VALUES(?)', (event,))
+            db.execute('CREATE TABLE historical_notification_link(notification_id TEXT NOT NULL REFERENCES tender_notifications(id))')
+            db.execute('INSERT INTO historical_notification_link VALUES(?)', (notice,))
+            linked_tables = ('opportunity_builders_legacy_v354', 'historical_opportunity_link',
+                             'historical_assignment_link', 'historical_builder_link',
+                             'historical_event_link', 'historical_notification_link')
+            before_links = {table: self.rows(db, table) for table in linked_tables}
+            # Both physical deletion and a tempting soft-delete UPDATE would
+            # disturb unknown legacy behavior. The cohort reset does neither.
+            for table in ('opportunities', 'opportunity_people', 'opportunity_events',
+                          'opportunity_builders', 'tender_notifications'):
+                for operation in ('UPDATE', 'DELETE'):
+                    db.execute('CREATE TRIGGER protect_' + table + '_' + operation.lower() +
+                               ' BEFORE ' + operation + ' ON ' + table +
+                               " BEGIN SELECT RAISE(ABORT, 'Original rows must remain unchanged'); END")
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+        result = reset.reset_once(self.store)
+        self.assertEqual(result, {'applied': True, 'removed': 2})
+        with self.store.connect() as db:
+            for table, old in {**self.before, **before_links}.items():
+                self.assertEqual(self.rows(db, table), old, table)
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_reset_history').fetchone()[0], 1)
+            self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities WHERE ' +
+                             retention.active_sql('opportunity', 'opportunities.id')).fetchone()[0], 0)
+        self.assertFalse(reset.reset_once(self.store)['applied'])
+        self.assertEqual(len(self.backups()), 1)
+
+    def test_reset_system_summary_does_not_insert_fake_parent_or_actor_ids(self):
+        self.populate()
+        with self.store.connect() as db:
+            db.execute('CREATE TABLE legacy_actors(id INTEGER PRIMARY KEY)')
+            db.execute('INSERT INTO legacy_actors VALUES(?)', (self.actor['id'],))
+            db.execute('''CREATE TABLE linked_opportunity_activity (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                opportunity_id TEXT NOT NULL REFERENCES opportunities(id),
+                actor_id INTEGER NOT NULL REFERENCES legacy_actors(id),
+                actor_name TEXT NOT NULL, project TEXT NOT NULL, action TEXT NOT NULL,
+                details TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL)''')
+            db.execute('INSERT INTO linked_opportunity_activity SELECT * FROM opportunity_activity')
+            db.execute('DROP TABLE opportunity_activity')  # Only this private fixture.
+            db.execute('ALTER TABLE linked_opportunity_activity RENAME TO opportunity_activity')
+            db.execute('''CREATE TRIGGER no_fake_system_user BEFORE INSERT ON tender_activity
+                WHEN NEW.actor_id=0 BEGIN SELECT RAISE(ABORT, 'No synthetic user ID'); END''')
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+        reset.reset_once(self.store)
+        with self.store.connect() as db:
+            self.assertEqual(self.rows(db, 'opportunity_activity'), self.before['opportunity_activity'])
+            self.assertEqual(self.rows(db, 'tender_activity'), self.before['tender_activity'])
+            audit = db.execute('SELECT * FROM opportunity_reset_history').fetchone()
+            self.assertEqual(audit['actor_name'], 'System')
+            self.assertEqual(audit['reset_key'], reset.RESET_KEY)
+            self.assertEqual(json.loads(audit['details'])['removed']['opportunities'], 2)
+            self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+    def test_completed_old_marker_does_not_retire_later_records(self):
+        first, _ = self.populate()
+        old_marker = json.dumps({'release': '3.5.1', 'completedAt': '2026-10-20T12:00:00Z',
+                                 'removed': {'opportunities': 10}})
+        with self.store.connect() as db:
+            db.execute('INSERT INTO settings(id,body) VALUES(?,?)', (reset.RESET_KEY, old_marker))
+        self.assertEqual(reset.reset_once(self.store), {'applied': False, 'removed': 0})
+        with self.store.connect() as db:
+            self.assertEqual(db.execute('SELECT body FROM settings WHERE id=?', (reset.RESET_KEY,)).fetchone()[0], old_marker)
+            self.assertEqual(self.rows(db, 'opportunity_reset_entries'), [])
+            self.assertEqual(self.rows(db, 'opportunity_reset_history'), [])
+            self.assertFalse(retention.is_retired(db, 'opportunity', first['id']))
+        self.assertEqual(self.backups(), [])
+
+    def test_reused_builder_is_reactivated_without_changing_historical_rows(self):
+        self.populate()
+        reset.reset_once(self.store)
+        key = tenders.builder_key('Builder before reset')
+        with self.store.connect() as db:
+            self.assertTrue(retention.is_retired(db, 'builder', key))
+            old_builder_rows = self.rows(db, 'opportunity_builders')
+            retired_at = db.execute("SELECT retired_at FROM opportunity_reset_entries WHERE kind='builder' AND record_key=?", (key,)).fetchone()[0]
+        moment = tenders.timestamp()
+        with self.store.connect() as db:
+            retention.reactivate_builder(db, key, moment)
+            self.assertFalse(retention.is_retired(db, 'builder', key))
+            entry = db.execute("SELECT retired_at,restored_at FROM opportunity_reset_entries WHERE kind='builder' AND record_key=?", (key,)).fetchone()
+            self.assertEqual(tuple(entry), (retired_at, moment))
+            self.assertEqual(self.rows(db, 'opportunity_builders'), old_builder_rows)
+        self.assertFalse(reset.reset_once(self.store)['applied'])
+        with self.store.connect() as db:
+            self.assertFalse(retention.is_retired(db, 'builder', key))
 
 
 if __name__ == '__main__':
