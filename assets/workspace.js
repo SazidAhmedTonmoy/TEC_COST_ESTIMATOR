@@ -159,7 +159,7 @@ function renderProjectBoard() {
     <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${p.status==='in_review'?'Review by · ':''}${dateLabel(projectDeadline(p))}</span>${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
     <div class="project-card-footer"><span>${p.line_count||0} items <strong>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</strong></span><a class="button primary small" href="#/estimate/${p.id}" data-open-project="${p.id}">Open Estimate</a></div>
     <details class="project-more"><summary>Project details</summary>${p.scope_of_work?`<p class="project-scope-excerpt">${escapeHtml(p.scope_of_work)}</p>`:''}<p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Creator not recorded')}${p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p><div class="project-more-actions"><button type="button" class="button secondary small" data-project-brief="${p.id}">${p.can_edit?'Manage Project':'View Project'}</button><button class="button secondary small" type="button" data-copy-project="${p.id}">Copy Project</button></div></details>
-  </article>`).join('') : '<div class="board-empty"><h3>No matching projects</h3><p>Try a different search or status. Create a project from Build Estimate.</p></div>';
+  </article>`).join('') : '<div class="board-empty"><h3>No matching projects</h3><p>Try a different search or status. Use New Project above to create an estimate.</p></div>';
 
 }
 function renderGroupedEstimate(lines) {

@@ -1,22 +1,44 @@
-TEC ConEst v3.1 — Blueprint split login
+TEC ConEst v3.5 — changed files from the latest v3.4 package
 
-Apply over the latest v3.1 JSON-window/clipboard/default-month update. Extract files preserving folders and deploy normally. For older installations use the full archive.
+Overlay the contents of this ZIP onto the application directory (the directory containing app.py).
+Retain all existing production databases, uploads, environment settings and deployment secrets.
+Read UPDATE_V3.5.md before deployment. Restart Passenger and open Tenders once after deployment.
+The normal deployment installs daily 00:10 backups and five-minute opportunity deadline checks.
+Manual deployment: open /api/health, then run sh tools/install_backup_cron.sh in the deployed directory.
+No .db files are included or replaced. Existing Estimator schema stays 31.
+Built frontend assets are included; no Node build is required just to deploy this ZIP.
+Older fingerprinted JS/CSS files may remain after overlay; HTML references only the new names.
+This archive is a v3.4-to-v3.5 patch. Use the full v3.5 ZIP if your code is older than the latest v3.4.
+No live deployment was performed.
 
-Implemented the approved Blueprint split login: local electrical blueprint SVG, navy/teal split layout, TEC branding, focused sign-in form, password eye icon, clear error feedback and signing-in state. Responsive mobile layout and reduced-motion support are included. The illustration uses a short entrance animation only.
-
-Existing authentication, account permissions and workspace theme continue to apply. No backend or database changes.
-
-Validation: browser checks passed for valid login, rejected login, password show/hide, logout, default monthly board, mobile overflow, reduced motion and light-theme preference.
-
-Changed files:
-- assets/app.30fa1758043e.js
-- assets/estimate_extras.js
-- assets/index.html
-- assets/login-blueprint.svg
-- assets/styles.36267a32bc5f.css
-- assets/styles.css
-- assets/workspace.js
-
-Retired fingerprinted files (may remain during rollout):
-- assets/app.87a4eca6a009.js
-- assets/styles.f394bc90e2f1.css
+Changed/new files:
+README.md
+UPDATE_V3.5.md
+assets/app.37654b3c5b11.js
+assets/app.js
+assets/index.html
+assets/styles.css
+assets/styles.f839ac77dd6e.css
+assets/workspace.js
+conest_app/__init__.py
+conest_app/opportunities.py
+conest_app/tender_http.py
+conest_app/tenders.py
+requirements.txt
+tenders_frontend/index.html
+tenders_frontend/package-lock.json
+tenders_frontend/package.json
+tenders_frontend/src/components/opportunities.css
+tenders_frontend/src/components/opportunities.tsx
+tenders_frontend/src/components/opportunity-notifications.tsx
+tenders_frontend/src/components/tender-app.tsx
+tenders_frontend/src/globals.css
+tenders_frontend/src/lib/opportunities.ts
+tenders_web/assets/index-CUfV-v2d.css
+tenders_web/assets/index-CXU8J43U.js
+tenders_web/assets/opportunities-DVFDPRjw.js
+tenders_web/index.html
+tests/test_http_v232.py
+tests/test_opportunities.py
+tools/check_opportunity_deadlines.py
+tools/install_backup_cron.py
