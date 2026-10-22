@@ -1,0 +1,88 @@
+/* 3.5.11 progressive mobile enhancements for Tenders, Opportunities and Chase-up.
+   Readable one-column controls, scrollable data tables, and accessible dialog heights. */
+html,body,#root,.main-shell{max-width:100%;min-width:0}
+.op-card,.kpi,.submission-record{content-visibility:auto;contain-intrinsic-size:auto 210px}
+.op-card h3,.op-project-link,.register-heading h2,.submission-record strong{overflow-wrap:anywhere}
+[data-slot=sheet-content],[data-slot=dialog-content]{overscroll-behavior-y:contain}
+.table-wrap,.tender-table-wrap,.calendar-panel{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+@media(max-width:1150px){
+ .page-content{min-width:0}
+ .topbar .global-search{flex:1 1 230px;max-width:420px;min-width:0}
+ .page-heading,.register-heading,.heading-actions{flex-wrap:wrap}
+ .heading-actions{gap:8px}
+ .op-heading-actions{width:100%;justify-content:flex-start}
+ .op-toolbar .op-search{flex-basis:100%;max-width:none}
+ .op-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .filter-sections{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:850px){
+ .page-content{padding:17px 16px 48px;min-width:0}
+ .topbar{padding:10px 16px;height:auto;min-height:64px;flex-wrap:wrap}
+ .topbar .global-search{flex:1 1 100%;order:3;width:100%!important;max-width:none;min-width:0}
+ .op-register-heading,.op-heading{flex-wrap:wrap;gap:12px}
+ .op-heading-actions>*{flex:1 1 125px;min-height:44px}
+ .op-stats,.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .op-cards{grid-template-columns:1fr}
+ .op-compact-field{min-width:0;flex:1 1 145px;max-width:none}
+ .op-search{max-width:none}
+ .filter-sections{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .calendar-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .op-import-tools,.op-register-heading,.op-list-options{flex-wrap:wrap}
+ .op-list-options>span{max-width:100%}
+ .op-detail-sheet,[data-slot=sheet-content]{max-width:100vw}
+ .op-detail-sheet [data-slot=sheet-header]{padding:18px 46px 16px 18px}
+ .op-detail-body{padding:16px}
+ :is(.op-dialog,.op-quote-dialog,.op-import-dialog)[data-slot=dialog-content]{max-width:calc(100vw - 18px);max-height:95dvh;overflow-y:auto;padding:18px}
+}
+@media(max-width:600px){
+ .page-content{padding:14px 12px 44px}
+ .page-heading{gap:10px;margin-bottom:17px}
+ .page-heading h1{font-size:clamp(21px,6vw,27px)}
+ .heading-actions{justify-content:flex-start;width:100%}
+ .heading-actions :is(.primary-btn,.secondary-btn){min-height:44px}
+ .op-stats{gap:8px;margin-bottom:12px}
+ .op-stat{padding:12px;border-radius:12px}
+ .op-stat strong{font-size:27px}
+ .op-register-heading{padding:14px}
+ .op-view-toggle{max-width:100%}
+ .op-toolbar{padding:12px;gap:8px}
+ .op-compact-field{flex:1 1 calc(50% - 8px)}
+ .op-compact-field select,.op-field input,.op-field textarea,.op-field select{font-size:16px}
+ .op-list-options{padding:10px 13px;align-items:flex-start}
+ .op-list-options>label{margin-left:0}
+ .op-cards{padding:4px 12px 14px;gap:10px}
+ .op-card{padding:13px;border-radius:12px}
+ .op-card-footer,.op-card-meta{flex-wrap:wrap}
+ .op-card-footer .secondary-btn{min-height:44px}
+ .op-quote-actions>*{flex:1 1 100%;min-height:44px}
+ .op-team-directory{grid-template-columns:minmax(0,1fr);padding:0 12px 14px}
+ .op-import-counts{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+ .op-import-counts>div{padding:9px;min-width:0}
+ .op-import-counts strong{font-size:20px}
+ .op-import-tools{align-items:stretch}
+ .op-import-tools .op-field{flex:1 1 100%;max-width:none}
+ .op-facts{grid-template-columns:minmax(0,1fr);gap:12px}
+ .op-detail-status,.op-detail-actions{gap:8px}
+ .op-detail-tabs{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
+ .op-detail-tabs button{flex:none;min-height:44px}
+ .filter-sections{grid-template-columns:minmax(0,1fr);padding:12px;gap:10px}
+ .calendar-summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .calendar-summary>div{padding:12px}
+ .dialog-actions,.op-dialog-actions{flex-wrap:wrap;gap:8px;justify-content:stretch}
+ .dialog-actions>* , .op-dialog-actions>*{flex:1 1 125px;min-height:44px}
+ .table-wrap,.tender-table-wrap{scrollbar-width:thin}
+}
+@media(max-width:360px){
+ .op-stat>span{font-size:10px;gap:4px}
+ .op-stat strong{font-size:24px}
+ .op-heading-actions>*{flex:1 1 100%}
+ .op-compact-field{flex:1 1 100%}
+ .topbar .global-search{flex-basis:100%}
+}
+@media(pointer:coarse){
+ :is(.op-card,.op-detail-sheet) :is(button,a){touch-action:manipulation}
+ .op-view-toggle button,.op-detail-tabs button,.op-compact-field select,.op-search{min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){
+ .op-card,.kpi,.submission-record{content-visibility:visible}
+}

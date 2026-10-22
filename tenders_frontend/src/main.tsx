@@ -2,6 +2,8 @@ import React from 'react';
 import {createRoot,type Root} from 'react-dom/client';
 import TenderApp from './components/tender-app';
 import './globals.css';
+import './mobile-v3511.css';
+import './mobile-v3512.css';
 import {request} from './lib/request';
 import {startupProblem,validBootstrapSession,validTenderData,type StartupProblem,type StartupResponse} from './lib/startup';
 export const session={user:null as any,csrf:''};

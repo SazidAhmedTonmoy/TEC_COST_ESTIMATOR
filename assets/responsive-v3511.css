@@ -1,0 +1,139 @@
+/* TEC ConEst 3.5.11: shared login and mobile usability layer.
+   The legacy theme stays intact; only shared layout and touch behaviours are refined. */
+:root { --conest-tender-gold:#ffd33d; --conest-estimate-teal:#53dcd0; }
+*, *::before, *::after {box-sizing:border-box}
+html,body { max-width:100%; }
+.app-shell, .app-shell main, .app-shell .view, .app-shell .panel {min-width:0}
+:is(.project-card,.catalog-result,.search-result,.panel,.metric) :is(h2,h3,strong,p) {overflow-wrap:anywhere}
+:is(.project-card,.schedule-item) {content-visibility:auto;contain-intrinsic-size:auto 170px}
+.table-scroll,.calendar-scroll,.catalog-results,.project-picker-options{overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;}
+.dialog-card,dialog{max-width:calc(100vw - 18px)}
+:is(input,textarea,select){max-width:100%}
+/* Login carousel: three complementary CAD illustrations; no remote assets. */
+#login-screen .login-blueprint-panel {isolation:isolate; background:radial-gradient(circle at 75% 20%,#16435c,#061d2e 70%)}
+#login-screen .login-slide {position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .8s ease;}
+#login-screen .login-slide.is-active {opacity:1;pointer-events:auto;z-index:1}
+#login-screen .login-slide .login-blueprint-art {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:none;opacity:.82;}
+#login-screen .login-slide:nth-child(2) .login-blueprint-art {object-position:55% center}
+#login-screen .login-slide:nth-child(3) .login-blueprint-art {object-position:50% center}
+#login-screen .login-slide::after {content:"";position:absolute;inset:0;background:linear-gradient(180deg,#04162506 0%,#04162555 47%,#041625fa 100%),linear-gradient(85deg,#04162588,transparent 95%);pointer-events:none}
+#login-screen .login-slide .login-blueprint-copy {z-index:2;bottom:13%;left:9%;right:8%;}
+#login-screen .login-slide-kicker {font-size:11px;letter-spacing:.18em;color:#83dcd4;line-height:1.5;margin:0 0 14px;font-weight:700}
+#login-screen .login-blueprint-copy h2 {font-size:clamp(36px,4vw,64px);line-height:1.08;letter-spacing:-.04em;}
+#login-screen .login-blueprint-copy h2 .login-gold {color:var(--conest-tender-gold)}
+#login-screen .login-blueprint-copy h2 span:not(.login-gold) {color:var(--conest-estimate-teal)}
+#login-screen .login-blueprint-copy .login-slide-description {font-size:15px;letter-spacing:0;text-transform:none;line-height:1.6;color:#d4e7ed;max-width:360px;font-weight:400;}
+#login-screen .login-accent-line {width:84px;background:linear-gradient(90deg,var(--conest-estimate-teal) 0 58%,var(--conest-tender-gold) 58%);margin:22px 0 18px;}
+#login-screen .login-slide-controls {position:absolute;z-index:4;bottom:5%;left:9%;display:flex;gap:10px;align-items:center;}
+#login-screen .login-slide-dot {border:1px solid #8db2c0;background:#547c8e;width:33px;height:13px;padding:0;border-radius:10px;cursor:pointer;opacity:.75;transition:background .2s,width .2s,opacity .2s;}
+#login-screen .login-slide-dot.is-active {width:46px;background:linear-gradient(90deg,var(--conest-estimate-teal),var(--conest-tender-gold));border-color:transparent;opacity:1}
+#login-screen .login-slide-dot:focus-visible {outline:2px solid #ffd33d;outline-offset:4px}
+#login-screen .login-brand {margin-bottom:22px;}
+#login-screen .login-brand strong {font-size:29px}
+#login-screen #login-submit {background:linear-gradient(105deg,#4ee0d1 0%,#35c5c5 76%,#ffe068 100%);border-color:#64ddd0;}
+#login-screen .login-heading p {line-height:1.6}
+/* Medium laptops and tablets; retain readable workspaces instead of fixed desktop columns. */
+@media(max-width:1150px){
+ .home-grid,.catalog-layout{grid-template-columns:minmax(0,1fr)}
+ .settings-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .topbar-actions,.project-action-buttons{flex-wrap:wrap;min-width:0}
+ .panel-heading{flex-wrap:wrap;align-items:flex-start}
+ #home-view .project-board-tools{flex:1 1 100%;justify-content:flex-start}
+ #home-view #project-search{max-width:none}
+ .performance-columns.performance-workflows{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:820px){
+ html,body {overflow-x:clip}
+ .app-shell main {width:100%;padding-left:15px;padding-right:15px;}
+ .app-shell .sidebar {max-width:100%;}
+ .app-shell .topbar {min-height:68px;height:auto;padding:14px 0;gap:12px;flex-wrap:wrap;}
+ .app-shell .topbar-actions{width:100%;justify-content:stretch;gap:8px}
+ .app-shell .topbar-actions .project-picker-wrap{flex:1 1 100%;max-width:100%;min-width:0}
+ .app-shell .project-picker-wrap #project-picker-button {width:100%;justify-content:space-between}
+ .app-shell .project-action-buttons{width:100%;min-width:0;gap:8px;white-space:normal}
+ .app-shell .project-action-buttons>.button{flex:1 1 120px;min-width:0;white-space:normal;min-height:44px}
+ .app-shell .metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .app-shell .workspace-welcome,.app-shell .panel-heading,.app-shell .split-heading{gap:12px;flex-wrap:wrap}
+ .app-shell .home-project-actions{width:100%;display:flex;flex-wrap:wrap;gap:8px}
+ .app-shell .home-project-actions .button{min-height:44px;flex:1 1 136px}
+ .app-shell #project-board,.app-shell #project-board[data-view=list]{grid-template-columns:minmax(0,1fr)}
+ .app-shell #project-board[data-view=list] .project-card{display:flex;flex-direction:column}
+ .app-shell #project-board[data-view=list] .project-card-footer{justify-content:space-between;flex-direction:row;align-items:center}
+ .app-shell .settings-grid,.app-shell .catalog-layout,.app-shell .smart-search{grid-template-columns:minmax(0,1fr)}
+ .app-shell .catalog-search-row{display:flex;flex-wrap:wrap;align-items:stretch}
+ .app-shell .catalog-search-row>*{flex:1 1 180px;min-width:0}
+ .app-shell .table-scroll,.app-shell .calendar-scroll{max-width:100%;overflow-x:auto}
+ .app-shell .estimate-table {min-width:850px;}
+ .app-shell :is(.dialog-card,.project-brief-card) {padding:18px;max-height:calc(100dvh - 25px);overflow-y:auto;overscroll-behavior:contain;}
+ .app-shell .dialog-actions {display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+ .app-shell .dialog-actions .button {min-height:44px}
+ .app-shell .performance-columns.performance-workflows{grid-template-columns:minmax(0,1fr)}
+ .app-shell .project-access-columns{grid-template-columns:minmax(0,1fr)}
+ :is(.app-shell,#login-screen) :is(input,select,textarea) {font-size:16px}
+}
+@media(max-width:850px){
+ #login-screen{padding:16px;min-height:100svh}
+ #login-screen .login-layout{width:min(550px,100%);min-height:0;grid-template-columns:1fr;}
+ #login-screen .login-blueprint-panel{min-height:250px}
+ #login-screen .login-slide .login-blueprint-copy{left:26px;right:26px;bottom:49px}
+ #login-screen .login-blueprint-copy h2{font-size:clamp(26px,5.2vw,35px)}
+ #login-screen .login-slide-kicker{font-size:9px;margin-bottom:9px}
+ #login-screen .login-blueprint-copy .login-slide-description{font-size:11px;line-height:1.45;max-width:340px}
+ #login-screen .login-slide-controls{left:26px;bottom:15px;gap:8px}
+ #login-screen .login-slide-dot{width:27px;height:10px}
+ #login-screen .login-slide-dot.is-active{width:37px}
+ #login-screen .login-accent-line{margin:10px 0 10px}
+ #login-screen .login-form-panel{padding:29px}
+ #login-screen .login-brand{margin-bottom:6px}
+}
+@media(max-width:580px){
+ .app-shell main {padding-left:10px;padding-right:10px;}
+ .app-shell .panel,.app-shell .portfolio-panel{padding:13px;}
+ .app-shell .metric-grid,.app-shell #home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .app-shell #home-metrics.five-metrics{display:grid;overflow:visible}
+ .app-shell #home-metrics.five-metrics>.metric{flex:auto;min-width:0}
+ .app-shell #home-metrics.five-metrics>.metric:last-child{grid-column:1/-1}
+ .app-shell .project-board-tools{flex-wrap:wrap;gap:8px}
+ .app-shell #home-view #project-search{flex:1 1 100%;width:100%;min-width:0}
+ .app-shell .project-card-heading,.app-shell .project-card-footer{flex-wrap:wrap}
+ .app-shell .project-card-heading .project-badges{justify-content:flex-start}
+ .app-shell .project-card-footer .button{min-height:44px}
+ .app-shell .calendar-scroll{width:100%;overflow-x:auto}
+ .app-shell .form-grid,.app-shell .settings-grid,.app-shell .smart-search{grid-template-columns:minmax(0,1fr)}
+ .app-shell .dialog-actions>*{flex:1 1 120px;min-width:0}
+ .app-shell .catalog-search-row>*{flex:1 1 100%}
+ .app-shell .result-cost{white-space:normal;flex-wrap:wrap}
+ .app-shell .search-result{grid-template-columns:minmax(0,1fr)}
+ .app-shell .search-result :is(.result-cost,.result-actions){justify-content:flex-start}
+ .app-shell .scope-heading-row .scope-totals{min-width:0;width:100%}
+ #login-screen{padding:10px}
+ #login-screen .login-layout{border-radius:17px}
+ #login-screen .login-blueprint-panel{min-height:215px}
+ #login-screen .login-slide .login-blueprint-copy{left:20px;right:20px;bottom:43px}
+ #login-screen .login-blueprint-copy h2{font-size:27px;line-height:1.14}
+ #login-screen .login-slide-kicker{letter-spacing:.12em}
+ #login-screen .login-blueprint-copy .login-slide-description{display:block;font-size:10.5px;max-width:290px}
+ #login-screen .login-slide-controls{left:20px;bottom:12px}
+ #login-screen .login-form-panel{padding:22px}
+ #login-screen .login-card{gap:14px}
+ #login-screen .login-brand strong{font-size:23px}
+ #login-screen .login-heading h1{font-size:25px}
+ #login-screen .login-field input{font-size:16px}
+ #login-screen .login-support{padding-top:16px}
+}
+@media(max-width:365px){
+ #login-screen .login-blueprint-panel{min-height:220px}
+ #login-screen .login-blueprint-copy h2{font-size:24px}
+ #login-screen .login-slide .login-blueprint-copy{bottom:38px}
+ #login-screen .login-slide-kicker{font-size:8px}
+ .app-shell .metric-grid .metric{padding:10px}
+ .app-shell .metric-grid .metric strong{font-size:23px}
+}
+@media(pointer:coarse){
+ .app-shell :is(.button,.nav-button,.icon-button,.text-button){touch-action:manipulation;min-height:44px}
+ .app-shell .project-tabs button{min-height:44px}
+}
+@media(prefers-reduced-motion:reduce){
+ #login-screen .login-slide,#login-screen .login-slide-dot{transition:none}
+ :is(.project-card,.catalog-result,.schedule-item){content-visibility:visible}
+}

@@ -4,24 +4,42 @@
   <script src="/assets/theme.c981d266547b.js"></script>
   <meta charset="utf-8">
   <script src="/assets/estimator_boot.js?v=3.0-r1" defer></script>
+  <script src="/assets/login-carousel.js?v=3.5.11" defer></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TEC ConEst Estimator</title>
+  <title>TEC ConEst · Tenders &amp; Estimating</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
   <link rel="stylesheet" href="/assets/styles.f9362631497b.css">
+  <link rel="stylesheet" href="/assets/responsive-v3511.css?v=3.5.11">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.4-r1">
+  <link rel="stylesheet" href="/assets/mobile-v3512.css?v=3.5.12">
 </head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
   <section id="login-screen" class="login-screen" aria-label="Sign in to TEC ConEst">
     <div class="login-layout">
-      <div class="login-blueprint-panel">
-        <img class="login-blueprint-art" src="/assets/login-blueprint.svg" alt="" width="900" height="900" aria-hidden="true">
-        <div class="login-blueprint-copy"><h2>Build your<br>next <span>estimate.</span></h2><div class="login-accent-line"></div><p>Electrical estimating.<br>Built around your projects.</p></div>
+      <div class="login-blueprint-panel" aria-label="TEC ConEst features">
+        <div class="login-slide is-active" data-slide="0" aria-hidden="false">
+          <img class="login-blueprint-art" src="/assets/login-blueprint.svg" alt="" width="900" height="900" aria-hidden="true" fetchpriority="high">
+          <div class="login-blueprint-copy"><p class="login-slide-kicker">TEC CONEST · ALL-IN-ONE WORKSPACE</p><h2>From <span class="login-gold">tender</span><br>to <span>estimate.</span></h2><div class="login-accent-line"></div><p class="login-slide-description">Track opportunities, prepare quotes and turn tenders into projects.</p></div>
+        </div>
+        <div class="login-slide" data-slide="1" aria-hidden="true">
+          <img class="login-blueprint-art" src="/assets/login-blueprint-switchboard.svg" alt="" width="900" height="900" aria-hidden="true">
+          <div class="login-blueprint-copy"><p class="login-slide-kicker">ELECTRICAL ESTIMATING</p><h2>Build better<br><span>estimates.</span></h2><div class="login-accent-line"></div><p class="login-slide-description">Manage quantities, labour, materials and revisions in one connected space.</p></div>
+        </div>
+        <div class="login-slide" data-slide="2" aria-hidden="true">
+          <img class="login-blueprint-art" src="/assets/login-blueprint-buildings.svg" alt="" width="900" height="900" aria-hidden="true">
+          <div class="login-blueprint-copy"><p class="login-slide-kicker">TENDER PIPELINE &amp; TEAMS</p><h2>Track work.<br><span class="login-gold">Win together.</span></h2><div class="login-accent-line"></div><p class="login-slide-description">Assign teams, follow up submissions and keep every opportunity moving.</p></div>
+        </div>
+        <div class="login-slide-controls" role="group" aria-label="Login feature slides">
+          <button type="button" class="login-slide-dot is-active" data-login-slide="0" aria-label="Show tender and estimate overview" aria-pressed="true"></button>
+          <button type="button" class="login-slide-dot" data-login-slide="1" aria-label="Show electrical estimating" aria-pressed="false"></button>
+          <button type="button" class="login-slide-dot" data-login-slide="2" aria-label="Show tender pipeline and teamwork" aria-pressed="false"></button>
+        </div>
       </div>
       <div class="login-form-panel">
         <form id="login-form" class="login-card">
-          <div class="login-brand"><img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC"><div><strong>TEC ConEst</strong><span>ESTIMATOR</span></div></div>
-          <div class="login-heading"><h1>Welcome back</h1><p>Sign in to your estimating workspace.</p></div>
+          <div class="login-brand"><img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC"><div><strong>TEC ConEst</strong></div></div>
+          <div class="login-heading"><h1>Welcome back</h1><p>Sign in to your tenders and estimating workspace.</p></div>
           <label class="login-field"><span>Username</span><div class="login-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3Z"/></svg><input id="login-username" autocomplete="username" required maxlength="64" autofocus placeholder="Enter your username" autocapitalize="none" spellcheck="false"></div></label>
           <label class="login-field"><span>Password</span><span class="password-field login-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><input id="login-password" type="password" autocomplete="current-password" required maxlength="256" placeholder="Enter your password"><button type="button" class="key-toggle login-eye" data-password-target="login-password" aria-pressed="false" aria-label="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></span></label>
           <p id="login-error" class="form-error" role="alert"></p>
@@ -51,6 +69,7 @@
       <button type="button" id="floating-estimate-total" class="floating-estimate-total hidden" title="Return to estimate totals"></button>
       <div class="account-summary" id="account-controls"><div class="account-person"><a id="account-avatar" class="account-avatar" href="#/profile" aria-label="Open my profile"><span aria-hidden="true"></span></a><div class="account-person-text"><a class="account-name-link" href="#/profile" aria-label="Open my profile"><strong id="account-name"></strong></a><span id="account-role"></span></div></div><div class="account-actions"><button class="signout-button" id="logout-button" type="button"><span aria-hidden="true">↪</span> Sign out</button><button id="theme-toggle" type="button" class="theme-icon" aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false"><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.8 13.2A9 9 0 0 1 10.8 3.2a9 9 0 1 0 10 10Z"/></svg><svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button></div></div>
     </aside>
+    <button id="estimator-menu-backdrop" class="estimator-menu-backdrop" type="button" aria-label="Close navigation menu" hidden></button>
 
     <main>
       <header class="topbar">
@@ -447,6 +466,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.e3721987ae57.js" defer></script>
+  <script src="/assets/app.ce22ecc9b343.js" defer></script>
 </body>
 </html>

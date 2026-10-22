@@ -1,0 +1,113 @@
+/* TEC ConEst 3.5.12 — dependable mobile drawer and overlay visibility.
+   Loaded after the legacy Estimator theme and responsive rules. */
+/* The login is shared by Estimator and Tenders. No estimate-only floating UI
+   should appear during sign-in, loading or other non-estimate pages. */
+body:has(#login-screen:not(.hidden)) :is(#floating-search-button,#light-price-floating-search,#toggle-all-categories,#floating-bottom-button,#help-chat-button,.frozen-estimate-heading),
+body:has(#authenticated-app.hidden) :is(#floating-search-button,#light-price-floating-search,#toggle-all-categories,#floating-bottom-button,#help-chat-button,.frozen-estimate-heading),
+body:not(:has(#estimate-view.active)) :is(#toggle-all-categories,#floating-bottom-button) {display:none!important}
+.estimator-menu-backdrop[hidden] {display:none!important}
+.estimator-menu-backdrop {display:none}
+@media(max-width:820px) {
+  /* A compact header when closed, not the two-column expanded menu. */
+  .app-shell {display:block;width:100%;min-width:0}
+  .app-shell > .sidebar {
+    position:relative!important;top:auto!important;left:auto!important;right:auto!important;
+    display:flex!important;flex-direction:row!important;align-items:center!important;
+    justify-content:space-between!important;gap:10px!important;
+    width:100%!important;max-width:100%!important;height:auto!important;min-height:68px!important;
+    padding:11px 15px!important;overflow:visible!important;z-index:20;
+  }
+  .app-shell > .sidebar .workspace-brand {min-width:0;max-width:calc(100% - 106px)}
+  .app-shell > .sidebar .brand {margin:0;min-width:0}
+  .app-shell > .sidebar .brand div:last-child {display:grid}
+  .app-shell > .sidebar .brand span {display:block}
+  .app-shell > .sidebar .brand strong {white-space:nowrap}
+  .app-shell > .sidebar .mobile-menu-button {
+    display:inline-flex;flex:none;min-width:88px;min-height:44px;
+    align-items:center;justify-content:center;gap:8px;
+    margin:0;background:#102838;border:1px solid #5b7787;color:#e7f2f7;
+    border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;
+  }
+  .app-shell > .sidebar:not(.menu-open) :is(nav,.account-summary,#floating-estimate-total){display:none!important}
+  .estimator-menu-backdrop:not([hidden]) {
+    display:block;position:fixed;inset:0;z-index:145;
+    width:100vw;height:100dvh;border:0;padding:0;
+    background:rgba(2,10,18,.72);cursor:pointer;
+  }
+  .app-shell > .sidebar.menu-open {
+    position:fixed!important;inset:0 auto 0 0!important;
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;
+    justify-content:flex-start!important;gap:12px!important;
+    width:min(305px,calc(100vw - 58px))!important;max-width:calc(100vw - 58px)!important;
+    min-height:100dvh!important;height:100dvh!important;max-height:100dvh!important;
+    overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;
+    padding:21px 15px 17px!important;z-index:150!important;
+    background:#102334!important;box-shadow:12px 0 42px rgba(0,0,0,.36);
+  }
+  .app-shell > .sidebar.menu-open .workspace-brand {max-width:100%;min-height:50px;padding-right:39px}
+  .app-shell > .sidebar.menu-open .brand {min-width:0;gap:10px}
+  .app-shell > .sidebar.menu-open .brand strong {font-size:15px}
+  .app-shell > .sidebar.menu-open .mobile-menu-button {
+    position:absolute;top:18px;right:12px;min-width:40px;width:42px;min-height:42px;height:42px;
+    padding:0;font-size:26px;font-weight:400;
+  }
+  .app-shell > .sidebar.menu-open nav {
+    display:flex!important;flex-direction:column!important;align-items:stretch!important;
+    flex:none;grid-column:auto!important;grid-template-columns:none!important;
+    gap:5px!important;margin:18px 0 6px!important;padding:0!important;width:100%!important;
+  }
+  .app-shell > .sidebar.menu-open nav .nav-button {
+    display:flex!important;flex:none;align-items:center;gap:12px;
+    width:100%!important;min-width:0;min-height:48px;padding:11px 13px!important;
+    border-radius:12px;color:#d8e6ed;white-space:normal;text-align:left;font-size:14px;
+  }
+  .app-shell > .sidebar.menu-open nav .nav-button.active {
+    background:#2a4051;color:#fff;box-shadow:inset 3px 0 #44d8ca;
+  }
+  .app-shell > .sidebar.menu-open nav .nav-button span {display:inline-block;min-width:22px;flex:none}
+  .app-shell > .sidebar.menu-open #floating-estimate-total {display:none!important}
+  .app-shell > .sidebar.menu-open .account-summary {
+    display:flex!important;flex-direction:column;align-items:stretch;
+    flex:none;grid-column:auto!important;gap:12px;
+    width:100%!important;min-width:0;margin:auto 0 0!important;padding:18px 5px 0!important;
+    border-top:1px solid #415568;
+  }
+  .app-shell > .sidebar.menu-open .account-person {min-width:0}
+  .app-shell > .sidebar.menu-open .account-person-text {min-width:0;overflow-wrap:anywhere}
+  .app-shell > .sidebar.menu-open .account-actions {display:flex;justify-content:flex-start;gap:10px;flex-wrap:wrap}
+  .app-shell > .sidebar.menu-open .account-actions button {min-height:44px}
+  body.estimator-menu-open {overflow:hidden!important;overscroll-behavior:none}
+  body.estimator-menu-open .app-shell::before {content:"";display:block;height:68px;width:100%}
+  /* Keep the content at full viewport width; the drawer never pushes main down. */
+  .app-shell > main {width:100%;max-width:100%;min-width:0}
+  .app-shell :is(.panel,.metric,.project-card,.settings-panel,.catalog-layout,.settings-grid,.portfolio-panel) {min-width:0;max-width:100%}
+  .app-shell :is(.table-scroll,.calendar-scroll,.estimate-scroll,.catalog-results) {max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .app-shell :is(.panel-heading,.split-heading,.project-card-heading,.dialog-heading) {flex-wrap:wrap;gap:10px}
+  .app-shell :is(dialog,.dialog-card) {max-width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}
+  .app-shell .dialog-actions {flex-wrap:wrap}
+  .app-shell :is(button,input,select,textarea) {touch-action:manipulation}
+  .app-shell :is(input,select,textarea) {font-size:16px}
+}
+@media(max-width:480px) {
+  .app-shell > .sidebar .brand strong {font-size:15px}
+  .app-shell > .sidebar .brand span {font-size:9px}
+  .app-shell > .sidebar .brand-mark {width:37px;height:37px;font-size:12px}
+  .app-shell > .sidebar .workspace-swap {min-width:35px}
+  .app-shell .metric-grid,.app-shell #home-metrics.five-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .app-shell .metric strong {overflow-wrap:anywhere}
+  .app-shell .home-project-actions > * {flex:1 1 130px;min-height:44px}
+  .app-shell .topbar {min-width:0;max-width:100%}
+  .app-shell .topbar-actions {min-width:0;max-width:100%}
+  .app-shell .project-action-buttons > *{flex:1 1 120px;min-width:0}
+}
+@media(max-width:360px) {
+  .app-shell > .sidebar {padding-inline:10px!important}
+  .app-shell > .sidebar .mobile-menu-button {min-width:78px}
+  .app-shell > .sidebar .workspace-brand {gap:4px;max-width:calc(100% - 90px)}
+  .app-shell > .sidebar .brand {gap:6px}
+  .app-shell > .sidebar .brand strong {font-size:13px}
+  .app-shell > .sidebar .workspace-swap {min-width:31px;padding:3px}
+}
+@media(prefers-reduced-motion:reduce) {
+  .app-shell > .sidebar {scroll-behavior:auto}
+}

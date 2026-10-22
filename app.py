@@ -5,6 +5,8 @@ from __future__ import annotations
 from conest_app import __version__
 
 import argparse
+import gzip
+from functools import lru_cache
 import time
 import sys
 import json
@@ -74,6 +76,28 @@ EXPORT_DIR = ROOT / "data" / "exports"
 MAX_UPLOAD_BYTES = 80 * 1024 * 1024
 IMPORT_SLOTS = threading.BoundedSemaphore(2)
 
+@lru_cache(maxsize=20)
+def _public_asset_bytes(filename: str, modified_ns: int, size: int, compress: bool) -> bytes:
+    """Only immutable-by-mtime public assets. No private exports enter this cache."""
+    data=Path(filename).read_bytes()
+    return gzip.compress(data, compresslevel=5, mtime=0) if compress else data
+
+
+def _accepts_gzip(header: str) -> bool:
+    for piece in header.lower().split(','):
+        coding,*params=piece.strip().split(';')
+        if coding not in ('gzip','*'):
+            continue
+        quality=1.0
+        for param in params:
+            param=param.strip()
+            if param.startswith('q='):
+                try: quality=float(param[2:])
+                except ValueError: quality=0.0
+        if quality>0: return True
+    return False
+
+
 
 class ApiError(Exception):
     def __init__(self, status: int, message: str):
@@ -130,19 +154,36 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def _send_file(self, path: Path, download_name: str | None = None) -> None:
         if not path.is_file():
             raise ApiError(404, "File not found")
-        body = path.read_bytes()
         mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        # Compress public code styles and vector artwork once per file version.
+        # Downloads, user data and JSON API responses are never cached here.
+        public_static = not download_name and path.suffix.lower() in ('.js', '.css', '.svg')
+        should_gzip = public_static and _accepts_gzip(self.headers.get('Accept-Encoding', ''))
+        if public_static:
+            stat=path.stat()
+            body=_public_asset_bytes(str(path), stat.st_mtime_ns, stat.st_size, should_gzip and stat.st_size >= 1024)
+        else:
+            body=path.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", mime)
         self.send_header("Content-Length", str(len(body)))
+        if public_static:
+            self.send_header('Vary','Accept-Encoding')
+            if should_gzip and stat.st_size >= 1024:
+                self.send_header('Content-Encoding','gzip')
         if download_name:
             self.send_header('Cache-Control', 'no-store')
             quoted = quote(download_name)
             self.send_header("Content-Disposition", f"attachment; filename*=UTF-8''{quoted}")
         else:
             # Only versioned public assets are cached; HTML and exports stay fresh.
-            versioned_asset = path.parent == ASSETS and path.suffix != '.html' and ('v=2.4' in self.path or re.fullmatch(r'(?:app|styles|theme)\.[a-f0-9]{12}\.(?:js|css)', path.name))
-            self.send_header("Cache-Control", "public, max-age=31536000, immutable" if versioned_asset else "no-cache")
+            query_version=parse_qs(urlparse(self.path).query).get('v',[''])[0]
+            fingerprint=bool(re.fullmatch(r'(?:app|styles|theme)\.[a-f0-9]{12}\.(?:js|css)', path.name))
+            versioned_asset=public_static and (fingerprint or bool(re.fullmatch(r'[A-Za-z0-9._-]{1,50}', query_version)))
+            # Fingerprints can be kept longer. Version query strings require a
+            # version bump on release and are limited to a one-week cache.
+            cache='public, max-age=31536000, immutable' if fingerprint else 'public, max-age=604800, immutable' if versioned_asset else 'no-cache'
+            self.send_header('Cache-Control', cache)
         self._security_headers()
         self.end_headers()
         self.wfile.write(body)

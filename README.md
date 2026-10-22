@@ -1,538 +1,373 @@
-# Current release: v3.5.8
+<div align="center">
 
-**Expired opportunities:** assigning a team still approves an expired opportunity. Approved opportunities with a past regional deadline no longer offer Quoted or Not quoted. Existing recorded quotes retain their Project Chase-up links. Expired opportunities, including approved past-deadline entries without a recorded quote, can be rejected with an optional note by an administrator or eligible team member. An existing quoted project continues to be managed through Chase-up. Deadline changes and elapsed time do not undo an approval.
+# ⚡ TEC ConEst
 
-**Deadline appearance:** approved, rejected and expired entries show neutral grey deadline text. A passed deadline is also grey while a pending record awaits its normal expiry update. Active pending entries retain red for today through 3 days, amber for 4–7 days, and green for more than 7 days, using the opportunity's regional calendar.
+**Electrical estimating · Tender intelligence · Team collaboration**
 
-**Optional costs:** section switches keep their existing accessible controls without separate On/Off words. A deselected section is labelled **Optional cost**. Its items and prices remain available and excluded from the included estimate total. New Excel exports and shared estimates identify optional items and show optional costs separately. Excel keeps editable numeric inclusion flags: `1` displays **Included**, and `0` displays **Optional cost**. Formula totals recalculate when those flags change; workbook edits do not update the website.
+**Release 3.6** · Python 3.11 · SQLite · JavaScript / React · Responsive web app
 
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.8.txt](UPDATE_INSTRUCTIONS_V3.5.8.txt). The changed-files ZIP applies to the complete **v3.5.7** package. Use the full code ZIP for an older or incomplete installation. Upload both compiled interfaces, restart the working Passenger application, and hard-refresh the browser. Preserve databases, uploads, environment settings and host-specific configuration. Schema remains **32**, with no new dependency or reset introduced by this release.
+**One sign-in. Two connected workspaces. One source of project truth.**
 
-**Verify:** `/api/health?check=tenders` should report release **3.5.8**, schema **32**, and successful readiness checks. See [QUALITY_REVIEW_V3.5.8.txt](QUALITY_REVIEW_V3.5.8.txt) for the completed local verification and limits. The package must still be deployed to the hosting account.
+[Quick start](#quick-start) · [Use the app](#daily-workflows) · [Operations](#production-deployment) · [Backups](#data-and-safety) · [Troubleshooting](#troubleshooting)
 
-# Previous release: v3.5.7
+</div>
 
-**Opportunity decisions and assignments:** rejection notes are optional. Assigning a team automatically approves the opportunity, including one with a passed deadline. Administrators and eligible team members can also approve an expired opportunity directly. Approved opportunities retain that status after their deadlines; removing an assignment does not undo approval. Deadline activity, assignment notifications and contribution records remain available.
+---
 
-**Quoted or Not quoted:** approved cards and details offer both actions. **Quoted** records the electrical services submission value, selected builders, submitted date, team, and optional quote number/note. The submitted value is separate from the opportunity's overall project budget or estimate. Saving creates a real Tender submission for each selected builder under the same project and opens **Project Chase-up**. The source remains Approved with a quote receipt and a link to Chase-up. An identical retry does not duplicate submissions; a matching existing Tender project is protected from accidental overwrite and must be managed through its existing entries. **Not quoted** moves an unquoted approved opportunity to Rejected; its note can remain blank.
+## At a glance
 
-**Larger deadline labels:** red for overdue dates and **0–3 days**, yellow/amber for **4–7 days**, and green for **more than 7 days**. The labels count regional calendar days, including weekends, and update at regional midnight without added polling. NSW uses Sydney and VIC uses Melbourne. An approved project's red deadline badge does not change its Approved status.
-
-**Estimate section inclusion:** each section heading has an **On/Off** switch, initially On. Off keeps every item, quantity and price available while excluding that section from the project totals, labour hours/days and work-type summaries. Raw section totals stay visible with an exclusion label. Settings persist through refresh, project copies, revision snapshots and Project JSON transfer. Excel exports retain visible prices and show **Include in total** controls on the **CONNECTED COST DETAIL** sheet; `1` displays On and `0` displays Off.
-
-**Upgrade and existing work:** Estimator schema **32** adds project-level section settings through an automatic, backed-up migration. A separate one-time Tender correction restores only approvals supported by recorded approval history followed by an automatic System expiry. It preserves the original decision and history and records the correction. It does not assume that every expired or imported opportunity was approved. The earlier one-time clear and all previous schema compatibility repairs remain in place; completed clears do not run again.
-
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.7.txt](UPDATE_INSTRUCTIONS_V3.5.7.txt). The changed-files ZIP is relative to the complete **v3.5.6** package. Use the full code ZIP for an older or incomplete installation. Upload both interface builds: **`assets/index.html` plus all supplied Estimator assets**, and **`tenders_web/index.html` plus all supplied Tender assets**. Preserve the live databases, uploads, environment, working Python 3.11 virtual environment and host-specific Passenger configuration. No new dependency or frontend build is required on the host. Restart the application after the full upload and hard-refresh the browser.
-
-**Verify:** `/api/health?check=tenders` should report release **3.5.7**, schema **32**, and all readiness checks as `ok`. Follow the opportunity and estimate checklist in the update guide. [QUALITY_REVIEW_V3.5.7.txt](QUALITY_REVIEW_V3.5.7.txt) contains the final verification evidence and limits. This release is prepared for deployment; the live hosting process has not been modified during preparation. The v3.5.6 blank opportunity import template, Link field and removal of shared opportunity contact/email inputs remain available.
-
-# Previous release: v3.5.6
-
-**Opportunity creation repair:** the latest screenshot shows `NOT NULL constraint failed: opportunities.creator_id`. The hosted database retains a required legacy `creator_id` column, while current opportunity writes use `created_by`. A fresh local database has the current layout, which explains why the same creation flow can succeed locally. This release inspects the actual parent constraints and migrates the supported legacy layout before accepting writes.
-
-**Preserved records and working relationships:** a required migration takes a verified backup and runs inside the existing process lock and transaction. The complete original parent is retained under a unique `opportunities_legacy_v356` archive. Affected current application tables are archived and copied together so their new foreign keys target the current parent; unknown historical relationships remain attached to the original archives. Existing IDs, extra metadata, history and the completed `opportunities-owner-reset-v351` marker are preserved. Later imports and new work remain present after restart. The earlier reset continues to retire its original cohort only once.
-
-**Opportunity form and cards:** an optional **Link** field stores a project or tender web address and makes it available in the interface, import and export. The shared **Contact person** and **Email** fields are removed from the opportunity form and new template; existing stored values remain historical data. Cards show **3 days left**, **Due tomorrow**, **Due today**, a passed-deadline label, or **No deadline**, using calendar days in the opportunity region's timezone. NSW uses Sydney and VIC uses Melbourne; configured regions use their saved timezone. Existing themes and mobile layouts are maintained.
-
-**Updated blank Excel template:** use [templates/opportunities_import.xlsx](templates/opportunities_import.xlsx), also served by **Download template** in Opportunities. Keep the row 7 headings and enter projects from **row 8**. **Link is column L, Notes is M, and Added Date is N.** Paste a web address into Link or use Excel's native **Insert > Link**; `HYPERLINK(...)` formulas are not imported. Project Name and Region are required. Preview an uploaded or dragged-and-dropped workbook before applying it.
-
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.6.txt](UPDATE_INSTRUCTIONS_V3.5.6.txt). The changed-files ZIP is relative to the delivered **v3.5.5** package; use the full code ZIP for an older or incomplete installation. Upload the package contents into the existing app root, including `tenders_web/index.html` and every supplied compiled `tenders_web/assets/` file. Preserve the working Python 3.11 environment, host `.htaccess`, `passenger_wsgi.py`, runtime data and environment settings. No frontend build or new dependency is required on the host. Restart all Passenger workers, then hard-refresh the browser.
-
-**Verify:** `/api/health?check=tenders` must return release `3.5.6`, schema `31`, and successful Tender, Opportunities, SQLite and timezone checks. Follow the new-field and import checklist in the update instructions. An administrator can retrieve a newly captured startup failure through `/api/admin/startup-diagnostics?reference=<new-reference>` without a `stderr.log` file. See [QUALITY_REVIEW_V3.5.6.txt](QUALITY_REVIEW_V3.5.6.txt) for verification evidence and its limits. These files were prepared and tested using isolated fixtures; this work has not been deployed to the live hosting account.
-
-# Previous release: v3.5.5
-
-**Hosted reset repair:** the production diagnostic confirms v3.5.4 now passes schema initialization, then fails in the pending owner-requested clear at `DELETE FROM opportunities` with `FOREIGN KEY constraint failed`. The reset now records an indexed retirement cohort instead of deleting legacy records that other tables still reference. The active register, exports, deadlines, team counts, builder suggestions and opportunity inbox all respect this cohort.
-
-**History and imports:** original records and linked history remain available for audit and contribution reporting. A completed `opportunities-owner-reset-v351` marker is respected, so future restarts retain new work. A cleared workbook can be imported again with new record IDs; ordinary user-deleted records retain their existing replay protection. Reusing an old builder name restores that suggestion for new work.
-
-**Legacy workflow compatibility:** before normal writes, schema inspection detects incompatible activity/assignment constraints. Supported legacy tables are preserved under unique archive names and copied into the current writable layout, retaining known history IDs and original extra fields in the archives. Assignment updates change only the links that actually changed. Schema migration and the one-time clear each use a transaction, a process lock and verified backups when required.
-
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.5.txt](UPDATE_INSTRUCTIONS_V3.5.5.txt). Use the changed-files ZIP over the delivered **v3.5.4**, or the full code ZIP for a complete code update. Preserve the host's working Python 3.11 environment and Passenger configuration. No new dependency or frontend build is required.
-
-**Verify:** `/api/health?check=tenders` must return release `3.5.5`, schema `31`, and successful Tender, Opportunities, SQLite and timezone checks. See [QUALITY_REVIEW_V3.5.5.txt](QUALITY_REVIEW_V3.5.5.txt) for verification evidence and its limits. Deployment to the live host remains a separate installation step.
-
-# Previous release: v3.5.4
-
-**Hosted compatibility repair:** the latest production diagnostic confirms that Passenger now runs Python **3.11.13**, SQLite **3.34.1**, and the uploaded **v3.5.3** application. Startup then stops because the existing `opportunity_builders` table has a `name` column but no `builder_key`. This release adds the missing builder-directory migration alongside the opportunity-column migration delivered in v3.5.3.
-
-**What changes:** the migration retains the entire legacy builder table under an archive name and creates the current builder lookup from its usable names. Normalized duplicates share one suggestion; the original rows, spellings, extra columns, and metadata remain in the archive. SQLite preserves existing references to that retained table. New opportunities can register new builder names without depending on old required columns.
-
-**Data handling:** migration uses the existing process lock and one transaction, with a verified portable database backup before changing populated legacy data, including a populated builder directory with no opportunity rows. The original v3.5.1 opportunity-reset marker is unchanged: a completed reset is not repeated, and a pending owner-requested reset still follows successful schema initialization.
-
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.4.txt](UPDATE_INSTRUCTIONS_V3.5.4.txt). Apply the changed-files ZIP over **v3.5.3** or use the full source ZIP for a complete application-code update. Preserve the hosting configuration, the working Python 3.11 environment, and runtime databases. The release introduces no new dependency and keeps the existing compiled interface and import template.
-
-**Verify:** `/api/health?check=tenders` must return release `3.5.4`, schema `31`, and successful Tender, Opportunities, SQLite, and timezone checks. See [QUALITY_REVIEW_V3.5.4.txt](QUALITY_REVIEW_V3.5.4.txt) for verification evidence and its limits. Preparing these files does not deploy them to the hosting account.
-
-## Previous release: v3.5.3
-
-**Confirmed startup repair:** the hosted diagnostic identified `sqlite3.OperationalError: no such column: deleted_at`. Older Opportunities tables were not upgraded before index creation. This release inspects and upgrades supported existing tables before creating those indexes, with a verified backup before migrating populated opportunity data.
-
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.3.txt](UPDATE_INSTRUCTIONS_V3.5.3.txt). Apply the changed-files ZIP over the delivered **v3.5.2**, or use the full ZIP for a complete code update. Keep the current runtime databases and host-specific configuration. The reported Passenger process runs Python **3.9**; configure the existing application to use **3.11** and install its requirements in that same environment before restarting.
-
-**Verification:** `/api/health?check=tenders` must return release `3.5.3`, schema `31`, and successful Tender, Opportunities, SQLite and timezone checks. The installer now requires an explicit production-interpreter selection and checks Python/SQLite before installing dependencies. A shell or GitHub runner using Python 3.11 does not change Passenger's interpreter.
-
-**Opportunity data:** the migration preserves existing records and history. The earlier owner-requested clear retains its original `opportunities-owner-reset-v351` marker: it can finish once after startup is repaired if still pending; an already completed clear is not repeated. The blank Excel template and existing interface are unchanged.
-
-**Live status:** the confirmed failure was reproduced and the repair tested with isolated databases. This package has not been deployed to the hosting account during its preparation. See [QUALITY_REVIEW_V3.5.3.txt](QUALITY_REVIEW_V3.5.3.txt) for the release verification and limits.
-
-## Previous release: v3.5.2
-
-**Startup diagnostics:** captures new server startup exceptions privately from the running application and makes them available through an administrator's existing session. This provides an alternative when the host does not expose `stderr.log`.
-
-**Install and use:** follow [UPDATE_INSTRUCTIONS_V3.5.2.txt](UPDATE_INSTRUCTIONS_V3.5.2.txt). Apply the changed-files ZIP over the delivered **v3.5.1**, or use the full ZIP for a complete code update. Restart the application, press Retry in Tenders, then open `/api/admin/startup-diagnostics` while signed in as an administrator.
-
-**Scope:** this release provides protected retrieval of successfully captured startup failures. It does not claim an unverified production root-cause fix. Reading diagnostics does not start the Tender store. The existing v3.5.1 opportunity reset retains its original one-time marker.
-
-**Live status:** the v3.5.2 package has not been deployed to the live hosting account during its preparation. The reported v3.5.1 Tender startup failure still needs its underlying traceback.
-
-## Previous release: v3.5.1
-
-This update improves hosted Tender startup diagnostics, supplies a blank Excel import template, and applies the owner's requested one-time clear of the opportunity register. Existing visual themes and the v3.5 workflow remain in place.
-
-**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.1.txt](UPDATE_INSTRUCTIONS_V3.5.1.txt). Use the full ZIP for a complete code update or the changed-files ZIP over the previously delivered **v3.5**. Both include compiled frontend files. The release is **3.5.1**; Estimator schema remains **31**. Update the server's Passenger adapter while retaining any local interpreter settings, install requirements in the actual application environment, and restart Passenger.
-
-**Opportunity data:** this release contains zero bundled opportunities. On the first startup of each existing Tender database, the application makes a verified safety backup and clears the old opportunity register, assignments, and opportunity notices. Historical contribution activity is retained. A committed migration marker prevents later imports and manually added projects from being cleared on future restarts. Read the reset and backup details before installing the update.
-
-**Excel template:** [templates/opportunities_import.xlsx](templates/opportunities_import.xlsx) contains a blank Opportunities table and an Instructions sheet. It is also the file served by the application's Download template button. Enter one project per row, choose NSW or VIC, and preview the upload before importing. Contact person and Email now import and export correctly.
-
-**Hosted check:** `/api/health?check=tenders` verifies the Tender store and required runtime features. Startup failures show a safe error reference with the corresponding detailed traceback in the server log. The screenshot alone does not identify the production exception; see [UPDATE_V3.5.1.md](UPDATE_V3.5.1.md) for the confirmed findings and remaining live check.
-
-The sections below describe their named historical releases.
-
-# v3.2 release — October 2026
-
-The last three updates form v3.2:
-- Project JSON import/export and example; component copy/paste; This month filter.
-- Coloured JSON transfer cards; replaceable clipboard with copied-item label; This month default.
-- Approved Blueprint split login with responsive layout and reduced-motion support.
-
-Database schema remains 29. Existing migration names and data are preserved.
-
-## Tender Excel update — 5 October 2026
-
-- Dashboard: **Import Excel** sits beside **+ New tender**. Preview new, updated and unchanged submissions before importing.
-- Accepts `.xlsx` and `.xlsm` files with the original **Raw Data** layout, or a TEC **Tenders** export. VBA macros are never executed.
-- Uses Submission ID when supplied; otherwise matches project + builder (case and extra spacing ignored). Row order is not an identifier. For name changes, use the exported Submission ID; renaming an original-workbook project/builder is otherwise treated as a new submission.
-- Adds new records, updates changed imported fields and skips unchanged rows. Previous imports establish a baseline so unchanged Excel cells do not undo later app edits. Changed workbook values take precedence when applied.
-- Imports dated chase history and exported scheduled reminders. Existing records, notes and reminders absent from the workbook are preserved; importing is not a deletion operation.
-- Conflicting duplicate rows or ambiguous matches stop the import. Changes apply together in a database transaction. If another user changes tender data after preview, preview again.
-- Import limit: 15 MB / 20,000 submissions. Formulas must have saved results: recalculate and save in Excel before uploading if prompted.
-- Export: a visual overview with separate TEC-outcome, builder-outcome and pricing-feedback charts; clearer KPI totals, status colours, striped rows, value bars, readable dates, filters and frozen headers. Technical IDs remain in hidden columns for safe reimport.
-- Project value counts the highest quote for each project once. Builder awards and TEC wins are separate measures.
-
-**Deployment:** apply the changed-files ZIP over the latest Blueprint-login release, retaining folder paths, or use the full v3.2 ZIP. Deploy code and restart Passenger. Do not replace or delete live `.db` files. No new package dependency or estimator schema migration is required; import baselines are stored in the existing tender settings table. Built Tenders assets are included.
-
-**Checks:** import idempotency, original-workbook row reordering, additions and updates, history/reminder preservation, duplicate rejection, concurrent edits, authentication and CSRF, export structure and totals, native charts, desktop dark and mobile light import flow. Visual previews were checked; desktop Microsoft Excel was not available in this environment.
-
-
-
-# Tenders integration
-
-See [TENDERS_UPDATE.md](TENDERS_UPDATE.md) for the shared-login workspace, database migration and update instructions.
-
-# TEC ConEst · v3.5
-
-### Electrical estimating, connected costs and team collaboration
-
-A shared estimating workspace for catalogue assemblies, project quotations, supplier lighting prices and connected Excel exports. Built with Python, SQLite, a plain JavaScript Estimator and a React Tenders workspace, with a GitHub Actions workflow for the existing cPanel deployment.
-
-| Estimate | Collaborate | Operate |
+| ⚡ Estimator (teal) | 🟡 Tenders (gold) | 🛠 Platform |
 | :--- | :--- | :--- |
-| Reusable assemblies and item build-ups | Shared projects, notes and activity | Separate estimator and tender `.db` files |
-| Lighting supply and installation costs | Teams, account roles and revisions | Automated code deployment and database backups |
-| Connected Excel quantities and totals | Searchable supplier quotations | Desktop, mobile and dark mode |
+| Take-offs, assemblies and rate build-ups | Opportunities and deadlines | Shared accounts, roles and sessions |
+| Lighting supply / install split | NSW and VIC regions | Private team assignments and alerts |
+| Sections as included or optional cost | Approvals, quotes and follow-ups | SQLite backups, migrations and audit trails |
+| Catalogue and supplier price checks | Builder outcomes and project chasing | Secure GitHub → cPanel deployment |
+| Editable estimates, revisions and exports | Import/export of opportunities | Readable mobile experience and responsive layouts |
 
-**Quick links:** [Start](#1-start-and-deploy) · [Daily use](#2-daily-use) · [Backups](#3-data-and-backups) · [Architecture](#4-architecture-and-pricing) · [Files](#5-file-guide) · [Release history](#6-release-history) · [Troubleshooting](#7-troubleshooting)
+> **Data first:** Neither release ZIP contains your live project databases. Deploy code without replacing `data/`, `.env`, `passenger_wsgi.py`, `.htaccess`, uploads or existing backups.
 
-> [!IMPORTANT]
-> Your deployed database is authoritative. Update application code without replacing production data with a ZIP snapshot. The workflow excludes the entire `data/` directory from synchronization.
+## Contents
 
-## Previous release · v3.2
+1. [What changed in 3.6](#whats-new-in-36)
+2. [Quick start](#quick-start)
+3. [Daily workflows](#daily-workflows)
+4. [Opportunities and quotation decisions](#opportunities-and-quotation-decisions)
+5. [Estimator costs and Excel](#estimator-costs-and-excel)
+6. [Accounts, teams and permissions](#accounts-teams-and-permissions)
+7. [Architecture and files](#architecture-and-files)
+8. [Production deployment](#production-deployment)
+9. [Data and safety](#data-and-safety)
+10. [Performance and mobile](#performance-and-mobile)
+11. [Tests and release verification](#tests-and-release-verification)
+12. [Troubleshooting](#troubleshooting)
+13. [Condensed release history](#condensed-release-history)
 
-Major release: Estimator and Tenders share login, users, profile and theme. Switch with the circular-arrow control beside the brand. Tenders uses yellow accents and now matches Estimator's desktop sidebar geometry, typography and account controls. Its Workspace label and admin links are removed; user management and app settings remain in Estimator. A coloured title wipe reveals the destination workspace using a one-second transform animation; navigation and data loading start immediately, and reduced-motion users skip the wipe.
+## What's new in 3.6
 
-**Deployment and data:** read `TENDERS_UPDATE.md`. Keep live databases excluded from Git. Commit the code and `tenders_seed/seed.json`; the first Tender visit creates `data/tec_tenders.db` and imports the seed once. Subsequent deployments preserve live data. Replace `passenger_wsgi.py` manually in cPanel because the workflow deliberately excludes it. Restart Passenger. `/api/health` reports release `3.2` with estimator schema `29`; responses through the adapter report `X-ConEst-Adapter: 3.2`.
+**Release 3.6** brings together the shared Estimator/Tenders sign-in experience, mobile navigation consistency, responsive Tender dashboards and the performance/documentation improvements introduced during the preceding 3.5 development series. This is a release-label and README update only; application files must be versioned separately if you want the running server to identify itself as 3.6.
 
-The v3.1 Passenger adapter retains one-time initialization, the idle estimator WAL connection, transport-header cleanup, exact response lengths and negotiated gzip. It also compresses eligible dashboard, reminders, tender JSON and public JavaScript/CSS/SVG when Python serves those assets; precompressed, partial and no-transform responses are left intact. Public tender pages and bundles skip estimator database initialization. No production latency guarantee is implied.
+- **Login controls:** hide Estimator-only floating controls while login, loading or non-estimate screens are active. This corrects the intermittent stray round minus button on the login screen.
+- **Estimator phone navigation:** the Menu button now opens a full-height **slide-out drawer**, matching the Tender workspace. The navigation is one column; the profile and sign-out controls remain at the bottom. Tap outside, choose a page, press Escape or resize to desktop to close the drawer. The drawer no longer expands the page and pushes estimating controls downward.
+- **Tender dashboard cards:** replaced the mobile sideways-scrolling KPI strip with a **two-column grid**, matching the Estimator Home metrics. Other dashboard charts and tables remain inside responsive wrappers, with deliberate internal horizontal scrolling only for dense data tables.
+- **Cross-workspace mobile audit:** updated touch sizing, modals, filters, cards and form constraints for the 320–820px range. The original Tender source and the **already built website CSS** both include the changes, so deploying does not require rebuilding npm dependencies.
+- **No business-logic or schema changes:** current approval, quote, costing, import, security and audit rules remain as they were. Database schema remains **32**; no data reset or migration is introduced.
 
-## Previous release · v2.4
+### Deployment guidance for 3.6
 
-Latest estimate-page update (r5): reorder acknowledgements contain only order/revision metadata and skip full estimate calculations. The UI moves rows immediately, prevents overlapping drag/copy actions and restores the previous order on save failure. Dragging onto a component row also targets its parent estimate item. Updated clients negotiate changed-line responses for item changes and copies; legacy clients still receive complete responses. Pricing-setting changes fall back to full results. Outdated mutation responses cannot replace a newer project revision.
+For an application rollout of this documented release, use the complete application package or a verified update package appropriate to the exact existing installation. A README-only update does **not** change executable files, built assets, or the runtime version. Upload all changed `assets/` and `tenders_web/` browser files alongside source changes, preserve `data/`, your `passenger_wsgi.py`, uploads and environment settings, and restart Passenger. Hard-refresh the browser to replace cached CSS; the new Estimator JS has a new content fingerprint to prevent stale code. Confirm `GET /api/health?check=tenders` reports **schema 32** and the correct **running application version** (3.6 once the application version metadata is also updated).
 
-Component detail rows render only when expanded, textarea sizing batches layout reads/writes, and successful manual edits no longer reload the dashboard and entire estimate. Catalogue reindexing updates changed metadata/preference rows instead of rewriting every item. Passenger r5 compresses large successful project/catalog mutation responses as well as GET responses; replace the standalone adapter and restart Passenger to enable this. The adapter header reports 2.4-r5.
+## What's new in 3.5.11 (historical)
 
-Copy Estimate adds an unchecked “Start all estimate quantities at 0” option. It resets assembly quantities, clears independent supply-quantity overrides and zeros fixed-total component quantities; ordinary per-unit build-ups and unit prices remain reusable. Source estimates remain unchanged. No database split or new schema migration is needed. Validation includes 118 Python tests, extra catalogue checks, and frontend delta/order/rollback tests. Production latency still needs verification after deployment.
+- **Shared sign-in:** removed Estimator-only subtitle; both Estimator and Tenders now have equal billing. Three locally bundled electrical-design blueprint illustrations rotate every **3 seconds**, with tender/estimate/team messaging and teal + gold accents. Slide controls can be clicked; animation pauses in hidden tabs and honours reduced-motion settings.
+- **Mobile usability:** additional CSS layouts for both apps across phones/tablets, including navigation, cards, filters, catalogues, forms, modals, responsive totals, touch targets and table scrolling. Dense data tables intentionally remain scrollable rather than hiding columns.
+- **Performance:** large public `.js`, `.css` and `.svg` files served by the Python app are gzip-compressed and cached by content mtime; private exports and API data are excluded. Estimator GET requests recover once from certain transient network/gateway failures; mutations are never retried automatically. Unnecessary background brief refreshes are reduced. Tender continues using its existing paginated and lazy-loaded views.
+- **Documentation:** release-note TXT/MD files, quality reviews and old manifests have been consolidated into **this README**. Historical milestones are summarized below. The optional cleanup utility lists legacy documentation it can safely remove on an existing manual installation.
+- **No database schema change:** schema **32**; no new opportunity reset, migration or data deletion introduced by this release.
 
-Latest update (r4): App Settings now controls the default “Save changes to” destination: estimate only (initial default), update catalog, or new catalog item. The dialog still lets the user override it, and falls back safely when no original catalog item exists. Defaults use the requested three-row order. The server now accepts and persists default labour-hour markup; the previous settings allowlist inadvertently omitted it.
+### What's unchanged
 
-The r4 Passenger adapter compresses large GET project/catalog JSON when the browser accepts gzip, maintains the actual transmitted Content-Length, and strips connection-specific transport headers before returning to Passenger. Responses include `X-ConEst-Adapter: 2.4-r4` and `Server-Timing`. Replace passenger_wsgi.py in cPanel and restart Passenger; the deployment workflow intentionally preserves that file. These measures reduce transfers and prevent forwarding invalid transport headers, but do not establish or fix every possible Apache, network or browser-extension cause of HTTP/2 resets. No production performance result is claimed. No additional schema migration is required for the new default.
+Existing opportunity approval/expiry business rules, quote-to-Chase-up linking, category inclusion/optional costs, permissions, tender and Estimator data, and database backups are unchanged. Desktop theme colours remain teal for estimating and yellow/gold for tenders.
 
-Labour hour mark-up is stored as a fraction (10% = 0.1). Adjusted hourly labour = base hours × (1 + labour-hour markup). Labour cost, person-days, crew working days and quoted totals use adjusted hours; fixed labour prices are unaffected. Excel exposes the linked control in COST ESTIMATE!F7. Application Settings supplies the default for new projects. Existing project values default to zero.
+## Quick start
 
-The browser loads one CSS bundle and one deferred application bundle, with content-based filenames. Edit the source JS files or assets/styles.css, then run `python tools/build_frontend.py` before deployment. Old version-specific CSS files have been consolidated. Required historical database migrations remain. assets/.htaccess enables long-lived caching and compression when Apache serves assets directly; the Python server also caches fingerprinted bundles.
+### Requirements
 
-Replace passenger_wsgi.py manually in cPanel (the deployment workflow preserves it), then restart Passenger. It keeps an idle SQLite connection between requests and adds Server-Timing so application time can be distinguished from hosting/queue time in browser Network timings. The root .htaccess and production data remain untouched. These changes reduce repeated requests and database work; production hosting latency still requires verification after deployment.
+- Python **3.11 recommended** (minimum supported 3.10); dependencies from `requirements.txt`.
+- Node.js **22.13+** when you need to rebuild the React Tenders frontend.
+- SQLite included in Python; host runtime must support the operations checked by `tools/check_runtime.py`.
+- Modern desktop/mobile browser. A local filesystem for SQLite storage; network-mounted SQLite files are not recommended.
 
-Estimate searches prioritize matching catalog items most recently added to saved estimates, including existing usage history. Catalog Explorer keeps its normal ordering.
+### Windows
 
-Refresh restores the requested page behind a neutral loading screen. Startup requests run concurrently, background board updates skip unchanged data, reminders avoid estimate calculations, and component reads use one query per project. Versioned static assets can be reused from the browser cache. The duplicate profile heading is removed. Identical pending reads share one request; neither reads nor saves are automatically replayed after failure. Background polls pause during foreground requests. Startup failures show a retry screen without treating them as logout. Project Board adds total-cost ordering within currency groups and offers Cards/List views. Schema 26 adds labour-hour markup, defaulting existing estimates to 0%.
+1. Extract into a project folder outside system-protected directories.
+2. Run **`START_TEC_SERVER.bat`** and allow Python dependencies to install.
+3. Open `http://127.0.0.1:8080/`.
+4. Use the administrator setup/sign-in details from your existing installation. Change any initial credentials.
 
-Apply this changed-files ZIP over the previous v2.4 package and restart the app. Keep your production data folder. The health endpoint reports `2.4`. Regression checks cover startup, network failures, board sorting, calendar and Excel formulas. On the supplied four-project snapshot, calculation queries fell from 254 to 12 with byte-equivalent serialized results. This measures database work, not production hosting latency.
+### Linux / macOS
 
-## Previous release · v2.3.6
+```bash
+sh run.sh
+```
 
-A simpler project workspace with Cards, List and Compact views beside search. Each account remembers its view and sort order. Explorer-style View and Sort controls offer name, deadline, creation and update ordering. Keep on Schedule combines upcoming deadlines and unread reminders in one place. Project cards emphasize status, deadline, value and Open Estimate; secondary details expand when needed.
+Or use a dedicated Python environment and your existing application startup:
 
-Copy Project opens an editable form with a blank deadline, preserving the source estimate’s items and rates. Import Files and My Profile use consistent labels, and the team refresh control is removed. New Project is available only on Build Estimate. Redundant refresh controls and board tabs are removed, while Newly added badges remain. The Manage Project dialog puts Open Estimate beside its summary. Rounded cards, clearer spacing and responsive controls work with both themes.
+```bash
+python3.11 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+python app.py --help
+```
 
-**Updating v2.3.5:** extract the changed-files ZIP into your existing app folder, replacing matching files. The full ZIP contains the complete application source. Both packages omit runtime data and Git history; keep your existing `data/` folder, server configuration and repository. Restart the app after updating. This release keeps database schema 25 and reports `2.3.6` at `/api/health`.
+Start with the appropriate supported option for your hosting environment. The full UI and uploaded data are available only after the server has been started successfully.
 
-Validation: run `node tests/workspace_v236.test.js` and the existing calendar tests. The new interface stylesheet is `assets/v236.css`. Historical release instructions below apply only to their named versions.
+### Navigation
 
-## v2.3 update
+The landing page is the **shared TEC ConEst login**. After signing in, switch between **Estimator** and **Tenders** using the app's workspace control; account/profile permissions carry across. Estimator is at `/`, Tenders is at `/tenders/`.
 
-This version adds monthly calendar estimates and project detail, optional Won/Lost results, safe admin account deletion, a four-project scrollable chooser, project-only lighting refs with same-cell Excel export, and an inline editable lighting-price library with explained totals, searchable nicknames and photos. The sidebar is reordered as requested.
+## Daily workflows
 
-**Existing installation:** use the update-only ZIP, preserve your current data folder and follow [UPGRADE_v2.3.md](UPGRADE_v2.3.md). See [release notes](RELEASE_NOTES_v2.3.md) for calculation/storage definitions and [test report](TEST_REPORT_v2.3.md) for validation and limits. Pillow is now required for light photos; both startup launchers check it.
+### Estimator
 
-## 1. Start and deploy
+1. **Home:** see project status, due dates, notes and board filters; create or open a project.
+2. **Estimate:** add catalogue items, adjust quantities, material/labour/markup, and create or edit components. Category switches determine whether their values count as included or optional costs; no component data is deleted by switching off.
+3. **Catalog:** search and modify reusable item assemblies, preview duplicates, and import source workbooks.
+4. **Light Price:** compare supplier lighting fittings and associated installation/supply components.
+5. **Calendar and reminders:** review submission and internal review deadlines; dismiss visible individual reminders.
+6. **Export Excel:** receive connected totals and item-level details, including optional costs.
+7. **Project JSON:** transfer projects/revisions through the supported import/export workflow; review imported content before applying.
 
-### Run locally
+### Tenders
 
-| Platform | Start command | What happens |
-| --- | --- | --- |
-| Windows | Double-click `START_TEC_SERVER.bat` | Creates `.venv`, installs requirements and starts the server. |
-| Linux / macOS | `sh run.sh` | Creates `.venv`, installs requirements and starts the server. |
+1. **Dashboard:** open submissions, awards, outcomes, pricing feedback, tender activity and project values.
+2. **Opportunities:** create potential jobs, select region, deadline, builders, scope, estimated tender value, distance origin and URL; preview an Excel import.
+3. **Projects and Project Chase-up:** link submitted quotes to builder records, assign follow-ups and capture builder feedback/outcomes.
+4. **Builders:** manage the directory and builder-specific submission history.
+5. **Calendar and reminders:** keep track of tenders and follow-ups.
+6. **Notifications:** assignment and reminder alerts share one inbox with per-user read state.
+7. **View Contribution:** administrators can review recorded Estimator/Tender/Opportunity actions for staff within the available reporting window.
 
-Install Python 3.10 or newer first. The initial dependency installation needs internet access. Open `http://127.0.0.1:8080` on the host, or use its printed team URL from another computer. Keep the server running and allow the required private-network connection through the host firewall. Stop it with Ctrl+C. Use one server process and keep SQLite on the host's local disk.
+## Opportunities and quotation decisions
 
-### Existing cPanel production deployment
+### Fields and multiple builders
 
-The included [.github/workflows/deploy-cpanel.yml](.github/workflows/deploy-cpanel.yml) deploys on pushes to `main` or a manual GitHub Actions run. It retains the supplied deployment path and site address.
+Each opportunity can contain project name, NSW/VIC region, site/location, closing date, builder(s), working scope, category, budget range, estimated tender value in AUD, optional link, notes, and optional distances. Each region has a configurable origin; the initial defaults are:
 
-1. Update the files in your existing checkout, retaining its Git history and your production data.
-2. Review the changes, commit them and push to `main`.
-3. GitHub Actions installs requirements, checks Python syntax and runs the release tests.
-4. It connects over SSH, creates a consistent pre-deployment SQLite backup and removes backup sets older than the latest one.
-5. It uploads application code, installs requirements, restarts Passenger and checks `/api/health`.
+| Region | Distance origin |
+|---|---|
+| NSW | 63–79 Parramatta Rd, Silverwater NSW 2128 |
+| VIC | CBD, Melbourne |
 
-| GitHub secret | Purpose |
-| --- | --- |
-| `CPANEL_HOST` | SSH host |
-| `CPANEL_USER` | SSH username |
-| `CPANEL_SSH_KEY` | Deployment private key |
-| `CPANEL_SSH_PORT` | Optional SSH port; defaults to 22 |
+Distances are **entered/imported**; the route link is for manual road-distance checking, not an automatic calculation. A new builder name can be retained for future suggestions. Contact persons are not single fields on the opportunity because several builders may participate.
 
-The workflow preserves server-owned `.htaccess`, `passenger_wsgi.py`, Python environments, certificate verification files, temporary restart files and the full production data directory. It does not create the cPanel account, SSL certificate or Passenger adapter. Those are part of the existing deployment. The delivered ZIP contains code and configuration, not local Git internals; copy it into your existing checkout. No live deployment is performed by producing this release.
+### Initial opportunity seed and one-time reset history
 
-### Upgrade from a version earlier than v2.0
+The packaged `opportunities_seed/seed.json` intentionally contains **no opportunity projects**. Automatic replay of the original NSW/VIC source workbooks was removed in v3.5.1. The owner-requested legacy register clear was implemented as a guarded one-time operation: before first reset, the application takes a verified Tender SQLite backup under an `upgrade_backups/` path. Later compatibility releases preserve connected historical records and audit/contribution data while retiring the old register from active searches and counts. Once the reset marker is committed, manually created and imported projects persist across subsequent restarts. **v3.6 does not trigger or repeat that reset.** Restoring a backup taken before the reset needs a deliberate migration/recovery plan, otherwise older projects can become active again or the reset can run when the store initializes.
 
-Stop the old app and back up its current main and lighting databases. Put the old `lighting_prices.db` beside the live main database for the first v2.x startup, or point `CONEST_LIGHT_PRICES_DB` to its legacy location. Startup verifies it, creates a migration backup, then transactionally merges supplier quotes into `conest_catalog.db`. Matching quotes are skipped on repeated startup; related IDs are remapped when necessary. The old file is not deleted automatically. Once verified, archive it outside the live data directory and remove the legacy path variable. Subsequent operation needs only the main database.
+The new blank import template contains an `Opportunities` sheet and `Instructions` sheet; imports add missing records but do not bypass admin/team approval. Original uploaded cell values and source decisions remain available as source notes where supported; an imported status does not automatically approve a project.
 
-## 2. Daily use
+### Status and actions
 
-### Features included in v2.2
+- **Awaiting approval:** team members who meet approval permissions or admins can approve/reject; rejection note is optional.
+- **Assigned team:** automatically approves the opportunity, even if its date has passed.
+- **Approved:** stays approved after its deadline; expired-date items retain normal grey deadline labels and do not get a Reject button.
+- **Expired:** deadline has passed without approval; existing controls follow current approval permissions. Expired cards and details **do not show Reject** (since 3.5.10).
+- **Quoted:** for an eligible current approved opportunity, enter electrical submission value and relevant builder(s); linked submissions are created in Chase-up. A recorded quote preserves its Chase-up link.
+- **Not quoted:** for an eligible current approved opportunity, moves it to Rejected with optional note.
+- **Reopening:** extending the deadline may return an unapproved expired record to Awaiting approval; existing approval remains approved.
 
-| Area | Behaviour |
-| --- | --- |
-| Mobile navigation | A compact header with Menu replaces the squeezed desktop sidebar. The menu contains account controls and closes after navigation or Escape. |
-| New projects | A submission deadline can be today or later. Past dates are blocked in the picker and API. The server's local date is authoritative; existing overdue projects are preserved. |
-| Settings | Backup and application-default panels share the available width. |
-| Component editor | Description, size, quantity, unit, material price, labour basis, labour value and delete action have balanced widths. Phones show labelled component cards. |
-| Save feedback | Errors appear inside the editor without losing entered values. A successful write is confirmed before screen refreshes, avoiding a misleading save failure if refresh fails. |
-| Backup retention | Only the latest completed backup set is kept in the active backup folder. |
+The server records actor, time, and action. Do not use browser-only UI hiding as an authorization boundary; server permissions must also apply.
 
-### Home, teams and projects
-The project board shows accessible projects, their status and deadlines. Use its search bar to locate a project. Team members can work on projects assigned to their team, and a project created by a user is shared with their team. Administrators can manage all projects, users, roles and teams. Newly created user projects appear for admin review. All active signed-in users can view every company project in every status, including other teams' notes, revisions and recorded activity. Only the owner, assigned team members, individually assigned users or administrators may change project content. Owners and administrators control project deletion and assignment of existing teams or individual editors; this does not grant account-administration permissions. Viewing does not grant editing permission.
+### Opportunities Excel template
 
-My profile contains personal details and team membership. Administrators can rename teams, change members, promote or demote users, and activate/deactivate accounts through management screens. The deadline calendar and homepage reminders help identify approaching and overdue submissions. The activity record attributes project changes to users.
+Use **Opportunities → Import Excel → Download template**. Enter one opportunity per row; multiple builders are entered on separate lines in the same cell. Use genuine Excel date cells or `YYYY-MM-DD`. The workbook includes **Link**, not a single shared contact/email pair. Import preview reports added, duplicate and invalid rows; existing opportunities are not silently overwritten.
 
-### Build an estimate
+## Estimator costs and Excel
 
-1. Open a project and type an item title into the main search bar. Suggestions appear as you type. Select an item to review its build-up, then add the required Qty. **Zero is allowed**, so an item can remain in the estimate while its quantity is still undecided.
-2. The round **search icon** at the lower right scrolls to and focuses that main search bar. The **↓ button** goes to the bottom of the estimate. Clearing the search text or pressing × removes the result and cancels pending searches.
-3. **Find in estimate** searches the items already added, including their names, sizes, scopes and component descriptions. It changes only what is visible; the quoted total and Excel export still include the whole estimate. Clear this field to show the full list.
-4. Items are grouped by scope. Use **+/− beside a scope** to hide/show that whole group. Use **+ beside an item** to show its components; components initially start collapsed. Typing a new live-estimate search reveals matching items. Collapse all still minimizes categories while that search is active.
-5. Change the estimate name, Category, Qty or lighting Supply cost / unit directly on the line. Category suggestions show full names and allow pointer or keyboard selection. Custom categories are still allowed. Names and category text wrap to show long values. These changes save to the project without creating catalogue records.
-6. Use **Copy item** for an independent copy immediately below the source. Drag the **⠿ grip** beside its title to reorder items **within the same scope**. To move between scopes, change Category. The order is saved and is used by Excel.
-7. Expanded components have their own **+ copy** and **⠿ drag** controls. Copies appear immediately below the original; components can be moved within their own item. Copies preserve the displayed rates, sizes, units and factors. Copying or moving a component does not change its source catalogue item.
-8. **Edit item / components** opens the full editor, including work type, assembly size, component descriptions, units, sizes, factors and prices. The editor also supports component copy and drag controls. Assembly and component sizes are shown in bold on the website. Component size has its own visible editor column; exported component descriptions use regular text and a separate Size / specification column.
+### Included vs optional sections
 
-The main Qty field is the single visible estimate quantity. Historical parenthetical take-off lengths/quantities are removed from presentation titles and from the text inserted into search when an item is selected. Useful specifications such as IP ratings and millimetre sizes are retained. This title cleanup does not rename raw catalogue records automatically. Catalogue Explorer searches by title; source codes, component descriptions and historical aliases do not determine catalogue title matches.
+Each estimate category has a switch, initially enabled. When off, its quantities, units, component prices and markups remain visible but **do not contribute to the included estimate total**. Export and share views identify excluded categories as **Optional cost** with a separate optional subtotal, including labour and material components. Switching on restores the cost to the included estimate.
 
 ### Lighting supply and installation
 
-Lighting and Emergency & Exit Lighting use the same pricing rules. The designated parent component (otherwise the first component) is the fitting supply allowance. Enter the supplier's price for **one fitting** in **Supply cost / unit**, before project mark-ups. The main Qty scales supply and installation together. Previously saved independent supply quantities are preserved until a quantity is edited, so an upgrade does not silently change a quotation.
+Lighting and Emergency/Exit lighting items can have project-specific supply values. Supply/installation and relocation/demolition breakdowns appear in the quoted summary and exported workbook. Catalogue components and recurring rates are not silently overwritten by a project-specific supplier price.
 
-**Supplier prices are saved with the project, not written back to the reusable catalogue.** They must be stored in the project database so reopening, project copies, backups and tender revisions retain the quotation. Editing the main supply field never creates a new catalogue item. Saving a new catalogue item from the estimate, or choosing to update its existing catalogue record, writes zero fitting supply prices into the reusable record while retaining the actual supplier prices in the project. Installation materials and labour are reusable. Other saved estimates keep their own snapshots.
+### Estimates, copies and revisions
 
-The live estimate shows **Supply / unit** and **Install material / unit** separately. These calculated amounts include the project material mark-up. The first is the fitting supply allowance; the second is the remaining material build-up. Labour is shown separately. In categories without a separate fitting allowance, the material build-up appears under installation materials. The scope summary separates lighting supply cost from installation cost, with all labour included in installation.
+The Estimate page supports project revisions, copying projects, shared team access, notes, search, category reordering, markups and rates. Changing a local estimate can be saved back to that project without overwriting the catalogue unless the user explicitly chooses a catalogue operation. Store full backups before making bulk changes.
 
-Copying a fitting component preserves its current price and marks it as another fitting supply allowance, so it stays in the supply subtotal after reordering. The main supply-price field controls the original designated fitting; copied fitting prices can be edited in the component editor. When that build-up is saved to the catalogue from an estimate, all of these fitting supply prices are excluded. Existing imported catalogue prices are not erased as part of upgrading the database.
+## Accounts, teams and permissions
 
-### Choose where an edit is saved
+- Authentication is shared by both workspaces. Admins manage people, roles, teams and application settings from Estimator.
+- Opportunity **creator or administrator** controls assignments, deletion and editing-access delegation. Delegated editors can edit details but are not automatically granted administrative powers.
+- Eligible active members of a team and admins can approve awaiting opportunities.
+- Assignment notifications are sent to assigned people and teams. Viewing notifications marks them read for the individual user.
+- Quoted submissions and opportunity activity are recorded for audit and contribution; automation is not attributed to a human.
+- Sessions, passwords, passwords changes and CSRF protection are server managed. Never commit API keys, password databases or `.env` files.
 
-| Choice in the estimate editor | Result |
-| --- | --- |
-| **Save this estimate only** | Saves the edited name, size, components, quantity and prices to this project. The original catalogue item and other estimates are unchanged. |
-| **Update existing catalog item** | Updates the same catalogue ID for future use and saves the edit to this estimate. No new version is created. Fitting supply prices stay in the project. |
-| **Save as a new catalog item** — default | Creates a separate reusable item and updates/adds the estimate line. Lighting fitting supply prices are zero in the catalogue and retained in the estimate. |
+## Architecture and files
 
-A completely new manual item created while estimating is saved for future use automatically. If a catalogue source has since been deleted, its saved estimate can still be edited; choose a new catalogue item only when you want to make it reusable again. Work types include Assembly, Supply only, Installation only, Supply & installation, Relocation, Demolition, and Relocation and Demolition. Work-type controls remain in the full editor. Supply-only excludes labour; installation-only excludes material in this editor, so choose Assembly or Supply & installation if you need materials and labour in the build-up.
+| Folder/file | Purpose |
+|---|---|
+| `app.py` | Python HTTP application / API and static asset delivery |
+| `passenger_wsgi.py` | Hosted WSGI adapter; **server-specific, preserve on deployment** |
+| `conest_app/` | Estimator, Tender, catalogue, opportunity, storage, reporting, auth and export logic |
+| `assets/` | Estimator markup, source JS/CSS, local login SVG slides and compiled browser assets |
+| `tenders_frontend/` | React / TypeScript source and npm dependencies |
+| `tenders_web/` | Compiled Tender page and assets for direct serving |
+| `templates/` | Downloadable Excel import templates |
+| `tenders_seed/` | First-time Tender initialization seed (not production data) |
+| `tools/build_frontend.py` | Rebuild fingerprinted Estimator JS/CSS from sources |
+| `tools/check_runtime.py` | Verify required host Python and SQLite behavior |
+| `tools/run_tests.py` | Run Python test modules with isolated temporary databases |
+| `tools/prune_legacy_docs.py` | Optional **dry-run-first** cleanup of pre-3.5.11 documentation files |
+| `.github/workflows/deploy-cpanel.yml` | CI build, test, code upload, Passenger restart, readiness check |
+| `data/` | Live runtime data; never deploy a replacement from a ZIP |
 
-### Copy a project
+### Database layout
 
-Use **Copy** on a project card or **Copy project** above its estimate, then enter the new project name. The copy retains the scope of work, client, currency, project rates, estimate quantities, fitting supply prices, item order and component snapshots. Every copied item/component receives a new ID so subsequent edits are independent.
+`data/conest_catalog.db` holds core accounts, estimator projects, catalogues, supplier prices and settings. `data/tec_tenders.db` holds Tender submissions, opportunity records and associated histories. A host may override these using `CONEST_DB_PATH` and `CONEST_TENDERS_DB_PATH`.
 
-The copied project starts as **Not started**, with a new owner/creator and activity history. Set its new deadline in Manage project. User-created copies share automatically with the creator's current team and enter the admin's newly-added review queue. Admin-created copies can be assigned to teams through Manage project. Old assignments, submission/completion records, shared notes and tender revisions are not copied. A submitted project from another team may be copied when you have permission to view it; that does not grant permission to edit the original.
+**One-time schema migrations are not seed imports.** Keep live databases in place; first startup may perform a guarded upgrade and record its completion. Current release adds **no migration**, and the application schema is **32**.
 
-### Rates and summaries
-Rates and mark-ups are visible above the estimate. Material mark-up affects material; labour rate affects hourly labour; final mark-up applies to direct cost. Save project settings to apply edits. Fixed labour prices stay independent of the hourly rate.
+## Production deployment
 
-The summary switches between By scope and By work type. Scope totals include separate lighting supply and installation lines. Work-type totals group complete estimate lines according to their saved classification. These are two views of the same estimate, not additional costs to add together. Parent scope rows and their child breakdowns likewise must not be added together twice.
+The established site is `https://tec-const.ampecportal.com/` and the existing app directory is:
 
-### Catalogue editing and deletion
-Catalogue Explorer contains saved details, versions, sources and pricing history. Users and administrators can create, import and edit catalogue items. Every saved item, including imported records, has **Edit catalog** to update that exact record in place. Select the exact record before editing or deleting it. Estimate search results also include **Delete**, so an incorrect catalogue item can be removed without leaving the estimate page.
-
-**Delete catalog item** asks for confirmation and permanently deletes that selected catalogue record and its catalogue-owned components, source links, aliases and price history. It does not delete other saved versions. Existing estimates keep their snapshot descriptions, components and prices; their link to the deleted catalogue item is cleared. Saved tender revisions remain snapshots. Another equivalent saved version may still appear in search. Re-importing its original workbook can recreate a deleted item. Restore a database backup if you need to undo a deletion; restoring affects the whole database, including later changes.
-
-### Imports and price history
-Upload supported Excel layouts through Imports. Preview new items, changed prices, duplicates and parsing messages; choose what to import. Confirming an import creates a backup first. Unsupported layouts cannot be treated as successful imports. Source filenames, relevant quantities and pricing data are stored in the database. Low/high budget ranges are kept as distinct labelled options rather than averaged into an invented rate. Enter supplier and quote-date information where available for price history.
-
-### Notes, collaboration and revisions
-Add Note stores shared notes with the author's name. A small unread indicator is tracked separately for each user and clears when that user opens the notes. Members with the applicable project access can remove obsolete notes.
-
-Presence information shows active project users. Revision numbers on project/line writes detect stale edits and ask for a refresh instead of silently overwriting another person's changes. The activity log records contributors. This is shared estimating, not simultaneous character-by-character document editing.
-
-Save tender revisions such as Original, Revision 1 or Final Submission to preserve a quotation snapshot. Compare revisions and export their Excel files. The revision creator or an administrator can delete a revision. Deleting a revision does not delete the current working estimate.
-
-### Excel export
-The workbook has COST ESTIMATE and CONNECTED COST DETAIL sheets. The first shows project assumptions, scope totals and a separate Work Type Cost Summary. The detail sheet contains parent assemblies and their component build-ups. Pale gold input cells can be edited. Parent quantities drive component quantities; unit prices, project mark-ups and labour rate feed connected formulas. Parent categories feed the scope summary, and column O work types feed the work-type summary. Excel recalculates when opened in a compatible spreadsheet application. Parent Material / unit cells show separate, formula-linked Supply and Install values on two lines, while component material cells remain numeric inputs. These parent display cells are not extra amounts to add to the total. Assembly and component sizes have a separate Excel column; component descriptions use regular text. Reordered items and components export in their saved order. Zero parent quantities produce zero scaled allowances without division errors; explicitly fixed component quantities still apply.
-
-The exported workbook is an independent file: edits made in Excel do not automatically sync back into the website. Keep revisions in the app when you want to preserve a submitted quotation there.
-
-### Supplier lighting prices
-
-Open **Light price check** directly below Imports in the sidebar. Use the Supplier dropdown to filter connected groups containing that supplier, together with your search text. Supplier and Cat No are separate detail columns. The visible Add supplier prices panel is at the bottom of the page. Type any combination of supplier, description, catalogue number or project name; matching is case-insensitive, every search word must occur in the connected group's searchable data, and suggestions refresh without pressing Enter. Quote reference is searchable too. Results show 40 groups per page, with Previous/Next controls. Open a result to see the quantities, unit and line prices of all linked parts and freight, plus source quote, project, date and PDF page. Results support browser Back/Forward, refresh and opening in a new tab.
-
-All displayed prices are **AUD excluding GST**. The internal Type field connects rows but is not shown in the website. Connections are local to each quote:
-
-1. A non-empty Type starts a group or joins an existing group with the same type, including when it reappears later.
-2. A blank Type joins the preceding type. Leading untyped rows have their own standalone group.
-3. Where a separate Type cell is blank but the description contains a marker such as `Type PD01`, that marker supplies the type. This connects fittings and globes that the PDF places on different rows.
-4. The first row of a group provides its primary quantity. The connected unit price is **sum of linked line totals ÷ primary quantity**. It is not the sum of the component unit rates. For example, one chandelier at $100 plus twelve globes at $5 gives $160 per chandelier. A zero or missing primary quantity has no calculated connected unit price. Missing component prices mark a group incomplete; its known line sum is explicitly a partial total.
-5. Standalone commercial notes and unpriced note-only rows are excluded. Priced freight is retained even when its catalogue number says NOTE. Included zero-price equipment is retained. Original source-row metadata, including raw types and available GST/ETA values, remains in the main database for traceability; commercial notes are not displayed as price results.
-
-The importer preserves the original quoted line totals and retains any source-header rounding differences rather than inventing a balancing item.
-
-Use **Add supplier prices** to upload the connected `.xlsx` workbook format or a text-based TLE quote `.pdf` matching the samples. Workbook import reads the **All Items** sheet once, not the repeated project-specific tabs. Optional Project Index totals are kept for reference. PDF parsing recognises the 12-column item table and quote metadata across repeated pages. Scanned PDFs, other supplier layouts and arbitrary spreadsheets are not supported by this importer; it reports an error instead of guessing. Uploads are limited to 30 MB and PDFs to 100 pages.
-
-Identical quote reference/date/content is skipped even when the same quote is uploaded once as XLSX and once as PDF. Changed content is retained as another quotation record rather than overwriting previous prices. Import parses first, then writes the whole batch transactionally under a write lock. Before an import adds records to an existing database, a consistent backup is saved through the normal main-database backup system in `data/backups`.
-
-**Light prices remain separate from the main catalogue and projects.** Importing a supplier quote does not change any estimate. Review a connected price, then enter the required price in the estimate's Supply cost / unit field. The Help assistant can retrieve up to four supplier groups and provide links to check them. With AI enabled, those selected supplier facts are sent to the configured provider along with the question; without AI, matching prices and links are still available through the built-in guide.
-
-**One database from v2.0.** `conest_catalog.db` contains accounts, catalogue records, projects, estimate snapshots, settings and supplier quotes. All future imports write there. Main database backups include lighting prices, and restoring them restores lighting prices too. `CONEST_DB_PATH` selects the active file. The old lighting path is used only for the one-time deployment migration above.
-
-### Fixed component quantities and uploads
-
-Open **Specifications, factors & notes** and tick **Fixed total** to restore its original database quantity and stop it multiplying by the parent assembly quantity. For imported items, this uses the original workbook quantity; old estimate rows are matched to their source by order, description and size. Unmatched rows use their saved allowance. A fixed quantity applies even when the parent quantity is zero; set the component quantity to zero to exclude it. Material, labour, copies and connected Excel formulas use the same rule. Untick to use a per-item allowance again.
-
-After an item is added successfully, the search quantity returns to **1**. Failed adds keep your entered quantity. Both upload panels accept drag-and-drop or file selection; preview/import still requires pressing the existing button. Workbook imports accept XLSX/XLSM up to 80 MB; supplier quotes accept XLSX/PDF up to 30 MB.
-
-Help reads live saved project estimates, notes, revisions and recorded activity; catalogue components/allowances; and lighting-quote components/prices. Search by name, ID, catalogue number or lighting nickname, or ask about the open record. Source links open the matching record. Data lookups use application calculations and do not need an AI key. Optional Gemini is used only for how-to guidance; retrieved business records are not sent to it. Answers never edit your work. Result limits are stated and a missing price is not represented as a complete price.
-
-## 3. Data and backups
-
-**One active database:** `data/conest_catalog.db` contains catalogue records, projects, estimate snapshots, accounts, settings and supplier lighting prices. Passwords are stored as one-way hashes. Browser theme preferences stay in browser storage.
-
-### Keep one current backup
-
-All routine app backups, supplier/catalogue import backups, restore safety backups, command-line backups and GitHub pre-deployment backups share `data/backups`. Each set contains a `.db` snapshot and, where present, its `.json` metadata. Retention uses file modification time, so different filename formats are ordered consistently. Older sets are deleted automatically after a successful new backup, at startup and when the backup list is refreshed. A failed backup does not trigger pruning of existing restore points.
-
-Use **App settings → Back up now**, or run `BACKUP_DATABASE.bat`. Download any backup you want to retain longer to a location outside the active backup folder. One-time migration archives and copies already downloaded elsewhere are not part of routine retention.
-
-Restore checks database integrity, relationships, schema compatibility and the presence of an active administrator. It takes a safety snapshot first and signs users out after restoring. The selected snapshot is loaded before retention removes older files, so the selected backup can be restored safely even when it is replaced by the safety snapshot.
-
-> [!NOTE]
-> Do not copy only the `.db` file while SQLite is actively writing. Use the backup function, which includes committed WAL transactions, or stop the server first. For rollback to older code, restore the corresponding pre-upgrade files together.
-
-| Location | Contents |
-| --- | --- |
-| `data/conest_catalog.db` | Live application data |
-| `data/backups/` | Latest routine backup set |
-| `data/migration_backups/` | One-time upgrade rollback snapshots |
-| `data/import_previews/` | Temporary catalogue import previews |
-| `.venv/` or `venv/` | Installed Python environment |
-
-## 4. Architecture and pricing
-
-
-- **Assembly normalization:** source component quantities are divided by the source assembly quantity to create per-unit component ratios. Adding an assembly scales those ratios by the estimate quantity.
-- **Material:** quantity × component material rate × material factor × (1 + material mark-up). A direct fitting supply-price override uses the entered supplier unit price with factor 1, before project mark-ups.
-- **Hourly labour:** quantity × unit hours × labour factor × project hourly rate.
-- **Fixed labour:** quantity × fixed labour price × labour factor. This is a monetary allowance, not hours, and is unaffected by hourly-rate changes.
-- **Quoted cost:** (material + labour) × (1 + final mark-up).
-- **Independent snapshots:** adding a catalogue item copies its components into the project. Later catalogue editing/deletion cannot rewrite those saved component prices. Tender revisions preserve another snapshot as JSON.
-- **Duplicate grouping:** assembly-level size plus normalized identity and component allowance comparisons group equivalent catalogue results. Different dimensions, units, work types or allowances can remain separate. Grouping is not the same as deleting source records.
-- **Classification:** scope describes the electrical service (Lighting, Power, etc.); work type describes the operation (Installation, Relocation, etc.). Both summaries reconcile to the same estimate.
-- **Connected workbook:** cell references, SUM/IF formulas, category helper rows and conditional formatting connect detail rows to summaries. Work-type dropdown validation guides edits. No source Excel template is needed at runtime.
-
-| Technology | Purpose and why it is used |
-| --- | --- |
-| Python 3 | Runs the server and application logic locally. Most facilities come from Python's standard library. |
-| ThreadingHTTPServer / HTTP handlers | Serves browser assets and JSON API requests, with separate request threads. No Flask or Django installation is required. |
-| SQLite / Python sqlite3 | The main `.db` stores catalogue, accounts and projects. The same file also stores supplier quote records and their connections. No separate database server is required. |
-| SQLite WAL | Write-ahead logging lets readers continue while writes are committed. Foreign keys preserve relationships; a busy timeout handles brief contention. |
-| Write lock and transactions | Serialize application writes in one process; each transaction commits its related changes together. |
-| HTML and CSS | Define the screens, forms, responsive layout, tables, dialogs, focus states and visual styling. |
-| Plain JavaScript | Updates browser views, fetches API data and handles editing/search. No React, npm build or front-end compilation is required. |
-| Fetch / JSON | Browser requests and responses communicate structured application data to the Python server. |
-| openpyxl | Reads supported `.xlsx` inputs and writes formatted formula-based exports. It does not run Microsoft Excel. |
-| pdfplumber | Extracts text and table rows from supported TLE supplier quotation PDFs. Its required PDF-processing dependencies are installed by pip. It does not perform OCR. |
-| SVG | The lightweight TEC initials mark used by the website and browser tab. It is a placeholder mark, not a separately supplied official logo. |
-| Optional Gemini API | Can interpret/rerank title-matched candidates when configured. Local searching remains available without it. |
-| Python venv / pip | Launchers isolate Python dependencies in `.venv` and install `requirements.txt`. |
-| Git ignore rules | Keep local databases, credentials, generated files and environment folders out of routine source-control commits. GitHub hosting/synchronization is not built into the app. |
-
-### Authentication and safe writes
-Passwords are salted scrypt hashes, not readable passwords and not reversible encrypted passwords. Session tokens are random; only token hashes are stored in the database. Browser cookies use HttpOnly and SameSite, and authenticated writes check a CSRF token plus request/origin rules. Permissions are checked again inside the write connection to account for role changes or session revocation.
-
-Sessions have no routine server expiry and survive closing the browser. The cookie is renewed during authenticated use; browsers impose their own retention limits. Sign-out, account deactivation, password changes, database restore or clearing cookies can end access. Persistent sign-in means users should sign out on shared devices. The database itself is **not encrypted**: project data and saved configuration are readable to someone who can access that file. Password hashing does not encrypt other database contents.
-
-### Performance and update handling
-Search uses bounded shared read caching. Database generation triggers invalidate cached catalogue results after catalogue changes. The browser debounces typing to avoid one request per keystroke and checks request versions so stale search responses do not replace newer results. Display values are escaped to prevent item text being treated as page markup. SQLite foreign-key cascades remove dependent catalogue records on deletion; SET NULL preserves project references safely.
-
-The release checks include 20 simultaneous authenticated clients and stale-write detection. This is a test scenario, not a guarantee for every host or workload. Keep one server process running and monitor large imports on the host.
-
-### Backups and migrations
-Main-database daily backups are scheduled by the running server; there is no external scheduler when it is stopped. Imports and restores create protective backups. SQLite's backup API captures a consistent committed database, including WAL changes. Restore validates integrity and relationships and signs users out. The latest completed backup set is retained; older snapshots and their metadata are removed automatically. Migrations inspect schema/one-time markers so restarts do not repeatedly reset accounts. The application keeps legacy tables/code needed for compatible databases even when an old screen has been removed.
-
-## 5. File guide
-
-<details>
-<summary><strong>Application, deployment and test files</strong></summary>
-
-| File | Responsibility |
-| --- | --- |
-| `.github/workflows/deploy-cpanel.yml` | Production CI/CD: validates Python and release tests, connects over SSH, backs up and retains one snapshot, uploads code while protecting production data, restarts Passenger and checks health. |
-| `assets/file_drop.js` | Validated drag-and-drop selection for workbook and supplier-price uploads; uses the existing import confirmation buttons. |
-| `assets/mobile.js` | Mobile menu state, keyboard dismissal and automatic closing after navigation. |
-| `assets/responsive.css` | Mobile layouts, aligned settings panels, component column sizing and visible dialog save errors. Loaded after both themes. |
-| `tests/test_release.py` | Automated date validation, one-backup retention and restore tests; used by GitHub Actions. |
-| `README.md` | This usage, architecture, maintenance and release guide. |
-| `app.py` | Server entry point, main API routes, request/error handling, import/export integration and server lifecycle. |
-| `requirements.txt` | Supported openpyxl and pdfplumber dependency ranges for installation. |
-| `START_TEC_SERVER.bat` | Windows environment setup and server launcher; displays local/team access details. |
-| `BACKUP_DATABASE.bat` | Windows entry point for the standalone database backup utility. |
-| `run.sh` | Linux/macOS virtual-environment setup and server launcher. |
-| `.gitignore` | Rules excluding local/private/generated files from normal Git tracking; it does not prevent the app reading those files locally. |
-| `data/conest_catalog.db` | Bundled SQLite snapshot: catalogue, components, accounts, teams, projects, settings and related application records. Replace with your latest backup when upgrading. |
-| `conest_app/lighting_migration.py` | Repeatable transactional legacy lighting import, integrity checks, duplicate detection, ID remapping, pre-upgrade backup and migration markers. |
-| `assets/estimate_extras.js` | Password visibility, crew-day displays, the floating estimate total and bulk component expansion/collapse. |
-| `assets/light_prices.js` | Supplier search, paginated quote cards, connected component details and file uploads. |
-| `conest_app/light_prices.py` | Supplier table schema in the main database, workbook/PDF parsing, internal type connections, quantity-aware linked prices, duplicate detection and pre-import backups. |
-| `tools/backup_database.py` | Creates a consistent snapshot in `data/backups` using the same one-backup retention policy. |
-| `assets/theme.js` | Applies system or saved light/dark preference before painting the page; handles the accessible sidebar toggle and browser-local persistence. |
-| `assets/theme.css` | Navy dark surfaces, teal accents, readable controls, tables, dialogs, status colours and focus states. Static CSS overrides; no runtime dependency. |
-| `assets/index.html` | Main page, navigation, forms, tables and dialogs. |
-| `assets/help_chat.js` | Help dialog, questions, plain-text replies, local source links and session-safe response handling. |
-| `conest_app/help_chat.py` | Built-in guidance, bounded catalogue/project retrieval, project access checks, optional Gemini answers and local fallback. |
-| `assets/navigation.js` | Hash-based page addresses, deep-link startup, browser history and stale-navigation protection. Native links support opening pages/projects/catalogue items in a new tab. |
-| `assets/estimate_workspace.js` | Scope collapse, live-estimate search, navigation, copy/project-copy actions and drag event handling. Loaded after the main UI scripts. |
-| `assets/app.js` | Estimator, catalogue, manual item editor, settings, search and import interactions. |
-| `assets/styles.css` | Base appearance, estimating layout, responsive rules and component styles. |
-| `assets/workspace.js` | Login, board, profile, teams, user/project administration, activity, notes and calendar interactions. |
-| `assets/workspace.css` | Workspace, management, profile and board styling. |
-| `assets/productivity.js` | Revisions, price history, backup controls, import preview, presence and reminders. |
-| `assets/tec-mark.svg` | TEC initials branding and favicon asset. |
-| `conest_app/__init__.py` | Python package identity/version. |
-| `conest_app/accounts.py` | Password hashing/verification, sessions, account validation, sign-in throttling and public user records. |
-| `conest_app/assistant.py` | Quantity/query interpretation and optional Gemini integration with local fallback. |
-| `conest_app/backups.py` | In-app backup listing, creation, validation, restoration and daily-backup logic. |
-| `conest_app/catalog.py` | Catalogue queries, details, duplicate presentation, manual creation/editing and selected-version deletion. |
-| `conest_app/component_master.py` | Parser for recognized component-pricing master workbook layouts. |
-| `conest_app/database.py` | SQLite paths/connections, schema creation/migration, settings, write lock and catalogue index refresh. |
-| `conest_app/estimate_tools.py` | Transactional project/item/component copying and order validation, preserving independent snapshots and checking revisions. |
-| `conest_app/estimate_options.py` | Display-title cleanup, lighting fitting identification, estimate supply/size fields, fitting-copy flags and persistent-session migration. |
-| `conest_app/exporter.py` | Styled, connected two-sheet Excel estimate generation and export naming. |
-| `conest_app/http_productivity.py` | API routing for revisions, presence, backups, pricing history and import preview. |
-| `conest_app/http_workspace.py` | Authentication/CSRF checks, request permission checks and workspace API routes. |
-| `conest_app/import_preview.py` | Temporary parsed previews, duplicate/price comparison and importing selected preview rows. |
-| `conest_app/importer.py` | Core workbook layout detection, parsing, normalization and catalogue/source insertion. |
-| `conest_app/initial_roster.py` | Initial testing roster definitions and precomputed password hashes; supports initial account provisioning. |
-| `conest_app/productivity.py` | Revision snapshots/comparison, price-history records, presence and deadline data; includes legacy check support retained for compatibility. |
-| `conest_app/project_notes.py` | Shared note storage and per-user unread/read state. |
-| `conest_app/projects.py` | Project and estimate-line operations, snapshots, cost calculations, scope/work summaries and line options. |
-| `conest_app/range_importer.py` | Recognized low/high budget workbook parser; preserves both pricing alternatives. |
-| `conest_app/read_cache.py` | Bounded thread-safe catalogue read cache and generation triggers. |
-| `conest_app/taxonomy.py` | Scope and work-type definitions, normalization, quality/specification and grouping helpers. |
-| `conest_app/teams.py` | Team membership/management and team-aware project sharing support. |
-| `conest_app/utils.py` | Text cleanup, safe filenames, timestamps, hashing and numeric helpers. |
-| `conest_app/workspace.py` | Project access, activity, statuses, optimistic revision checks and board visibility. |
-
-</details>
-
-## 6. Release history
-
-Versions are listed oldest to newest. Early milestones are grouped where individual change records were not supplied.
-
-| Version | Main changes |
-| --- | --- |
-| v1.0–v1.2 | Initial release series. Detailed change records for these versions were not included in the supplied history. |
-| v1.3 | Manual supply, installation, relocation and demolition pricing; hourly/fixed labour; editable units/components and reusable catalogue versions. |
-| v1.4 | Project deletion, floating search, duplicate result grouping, live scope breakdown, Data.xlsx assemblies and connected Excel calculations. |
-| v1.5 | TEC ConEst branding, saved API-key Show/Hide, aligned project/export controls, separate connected-detail Excel tab and simplified summaries. |
-| v1.6 | Duplicate matching ignoring codes, removal of visible Code/Phase fields, wrapping category editor and refreshed website/Excel presentation. A repaired ZIP was also supplied. |
-| Team/productivity releases through v1.12 | Login and roles, user/team administration, shared projects, board/status review, profile teams, calendar, shared notes/unread indicators, contribution activity, tender revisions/deletion, backup/restore, import preview, price history, presence and deadlines. Extra board filters and submission-check controls were subsequently removed; management alignment and horizontal team presentation were refined. |
-| v1.13 | Removed historical Quality Control panel; slim runtime ZIP without already-imported Excel copies; existing testing accounts directly active while future accounts retain setup. |
-| v1.14 | Collapsed estimate details, estimate-only fitting supply price/quantity, lighting supply/installation summary, cleaned display titles, live title-only catalogue search and persistent sessions. |
-| v1.15 | Linked lighting quantities, switchable work-type summary, combined Relocation and Demolition type, Excel work-type summary, cancel-search behavior and expanded rates controls. |
-| **v1.16** | Removes inline work-type selector and duplicate supply quantity. Keeps plain Supply cost / unit without a yellow box. Initially moved classification to Item options; this fixed release removes the extra control. Refines visual hierarchy, rates panel, buttons and row spacing. Adds authenticated selected-version catalogue deletion while preserving estimate snapshots. Expands this guide to explain all delivered files, technology, techniques and release milestones. |
-| **v1.17** | Uses the latest uploaded database. Adds main-search navigation and bottom navigation; in-place edits for imported and manual catalogue items; deletion from estimate search; estimate-only save mode; project-specific fitting prices; split material rates; scope collapse; zero quantities; search within estimates; clean selected titles; assembly size; item/component copying and dragging; project copying; compact controls and this updated guide. |
-| **v1.17_Fixed** | Adds page/project/catalogue addresses, Back/Forward and refresh restoration, native new-tab links, inline estimate size editing, matching Delete buttons and larger left-aligned scope headings. No database migration or bundled data changes. |
-| **v1.18** | Removes inline size from estimate rows; compacts title/category/supply controls; adds draggable whole categories and up/down controls with persistent Excel/copy order; adds optional read-only Help chat using the existing Gemini setting with a built-in fallback. |
-| **v1.19** | Adds password Show/Hide; separate Excel/editor size columns and regular component descriptions; floating quoted total and category totals; configurable crew/day planning; Expand all / Collapse all; separate supplier-price search/database with connected XLSX/PDF imports, duplicate detection, backup download and Help integration. |
-| **v1.19_Fixed** | Bulk controls now minimize/expand categories; adds a supplier filter, separate Supplier/Cat No detail columns, a clearer bottom upload panel, removes the database download button, and moves Light price check below Imports. Both database files are unchanged. |
-| **v1.20** | Uses the newly uploaded database; enlarges the floating total with hours/days, aligns scope totals/actions, adds new-project crew defaults, full-width profile with optional email and a password section, TEC home link, and persistent light/dark themes. |
-| **v2.0** | Unifies supplier-price tables and all application data in conest_catalog.db; adds a backed-up, transactional legacy migration for deployed servers; all backups now include supplier records. |
-| **v2.1** | Mobile menu, stacked deadline reminders and labelled estimate cards; floating +/− category control; equal settings widths; no past deadlines for new projects; latest-one backup retention across app, script and deployment; balanced eight-column component editor; visible modal errors and clearer save confirmation; reorganized documentation; reset add quantity, drag-and-drop uploads, fixed component totals, and access-controlled project Help. |
-| **v2.2** | Moves Fixed total into each component’s expandable Specifications, factors & notes section; retains all previous estimating and data behavior. |
-
-| **v2.3–v2.3.5** | Monthly calendar totals, project outcomes and access, unified import history, profile and supplier photos, optional builders, and weekend calendar styling. |
-| **v2.3.6** | Simplified project board with three remembered views, integrated schedule reminders, estimate-only creation, clearer page titles and prominent Open Estimate access. |
-
-| **v2.4** | Direct refresh restoration, shared read requests, lighter background updates, batched component queries, browser asset caching and total-cost sorting. |
-| **v3.1** | Review workflow, Completed-to-Submitted migration, shared review reminders, Builders project filter and expanded monthly activity. |
-| **v3.0** | Integrated Tenders with shared authentication, yellow workspace, matching sidebar, compact updates, protected runtime database deployment and Passenger v3.0. |
-
-## 7. Troubleshooting
-
-| Symptom | Check |
-| --- | --- |
-| Mobile layout still looks old | Refresh the page to reload the new CSS and JavaScript; open Menu for navigation and account controls. |
-| Catalogue save rejected | Read the alert inside the editor. Your inputs remain available. Check missing descriptions/units, invalid prices and work-type constraints. If repeated, retain the exact error text for diagnosis. |
-| Save succeeded, but the view did not refresh | Reload the page before saving again; the write has already completed. |
-| New project date rejected | Choose today or later. Check the server's date/time configuration if its calendar differs from yours. |
-| Older backup disappeared | The single-backup policy applies to the active backup folder. Keep longer-term copies elsewhere. |
-| Changes missing after deployment | Verify the production database path and the preserved data directory. Do not overwrite the live database with a packaged snapshot. |
-| Excel formulas show no result yet | Open with automatic calculation enabled in a compatible spreadsheet application. The exporter writes formulas; it does not run Excel. |
-| Deployment fails | Open the failed GitHub Actions step; check repository secrets, SSH access and the existing Passenger setup. |
-| Forgotten password | Ask an administrator to reset it through user management. |
-
-### Run release checks
-
-```sh
-python -m pip install -r requirements.txt
-python -m unittest discover -s tests -v
-python -m compileall -q app.py conest_app
+```text
+/home/ampecportal/tec-const.ampecportal.com/
 ```
 
-The release tests use temporary databases. They check date boundaries, backup retention, metadata cleanup and restoring the older snapshot. Additional development regression checks cover estimation, permissions, import/export, sessions and migration. Browser rendering should also be checked at your team's actual screen sizes.
+### GitHub → cPanel (recommended)
 
+1. Back up **both** live databases and relevant uploads, then confirm your Git working tree.
+2. Commit code changes to the existing repo; do not create another repo or push runtime databases.
+3. Push to `main`; GitHub Actions uses Python 3.11 and Node 24 to build/test and sync over SSH.
+4. Check the **Deploy production** run through upload, dependency install, restart and deep readiness check.
+5. Open both workspaces after the health check; hard-refresh to load the new frontend assets.
 
-### v3.4 search refinement (13 October 2026)
-Dashboard and Project Chase-up searches exclude chase comments, including the latest-update copy. See UPDATE_V3.4.md for deployment notes.
+| GitHub Actions secret | Function |
+|---|---|
+| `CPANEL_HOST` | SSH host |
+| `CPANEL_USER` | SSH user |
+| `CPANEL_SSH_KEY` | Private key for code upload |
+| `CPANEL_SSH_PORT` | SSH port, if not 22 |
 
-### v3.4 quality and usability pass (13 October 2026)
-See QUALITY_REVIEW_V3.4.txt for verified fixes, validation coverage and recommended next features. Existing databases are preserved.
+The rsync workflow uses `--delete` for tracked code files but excludes `data/`, environment configuration, runtime databases, `.htaccess`, `.well-known`, `passenger_wsgi.py`, and virtual environments. It does **not** configure your Passenger interpreter. The live host was previously configured to use:
+
+```text
+/home/ampecportal/tec-conest-py311/bin/python
+```
+
+The deployer's Python is not the hosted Passenger Python. Confirm the interpreter shown by a fresh diagnostic rather than assuming it changed because the GitHub step used Python 3.11.
+
+### Manual ZIP update
+
+- Use **CHANGED_FILES** ZIP only when the destination is confirmed to be the immediately previous complete release. Otherwise use **FULL** ZIP.
+- Extract the inner `TEC_COST_ESTIMATOR/` contents over the application root, preserving relative folders.
+- Keep the live `data/`, `.env`, uploads, server-managed WSGI configuration and virtual environment unchanged.
+- The compiled Estimator (`assets/`) and Tender (`tenders_web/`) UI files **must** be uploaded with source files. Manual hosting does not require npm if compiled assets are included.
+- Restart Passenger from the application root using the hosting panel or:
+
+```bash
+mkdir -p tmp
+touch tmp/restart.txt
+```
+
+Then check [deep production readiness](https://tec-const.ampecportal.com/api/health?check=tenders). Expected schema is `32`; the release field will show `3.6` **only after executable version metadata and deployment are updated**. Success includes checks for `tenders`, `opportunities`, `timezones` and `sqlite`.
+
+### Aligning release identifiers
+
+This file documents the combined feature release as **3.6**. **Only `README.md` is delivered with this request**: copying it onto the host will not change the running application build (which may still report `3.5.12`), its assets, or the database schema. When publishing code as release 3.6, update the application version constant, built frontend references and CI/release metadata together, then verify the health endpoint. Do not edit production databases simply to change the displayed version.
+
+### Building frontends locally
+
+```bash
+python tools/build_frontend.py
+cd tenders_frontend
+npm ci
+npm run build
+```
+
+On build machines without Node dependency access, **do not overwrite the supplied prebuilt Tender frontend with incomplete build output**. The changed CSS in `tenders_frontend/src/mobile-v3511.css` is also shipped as a prebuilt compatible CSS asset for this release.
+
+### Retiring old document files
+
+Older releases accumulated `UPDATE_*`, `QUALITY_REVIEW_*`, `CHANGED_FILES_*`, `V*_FILE_MANIFEST.json` and separate Tender release notes. This single README now contains the operational guide and condensed history. New archives do not bundle those root documents.
+
+For a **manual ZIP update** those old files may remain on the host because extracting an archive does not delete files. Review the safe dry run first:
+
+```bash
+python tools/prune_legacy_docs.py
+python tools/prune_legacy_docs.py --apply
+```
+
+The cleanup only targets known legacy *root documentation filenames*, not live databases, uploads, scripts or this README. When deploying via rsync with `--delete`, removed repository documents are deleted automatically.
+
+## Data and safety
+
+- Always back up **both** databases before code upgrades or resets; preserve your production uploads and config too.
+- `data/backups/` contains core database snapshots, `data/tender_backups/` Tender snapshots. Some schema migrations have their own `upgrade_backups` safety copies; those are separate from routine retention.
+- Routine backup retention typically keeps the latest successful set; export important checkpoints to external storage if you need longer history.
+- Restore only using supported app tooling and after verifying backup integrity and that the administrator account exists. Restores can sign users out.
+- SQLite: do not copy an active `.db` file while ignoring its WAL/journal state. Prefer the SQLite backup API or the supplied backup tools.
+- Do not disable SQLite foreign keys or manually delete connected opportunity tables to work around migration errors.
+- Keep permissions least-privileged. Never publicly expose diagnostic endpoint payloads or `.env`/database folders.
+
+## Performance and mobile
+
+**Performance work in this release:** static assets compressed/cached by mtime; read-only transient retries; fewer broad background-refresh operations; off-screen long lists may use browser rendering containment; existing Tender pagination and request dedupe remain in place. `Server-Timing` / slow-request logs help identify slow API endpoints on your own server.
+
+**Mobile design:** form controls are readable at phone font size, touch targets have comfortable height, dialogs scroll within the viewport, and dashboards/filters/cards reflow to one or two columns. Very wide estimate and tender tables **scroll horizontally** because squeezing or hiding financial columns risks misquoting. In the Estimator, the mobile menu contains the full navigation; in Tenders, the sidebar sheet and topbar adapt to the viewport.
+
+**Limitations:** app/server capacity and intermittent hosted 5xx errors depend on the deployed Passenger environment, SQLite locking, database size, hosting I/O and network. The release cannot guarantee zero latency or eliminate unknown hosting faults; check the health endpoint and startup diagnostics when a failure appears.
+
+## Tests and release verification
+
+From the application root:
+
+```bash
+python -m compileall -q app.py conest_app
+python tools/run_tests.py --workers 4
+python tools/build_frontend.py
+# For Node-installed environments:
+cd tenders_frontend && npm ci && npm run build
+```
+
+**3.6 feature baseline verification (22 October 2026):** **400 Python tests across 54 modules passed**, including migrations, approvals, quotes, import/export and schema-readiness regression checks. **27 JavaScript tests passed** with Node's TypeScript stripping enabled. Static server requests verified the newly fingerprinted compiled Estimator JS, both new mobile CSS files and Tender landing HTML. Chromium fixture checks covered **94 navigation/login/KPI assertions**, **36 Estimator view/viewport no-overflow checks** (nine views at four widths), and Tender Opportunities at 320, 390, 768 and 1280px with no page-level horizontal overflow. The Estimator drawer screenshot was reviewed at 320 and 390px; Tender dashboard 2x2 metric cards were reviewed at those widths. The login regression explicitly tested stray controls even when a stale UI state removes their original `hidden` class.
+
+**Verification limits:** Mobile checks use browser fixtures with the real shipped HTML/CSS and interaction scripts. They do not assert that every live authenticated route, form or hosting integration is flawless. The Tender React/Vite bundle was **not rebuilt** in this offline environment (npm dependencies are unavailable); the patch includes a production-served CSS override that takes effect without npm, as well as the updated React source import for future connected builds. Local tests do not replace a post-deployment smoke test using your real accounts and data.
+
+**v3.5.11 local verification (historical):** **396 Python tests in 53 modules passed** using Python 3.13.5 and SQLite 3.46.1; **37 JavaScript tests passed**. The source Estimator bundle passed Node syntax checks and the static gzip route passed its response/encoding checks. Self-contained Chromium checks of the login passed at 320, 390, 768 and 1280 px, including three-second rotation, manual dots, and reduced-motion; Tender layout fixture checks at the same widths found no document-level horizontal overflow. These are local tests, **not production hosting benchmarks or authenticated, end-to-end mobile tests of every Tender and Estimator page**. The React/Vite Tender bundle could not be rebuilt in this offline environment: the ZIP includes the existing compiled Tender bundle plus a validated external responsive CSS layer, and the React source imports the same layer for a normal connected CI build. Both data stores and live hosting remain untouched.
+
+Quick integration checklist after deployment:
+
+- Both login slides and manual slide dots work; teal/gold accents appear, no Estimator-only login subtitle.
+- Open Estimator Home, Estimate, Catalog, Calendar, Imports, Users/Settings (as admin), and profile at mobile and desktop widths.
+- Open Tenders Dashboard, Opportunities, Chase-up, Projects, Builders, Calendar and Reminders at mobile and desktop widths.
+- Create an opportunity and estimate on a **test project**; export, edit and reload without data loss.
+- Test permission boundary using a non-admin account; notification read state stays per user.
+- Confirm `https://tec-const.ampecportal.com/api/health?check=tenders` reports schema `32`, the deployed application version, and all checks `ok`.
+
+## Troubleshooting
+
+| Symptom | What to inspect |
+|---|---|
+| `TENDERS_STARTUP_FAILED` / HTTP 503 | `/api/health?check=tenders` and (admin session) `/api/admin/startup-diagnostics?reference=<error_reference>` |
+| Hosted runtime differs from CI | Diagnostic `runtime.python_executable`; Passenger's interpreter setting |
+| `sqlite3.OperationalError` or foreign-key failure | Error traceback, database schema, failed migration; preserve a backup before repair |
+| Page works locally but not hosted | Compiled asset upload, Passenger restart, app root, environment and `.htaccess` |
+| Login shows an older version | Hard refresh, verify HTML asset fingerprint, restart Passenger, avoid stale service cache |
+| CSS or mobile layout missing | Check both `assets/` and `tenders_web/`, and the new mobile CSS asset |
+| Excel import invalid | Keep template headings and true date cells; preview errors before applying |
+| Large tables on phones | Scroll the table region horizontally; summary cards retain compact values |
+| Slow requests | Check `Server-Timing`, backend slow-request output, DB size and concurrent worker count |
+| No `stderr.log` | cPanel may route logs through Passenger/Apache; admin startup diagnostics capture some startup failures |
+
+Production health only confirms application readiness; it is not a guarantee that every form and integration is error-free. If a problem persists, provide the fresh error reference and relevant redacted diagnostic/traceback.
+
+## Condensed release history
+
+| Release | Major themes |
+|---|---|
+| **3.6** | Consolidated shared Estimator/Tenders login and mobile release: drawer navigation, hidden login floating controls, Tender KPI 2x2 grid, responsive checks, performance and documentation cleanup |
+| **3.5.11** | Shared login carousel, mobile coverage, static delivery and refresh improvements, consolidated docs |
+| **3.5.10** | Removed Reject actions from Expired cards/details |
+| **3.5.9** | Neutral regular-weight deadlines for decided/expired records; no Reject on Approved |
+| **3.5.8** | Optional costs correctly separated in Excel/shared links; refined expired actions and deadline presentation |
+| **3.5.7** | Team assignment auto-approval, quote/Not quoted to Chase-up, inclusive category switches |
+| **3.5.6** | Migrated legacy `creator_id`, added opportunity Link, countdown and updated import template |
+| **3.5.5** | Safer opportunity register retirement respecting linked foreign keys |
+| **3.5.4** | Legacy builder table migration |
+| **3.5.3** | Missing `deleted_at` migration and Python interpreter check |
+| **3.5.2** | Private admin startup diagnostics |
+| **3.5.1** | Hosting diagnostic/readiness, initial opportunity reset and Excel template |
+| **3.5** | NSW/VIC opportunities, team assignments, history, integrated Tender navigation and notifications |
+| **3.4** | Tender opportunity import, reporting/search and UX refinements |
+| **3.3 / 3.2 / 3.1** | Shared login, tender integration, approval/review, mobile/dark theme |
+| **2.4–2.0** | Estimator speed improvements, project/role management, catalogue and supplier price consolidation |
+| **1.x** | Core cataloguing, estimates, quantities, pricing and project workflows |
+
+---
+
+<sub>TEC ConEst is a private operational application. This repository's code and documentation do not include production passwords or databases. Keep releases and user access within authorised company systems.</sub>

@@ -525,8 +525,16 @@ function bindWorkspaceEvents() {
       if($('#notes-dialog').open) await loadProjectNotes();
       else if(state.view==='estimate' && state.projectId) await refreshNoteBadge(state.projectId);
     } catch(_) {} finally {workspaceState.notesSyncBusy=false;}
-  },30000+Math.random()*5000);
-  setInterval(()=>{if(state.user&&!state.user.must_change_password&&!document.hidden&&!state.apiPendingCount)refreshReadOnlyBrief().catch(()=>{});},30000+Math.random()*5000);
+  },45000+Math.random()*5000);
+  // The project brief is refreshed on navigation as well. Do not continuously
+  // fetch it every 30 seconds while a user is editing an estimate.
+  let briefRefreshPending=false;
+  setInterval(async()=>{
+    if(briefRefreshPending || !state.user || state.user.must_change_password || document.hidden || state.apiPendingCount || $('dialog[open]'))return;
+    if(!['home','calendar'].includes(state.view) || !workspaceState.briefId)return;
+    briefRefreshPending=true;
+    try{await refreshReadOnlyBrief();}catch(_){}finally{briefRefreshPending=false;}
+  },90000+Math.random()*15000);
 
   $('#notes-form').addEventListener('submit',event=>submitWithButton(event,saveProjectNote));
   $('#refresh-notes').addEventListener('click',()=>loadProjectNotes().catch(error=>toast(error.message,true)));

@@ -157,11 +157,17 @@ async function apiRequest(path, options = {}) {
   }
   const readOnly=['GET','HEAD'].includes((config.method||'GET').toUpperCase());
   let response,result;
-  for(let attempt=0;attempt<1;attempt++){
+  // Retry only idempotent reads on short-lived gateway/network failures.
+  // A write may already have committed, so POST/PATCH/DELETE are never retried.
+  const maxAttempts=readOnly?2:1;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
     const controller=new AbortController();
-    const timer=setTimeout(()=>controller.abort(),readOnly?90000:120000);
+    const timer=setTimeout(()=>controller.abort(),readOnly?60000:120000);
     try {
       response=await fetch(path,{...config,signal:config.signal||controller.signal});
+      if(readOnly && attempt===0 && [502,503,504].includes(response.status)){
+        await new Promise(resolve=>setTimeout(resolve,550));continue;
+      }
       const contentType=response.headers.get('content-type')||'';
       if(response.ok&&!contentType.includes('application/json'))throw new Error('The server returned an unexpected response. Refresh or try again shortly.');
       result=contentType.includes('application/json')?await response.json():null;
@@ -169,6 +175,7 @@ async function apiRequest(path, options = {}) {
     }catch(error){
       if(config.signal?.aborted)throw error;
       const connectionError=error instanceof TypeError||error.name==='AbortError';
+      if(connectionError && readOnly && attempt===0){await new Promise(resolve=>setTimeout(resolve,550));continue;}
       if(connectionError)throw new Error(readOnly?'Connection interrupted or the server took too long. Check your connection and try again.':'Connection interrupted while saving. The change may have reached the server. Reload and check before submitting again.');
       if(error instanceof SyntaxError)throw new Error('The server returned an incomplete response. Reload to check the latest saved information.');
       throw error;
