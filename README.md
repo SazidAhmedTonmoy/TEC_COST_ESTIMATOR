@@ -1,4 +1,16 @@
-# Current release: v3.5.7
+# Current release: v3.5.8
+
+**Expired opportunities:** assigning a team still approves an expired opportunity. Approved opportunities with a past regional deadline no longer offer Quoted or Not quoted. Existing recorded quotes retain their Project Chase-up links. Expired opportunities, including approved past-deadline entries without a recorded quote, can be rejected with an optional note by an administrator or eligible team member. An existing quoted project continues to be managed through Chase-up. Deadline changes and elapsed time do not undo an approval.
+
+**Deadline appearance:** approved, rejected and expired entries show neutral grey deadline text. A passed deadline is also grey while a pending record awaits its normal expiry update. Active pending entries retain red for today through 3 days, amber for 4–7 days, and green for more than 7 days, using the opportunity's regional calendar.
+
+**Optional costs:** section switches keep their existing accessible controls without separate On/Off words. A deselected section is labelled **Optional cost**. Its items and prices remain available and excluded from the included estimate total. New Excel exports and shared estimates identify optional items and show optional costs separately. Excel keeps editable numeric inclusion flags: `1` displays **Included**, and `0` displays **Optional cost**. Formula totals recalculate when those flags change; workbook edits do not update the website.
+
+**Install:** follow [UPDATE_INSTRUCTIONS_V3.5.8.txt](UPDATE_INSTRUCTIONS_V3.5.8.txt). The changed-files ZIP applies to the complete **v3.5.7** package. Use the full code ZIP for an older or incomplete installation. Upload both compiled interfaces, restart the working Passenger application, and hard-refresh the browser. Preserve databases, uploads, environment settings and host-specific configuration. Schema remains **32**, with no new dependency or reset introduced by this release.
+
+**Verify:** `/api/health?check=tenders` should report release **3.5.8**, schema **32**, and successful readiness checks. See [QUALITY_REVIEW_V3.5.8.txt](QUALITY_REVIEW_V3.5.8.txt) for the completed local verification and limits. The package must still be deployed to the hosting account.
+
+# Previous release: v3.5.7
 
 **Opportunity decisions and assignments:** rejection notes are optional. Assigning a team automatically approves the opportunity, including one with a passed deadline. Administrators and eligible team members can also approve an expired opportunity directly. Approved opportunities retain that status after their deadlines; removing an assignment does not undo approval. Deadline activity, assignment notifications and contribution records remain available.
 

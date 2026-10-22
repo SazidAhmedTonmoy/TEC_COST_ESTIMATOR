@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {opportunityDeadline,opportunityTimezone,opportunityLocalDate,nextOpportunityDayChange,safeOpportunityLink} from '../tenders_frontend/src/lib/opportunity-display.ts';
+import {canQuoteOpportunity,canRejectOpportunity,isOpportunityQuoted,opportunityDeadline,opportunityTimezone,opportunityLocalDate,nextOpportunityDayChange,safeOpportunityLink} from '../tenders_frontend/src/lib/opportunity-display.ts';
 
 const regions=[
   {code:'NSW',origin:'Silverwater',timezone:'Australia/Sydney'},
@@ -16,15 +16,47 @@ test('cards show calendar days remaining and due today/tomorrow immediately',()=
   assert.equal(deadline('2027-01-01','2026-12-30T13:00:00Z').days,1);
 });
 
-test('deadline colors use inclusive three-day and seven-day boundaries',()=>{
+test('only active pending deadlines use inclusive three-day and seven-day colors',()=>{
   const now='2026-10-21T08:00:00Z';
-  for(const status of ['pending','approved','rejected','expired']){
-    for(const due of ['2026-10-20','2026-10-21','2026-10-22','2026-10-24'])assert.equal(deadline(due,now,'NSW',status).tone,'urgent');
-    for(const due of ['2026-10-25','2026-10-28'])assert.equal(deadline(due,now,'NSW',status).tone,'warning');
-    for(const due of ['2026-10-29','2027-01-01'])assert.equal(deadline(due,now,'NSW',status).tone,'safe');
+  for(const due of ['2026-10-21','2026-10-22','2026-10-24'])assert.equal(deadline(due,now).tone,'urgent');
+  for(const due of ['2026-10-25','2026-10-28'])assert.equal(deadline(due,now).tone,'warning');
+  for(const due of ['2026-10-29','2027-01-01'])assert.equal(deadline(due,now).tone,'safe');
+  assert.equal(deadline('2026-10-20',now).tone,'neutral');
+  for(const status of ['approved','rejected','expired']){
+    for(const due of ['2026-10-20','2026-10-21','2026-10-22','2026-10-24','2026-10-25','2026-10-28','2026-10-29','2027-01-01'])assert.equal(deadline(due,now,'NSW',status).tone,'neutral');
     assert.equal(deadline('',now,'NSW',status).tone,'none');
     assert.equal(deadline('invalid',now,'NSW',status).tone,'none');
   }
+});
+
+const actionable=(changes={})=>({status:'approved',due:'2026-10-22',region:'NSW',assignedTeamIds:[1],permissions:{approve:true,quote:true},...changes});
+
+test('approved past-deadline records hide quote outcomes and allow ordinary rejection',()=>{
+  const before=Date.parse('2026-10-22T12:59:59.999Z'),after=Date.parse('2026-10-22T13:00:00Z');
+  const item=actionable();
+  assert.equal(canQuoteOpportunity(item,regions,before),true);
+  assert.equal(canRejectOpportunity(item,regions,before),false);
+  assert.equal(canQuoteOpportunity(item,regions,after),false);
+  assert.equal(canRejectOpportunity(item,regions,after),true);
+  assert.equal(canQuoteOpportunity(actionable({region:'WA'}),regions,after),true);
+  assert.equal(canRejectOpportunity(actionable({region:'WA'}),regions,after),false);
+  assert.equal(canQuoteOpportunity(actionable({due:''}),regions,after),true);
+  assert.equal(canRejectOpportunity(actionable({status:'expired'}),regions,before),true);
+  assert.equal(canRejectOpportunity(actionable({status:'pending'}),regions,before),true);
+  assert.equal(canRejectOpportunity(actionable({status:'rejected'}),regions,after),false);
+});
+
+test('quoted links, deleted records and missing permissions never expose quote or reject controls',()=>{
+  const now=Date.parse('2026-10-23T08:00:00Z');
+  for(const changes of [{quoteStatus:'quoted'},{submissionIds:['linked-quote']},{deletedAt:'2026-10-22T00:00:00Z'},{permissions:{approve:false,quote:false}}]){
+    const item=actionable(changes);
+    assert.equal(canQuoteOpportunity(item,regions,now),false);
+    assert.equal(canRejectOpportunity(item,regions,now),false);
+  }
+  assert.equal(isOpportunityQuoted(actionable({submissionIds:['existing']})),true);
+  assert.equal(isOpportunityQuoted(actionable({quoteStatus:'quoted'})),true);
+  assert.equal(isOpportunityQuoted(actionable()),false);
+  assert.equal(canQuoteOpportunity(actionable({permissions:{approve:true}}),regions,Date.parse('2026-10-21T08:00:00Z')),true);
 });
 
 test('quote submission dates use the project region calendar',()=>{

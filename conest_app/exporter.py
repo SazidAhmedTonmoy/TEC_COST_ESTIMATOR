@@ -211,7 +211,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             cell.protection = Protection(locked=False)
             cell.comment = Comment("Editable estimate assumption. All connected formulas recalculate from this cell.", "User")
 
-    total_labels = ("Total material", "Total labour", "Total labour hrs", "Direct cost", "QUOTED GRAND TOTAL")
+    total_labels = ("Total material", "Total labour", "Total labour hrs", "Direct cost", "INCLUDED ESTIMATE TOTAL")
     total_formats = (money, money, hours, money, money)
     for index, (label, number_format) in enumerate(zip(total_labels, total_formats), start=5):
         fill = TEAL if index == 9 else GRAY_100
@@ -222,16 +222,20 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             value.font = Font(name="Aptos", size=11, bold=True, color=WHITE)
     for row in range(4, 10):
         ws.row_dimensions[row].height = 28
+    _merge_value(ws, "A8:F8", "OPTIONAL QUOTED COST", fill=CREAM, bold=True, border=border)
+    _merge_value(ws, "G8:I8", 0, fill=CREAM, bold=True, horizontal="right", border=border, number_format=money)
+    _merge_value(ws, "A9:I9", "Optional costs are excluded from the estimate total.", color=GRAY_600, size=10)
+    ws.row_dimensions[9].height = 34
 
     ws = detail
     _merge_value(ws, "A1:N1", f'={settings_ref}B2&" — CONNECTED COST DETAIL"',
                  fill=DARK_NAVY, color=WHITE, size=18, bold=True)
     ws.row_dimensions[1].height = 44
-    _merge_value(ws, "A2:N2", "Pale gold cells are editable. Set the category once per item. Component quantities scale with the item quantity.",
+    _merge_value(ws, "A2:N2", "Pale gold cells are editable. Optional cost items keep their prices and are excluded from the estimate total. Set Cost treatment to 1 for Included or 0 for Optional cost.",
                  color=GRAY_600, size=9)
     jump = _merge_value(ws, "A3:N3", "← Return to cost summary and project rates", color=TEAL_DARK, size=9)
     jump.hyperlink = "#'COST ESTIMATE'!A1"
-    ws.row_dimensions[2].height = 24
+    ws.row_dimensions[2].height = 30
     ws.row_dimensions[3].height = 24
     _section_title(ws, detail_title_row, "CONNECTED COST DETAIL", NAVY)
     headers = [
@@ -362,12 +366,12 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
 
     for line, parent_row in line_parent_rows:
         flag=ws.cell(parent_row,inclusion_flag_column,int(line.get('included_in_total',True)))
-        flag.number_format='[=1]"On";[=0]"Off";General'
+        flag.number_format='[=1]"Included";[=0]"Optional cost";General'
         flag.fill=PatternFill('solid',fgColor=CREAM)
         flag.font=Font(name='Aptos',bold=True,color=INPUT_BLUE)
         flag.alignment=Alignment(horizontal='center',vertical='center')
         flag.protection=Protection(locked=False)
-        flag.comment=Comment('On (1) includes this item in estimate totals. Off (0) retains its prices and quantities while excluding its cost and hours. The initial value follows its section in TEC ConEst.','TEC ConEst')
+        flag.comment=Comment('Included (1) adds this item to estimate totals. Optional cost (0) retains its prices and quantities in a separate subtotal. The initial value follows its section in TEC ConEst.','TEC ConEst')
         for source,target in included_columns.items():
             ws[f'{target}{parent_row}']=f'={source}{parent_row}*P{parent_row}'
         ws.conditional_formatting.add(f'A{parent_row}:P{parent_row}',FormulaRule(
@@ -375,7 +379,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     for column in included_columns.values():ws.column_dimensions[column].hidden=True
     total_row = current_row
     ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=5)
-    ws.cell(total_row, 1, "CONNECTED ESTIMATE TOTAL")
+    ws.cell(total_row, 1, "INCLUDED ESTIMATE TOTAL")
     ws.cell(total_row, 7, _sum_cells("Q", parent_rows))
     ws.cell(total_row, 9, _sum_cells("R", parent_rows))
     ws.cell(total_row, 10, _sum_cells("S", parent_rows))
@@ -387,16 +391,32 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         cell.border = border
         cell.alignment = Alignment(vertical="center")
     ws.row_dimensions[total_row].height = 30
+    optional_total_row = total_row + 1
+    _merge_value(ws, f"A{optional_total_row}:E{optional_total_row}", "OPTIONAL COST TOTAL (excluded)",
+                 fill=CREAM, bold=True, border=border)
+    for source in ("G", "I", "J", "K", "L"):
+        # Parent rows already contain every component once, with the same line
+        # mark-ups as the included estimate. Subtract its included roll-up so
+        # editing an item's cost treatment updates both totals immediately.
+        ws[f'{source}{optional_total_row}'] = _sum_cells(source, parent_rows) + f'-{source}{total_row}'
+    for cell in ws[optional_total_row][:16]:
+        cell.fill = PatternFill("solid", fgColor=CREAM)
+        cell.font = Font(name="Aptos", size=10, bold=True, color=DARK)
+        cell.border = border
+        cell.alignment = Alignment(vertical="center", wrap_text=True)
+    ws.row_dimensions[optional_total_row].height = 32
 
     overview["M5"] = f"={detail_ref}G{total_row}"
     overview["M6"] = f"={detail_ref}J{total_row}"
     overview["M7"] = f"={detail_ref}I{total_row}"
     overview["M8"] = f"={detail_ref}K{total_row}"
     overview["M9"] = f"={detail_ref}L{total_row}"
+    overview["G8"] = f"={detail_ref}L{optional_total_row}"
+    overview["G8"].number_format = money
     for address, number_format in (("M5", money), ("M6", money), ("M7", hours), ("M8", money), ("M9", money)):
         overview[address].number_format = number_format
 
-    for row in range(detail_header_row + 1, total_row + 1):
+    for row in range(detail_header_row + 1, optional_total_row + 1):
         for column in (4, 5):
             ws.cell(row, column).number_format = quantity
         for column in (6, 7, 10, 11, 12, 13):
@@ -419,7 +439,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
 
     # Scalar helper formulas keep category grouping compatible with older Excel
     # too. One hidden row per parent prevents child costs being counted twice.
-    helper_first_row = total_row + 2
+    helper_first_row = optional_total_row + 2
     helper_last_row = helper_first_row + len(parent_rows)*2 - 1
     for index,(line,parent_row) in enumerate(line_parent_rows):
         components=line.get('components') or []
@@ -446,7 +466,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 formulas={3:f'IF({lighting},G{parent_row}-C{row-1},0)',4:f'IF({lighting},I{parent_row},0)',
                     5:f'IF({lighting},J{parent_row},0)',6:f'IF({lighting},L{parent_row}-F{row-1},0)',7:f'IF({lighting},1,0)'}
             excluded_condition=f'P{parent_row}=0' if part==0 else f'AND(P{parent_row}=0,{lighting})'
-            ws.cell(row,1,ws.cell(row,1).value+f'&IF({excluded_condition}," [Excluded]","")')
+            ws.cell(row,1,ws.cell(row,1).value+f'&IF({excluded_condition}," [Optional cost]","")')
             ws.cell(row,2,'=1' if row==helper_first_row else f'=IF(A{row}="",0,IF(SUMPRODUCT(--($A${helper_first_row}:A{row}=A{row}))=1,MAX($B${helper_first_row}:B{row-1})+1,0))')
             for col,formula in formulas.items():ws.cell(row,col,'='+formula)
             ws.row_dimensions[row].hidden=True
@@ -469,7 +489,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     assembly_count = "SUM("+",".join(f"{detail_ref}P{parent}" for parent in parent_rows)+")" if parent_rows else "0"
     for index, row in enumerate(range(scope_first_row, scope_last_row + 1), 1):
         is_total = f"{index}=MAX({scope_numbers})+1" if parent_rows else "TRUE"
-        label = f'=IFERROR(INDEX({categories},MATCH({index},{scope_numbers},0)),IF({is_total},"TOTAL",""))' if parent_rows else "TOTAL"
+        label = f'=IFERROR(INDEX({categories},MATCH({index},{scope_numbers},0)),IF({is_total},"INCLUDED TOTAL",""))' if parent_rows else "INCLUDED TOTAL"
         _merge_value(ws, f"A{row}:C{row}", label, size=10)
         for start, end, source, total, fmt in (
             ("D", "E", None, assembly_count, "0"),
@@ -484,9 +504,9 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             formula = f'=IF(A{row}="","",IF({is_total},{total},{aggregate}))' if parent_rows else f"={total}"
             _merge_value(ws, f"{start}{row}:{end}{row}", formula, size=10,
                          bold=start == "M", horizontal="right", number_format=fmt)
-        ws.row_dimensions[row].height = 29
+        ws.row_dimensions[row].height = 40
         ws.conditional_formatting.add(f"A{row}:N{row}", FormulaRule(
-            formula=[f'$A{row}="TOTAL"'], fill=PatternFill("solid", fgColor=TEAL),
+            formula=[f'$A{row}="INCLUDED TOTAL"'], fill=PatternFill("solid", fgColor=TEAL),
             font=Font(name="Aptos", size=10, bold=True, color=WHITE), stopIfTrue=True))
         ws.conditional_formatting.add(f"A{row}:N{row}", FormulaRule(
             formula=[f'AND($A{row}<>"",MOD(ROW(),2)=0)'], fill=PatternFill("solid", fgColor=GREEN_LIGHT)))
@@ -549,11 +569,11 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     work_labels=['Installation','Supply only','Supply & installation','Relocation','Demolition','Relocation and Demolition']
     detail.cell(detail_header_row,15,'Work type').font=Font(name='Aptos',bold=True,color=DARK)
     detail.column_dimensions['O'].width=30
-    detail.cell(detail_header_row,16,'Include in total').font=Font(name='Aptos',bold=True,color=DARK)
+    detail.cell(detail_header_row,16,'Cost treatment').font=Font(name='Aptos',bold=True,color=DARK)
     detail.cell(detail_header_row,16).alignment=Alignment(wrap_text=True)
-    detail.column_dimensions['P'].width=18
+    detail.column_dimensions['P'].width=20
     include_rule=DataValidation(type='whole',operator='between',formula1=0,formula2=1,allow_blank=False)
-    include_rule.errorTitle='Use On or Off';include_rule.error='Enter 1 for On or 0 for Off.';include_rule.showErrorMessage=True
+    include_rule.errorTitle='Choose a cost treatment';include_rule.error='Enter 1 for Included or 0 for Optional cost.';include_rule.showErrorMessage=True
     detail.add_data_validation(include_rule)
     for _,parent in line_parent_rows:include_rule.add(detail.cell(parent,16))
     for line,parent in line_parent_rows:
@@ -568,7 +588,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     detail.add_data_validation(rule)
     for _,parent in line_parent_rows:rule.add(detail.cell(parent,15))
     row=scope_last_row+3
-    _section_title(overview,row,'WORK TYPE COST SUMMARY',NAVY)
+    _section_title(overview,row,'WORK TYPE COST SUMMARY (included items)',NAVY)
     row+=1
     for start,end,label in scope_headers:
         _merge_value(overview,f'{start}{row}:{end}{row}', 'Work type' if start=='A' else label,fill=YELLOW,bold=True,size=10)
@@ -583,7 +603,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
             _merge_value(overview,f'{start}{row}:{end}{row}',formula,number_format=fmt,horizontal='right',size=10,bold=label=='TOTAL',fill=GREEN_LIGHT)
         overview.row_dimensions[row].height=30
     overview.print_area=f'A1:N{row}'
-    detail.print_area=f'A1:P{total_row}'
+    detail.print_area=f'A1:P{optional_total_row}'
 
     builder_lines = sum(max(1, (len(name) + 39) // 40) for name in project.get('builders') or [])
     overview.row_dimensions[2].height = max(overview.row_dimensions[2].height or 30, min(409, 16 * builder_lines + 12))

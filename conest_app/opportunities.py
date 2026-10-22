@@ -157,6 +157,14 @@ def _today(db, region, now=None):
     return (now or datetime.now(timezone.utc)).astimezone(zone).date()
 
 
+def _deadline_passed(db, item):
+    return bool(item.get('due') and date.fromisoformat(item['due']) < _today(db, item['region']))
+
+
+def _is_quoted(item):
+    return item.get('quoteStatus') == 'quoted' or bool(item.get('submissionIds'))
+
+
 def normalise_link(value):
     """Validate an optional web address without following it or fetching content."""
     if value is None:
@@ -481,13 +489,16 @@ def decide(store, payload, user):
         item = _find(db, identifier)
         _require(item, actor, 'manage' if decision == 'pending' else 'approve')
         _revision(item, payload)
-        if item.get('quoteStatus') == 'quoted' and decision != 'approved':
+        if _is_quoted(item) and decision != 'approved':
             raise tenders.ValidationError('This opportunity has already been quoted. Update its outcome in Project Chase-up.', 409)
         if item['status'] == decision:
             return _detail(db, item, actor)
         if decision == 'pending' and item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
             raise tenders.ValidationError('Approve this opportunity to proceed after its deadline, or extend the deadline before requesting approval.', 409)
         before = item['status']
+        # Older approved projects may already be followed up elsewhere. A
+        # normal rejection after expiry must not invent a Not quoted outcome.
+        not_quoted = decision == 'rejected' and before == 'approved' and not _deadline_passed(db, item)
         moment = tenders.timestamp()
         item.update(status=decision, revision=item['revision'] + 1, updatedAt=moment,
                     updatedBy=actor['id'], updatedByName=actor['name'],
@@ -497,7 +508,7 @@ def decide(store, payload, user):
         if decision == 'approved':
             _set_approved(item, actor, moment)
             item['decisionReason'] = reason
-        elif decision == 'rejected' and before == 'approved':
+        elif not_quoted:
             item.update(quoteStatus='not_quoted', notQuotedBy=actor['id'],
                         notQuotedByName=actor['name'], notQuotedAt=moment)
         elif decision == 'pending' and item.get('quoteStatus') == 'not_quoted':
@@ -506,7 +517,7 @@ def decide(store, payload, user):
         action = {'approved': 'Approved opportunity', 'rejected': 'Rejected opportunity',
                   'pending': 'Requested opportunity approval'}[decision]
         event = _activity(store, db, actor, action, item, {'before': before, 'after': decision, 'reason': reason,
-                                                        **({'quoteStatus': 'not_quoted'} if decision == 'rejected' and before == 'approved' else {})})
+                                                        **({'quoteStatus': 'not_quoted'} if not_quoted else {})})
         message = f'{actor["name"]} {"requested approval for" if decision == "pending" else decision} this opportunity.'
         if reason:
             message += ' ' + reason

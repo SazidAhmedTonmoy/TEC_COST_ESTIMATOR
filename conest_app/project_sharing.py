@@ -24,11 +24,12 @@ def shared_html(data):
     def info(values):return '<dl>'+''.join('<div><dt>'+text(k)+'</dt><dd>'+text(v)+'</dd></div>' for k,v in values if v is not None and v!='')+'</dl>'
     groups={}
     for line in data['lines']:groups.setdefault(line.get('category_key') or section_key(line.get('category_snapshot')),[]).append(line)
-    has_excluded=any(line.get('included_in_total') is False for line in data['lines'])
+    optional_lines=[line for line in data['lines'] if line.get('included_in_total') is False]
+    has_excluded=bool(optional_lines)
     categories=[]
     for category,lines in groups.items():
         excluded=any(line.get('included_in_total') is False for line in lines)
-        section_label='<span class="exclusion-label">Excluded from total</span>' if excluded else ''
+        section_label='<span class="exclusion-label">Optional cost</span>' if excluded else ''
         aggregate={k:sum(float(l.get(f) or 0) for l in lines) for k,f in [('material','total_material'),('hours','total_hours'),('labor','total_labor'),('quoted','quoted_total')]}
         items=[]
         for line in lines:
@@ -36,13 +37,19 @@ def shared_html(data):
             components=''.join('<tr><td>'+text(c.get('description'))+'</td><td>'+text(c.get('size'))+'</td><td>'+number(c.get('scaled_quantity'))+' '+text(c.get('uom'))+'</td><td>'+text(c.get('notes'))+'</td></tr>' for c in line.get('components',[]))
             details=info([('Reference',line.get('reference_name')),('Description',line.get('description_snapshot')),('Size',line.get('size_snapshot')),('Remarks',line.get('notes'))])
             if components:details+='<div class="component-scroll"><table><thead><tr><th>Component</th><th>Size / specification</th><th>Total quantity</th><th>Remarks</th></tr></thead><tbody>'+components+'</tbody></table></div>'
-            item_label='<small class="exclusion-label">Excluded from total</small>' if line.get('included_in_total') is False else ''
+            item_label='<small class="exclusion-label">Optional cost</small>' if line.get('included_in_total') is False else ''
             items.append('<details class="estimate-item'+(' section-excluded' if line.get('included_in_total') is False else '')+'"><summary><div class="item-title"><b>'+text(line.get('name_snapshot'))+'</b><small>'+number(line.get('quantity'))+' '+text(line.get('uom'))+'</small>'+item_label+'</div>'+totals(values)+'</summary><div class="item-detail">'+details+'</div></details>')
         categories.append('<details class="category'+(' section-excluded' if excluded else '')+'"><summary><div class="category-title"><h3>'+text(category)+'</h3><span>'+str(len(lines))+' items</span>'+section_label+'</div>'+totals(aggregate)+'</summary><div class="category-items">'+''.join(items)+'</div></details>')
     status={'draft':'Not started','in_progress':'In progress','in_review':'In review','submitted':'Submitted','closed':'Closed'}.get(p.get('status'),p.get('status',''))
     details=info([('Builders',p.get('client')),('Status',status),('Submission deadline',p.get('submission_deadline')),('Review deadline',p.get('review_deadline')),('Scope of work',p.get('scope_of_work')),('Project remarks',p.get('notes'))])
-    total_heading='<h2>Included estimate total</h2><p>Sections marked Excluded from total remain visible for reference. Their amounts are excluded from this estimate total.</p>' if has_excluded else ''
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+text(p['name'])+' — TEC ConEst</title><link rel="stylesheet" href="/assets/public_project.css"></head><body><main><header><b>TEC ConEst Estimator</b><span>Shared project · Read only</span></header><h1>'+text(p['name'])+'</h1><section class="project-totals">'+total_heading+totals(data['totals'])+'</section><section><h2>Project details</h2>'+details+'</section><section class="estimate-section"><h2>Estimate categories</h2><p>All amounts in '+currency+'. Select + to expand a category or item, and − to shrink it.</p>'+''.join(categories)+'</section></main></body></html>'
+    total_heading='<h2>Included estimate total</h2>' if has_excluded else ''
+    optional_summary=''
+    if has_excluded:
+        optional_values={key:sum(float(line.get(field) or 0) for line in optional_lines)
+                         for key,field in [('material','total_material'),('hours','total_hours'),
+                                           ('labor','total_labor'),('quoted','quoted_total')]}
+        optional_summary='<section class="optional-totals"><h2>Optional costs</h2><p>These items are not included in the estimate total.</p>'+totals(optional_values)+'</section>'
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+text(p['name'])+' — TEC ConEst</title><link rel="stylesheet" href="/assets/public_project.css"></head><body><main><header><b>TEC ConEst Estimator</b><span>Shared project · Read only</span></header><h1>'+text(p['name'])+'</h1><section class="project-totals">'+total_heading+totals(data['totals'])+'</section>'+optional_summary+'<section><h2>Project details</h2>'+details+'</section><section class="estimate-section"><h2>Estimate categories</h2><p>All amounts in '+currency+'. Select + to expand a category or item, and − to shrink it.</p>'+''.join(categories)+'</section></main></body></html>'
 
 
 def route(handler,path):

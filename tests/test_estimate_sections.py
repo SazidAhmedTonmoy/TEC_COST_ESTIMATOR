@@ -204,7 +204,7 @@ class EstimateSectionTests(unittest.TestCase):
             self.assertEqual(len(rows), 4)
             self.assertTrue(all(detail.cell(row,16).value==0 for row in rows))
             for parent in rows:
-                self.assertTrue(any(isinstance(cell.value,str) and f'IF(P{parent}=0," [Excluded]","")' in cell.value
+                self.assertTrue(any(isinstance(cell.value,str) and f'IF(P{parent}=0," [Optional cost]","")' in cell.value
                                     for row in detail for cell in row[:1]))
         finally:
             book.close()
@@ -234,13 +234,13 @@ class EstimateSectionTests(unittest.TestCase):
             off = self.toggle(conn)
             html = project_sharing.shared_html(off)
             self.assertIn('<h2>Included estimate total</h2>', html)
-            self.assertEqual(html.count('Excluded from total</'), 2)  # Category and its one item.
+            self.assertEqual(html.count('Optional cost</'), 2)  # Category and its one item.
             self.assertIn('<details class="category section-excluded">', html)
             self.assertIn('<details class="estimate-item section-excluded">', html)
             self.assertIn(f'{before["lines"][0]["quoted_total"]:,.2f}', html)
             self.assertIn(f'{off["totals"]["quoted"]:,.2f}', html)
             all_on = project_sharing.shared_html(self.toggle(conn, included=True))
-            self.assertNotIn('Excluded from total', all_on)
+            self.assertNotIn('Optional cost', all_on)
             self.assertNotIn('class="category section-excluded"', all_on)
 
     def test_complete_schema31_upgrades_without_historical_backfills_and_once(self):
@@ -295,8 +295,8 @@ class EstimateSectionTests(unittest.TestCase):
         detail=book['CONNECTED COST DETAIL']
         parent=next(row for row in range(1,detail.max_row+1) if detail.cell(row,1).value=='Lighting')
         self.assertEqual(detail.cell(parent,16).value,0)
-        self.assertEqual(detail['P5'].value,'Include in total')
-        self.assertIn('[Excluded]',str(next(cell.value for row in detail for cell in row[:1] if isinstance(cell.value,str) and '[Excluded]' in cell.value)))
+        self.assertEqual(detail['P5'].value,'Cost treatment')
+        self.assertIn('[Optional cost]',str(next(cell.value for row in detail for cell in row[:1] if isinstance(cell.value,str) and '[Optional cost]' in cell.value)))
 
         def evaluate(sheet,cell):
             raw=book[sheet][cell].value

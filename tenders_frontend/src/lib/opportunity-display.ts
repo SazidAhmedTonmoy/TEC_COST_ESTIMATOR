@@ -1,4 +1,4 @@
-import type {OpportunityRegion,OpportunityStatus} from './opportunity-types';
+import type {Opportunity,OpportunityRegion,OpportunityStatus} from './opportunity-types';
 
 const DAY_MS=86_400_000;
 const defaultTimezones:Record<string,string>={NSW:'Australia/Sydney',VIC:'Australia/Melbourne'};
@@ -37,7 +37,7 @@ function deadlineDay(value:string) {
   return instant/DAY_MS;
 }
 
-export type OpportunityDeadline={days:number|null;label:string;tone:'urgent'|'warning'|'safe'|'none';timezone:string};
+export type OpportunityDeadline={days:number|null;label:string;tone:'urgent'|'warning'|'safe'|'neutral'|'none';timezone:string};
 
 export function opportunityLocalDate(region:string,regions:OpportunityRegion[]=[],now=Date.now()) {
   return new Date(localDay(now,opportunityTimezone(region,regions))*DAY_MS).toISOString().slice(0,10);
@@ -57,9 +57,28 @@ export function opportunityDeadline(
   if(days<0){
     const age=-days;
     const prefix=item.status==='expired'?'Expired':'Deadline passed';
-    return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:'urgent',timezone};
+    return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:'neutral',timezone};
   }
-  return {days,label:days===0?'Due today':days===1?'Due tomorrow':`${days} days left`,tone:days<=3?'urgent':days<=7?'warning':'safe',timezone};
+  const decided=item.status==='approved'||item.status==='rejected'||item.status==='expired';
+  return {days,label:days===0?'Due today':days===1?'Due tomorrow':`${days} days left`,tone:decided?'neutral':days<=3?'urgent':days<=7?'warning':'safe',timezone};
+}
+
+export function isOpportunityQuoted(item:Pick<Opportunity,'quoteStatus'|'submissionIds'>) {
+  return item.quoteStatus==='quoted'||!!item.submissionIds?.length;
+}
+
+/** A past deadline must not start another quotation workflow for an old project. */
+export function canQuoteOpportunity(item:Opportunity,regions:OpportunityRegion[]=[],now=Date.now()) {
+  if(item.deletedAt||item.status!=='approved'||isOpportunityQuoted(item)||!(item.permissions.quote??item.permissions.approve))return false;
+  const days=opportunityDeadline(item,regions,now).days;
+  return days===null||days>=0;
+}
+
+export function canRejectOpportunity(item:Opportunity,regions:OpportunityRegion[]=[],now=Date.now()) {
+  if(item.deletedAt||!item.permissions.approve||isOpportunityQuoted(item))return false;
+  if(item.status==='pending'||item.status==='expired')return true;
+  const days=opportunityDeadline(item,regions,now).days;
+  return item.status==='approved'&&days!==null&&days<0;
 }
 
 /** Next local midnight across the visible regions; no fixed 24-hour assumption. */

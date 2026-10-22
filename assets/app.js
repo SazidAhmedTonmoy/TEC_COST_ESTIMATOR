@@ -342,7 +342,7 @@ function showCategorySuggestions(field,showAll=false){
 
 function renderScopeBreakdown(data) {
   const summary = (state.summaryMode==='work'?data.work_summary:data.scope_summary) || [];
-  function summaryRow(row,child=false){return `<tr class="${child?'scope-subcategory':''} ${row.included===false?'scope-summary-excluded':''}"><td>${escapeHtml(row.category)}${row.included===false&&!child?'<small class="scope-excluded-label">Excluded from total</small>':''}</td><td>${child?'':row.assemblies}</td><td>${fmtMoney(row.material)}</td><td>${fmtNumber(row.hours)} hrs</td><td>${fmtMoney(row.labor)}</td><td><strong>${fmtMoney(row.quoted)}</strong></td></tr>`;}
+  function summaryRow(row,child=false){return `<tr class="${child?'scope-subcategory':''} ${row.included===false?'scope-summary-excluded':''}"><td>${escapeHtml(row.category)}${row.included===false&&!child?'<small class="scope-excluded-label">Optional cost</small>':''}</td><td>${child?'':row.assemblies}</td><td>${fmtMoney(row.material)}</td><td>${fmtNumber(row.hours)} hrs</td><td>${fmtMoney(row.labor)}</td><td><strong>${fmtMoney(row.quoted)}</strong></td></tr>`;}
   $('#scope-breakdown-rows').innerHTML=summary.length?summary.map(row=>summaryRow(row)+(row.subcategories||[]).map(child=>summaryRow(child,true)).join('')).join(''):'<tr><td colspan="6" class="scope-empty">Add estimate items to see the breakdown.</td></tr>';
   const totals = data.totals;
   $("#scope-breakdown-total").innerHTML = `<tr><td>${data.totals.included_line_count<data.lines.length?'TOTAL INCLUDED':'TOTAL'}</td><td>${data.totals.included_line_count??data.lines.length}</td><td>${fmtMoney(totals.material)}</td><td>${fmtNumber(totals.hours)} hrs</td><td>${fmtMoney(totals.labor)}</td><td>${fmtMoney(totals.quoted)}</td></tr>`;

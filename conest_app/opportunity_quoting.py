@@ -79,6 +79,10 @@ def quote(store, payload, user):
             return {**op._detail(db, item, actor), 'submissionIds': ids,
                     'quoted': True, 'alreadyQuoted': True}
         op._revision(item, payload)
+        if item.get('submissionIds'):
+            raise tenders.ValidationError('This opportunity already has linked submissions. Review the existing project in Project Chase-up; no new quote was created.', 409)
+        if op._deadline_passed(db, item):
+            raise tenders.ValidationError('The opportunity deadline has passed. Use Projects / Project Chase-up to manage existing submissions; no new quote was created.', 409)
 
         project_key = tenders.project_key(item['project'])
         existing = [json.loads(row['body']) for row in db.execute('SELECT body FROM submissions')]

@@ -143,7 +143,7 @@ class Builders235Tests(unittest.TestCase):
         self.assertEqual(ws['H2'].data_type,'s')
         self.assertTrue(ws['H2'].alignment.wrap_text)
         self.assertGreaterEqual(ws.row_dimensions[2].height,44)
-        self.assertEqual(wb['CONNECTED COST DETAIL'].row_dimensions[2].height,24)
+        self.assertEqual(wb['CONNECTED COST DETAIL'].row_dimensions[2].height,30)
         wb.close()
 
 if __name__=='__main__':unittest.main()

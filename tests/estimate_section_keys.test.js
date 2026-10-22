@@ -28,7 +28,7 @@ vm.runInContext(workspace.slice(workspace.indexOf('function moveId('),workspace.
   let markup=node('#estimate-lines').innerHTML;
   assert.equal((markup.match(/class="scope-divider/g)||[]).length,2);
   assert.equal((markup.match(/role="switch" aria-checked="false" data-scope="Cable Tray"/g)||[]).length,1);
-  assert.ok(markup.includes('Excluded from total'));
+  assert.ok(markup.includes('Optional cost'));
   assert.ok(markup.includes('Quoted Total <b>$30</b>'));
   assert.ok(markup.includes('data-line="1"')&&markup.includes('data-line="2"'));
   vm.runInContext("estimateViewState.collapsed.add(scopeKey('Cable Tray'));",ctx);

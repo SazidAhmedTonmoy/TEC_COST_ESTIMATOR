@@ -101,17 +101,17 @@ class OpportunityWorkflowTests(unittest.TestCase):
             self.assertFalse(db.execute("SELECT 1 FROM opportunity_activity WHERE opportunity_id=? AND action='Expired opportunity'",
                                         (item['id'],)).fetchone())
 
-    def test_manual_approval_accepts_expired_and_not_quoted_rejects_without_note(self):
+    def test_manual_approval_accepts_expired_and_rejects_without_note(self):
         item = self.approved(due='2000-01-01')
         self.assertEqual(item['status'], 'approved')
         repeated = op.decide(self.store, {**item, 'decision': 'approved'}, self.member)['opportunity']
         self.assertEqual(repeated['revision'], item['revision'])
         result = op.decide(self.store, {**item, 'decision': 'rejected'}, self.member)['opportunity']
-        self.assertEqual((result['status'], result['quoteStatus'], result['decisionReason']), ('rejected', 'not_quoted', ''))
-        self.assertEqual(result['notQuotedBy'], self.member['id'])
+        self.assertEqual((result['status'], result.get('quoteStatus', ''), result['decisionReason']), ('rejected', '', ''))
+        self.assertNotIn('notQuotedBy', result)
         again = op.update_authority(self.store, {**result, 'assignedTeamIds': [self.team]}, self.creator, 'assign')['opportunity']
         self.assertEqual(again['status'], 'approved')
-        self.assertEqual(again['quoteStatus'], '')
+        self.assertEqual(again.get('quoteStatus', ''), '')
 
     def test_seed_approved_deadline_does_not_override_recorded_status(self):
         imported = op.import_records(self.store, [{
@@ -255,8 +255,9 @@ class OpportunityWorkflowTests(unittest.TestCase):
         self.assertEqual(self.snapshot(), snapshot)
 
     def test_quoted_outcome_stays_approved_and_is_managed_in_chase_up(self):
-        item = self.approved(due='2000-01-01')
+        item = self.approved()
         quoted = op.quote(self.store, self.quote_payload(item), self.admin)['opportunity']
+        quoted = op.save(self.store, {**quoted, 'due': '2000-01-01'}, self.creator)['opportunity']
         for decision in ('pending', 'rejected'):
             self.assert_denied(lambda: op.decide(self.store, {**quoted, 'decision': decision}, self.admin), 409)
         op.process_due(self.store, force=True)
