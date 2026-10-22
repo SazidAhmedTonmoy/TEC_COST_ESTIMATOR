@@ -9,6 +9,7 @@ import unittest
 
 from app import ConEstHandler, _accepts_gzip, _public_asset_bytes
 from conest_app import __version__
+from tools.check_tender_css import served_mobile_css
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -31,11 +32,14 @@ class MobileReleaseTests(unittest.TestCase):
         self.assertIn('prefers-reduced-motion',(ROOT/'assets/login-carousel.js').read_text())
 
     def test_mobile_source_and_served_tender_css(self):
-        source=(ROOT/'tenders_frontend/src/mobile-v3511.css').read_bytes()
-        dist=(ROOT/'tenders_web/assets/mobile-v3511.css').read_bytes()
-        self.assertEqual(source,dist)
+        source=(ROOT/'tenders_frontend/src/mobile-v3511.css').read_text()
+        self.assertIn('content-visibility:auto',source)
+        self.assertIn('.op-import-tools',source)
         self.assertIn('mobile-v3511.css',(ROOT/'tenders_frontend/src/main.tsx').read_text())
-        self.assertIn('mobile-v3511.css',(ROOT/'tenders_web/index.html').read_text())
+        # Vite combines this imported stylesheet into an index-<hash>.css.
+        # Check the CSS actually referenced by the built HTML, not a copied
+        # source file or an external link that disappears during `npm run build`.
+        served_mobile_css(ROOT,'content-visibility:auto','.op-import-tools')
         self.assertIn('responsive-v3511.css',(ROOT/'assets/index.html').read_text())
 
     def test_version_and_single_document(self):

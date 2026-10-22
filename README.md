@@ -329,6 +329,20 @@ Quick integration checklist after deployment:
 - Test permission boundary using a non-admin account; notification read state stays per user.
 - Confirm `https://tec-const.ampecportal.com/api/health?check=tenders` reports schema `32`, the deployed application version, and all checks `ok`.
 
+### GitHub Actions: Tender CSS build validation
+
+The deployment workflow runs `npm ci && npm run build` for Tenders **before** Python tests. Vite bundles the `mobile-v3511.css` and `mobile-v3512.css` imports into a generated stylesheet named like `index-<hash>.css`; it may remove the old separately copied CSS files while cleaning `tenders_web/`. The two mobile release tests now inspect the stylesheet link in the **built Tender HTML** and verify that the responsive rules are actually present, rather than requiring obsolete filenames. This keeps the protection against missing mobile styles while supporting production builds.
+
+To reproduce the deployment sequence in a connected development environment:
+
+```bash
+cd tenders_frontend && npm ci && npm run build && cd ..
+python tools/build_frontend.py
+python tools/run_tests.py --workers 4
+```
+
+If a test fails, the runner repeats its failure details at the bottom of the GitHub Actions log and adds an error annotation. **Only the CI test/build verification changed in this hotfix**; application version metadata remains `3.5.12` until an explicit executable 3.6 release is made.
+
 ## Troubleshooting
 
 | Symptom | What to inspect |

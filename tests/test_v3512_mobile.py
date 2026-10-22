@@ -3,6 +3,7 @@ from pathlib import Path
 import unittest
 
 from conest_app import __version__
+from tools.check_tender_css import served_mobile_css
 
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -13,7 +14,9 @@ class Mobile3512Tests(unittest.TestCase):
         self.assertIn('estimator-menu-backdrop',html)
         self.assertIn('/assets/mobile-v3512.css?v=3.5.12',html)
         tender=(ROOT/'tenders_web/index.html').read_text()
-        self.assertIn('/tenders/assets/mobile-v3512.css?v=3.5.12',tender)
+        # Either the prebuilt direct stylesheet or Vite's hashed CSS is valid.
+        import re
+        self.assertRegex(tender,r'<link\b[^>]*href="/tenders/assets/[^"?]+\.css(?:\?[^"]*)?"')
 
     def test_login_float_guard(self):
         css=(ROOT/'assets/mobile-v3512.css').read_text()
@@ -37,9 +40,15 @@ class Mobile3512Tests(unittest.TestCase):
         self.assertIn('grid-template-columns:none!important',css)
 
     def test_tender_kpi_grid_matches_served_asset(self):
-        source=(ROOT/'tenders_frontend/src/mobile-v3512.css').read_bytes()
-        deployed=(ROOT/'tenders_web/assets/mobile-v3512.css').read_bytes()
-        self.assertEqual(source,deployed)
-        self.assertIn(b'grid-template-columns:repeat(2,minmax(0,1fr))',deployed)
-        self.assertIn(b'overflow:visible!important',deployed)
+        source=(ROOT/'tenders_frontend/src/mobile-v3512.css').read_text()
+        self.assertIn('grid-template-columns:repeat(2,minmax(0,1fr))',source.replace(' ',''))
+        self.assertIn('overflow:visible!important',source)
         self.assertIn('mobile-v3512.css',(ROOT/'tenders_frontend/src/main.tsx').read_text())
+        # Vite emits a fingerprinted CSS bundle, not a stable mobile-v3512.css.
+        # The actual HTML stylesheet must include the required mobile rules.
+        served_mobile_css(
+            ROOT,
+            'grid-template-columns:repeat(2,minmax(0,1fr))!important',
+            'overflow:visible!important',
+            'scroll-snap-type:none!important',
+        )
