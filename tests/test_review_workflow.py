@@ -5,6 +5,7 @@ import sqlite3
 import unittest
 import test_http_v231 as helpers
 from fixtures_v232 import seed
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import workspace, productivity, auto_upgrade, projects
 from conest_app.database import database_path, connect
 from legacy_schema_fixture import drop_fixture_columns
@@ -71,7 +72,7 @@ class ReviewWorkflowTests(unittest.TestCase):
             self.assertEqual(p['completed_at'],'2026-09-20')
             self.assertEqual(projects.calculate_project(c,pid)['totals'],before['totals'])
             self.assertEqual(c.execute('SELECT COUNT(*) FROM project_activity').fetchone()[0],events)
-        snapshot=next((database_path().parent/'upgrade_backups').glob('*before-schema-31.db'))
+        snapshot=next((database_path().parent/'upgrade_backups').glob(f'*before-schema-{CURRENT_SCHEMA}.db'))
         with sqlite3.connect(snapshot) as c:
             self.assertEqual(c.execute('SELECT status FROM projects WHERE id=?',(pid,)).fetchone()[0],'completed')
         auto_upgrade._ready.pop(str(database_path()),None)

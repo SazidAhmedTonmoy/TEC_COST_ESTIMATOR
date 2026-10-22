@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 from PIL import Image
 from openpyxl import load_workbook
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app.database import initialize, connect
 from conest_app.accounts import AccessError, start_session, session_user
 from conest_app import light_prices
@@ -72,7 +73,7 @@ class Version23Tests(unittest.TestCase):
             self.assertEqual(conn.execute('SELECT COUNT(*) FROM project_notes').fetchone()[0],1)
             self.assertEqual(conn.execute('SELECT COUNT(*) FROM project_note_reads').fetchone()[0],1)
             self.assertFalse(conn.execute('PRAGMA foreign_key_check').fetchall())
-            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],31)
+            self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],CURRENT_SCHEMA)
 
     def test_legacy_notes_migration_keeps_deleted_id_sequence(self):
         import sqlite3

@@ -17,6 +17,7 @@ _DECLARATIONS = {
     'projects': {
         'review_deadline': 'review_deadline TEXT',
         'review_cycle': 'review_cycle INTEGER NOT NULL DEFAULT 0',
+        'excluded_categories': "excluded_categories TEXT NOT NULL DEFAULT '[]'",
     },
     'users': {
         'contact_number': '"contact_number" TEXT NOT NULL DEFAULT \'\'',

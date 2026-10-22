@@ -1,6 +1,7 @@
 """Optional shared stars: save/clear, search visibility, validation and migration."""
 import unittest
 import test_http_v231 as helpers
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app.database import connect,database_path
 from conest_app import projects,auto_upgrade
 from conest_app.catalog import create_manual_catalog_item,search_catalog,get_catalog_item
@@ -46,6 +47,6 @@ class CatalogRatingTests(unittest.TestCase):
    c.execute(f'DELETE FROM app_migrations WHERE "{key}"=?',('v3.1-catalog-rating',))
   auto_upgrade._ready.pop(str(database_path()),None)
   with connect() as c:
-   self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],31)
+   self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],CURRENT_SCHEMA)
    self.assertEqual(get_catalog_item(c,f['catalog_id'])['importance_rating'],0)
    self.assertEqual(projects.calculate_project(c,f['project_id'])['totals'],before)

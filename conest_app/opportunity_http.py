@@ -55,6 +55,8 @@ def route(handler, path, store, send):
         result = opportunities.save(store, payload, handler.user)
     elif path == prefix + '/decision':
         result = opportunities.decide(store, payload, handler.user)
+    elif path == prefix + '/quote':
+        result = opportunities.quote(store, payload, handler.user)
     elif path in (prefix + '/assign', prefix + '/access'):
         result = opportunities.update_authority(store, payload, handler.user, path.rsplit('/', 1)[-1])
     elif path == prefix + '/regions':

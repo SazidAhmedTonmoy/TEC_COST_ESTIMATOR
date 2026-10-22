@@ -37,7 +37,11 @@ function deadlineDay(value:string) {
   return instant/DAY_MS;
 }
 
-export type OpportunityDeadline={days:number|null;label:string;tone:'normal'|'soon'|'past'|'none';timezone:string};
+export type OpportunityDeadline={days:number|null;label:string;tone:'urgent'|'warning'|'safe'|'none';timezone:string};
+
+export function opportunityLocalDate(region:string,regions:OpportunityRegion[]=[],now=Date.now()) {
+  return new Date(localDay(now,opportunityTimezone(region,regions))*DAY_MS).toISOString().slice(0,10);
+}
 
 export function opportunityDeadline(
   item:{due?:string;region:string;status?:OpportunityStatus},
@@ -53,9 +57,9 @@ export function opportunityDeadline(
   if(days<0){
     const age=-days;
     const prefix=item.status==='expired'?'Expired':'Deadline passed';
-    return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:'past',timezone};
+    return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:'urgent',timezone};
   }
-  return {days,label:days===0?'Due today':days===1?'Due tomorrow':`${days} days left`,tone:days<=1?'soon':'normal',timezone};
+  return {days,label:days===0?'Due today':days===1?'Due tomorrow':`${days} days left`,tone:days<=3?'urgent':days<=7?'warning':'safe',timezone};
 }
 
 /** Next local midnight across the visible regions; no fixed 24-hour assumption. */

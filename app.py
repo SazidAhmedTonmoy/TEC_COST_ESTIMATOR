@@ -471,7 +471,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     lambda conn: self._authorize_connection(conn, path))
                 self._send_json({'success': True, **result})
                 return
-            tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|sections/remove|lines/(\d+)/(copy|components/reorder|components/(\d+)/(?:copy|remove)))',path)
+            tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|sections/(?:remove|inclusion)|lines/(\d+)/(copy|components/reorder|components/(\d+)/(?:copy|remove)))',path)
             if tools_match:
                 from conest_app import estimate_tools
                 payload=self._json_body();pid=int(tools_match[1]);lid=int(tools_match[3]) if tools_match[3] else None
@@ -480,6 +480,8 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         pid=estimate_tools.copy_project(conn,pid,self.user,payload)
                     elif tools_match[2]=='sections/remove':
                         estimate_tools.delete_section(conn,pid,self.user,payload)
+                    elif tools_match[2]=='sections/inclusion':
+                        estimate_tools.set_section_inclusion(conn,pid,self.user,payload)
                     elif tools_match[2]=='reorder':
                         estimate_tools.reorder_lines(conn,pid,payload)
                         self._audit(conn,pid,'Reordered categories' if 'scope_order' in payload else 'Reordered estimate items')
@@ -496,7 +498,11 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         result=self._project_payload(conn,{'project':dict(get_project(conn,pid))})
                         result.update(estimate_order=True,line_order=payload['ids'],line_versions=[dict(row) for row in conn.execute('SELECT id,revision,sort_order,updated_at FROM project_lines WHERE project_id=?',(pid,))])
                     else:
-                        result=self._estimate_delta(self._project_payload(conn,calculate_project(conn,pid)),payload)
+                        result=self._project_payload(conn,calculate_project(conn,pid))
+                        # Inclusion flags change without changing individual line revisions.
+                        # Return every line on this action so the browser cannot reuse stale flags.
+                        if tools_match[2]!='sections/inclusion':
+                            result=self._estimate_delta(result,payload)
                     conn.commit()
                 self._send_json({'success':True,**result},201)
                 return

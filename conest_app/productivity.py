@@ -85,6 +85,8 @@ def redeploy_revision(conn, pid, rid, user, payload):
     fields = ('name', 'client', 'currency', 'material_markup', 'labor_rate',
               'overhead_markup', 'labor_hours_markup', 'hours_per_day', 'crew_size', 'notes', 'scope_order')
     values = {k: snapshot['project'][k] for k in fields if k in snapshot['project']}
+    from .estimate_sections import excluded_categories, encode_exclusions
+    values['excluded_categories'] = encode_exclusions(excluded_categories(snapshot['project'].get('excluded_categories')))
     conn.execute('UPDATE projects SET ' + ','.join(k+'=?' for k in values) + ' WHERE id=?', (*values.values(), pid))
     conn.execute('DELETE FROM project_lines WHERE project_id=?', (pid,))
     def insert(table, row):
@@ -122,6 +124,11 @@ def compare_snapshots(before,after):
     settings={f:{'before':before['project'].get(f),'after':after['project'].get(f)} for f in
         ('name','client','currency','material_markup','labor_rate','labor_hours_markup','overhead_markup','notes','scope_of_work','submission_deadline')
         if before['project'].get(f)!=after['project'].get(f)}
+    from .estimate_sections import excluded_categories
+    old_sections=excluded_categories(before['project'].get('excluded_categories'))
+    new_sections=excluded_categories(after['project'].get('excluded_categories'))
+    if old_sections != new_sections:
+        settings['excluded_categories']={'before':sorted(old_sections),'after':sorted(new_sections)}
     return {'changes':changes,'settings':settings,'before_totals':before['totals'],'after_totals':after['totals'],
       'before_currency':before['project']['currency'],'after_currency':after['project']['currency']}
 

@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import patch
 
 from app import ConEstHandler
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import accounts
 from conest_app.database import connect
 from conest_app.quotation_parser import ImportDependencyError
@@ -33,7 +34,7 @@ class HttpPatchTests(unittest.TestCase):
         self.cookie='';self.csrf=''
         # First request, not an explicit initialize(), must prepare the database.
         status,health=self.request('GET','/api/health')
-        self.assertEqual((status,health['schema_version']),(200,31))
+        self.assertEqual((status,health['schema_version']),(200,CURRENT_SCHEMA))
         with connect() as conn:
             row=conn.execute("SELECT * FROM users WHERE role='admin' LIMIT 1").fetchone()
             self.username=row['username']; self.user_id=row['id']
@@ -90,7 +91,7 @@ class HttpPatchTests(unittest.TestCase):
         status,base=self.request('GET',f'/api/projects/{pid}')
         def metadata(data):
             return {'_known_lines':{str(l['id']):l['revision'] for l in data['lines']},
-                    '_known_pricing':[data['project'].get(k,0) for k in ('material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day')]}
+                    '_known_pricing':[data['project'].get(k,0) for k in ('material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day','excluded_categories')]}
         ids=[l['id'] for l in base['lines']][::-1]
         with patch('app.calculate_project',side_effect=AssertionError('Reorder must not recalculate estimate')):
             status,ordered=self.request('POST',f'/api/projects/{pid}/reorder',dict(metadata(base),ids=ids,expected_revision=base['project']['revision']))

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
-import {opportunityDeadline,opportunityTimezone,nextOpportunityDayChange,safeOpportunityLink} from '../tenders_frontend/src/lib/opportunity-display.ts';
+import {opportunityDeadline,opportunityTimezone,opportunityLocalDate,nextOpportunityDayChange,safeOpportunityLink} from '../tenders_frontend/src/lib/opportunity-display.ts';
 
 const regions=[
   {code:'NSW',origin:'Silverwater',timezone:'Australia/Sydney'},
@@ -14,6 +14,24 @@ test('cards show calendar days remaining and due today/tomorrow immediately',()=
   assert.equal(deadline('2026-10-22','2026-10-21T08:00:00Z').label,'Due tomorrow');
   assert.equal(deadline('2026-10-21','2026-10-21T08:00:00Z').label,'Due today');
   assert.equal(deadline('2027-01-01','2026-12-30T13:00:00Z').days,1);
+});
+
+test('deadline colors use inclusive three-day and seven-day boundaries',()=>{
+  const now='2026-10-21T08:00:00Z';
+  for(const status of ['pending','approved','rejected','expired']){
+    for(const due of ['2026-10-20','2026-10-21','2026-10-22','2026-10-24'])assert.equal(deadline(due,now,'NSW',status).tone,'urgent');
+    for(const due of ['2026-10-25','2026-10-28'])assert.equal(deadline(due,now,'NSW',status).tone,'warning');
+    for(const due of ['2026-10-29','2027-01-01'])assert.equal(deadline(due,now,'NSW',status).tone,'safe');
+    assert.equal(deadline('',now,'NSW',status).tone,'none');
+    assert.equal(deadline('invalid',now,'NSW',status).tone,'none');
+  }
+});
+
+test('quote submission dates use the project region calendar',()=>{
+  const now=Date.parse('2026-10-21T13:00:00Z');
+  assert.equal(opportunityLocalDate('NSW',regions,now),'2026-10-22');
+  assert.equal(opportunityLocalDate('VIC',regions,now),'2026-10-22');
+  assert.equal(opportunityLocalDate('WA',regions,now),'2026-10-21');
 });
 
 test('NSW/VIC cross midnight independently of UTC or the browser timezone',()=>{

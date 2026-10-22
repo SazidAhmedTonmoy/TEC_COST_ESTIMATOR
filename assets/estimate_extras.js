@@ -32,9 +32,9 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('#floating-estimate-total').addEventListener('click',()=>$('#metric-quoted').scrollIntoView({behavior:'smooth',block:'center'}));
   $('#toggle-all-categories').addEventListener('click',()=>{
     const lines=state.projectData?.lines||[];
-    const allCollapsed=lines.length>0&&lines.every(line=>estimateViewState.collapsed.has(scopeKey(line.category_snapshot||'Other')));
+    const allCollapsed=lines.length>0&&lines.every(line=>estimateViewState.collapsed.has(scopeKey(estimateSectionName(line))));
     estimateViewState.bulkCollapsed=!allCollapsed;
-    for(const line of lines){const key=scopeKey(line.category_snapshot||'Other');if(allCollapsed)estimateViewState.collapsed.delete(key);else estimateViewState.collapsed.add(key);}
+    for(const line of lines){const key=scopeKey(estimateSectionName(line));if(allCollapsed)estimateViewState.collapsed.delete(key);else estimateViewState.collapsed.add(key);}
     renderGroupedEstimate(lines);
   });
 });
@@ -42,7 +42,7 @@ function syncCategoryToggle(){
   const button=$('#toggle-all-categories'),lines=state.projectData?.lines||[];
   button.classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
   button.disabled=!lines.length;
-  const collapsed=lines.length>0&&lines.every(line=>estimateViewState.collapsed.has(scopeKey(line.category_snapshot||'Other')));
+  const collapsed=lines.length>0&&lines.every(line=>estimateViewState.collapsed.has(scopeKey(estimateSectionName(line))));
   const label=collapsed?'Expand all categories':'Collapse all categories';
   button.textContent=collapsed?'+':'−';
   button.title=label;button.setAttribute('aria-label',label);button.setAttribute('aria-expanded',String(!collapsed));

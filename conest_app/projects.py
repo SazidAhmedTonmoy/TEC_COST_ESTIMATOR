@@ -12,6 +12,7 @@ from .builders import project_with_builders, stored_builders
 from .taxonomy import scope_sort_key
 from .workspace import check_revision
 from .estimate_options import display_title, supply_component, LIGHTING_CATEGORIES
+from .estimate_sections import excluded_categories, prune_exclusions, section_key
 
 
 def _project_row(conn: sqlite3.Connection, project_id: int) -> sqlite3.Row:
@@ -259,6 +260,7 @@ def save_manual_estimate_item(conn, project_id, payload, line_id=None):
     conn.execute('UPDATE project_lines SET supply_unit_cost_override=?,size_snapshot=? WHERE id=?',
                  (supply_price,clean_text(raw.get('assembly_size')),line_id))
     conn.execute('UPDATE projects SET updated_at=? WHERE id=?',(utc_now(),project_id))
+    prune_exclusions(conn, project_id)
     return {'item':item,'catalog_saved':mode!='estimate',**calculate_project(conn,project_id)}
 
 
@@ -291,9 +293,9 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
         if len(size)>250:raise ValueError('Size must be 250 characters or fewer')
         extra['size_snapshot']=size
     # Moving a priced fitting to another scope must not drop its project price.
-    if line['category_snapshot'] in LIGHTING_CATEGORIES and category not in LIGHTING_CATEGORIES and line['supply_unit_cost_override'] is not None:
+    if section_key(line['category_snapshot']) in LIGHTING_CATEGORIES and category not in LIGHTING_CATEGORIES and line['supply_unit_cost_override'] is not None:
         components=[dict(c) for c in conn.execute('SELECT * FROM project_line_components WHERE project_line_id=? ORDER BY line_order,id',(line_id,))]
-        fitting=supply_component(line['category_snapshot'],components)
+        fitting=supply_component(section_key(line['category_snapshot']),components)
         if fitting:
             conn.execute('UPDATE project_line_components SET unit_material=?,material_factor=1 WHERE id=?',(line['supply_unit_cost_override'],fitting['id']))
         extra.update(supply_unit_cost_override=None,supply_quantity_override=None)
@@ -326,6 +328,7 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
         ),
     )
     conn.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (utc_now(), project_id))
+    prune_exclusions(conn, project_id)
     return calculate_project(conn, project_id)
 
 
@@ -333,6 +336,7 @@ def delete_project_line(conn: sqlite3.Connection, project_id: int, line_id: int)
     cursor = conn.execute("DELETE FROM project_lines WHERE id = ? AND project_id = ?", (line_id, project_id))
     if not cursor.rowcount:
         raise LookupError("Estimate line not found")
+    prune_exclusions(conn, project_id)
     conn.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (utc_now(), project_id))
     return calculate_project(conn, project_id)
 
@@ -378,6 +382,7 @@ def project_totals(conn,project_id):
 
 
 def _calculate_rows(project, line_rows, component_rows, include_components=True):
+    excluded = excluded_categories(project.get('excluded_categories'))
     material_markup = float(project["material_markup"])
     labor_rate = float(project["labor_rate"])
     hours_factor = 1 + float(project.get("labor_hours_markup",0))
@@ -393,6 +398,8 @@ def _calculate_rows(project, line_rows, component_rows, include_components=True)
         component_groups.setdefault(row['project_line_id'], []).append(row)
     for line_row in line_rows:
         line = dict(line_row)
+        line['category_key'] = section_key(line.get('category_snapshot'))
+        line['included_in_total'] = line['category_key'] not in excluded
         material_markup = 0.0 if line.get('exclude_material_markup') else float(project['material_markup'])
         hours_factor = 1.0 if line.get('exclude_hours_markup') else 1 + float(project.get('labor_hours_markup',0))
         overhead_markup = 0.0 if line.get('exclude_final_markup') else float(project['overhead_markup'])
@@ -403,7 +410,7 @@ def _calculate_rows(project, line_rows, component_rows, include_components=True)
         line_labor = 0.0
         line_fixed_labor = 0.0
         component_rows = component_groups.get(line['id'], [])
-        supply=supply_component(line.get('category_snapshot'),[dict(c) for c in component_rows])
+        supply=supply_component(line['category_key'],[dict(c) for c in component_rows])
         supply_id=supply['id'] if supply else None
         supply_material=0.0
         for component_row in component_rows:
@@ -470,36 +477,40 @@ def _calculate_rows(project, line_rows, component_rows, include_components=True)
                 "components": components,
             }
         )
-        total_material += line_material
-        total_hours += line_hours
-        total_labor += line_labor
-        direct_total += line_direct
-        quoted_total += line_quoted
+        if line['included_in_total']:
+            total_material += line_material
+            total_hours += line_hours
+            total_labor += line_labor
+            direct_total += line_direct
+            quoted_total += line_quoted
         lines.append(line)
     scope_summary: dict[str, dict[str, Any]] = {}
     try: custom_order=json.loads(project.get('scope_order') or '[]')
     except (ValueError,TypeError): custom_order=[]
     if not isinstance(custom_order,list):custom_order=[]
-    rank={name:i for i,name in enumerate(custom_order) if isinstance(name,str)}
-    lines.sort(key=lambda line: (rank.get(line.get('category_snapshot'),len(rank)), scope_sort_key(line.get('category_snapshot')), line['sort_order'], line['id']))
+    custom_order=list(dict.fromkeys(section_key(name) for name in custom_order if isinstance(name,str)))
+    rank={name:i for i,name in enumerate(custom_order)}
+    lines.sort(key=lambda line: (rank.get(line['category_key'],len(rank)), scope_sort_key(line['category_key']), line['sort_order'], line['id']))
     for line in lines:
-        category = clean_text(line.get("category_snapshot")) or "Other"
+        category = line['category_key']
         summary = scope_summary.setdefault(category, {
-            "category": category, "assemblies": 0, "material": 0.0, "hours": 0.0, "labor": 0.0, "quoted": 0.0,
+            "category": category, "included": category not in excluded, "assemblies": 0, "material": 0.0, "hours": 0.0, "labor": 0.0, "quoted": 0.0,
         })
         summary["assemblies"] += 1
         for output, field in (("material", "total_material"), ("hours", "total_hours"), ("labor", "total_labor"), ("quoted", "quoted_total")):
             summary[output] += line[field]
     for category,summary in scope_summary.items():
         if category in LIGHTING_CATEGORIES:
-            supply=sum(l['supply_material'] for l in lines if l['category_snapshot']==category)
-            quoted=sum(l['supply_quoted'] for l in lines if l['category_snapshot']==category)
+            supply=sum(l['supply_material'] for l in lines if l['category_key']==category)
+            quoted=sum(l['supply_quoted'] for l in lines if l['category_key']==category)
             summary['subcategories']=[
-                {'category':'Supply cost','assemblies':summary['assemblies'],'material':supply,'hours':0,'labor':0,'quoted':quoted},
-                {'category':'Installation cost','assemblies':summary['assemblies'],'material':summary['material']-supply,'hours':summary['hours'],'labor':summary['labor'],'quoted':summary['quoted']-quoted}]
+                {'category':'Supply cost','included':summary['included'],'assemblies':summary['assemblies'],'material':supply,'hours':0,'labor':0,'quoted':quoted},
+                {'category':'Installation cost','included':summary['included'],'assemblies':summary['assemblies'],'material':summary['material']-supply,'hours':summary['hours'],'labor':summary['labor'],'quoted':summary['quoted']-quoted}]
     from .taxonomy import WORK_TYPES
     work_summary={}
     for line in lines:
+        if not line['included_in_total']:
+            continue
         kind=line.get('work_type_snapshot') or 'assembly'
         label=WORK_TYPES.get(kind, 'Installation')
         if kind in ('assembly','installation_only'):label='Installation'
@@ -520,5 +531,6 @@ def _calculate_rows(project, line_rows, component_rows, include_components=True)
             "overhead": quoted_total - direct_total,
             "quoted": quoted_total,
             "line_count": len(lines),
+            "included_line_count": sum(line['included_in_total'] for line in lines),
         },
     }

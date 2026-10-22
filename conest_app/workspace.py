@@ -330,5 +330,6 @@ def project_contributors(conn, project_id):
         FROM project_activity a LEFT JOIN users u ON u.id=a.user_id
         WHERE {condition} AND a.action IN ('Created project','Updated estimate settings','Added estimate item',
         'Updated estimate item','Removed estimate item','Saved manual estimate item','Changed project status',
-        'Updated project brief','Updated project builders','Added project note','Changed project result','Updated review deadline') GROUP BY {grouping}COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',
+        'Updated project brief','Updated project builders','Added project note','Changed project result','Updated review deadline',
+        'Included estimate section','Excluded estimate section') GROUP BY {grouping}COALESCE(u.id,a.actor_id_snapshot) ORDER BY actions DESC,name''',
         () if project_id is None else (project_id,))]

@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfoNotFoundError
 
 import passenger_wsgi as wsgi
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import __version__, accounts, tenders
 from conest_app.database import connect
 from conest_app import runtime_health, startup_diagnostics
@@ -177,7 +178,7 @@ class HostedStartupTests(unittest.TestCase):
         health = self.request('/api/health?check=tenders')
         self.assertEqual(health['status'], 200, health['data'])
         self.assertEqual(health['data']['release'], __version__)
-        self.assertEqual(health['data']['schema_version'], 31)
+        self.assertEqual(health['data']['schema_version'], CURRENT_SCHEMA)
         self.assertEqual(health['data']['checks'], {
             'tenders': 'ok', 'opportunities': 'ok', 'timezones': 'ok', 'sqlite': 'ok',
         })

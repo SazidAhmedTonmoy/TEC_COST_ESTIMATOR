@@ -144,7 +144,12 @@ async function apiRequest(path, options = {}) {
     }
     const estimatePath=path.match(/^\/api\/projects\/(\d+)(?:\/|$)/);
     if(estimatePath && Number(estimatePath[1])===state.projectId && estimateBase?.lines && /^\/api\/projects\/\d+(?:$|\/(?:reorder|manual-items|lines)(?:\/|$))/.test(path)) {
-      config.body={...config.body,_known_lines:Object.fromEntries(estimateBase.lines.map(l=>[l.id,l.revision||0])),_known_pricing:['material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day'].map(k=>estimateBase.project[k]??0)};
+      config.body={...config.body,_known_lines:Object.fromEntries(estimateBase.lines.map(l=>[l.id,l.revision||0])),_known_pricing:['material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day','excluded_categories'].map(k=>estimateBase.project[k]??0)};
+      state.projectLoadRequest=(state.projectLoadRequest||0)+1;
+    }
+    // Section changes return complete estimates; invalidate pending loads without
+    // supplying line-delta hints, because line revisions do not change here.
+    if(estimatePath && Number(estimatePath[1])===state.projectId && /^\/api\/projects\/\d+\/sections\/(?:inclusion|remove)$/.test(path)) {
       state.projectLoadRequest=(state.projectLoadRequest||0)+1;
     }
     config.headers["Content-Type"] = "application/json";
@@ -270,9 +275,14 @@ async function loadProject(projectId) {
   const request=state.projectLoadRequest=(state.projectLoadRequest||0)+1;
   if (!projectId) { state.projectId = null; state.projectData = null; renderProject(); if(typeof rememberPage==='function')rememberPage('estimate'); return; }
   const result = await api(`/api/projects/${projectId}`);
-  if(request!==state.projectLoadRequest)return false;
+  // A read can start while a write is pending and return its older snapshot
+  // after the write commits. Never replace a newer same-project response.
+  const stale=()=>request!==state.projectLoadRequest || (
+    state.projectId===Number(projectId) && state.projectData?.project?.id===Number(projectId) &&
+    Number(result.project.revision)<Number(state.projectData.project.revision));
+  if(stale())return false;
   await reviewOpenedProject(result.project);
-  if(request!==state.projectLoadRequest)return false;
+  if(stale())return false;
   state.projectId = Number(projectId);
   state.projectData = result;
   renderProjectSelect();
@@ -323,7 +333,7 @@ function renderProject() {
 
 function showCategorySuggestions(field,showAll=false){
   const query=field.value.trim().toLowerCase();
-  const categories=[...new Set([...(state.dashboard?.manual_options?.categories||[]),...(state.catalogCategories||[]).map(c=>c.name),...(state.projectData?.lines||[]).map(l=>l.category_snapshot)].filter(Boolean))];
+  const categories=[...new Set([...(state.dashboard?.manual_options?.categories||[]),...(state.catalogCategories||[]).map(c=>c.name),...(state.projectData?.lines||[]).map(estimateSectionName)].filter(Boolean))];
   const matches=categories.sort((a,b)=>{const am=!showAll&&query&&a.toLowerCase().includes(query),bm=!showAll&&query&&b.toLowerCase().includes(query);return Number(bm)-Number(am)||a.localeCompare(b);});
   const box=field.parentElement.querySelector('.category-suggestions');
   box.innerHTML=matches.map(c=>`<button class="category-choice" type="button" data-category="${escapeHtml(c)}">${escapeHtml(c)}</button>`).join('');
@@ -332,10 +342,10 @@ function showCategorySuggestions(field,showAll=false){
 
 function renderScopeBreakdown(data) {
   const summary = (state.summaryMode==='work'?data.work_summary:data.scope_summary) || [];
-  function summaryRow(row,child=false){return `<tr class="${child?'scope-subcategory':''}"><td>${escapeHtml(row.category)}</td><td>${child?'':row.assemblies}</td><td>${fmtMoney(row.material)}</td><td>${fmtNumber(row.hours)} hrs</td><td>${fmtMoney(row.labor)}</td><td><strong>${fmtMoney(row.quoted)}</strong></td></tr>`;}
+  function summaryRow(row,child=false){return `<tr class="${child?'scope-subcategory':''} ${row.included===false?'scope-summary-excluded':''}"><td>${escapeHtml(row.category)}${row.included===false&&!child?'<small class="scope-excluded-label">Excluded from total</small>':''}</td><td>${child?'':row.assemblies}</td><td>${fmtMoney(row.material)}</td><td>${fmtNumber(row.hours)} hrs</td><td>${fmtMoney(row.labor)}</td><td><strong>${fmtMoney(row.quoted)}</strong></td></tr>`;}
   $('#scope-breakdown-rows').innerHTML=summary.length?summary.map(row=>summaryRow(row)+(row.subcategories||[]).map(child=>summaryRow(child,true)).join('')).join(''):'<tr><td colspan="6" class="scope-empty">Add estimate items to see the breakdown.</td></tr>';
   const totals = data.totals;
-  $("#scope-breakdown-total").innerHTML = `<tr><td>TOTAL</td><td>${data.lines.length}</td><td>${fmtMoney(totals.material)}</td><td>${fmtNumber(totals.hours)} hrs</td><td>${fmtMoney(totals.labor)}</td><td>${fmtMoney(totals.quoted)}</td></tr>`;
+  $("#scope-breakdown-total").innerHTML = `<tr><td>${data.totals.included_line_count<data.lines.length?'TOTAL INCLUDED':'TOTAL'}</td><td>${data.totals.included_line_count??data.lines.length}</td><td>${fmtMoney(totals.material)}</td><td>${fmtNumber(totals.hours)} hrs</td><td>${fmtMoney(totals.labor)}</td><td>${fmtMoney(totals.quoted)}</td></tr>`;
 }
 
 async function deleteCurrentProject() {
@@ -425,7 +435,7 @@ function renderEstimateLine(line) {
         <div class="assembly-copy">
           <div class="line-heading-grid">
             <div class="line-name-field"><div class="assembly-name-row"><span class="drag-handle" draggable="true" data-drag-kind="line" data-line-id="${line.id}" title="Drag item within this category">⠿</span><textarea class="line-estimate-name" data-line-id="${line.id}" rows="1" maxlength="500" aria-label="Estimate item name">${escapeHtml(line.display_name || cleanEstimateTitle(line.name_snapshot))}</textarea></div>
-            ${['Lighting','Emergency & Exit Lighting'].includes(category)?`<label class="compact-light-reference"><span>Ref.</span><input class="line-light-reference" data-line-id="${line.id}" type="text" maxlength="120" value="${escapeHtml(line.reference_name||'')}" placeholder="Light ref." aria-label="Project-only light reference" title="Project-only lighting reference (for example D1 or EX1). Not saved to the shared catalogue."></label>`:''}<label class="line-remarks-field"><span>Remarks</span><textarea class="line-remarks" data-line-id="${line.id}" rows="1" maxlength="2000" placeholder="Add a note…" aria-label="Remarks for ${escapeHtml(line.name_snapshot)}">${escapeHtml(line.notes||'')}</textarea></label></div>
+            ${['Lighting','Emergency & Exit Lighting'].includes(estimateSectionName(line))?`<label class="compact-light-reference"><span>Ref.</span><input class="line-light-reference" data-line-id="${line.id}" type="text" maxlength="120" value="${escapeHtml(line.reference_name||'')}" placeholder="Light ref." aria-label="Project-only light reference" title="Project-only lighting reference (for example D1 or EX1). Not saved to the shared catalogue."></label>`:''}<label class="line-remarks-field"><span>Remarks</span><textarea class="line-remarks" data-line-id="${line.id}" rows="1" maxlength="2000" placeholder="Add a note…" aria-label="Remarks for ${escapeHtml(line.name_snapshot)}">${escapeHtml(line.notes||'')}</textarea></label></div>
             <div class="line-category-field"><label class="line-category-label">Category<div class="category-editor" data-value="${escapeHtml(category)}"><textarea class="line-category" data-line-id="${line.id}" rows="1" maxlength="120" aria-label="Scope or category for ${escapeHtml(line.name_snapshot)}" title="Choose or type a category; saves when you leave this field">${escapeHtml(category)}</textarea><div class="category-suggestions hidden" aria-label="Suggested categories"></div></div></label>
             <div class="assembly-actions"><button class="text-button edit-estimate-line" data-line-id="${line.id}" title="Edit item and components">Edit item</button><button class="text-button copy-estimate-line" data-line-id="${line.id}">Copy item</button><span class="line-detail-count">${line.components.length} components</span></div></div>
           </div>

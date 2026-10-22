@@ -449,6 +449,8 @@ def _initialize_schema(path: str | Path | None = None) -> Path:
         initialize_options(conn)
         if 'scope_order' not in {r[1] for r in conn.execute('PRAGMA table_info(projects)')}:
             conn.execute("ALTER TABLE projects ADD COLUMN scope_order TEXT NOT NULL DEFAULT '[]'")
+        from .estimate_sections import initialize_sections
+        initialize_sections(conn)
         columns={r[1] for r in conn.execute('PRAGMA table_info(projects)')}
         for name,definition in [('crew_size','INTEGER NOT NULL DEFAULT 2'),('hours_per_day','REAL NOT NULL DEFAULT 8')]:
             if name not in columns:conn.execute(f'ALTER TABLE projects ADD COLUMN {name} {definition}')

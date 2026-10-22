@@ -133,8 +133,13 @@ class Store:
         self.initialize()
         from .opportunities import initialize as initialize_opportunities
         from .opportunity_reset import reset_once as reset_opportunities_once
+        from .opportunity_workflow_upgrade import restore_approved_once
         initialize_opportunities(self)
         reset_opportunities_once(self)
+        # This application-data correction needs the complete Tender store and
+        # must run after the owner's one-time reset has retired its old cohort.
+        # Keep it separate from the reusable opportunity schema initializer.
+        restore_approved_once(self)
 
     def keep_open(self):
         """Keep the shared server database's WAL attached between requests.

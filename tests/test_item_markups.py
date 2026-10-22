@@ -4,6 +4,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils.cell import range_boundaries, get_column_letter
 import test_hours_markup as helpers
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import projects, productivity, estimate_tools, auto_upgrade, light_prices
 from conest_app.database import connect, database_path
 from conest_app.release_v31_item_markups import FIELDS
@@ -73,8 +74,8 @@ class ItemMarkupTests(unittest.TestCase):
             after=projects.calculate_project(c,pid)
             self.assertEqual(after['totals'],before)
             self.assertTrue(all(not row[field] for row in after['lines'] for field in FIELDS))
-            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],31)
-        self.assertTrue(list((database_path().parent/'upgrade_backups').glob('*before-schema-31.db')))
+            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],CURRENT_SCHEMA)
+        self.assertTrue(list((database_path().parent/'upgrade_backups').glob(f'*before-schema-{CURRENT_SCHEMA}.db')))
 
     def test_export_arithmetic_with_mixed_exclusions_and_fixed_quantity(self):
         def evaluate(w,sheet,cell):

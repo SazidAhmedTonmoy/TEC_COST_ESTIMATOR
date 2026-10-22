@@ -91,7 +91,7 @@ class WorkspaceHTTP:
     def _estimate_delta(self, result, request):
         known=request.get('_known_lines')
         if not isinstance(known,dict) or not isinstance(result.get('lines'),list):return result
-        keys=('material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day')
+        keys=('material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day','excluded_categories')
         if request.get('_known_pricing') != [result['project'].get(k,0) for k in keys]:return result
         result=dict(result)
         lines=result['lines']

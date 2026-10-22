@@ -3,6 +3,30 @@ import json
 from .utils import utc_now,clean_text
 from .workspace import check_revision,register_project,record_activity,require_project
 from .projects import calculate_project,create_project
+from .estimate_sections import excluded_categories, encode_exclusions, prune_exclusions, section_key, project_section_keys
+
+
+def set_section_inclusion(conn, pid, user, payload):
+    """Change a project's totals without deleting or repricing any estimate line."""
+    project = require_project(conn, pid, user, 'edit')
+    if 'expected_revision' not in payload:
+        raise ValueError('Refresh the estimate before changing section inclusion')
+    check_revision(project, payload)
+    category = payload.get('category')
+    included = payload.get('included')
+    if not isinstance(category, str) or not category.strip() or len(category) > 500:
+        raise ValueError('Choose a valid estimate section')
+    category = section_key(category)
+    if type(included) is not bool:
+        raise ValueError('Section inclusion must be true or false')
+    if category not in project_section_keys(conn, pid):
+        raise LookupError('This section no longer exists. Refresh the estimate.')
+    before = excluded_categories(project['excluded_categories'])
+    after = before - {category} if included else before | {category}
+    if before == after:
+        return
+    conn.execute('UPDATE projects SET excluded_categories=? WHERE id=?', (encode_exclusions(after), pid))
+    record_activity(conn, pid, user, 'Included estimate section' if included else 'Excluded estimate section', category)
 
 
 def insert_copy(conn,table,row,changes):
@@ -40,8 +64,11 @@ def reorder_lines(conn,pid,payload):
     records=conn.execute('SELECT id,category_snapshot FROM project_lines WHERE project_id=?',(pid,)).fetchall()
     ids=payload.get('ids');validate_order(ids,[r['id'] for r in records])
     if 'scope_order' in payload:
-        order=payload['scope_order'];categories={r['category_snapshot'] or 'Other' for r in records}
-        if not isinstance(order,list) or any(not isinstance(c,str) for c in order) or len(order)!=len(categories) or set(order)!=categories:
+        order=payload['scope_order'];categories={section_key(r['category_snapshot']) for r in records}
+        if not isinstance(order,list) or any(not isinstance(c,str) for c in order):
+            raise ValueError('Category order must contain every current category exactly once. Refresh and try again.')
+        order=[section_key(c) for c in order]
+        if len(order)!=len(categories) or set(order)!=categories:
             raise ValueError('Category order must contain every current category exactly once. Refresh and try again.')
         conn.execute('UPDATE projects SET scope_order=? WHERE id=?',(json.dumps(order),pid))
     for i,ident in enumerate(ids):conn.execute('UPDATE project_lines SET sort_order=?,revision=revision+1,updated_at=? WHERE id=?',(i*10,utc_now(),ident))
@@ -54,7 +81,7 @@ def component_action(conn,pid,lid,payload,action,cid=None):
     if action=='remove':
         if cid not in ids:raise LookupError('Component not found')
         from .estimate_options import supply_component
-        primary=supply_component(line['category_snapshot'],[dict(r) for r in records])
+        primary=supply_component(section_key(line['category_snapshot']),[dict(r) for r in records])
         if primary and primary['id']==cid:
             conn.execute('UPDATE project_lines SET supply_unit_cost_override=NULL,supply_quantity_override=NULL WHERE id=?',(lid,))
         conn.execute('DELETE FROM project_line_components WHERE id=? AND project_line_id=?',(cid,lid))
@@ -63,7 +90,7 @@ def component_action(conn,pid,lid,payload,action,cid=None):
         row=next((r for r in records if r['id']==cid),None)
         if row is None:raise LookupError('Component not found')
         from .estimate_options import supply_component
-        primary=supply_component(line['category_snapshot'],[dict(r) for r in records])
+        primary=supply_component(section_key(line['category_snapshot']),[dict(r) for r in records])
         is_supply=primary and (row['id']==primary['id'] or row['is_supply_copy'])
         changes={'line_order':max(r['line_order'] for r in records)+1,'is_parent':0,'is_supply_copy':int(bool(is_supply))}
         if is_supply and row['id']==primary['id'] and line['supply_unit_cost_override'] is not None:
@@ -100,6 +127,9 @@ def copy_project(conn,pid,user,payload):
             changes={'project_line_id':new_line}
             if reset and row['fixed_quantity']:changes['quantity_per_unit']=0
             insert_copy(conn,'project_line_components',row,changes)
+    conn.execute('UPDATE projects SET excluded_categories=? WHERE id=?',
+                 (encode_exclusions(excluded_categories(source['excluded_categories'])),new))
+    prune_exclusions(conn,new)
     record_activity(conn,new,user,'Copied project',source['name'])
     return new
 
@@ -109,14 +139,17 @@ def delete_section(conn,pid,user,payload):
     if 'expected_revision' not in payload:raise ValueError('Refresh the estimate before deleting a section')
     check_revision(project,payload)
     category=payload.get('category')
-    if not isinstance(category,str) or not category:raise ValueError('Choose a section to delete')
-    rows=conn.execute("SELECT id FROM project_lines WHERE project_id=? AND COALESCE(NULLIF(category_snapshot,''),'Other')=?",(pid,category)).fetchall()
+    if not isinstance(category,str) or not clean_text(category):raise ValueError('Choose a section to delete')
+    category=section_key(category)
+    rows=[r for r in conn.execute('SELECT id,category_snapshot FROM project_lines WHERE project_id=?',(pid,))
+          if section_key(r['category_snapshot'])==category]
     if not rows:raise LookupError('This section no longer exists. Refresh the estimate.')
     from .productivity import save_revision
     from uuid import uuid4
     save_revision(conn,pid,user,{'label':'Before section deletion · '+utc_now()+' · '+uuid4().hex[:8]})
-    conn.execute("DELETE FROM project_lines WHERE project_id=? AND COALESCE(NULLIF(category_snapshot,''),'Other')=?",(pid,category))
+    conn.executemany('DELETE FROM project_lines WHERE id=? AND project_id=?',((r['id'],pid) for r in rows))
     try:order=json.loads(project['scope_order'] or '[]')
     except (ValueError,TypeError):order=[]
-    conn.execute('UPDATE projects SET scope_order=? WHERE id=?',(json.dumps([x for x in order if x!=category]),pid))
+    conn.execute('UPDATE projects SET scope_order=? WHERE id=?',(json.dumps(list(dict.fromkeys(section_key(x) for x in order if isinstance(x,str) and section_key(x)!=category))),pid))
+    prune_exclusions(conn,pid)
     record_activity(conn,pid,user,'Deleted estimate section',f'{category} · {len(rows)} items')

@@ -1,6 +1,8 @@
 /* Estimate navigation and editing. Saved data is always updated through guarded APIs. */
 const estimateViewState={collapsed:new Set(),expanded:new Set(),query:'',drag:null,busy:false};
 function scopeKey(category){return `${state.projectId}:${category}`;}
+// The server key is authoritative; the fallback matches Python clean_text for old snapshots.
+function estimateSectionName(line){return line?.category_key||String(line?.category_snapshot??'').replace(/[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/g,' ').replace(/^ | $/g,'')||'Other';}
 function fitEstimateText(){
   if(!$('#estimate-view').classList.contains('active'))return;
   const fields=$$('#estimate-lines textarea');
@@ -11,17 +13,18 @@ function fitEstimateText(){
 function renderGroupedEstimate(lines){
   const groups=new Map();
   const query=estimateViewState.query.normalize('NFKC').trim().toLowerCase();
-  const matches=lines.filter(l=>!query||[l.display_name,l.name_snapshot,l.reference_name,l.notes,l.size_snapshot,l.category_snapshot,...(l.components||[]).map(c=>`${c.description} ${c.size}`)].join(' ').normalize('NFKC').toLowerCase().includes(query));
-  for(const line of matches){const key=line.category_snapshot||'Other';if(!groups.has(key))groups.set(key,[]);groups.get(key).push(line);}
+  const matches=lines.filter(l=>!query||[l.display_name,l.name_snapshot,l.reference_name,l.notes,l.size_snapshot,l.category_snapshot,estimateSectionName(l),...(l.components||[]).map(c=>`${c.description} ${c.size}`)].join(' ').normalize('NFKC').toLowerCase().includes(query));
+  for(const line of matches){const key=estimateSectionName(line);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(line);}
   const scopeTotals=new Map();
   for(const line of (state.projectData?.lines||lines)){
-    const key=line.category_snapshot||'Other',totals=scopeTotals.get(key)||{material:0,hours:0,labor:0,quoted:0};
+    const key=estimateSectionName(line),totals=scopeTotals.get(key)||{material:0,hours:0,labor:0,quoted:0};
     totals.material+=Number(line.total_material||0);totals.hours+=Number(line.total_hours||0);totals.labor+=Number(line.total_labor||0);totals.quoted+=Number(line.quoted_total||0);scopeTotals.set(key,totals);
   }
   $('#estimate-lines').innerHTML=[...groups].map(([category,items])=>{
     const totals=scopeTotals.get(category),currency=state.projectData?.project?.currency;
     const collapsed=estimateViewState.collapsed.has(scopeKey(category))&&(!query||estimateViewState.bulkCollapsed);
-    return `<tr class="scope-divider" data-scope="${escapeHtml(category)}"><td colspan="11"><div class="scope-heading-row"><button class="toggle-scope" type="button" data-scope="${escapeHtml(category)}" aria-expanded="${!collapsed}">${collapsed?'+':'−'}</button><span class="drag-handle scope-drag" draggable="true" data-drag-kind="scope" data-scope="${escapeHtml(category)}" title="Drag this category above or below another">⠿</span><strong>${escapeHtml(category)}</strong><span class="scope-item-count">${items.length} items</span><span class="scope-totals"><span class="scope-metric">Total Material <b>${fmtMoney(totals.material,currency)}</b></span><span class="scope-metric">Total Hours <b>${fmtNumber(totals.hours)} hrs</b></span><span class="scope-metric">Total Labour <b>${fmtMoney(totals.labor,currency)}</b></span><span class="scope-metric scope-quoted">Quoted Total <b>${fmtMoney(totals.quoted,currency)}</b></span></span><span class="scope-order-actions"><button type="button" class="scope-move" data-scope="${escapeHtml(category)}" data-direction="-1" aria-label="Move ${escapeHtml(category)} up" title="Move category up">↑</button><button type="button" class="scope-move" data-scope="${escapeHtml(category)}" data-direction="1" aria-label="Move ${escapeHtml(category)} down" title="Move category down">↓</button><button type="button" class="scope-delete danger-text" data-scope="${escapeHtml(category)}" aria-label="Delete ${escapeHtml(category)} section" title="Delete whole section">×</button></span></div></td></tr>`+(collapsed?'':items.map(renderEstimateLine).join(''));
+    const included=items[0]?.included_in_total!==false;
+    return `<tr class="scope-divider ${included?'':'scope-is-excluded'}" data-scope="${escapeHtml(category)}"><td colspan="11"><div class="scope-heading-row"><button class="toggle-scope" type="button" data-scope="${escapeHtml(category)}" aria-expanded="${!collapsed}">${collapsed?'+':'−'}</button><button type="button" class="scope-inclusion" role="switch" aria-checked="${included}" data-scope="${escapeHtml(category)}" aria-label="Include ${escapeHtml(category)} in estimate total" title="${included?'Included in estimate total. Switch off to exclude.':'Excluded from estimate total. Switch on to include.'}"><span class="scope-switch-track" aria-hidden="true"></span><span aria-hidden="true">${included?'On':'Off'}</span></button><span class="drag-handle scope-drag" draggable="true" data-drag-kind="scope" data-scope="${escapeHtml(category)}" title="Drag this category above or below another">⠿</span><strong>${escapeHtml(category)}</strong><span class="scope-item-count">${items.length} items${included?'':'<small class="scope-excluded-label">Excluded from total</small>'}</span><span class="scope-totals"><span class="scope-metric">Total Material <b>${fmtMoney(totals.material,currency)}</b></span><span class="scope-metric">Total Hours <b>${fmtNumber(totals.hours)} hrs</b></span><span class="scope-metric">Total Labour <b>${fmtMoney(totals.labor,currency)}</b></span><span class="scope-metric scope-quoted">Quoted Total <b>${fmtMoney(totals.quoted,currency)}</b></span></span><span class="scope-order-actions"><button type="button" class="scope-move" data-scope="${escapeHtml(category)}" data-direction="-1" aria-label="Move ${escapeHtml(category)} up" title="Move category up">↑</button><button type="button" class="scope-move" data-scope="${escapeHtml(category)}" data-direction="1" aria-label="Move ${escapeHtml(category)} down" title="Move category down">↓</button><button type="button" class="scope-delete danger-text" data-scope="${escapeHtml(category)}" aria-label="Delete ${escapeHtml(category)} section" title="Delete whole section">×</button></span></div></td></tr>`+(collapsed?'':items.map(renderEstimateLine).join(''));
   }).join('');
   if(query&&!matches.length)$('#estimate-lines').innerHTML='<tr><td colspan="11" class="scope-empty">No matching item in this estimate.</td></tr>';
   for(const id of estimateViewState.expanded){
@@ -53,7 +56,7 @@ async function estimateOperation(path,payload,record){
   }
   try{
     const result=await api(path,{method:'POST',body:{...payload,expected_revision:record.revision}});
-    if(state.projectId===pid && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0)){state.projectData=result;if(reorder)renderGroupedEstimate(result.lines);else renderProject();}
+    if(state.projectId===pid && Number(result.project.revision)>=Number(state.projectData?.project?.revision||0)){state.projectData=result;if(Array.isArray(state.projects)){const index=state.projects.findIndex(p=>p.id===pid);if(index>=0)state.projects[index]={...state.projects[index],...result.project,totals:result.totals};}if(reorder)renderGroupedEstimate(result.lines);else renderProject();}
   }catch(error){
     if(state.projectId===pid&&reorder&&state.projectData?.project?.revision===before.project.revision){state.projectData=before;renderGroupedEstimate(before.lines);}
     throw error;
@@ -75,12 +78,12 @@ async function copyProject(id){
 }
 function moveId(ids,id,target,after){const result=ids.filter(x=>x!==id),at=result.indexOf(target);result.splice(at+(after?1:0),0,id);return result;}
 
-function scopeNames(){return [...new Set((state.projectData?.lines||[]).map(l=>l.category_snapshot||'Other'))];}
+function scopeNames(){return [...new Set((state.projectData?.lines||[]).map(l=>estimateSectionName(l)))];}
 async function moveScope(source,target,after){
   if(estimateViewState.busy){toast('Please wait for the current change to finish.');return;}
   const names=scopeNames();if(source===target||!names.includes(source)||!names.includes(target))return;
   const scope_order=moveId(names,source,target,after);
-  const ids=scope_order.flatMap(category=>state.projectData.lines.filter(l=>(l.category_snapshot||'Other')===category).map(l=>l.id));
+  const ids=scope_order.flatMap(category=>state.projectData.lines.filter(l=>(estimateSectionName(l))===category).map(l=>l.id));
   await estimateOperation(`/api/projects/${state.projectId}/reorder`,{ids,scope_order},state.projectData.project);
   toast('Category order saved');
 }
@@ -100,9 +103,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   $('#estimate-lines').addEventListener('input',event=>{if(event.target.matches('textarea')){event.target.style.height='auto';event.target.style.height=`${event.target.scrollHeight+2}px`;}});
   $('#estimate-lines').addEventListener('click',event=>{
+    const inclusion=event.target.closest('.scope-inclusion');
+    if(inclusion){
+      const category=inclusion.dataset.scope,included=inclusion.getAttribute('aria-checked')!=='true';
+      estimateOperation(`/api/projects/${state.projectId}/sections/inclusion`,{category,included},state.projectData.project).then(()=>{const replacement=[...$$('.scope-inclusion')].find(button=>button.dataset.scope===category);replacement?.focus({preventScroll:true});toast(`${category} ${included?'included in':'excluded from'} estimate total`);}).catch(error=>toast(error.message,true));
+      return;
+    }
     const sectionDelete=event.target.closest('.scope-delete');
     if(sectionDelete){
-      const category=sectionDelete.dataset.scope,count=state.projectData.lines.filter(l=>(l.category_snapshot||'Other')===category).length;
+      const category=sectionDelete.dataset.scope,count=state.projectData.lines.filter(l=>(estimateSectionName(l))===category).length;
       if(confirm(`Delete the whole “${category}” section and all ${count} items from this estimate? A safety revision will be saved first. Catalogue items stay unchanged.`))estimateOperation(`/api/projects/${state.projectId}/sections/remove`,{category},state.projectData.project).then(()=>toast('Section removed. Restore its safety revision from Revisions if needed.')).catch(error=>toast(error.message,true));
       return;
     }
@@ -137,8 +146,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const after=event.clientY>row.getBoundingClientRect().top+row.getBoundingClientRect().height/2;
     if(drag.kind==='scope'){
       let category=row.dataset.scope;
-      if(row.matches('.assembly-row'))category=lineById(row.dataset.lineId)?.category_snapshot;
-      if(row.matches('.detail-row'))category=lineById(row.dataset.parent)?.category_snapshot;
+      if(row.matches('.assembly-row'))category=estimateSectionName(lineById(row.dataset.lineId));
+      if(row.matches('.detail-row'))category=estimateSectionName(lineById(row.dataset.parent));
       if(category)moveScope(drag.scope,category,after).catch(error=>toast(error.message,true));return;
     }
     if(drag.kind==='manual'){
@@ -149,7 +158,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(drag.kind==='line'){
       if(!row.matches('.assembly-row,.detail-row'))return;
       const target=lineById(row.dataset.lineId||row.dataset.parent),source=lineById(drag.lineId);if(target.id===source.id)return;
-      if(target.category_snapshot!==source.category_snapshot){toast('Move items within the same scope. Change Category to move between scopes.');return;}
+      if(estimateSectionName(target)!==estimateSectionName(source)){toast('Move items within the same scope. Change Category to move between scopes.');return;}
       payload={ids:moveId(state.projectData.lines.map(l=>l.id),source.id,target.id,after)};record=state.projectData.project;path=`/api/projects/${state.projectId}/reorder`;
     } else {
       if(!row.matches('.detail-row')||Number(row.dataset.parent)!==drag.lineId)return;
@@ -164,11 +173,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 function syncExpandEstimateAll(){
  const button=$('#expand-estimate-all');if(!button)return;
  const lines=state.projectData?.lines||[];
- const all=lines.length>0&&lines.every(l=>!estimateViewState.collapsed.has(scopeKey(l.category_snapshot||'Other'))&&estimateViewState.expanded.has(l.id));
+ const all=lines.length>0&&lines.every(l=>!estimateViewState.collapsed.has(scopeKey(estimateSectionName(l)))&&estimateViewState.expanded.has(l.id));
  button.textContent=all?'Shrink All':'Expand All';button.setAttribute('aria-expanded',String(all));button.disabled=!lines.length;
 }
 $('#expand-estimate-all')?.addEventListener('click',()=>{
  const lines=state.projectData?.lines||[],shrink=$('#expand-estimate-all').getAttribute('aria-expanded')==='true';
- for(const line of lines){const key=scopeKey(line.category_snapshot||'Other');if(shrink){estimateViewState.collapsed.add(key);estimateViewState.expanded.delete(line.id);}else{estimateViewState.collapsed.delete(key);estimateViewState.expanded.add(line.id);}}
+ for(const line of lines){const key=scopeKey(estimateSectionName(line));if(shrink){estimateViewState.collapsed.add(key);estimateViewState.expanded.delete(line.id);}else{estimateViewState.collapsed.delete(key);estimateViewState.expanded.add(line.id);}}
  estimateViewState.bulkCollapsed=shrink;renderGroupedEstimate(lines);
 });

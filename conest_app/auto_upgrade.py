@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 31
-MIGRATION_KEY = 'v3.4-team-directory'
+CURRENT_SCHEMA = 32
+MIGRATION_KEY = 'v3.5.7-section-inclusion'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -91,7 +91,7 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
             'project_lines': {'reference_name'},
             'groups': {'nickname', 'revision'},
         }
-        if migration_key=='v3.4-team-directory' and 'tender_team_aliases' not in tables:return False,version
+        if (expected_version >= 32 or migration_key=='v3.4-team-directory') and 'tender_team_aliases' not in tables:return False,version
         present = {'user_avatars', 'lighting_import_receipts', 'lighting_photos', 'account_deletions'} <= tables
         if expected_version >= 25:
             required['project_user_access'] = {'project_id', 'user_id', 'granted_by', 'granted_at'}
@@ -99,6 +99,11 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
         if expected_version >= 27:required['projects'].update({'review_deadline', 'review_cycle'})
         if expected_version >= 28:required['project_lines'].update({'exclude_material_markup','exclude_hours_markup','exclude_final_markup'})
         if expected_version >= 29:required['catalog_items']={'importance_rating'}
+        if expected_version >= 32:
+            required['projects'].add('excluded_categories')
+            column=next((r for r in conn.execute('PRAGMA table_info(projects)') if r[1]=='excluded_categories'),None)
+            if column is None or str(column[2]).upper()!='TEXT' or not column[3] or str(column[4] or '').strip('() ').strip("'\"")!='[]':
+                return False,version
         present = present and all(table in tables and fields <= {r[1] for r in conn.execute(f'PRAGMA table_info("{table}")')}
                                   for table, fields in required.items())
         # app_migrations uses a release-specific first-column name; positional
@@ -169,7 +174,9 @@ def ensure_database(path=None):
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
-                    if previous == 31 and _status(target,31,'v3.3-workspace-memory')[0]:
+                    if previous == 32:
+                        pass  # Repair the current marker/column only; never replay historical data backfills.
+                    elif previous == 31 and _status(target,31,'v3.3-workspace-memory')[0]:
                         pass  # Add the team alias table without replaying historical migrations.
                     elif previous == 30 and _status(target,30,'v3.3-contributions')[0]:
                         pass
@@ -209,7 +216,10 @@ def ensure_database(path=None):
                         conn.execute('INSERT OR IGNORE INTO app_migrations VALUES (?,?)',('v3.3-workspace-memory',utc_now()))
                         conn.execute('CREATE TABLE IF NOT EXISTS tender_team_aliases(name TEXT PRIMARY KEY COLLATE NOCASE, team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL)')
                         conn.execute('INSERT OR IGNORE INTO app_migrations VALUES (?,?)',('v3.4-team-directory',utc_now()))
-                        conn.execute('UPDATE schema_version SET version=31')
+                        from .estimate_sections import initialize_sections
+                        initialize_sections(conn)
+                        conn.execute('INSERT OR IGNORE INTO app_migrations VALUES (?,?)',(MIGRATION_KEY,utc_now()))
+                        conn.execute('UPDATE schema_version SET version=?',(CURRENT_SCHEMA,))
                     with _raw_connect(target) as conn:
                         if conn.execute('PRAGMA quick_check').fetchone()[0] != 'ok' or conn.execute('PRAGMA foreign_key_check').fetchone():
                             raise UpgradeError('Database verification failed after the upgrade. The pre-upgrade backup was retained.')

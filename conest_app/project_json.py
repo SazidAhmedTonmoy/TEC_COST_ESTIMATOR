@@ -6,8 +6,9 @@ from .projects import create_project,calculate_project
 from .workspace import register_project,require_project,record_activity
 from .utils import utc_now
 from .taxonomy import WORK_TYPES
+from .estimate_sections import excluded_categories, encode_exclusions, section_key
 
-PROJECT='name client currency material_markup labor_rate labor_hours_markup overhead_markup crew_size hours_per_day notes scope_of_work submission_deadline status review_deadline award_status scope_order'.split()
+PROJECT='name client currency material_markup labor_rate labor_hours_markup overhead_markup crew_size hours_per_day notes scope_of_work submission_deadline status review_deadline award_status scope_order excluded_categories'.split()
 LINE='name_snapshot description_snapshot scope_snapshot category_snapshot quantity uom work_type_snapshot notes reference_name size_snapshot supply_unit_cost_override supply_quantity_override exclude_material_markup exclude_hours_markup exclude_final_markup'.split()
 COMPONENT='description quantity_per_unit uom size unit_material material_factor unit_hours labor_factor is_parent notes labor_pricing unit_labor_price is_supply_copy fixed_quantity source_quantity'.split()
 NUMBERS=set('material_markup labor_rate labor_hours_markup overhead_markup crew_size hours_per_day quantity quantity_per_unit unit_material material_factor unit_hours labor_factor unit_labor_price source_quantity supply_unit_cost_override supply_quantity_override'.split())
@@ -59,6 +60,7 @@ def import_json(conn,raw,user):
   try:order=json.loads(p['scope_order'])
   except (ValueError,TypeError):raise ValueError('Invalid category order') from None
   if not isinstance(order,list) or any(not isinstance(x,str) for x in order):raise ValueError('Category order must be a JSON array of names')
+  p['scope_order']=json.dumps(list(dict.fromkeys(section_key(x) for x in order)))
  rows=raw.get('lines',[])
  if not isinstance(rows,list) or len(rows)>2000:raise ValueError('Use up to 2,000 estimate items per file')
  parsed=[];count=0
@@ -77,10 +79,14 @@ def import_json(conn,raw,user):
    if part.get('labor_pricing','hours') not in ('hours','fixed'):raise ValueError('Invalid labour pricing basis')
    parts.append(part)
   parsed.append((line,parts))
+ exclusions=excluded_categories(p.get('excluded_categories'))
+ categories={section_key(line.get('category_snapshot')) for line,_ in parsed}
+ if exclusions - categories:raise ValueError('Excluded sections must match categories in the imported estimate')
+ p['excluded_categories']=encode_exclusions(exclusions)
  # Validation above and caller transaction prevent partial projects on failure.
  pid=create_project(conn,{**p,'submission_deadline':None})['project']['id']
  register_project(conn,pid,user)
- extras={k:p[k] for k in ('scope_of_work','submission_deadline','status','review_deadline','award_status','scope_order') if k in p}
+ extras={k:p[k] for k in ('scope_of_work','submission_deadline','status','review_deadline','award_status','scope_order','excluded_categories') if k in p}
  if status!='in_review':extras['review_deadline']=None
  if extras:conn.execute('UPDATE projects SET '+','.join(k+'=?' for k in extras)+' WHERE id=?',(*extras.values(),pid))
  now=utc_now()

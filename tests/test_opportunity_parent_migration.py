@@ -439,7 +439,8 @@ class ParentMigrationRuntimeTests(unittest.TestCase):
             'builders': ['New Builder One', 'New Builder Two'], 'workingScope': 'Current scope',
             'assignedTeamIds': [self.team], 'assignedUserIds': [self.member['id']],
         }, self.admin)['opportunity']
-        self.assertEqual(created['status'], 'pending')
+        self.assertEqual(created['status'], 'approved')
+        self.assertEqual(created['decisionBy'], self.admin['id'])
         approved = op.decide(repaired, {**created, 'decision': 'approved'}, self.member)['opportunity']
         self.assertEqual(approved['status'], 'approved')
         changed = op.update_authority(repaired, {**approved, 'assignedUserIds': []}, self.admin, 'assign')['opportunity']

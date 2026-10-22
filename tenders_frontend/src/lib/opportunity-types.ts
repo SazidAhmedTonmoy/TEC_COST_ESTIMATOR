@@ -11,7 +11,10 @@ export type Opportunity = {
   editorTeamIds:number[]; editorUserIds:number[]; createdBy:number; createdByName:string;
   createdAt:string; updatedAt?:string; approvedByName?:string; rejectedByName?:string;
   decisionReason?:string; decisionByName?:string; decisionAt?:string; deletedAt?:string;
-  revision:number; permissions:{edit:boolean; manage:boolean; approve:boolean};
+  quoteStatus?:'quoted'|'not_quoted'; submissionIds?:string[]; quotedValue?:number;
+  quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
+  quotedBy?:number; quotedByName?:string; quotedBuilders?:string[]; submittedByTeamId?:number|null;
+  revision:number; permissions:{edit:boolean; manage:boolean; approve:boolean; quote?:boolean};
 };
 export type OpportunityActivity = {
   id:number; action:string; actorId:number; actorName:string; createdAt:string;

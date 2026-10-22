@@ -15,7 +15,7 @@ import time
 import unicodedata
 import uuid
 from contextlib import contextmanager
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit, urlunsplit
 from zoneinfo import ZoneInfo
 
@@ -48,8 +48,9 @@ def initialize(store):
 
 @contextmanager
 def _transaction(store):
-    # Opportunity activity does not alter tender submissions. Keeping its writes
-    # separate avoids discarding the tender dataset cache on every inbox read.
+    # Ordinary opportunity activity does not alter tender submissions. Keeping
+    # its writes separate avoids discarding that cache on every inbox read.
+    # The quotation handoff explicitly increments tender_generation on success.
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         yield db
@@ -81,8 +82,8 @@ def permissions(item, actor):
     manage = actor['role'] == 'admin' or item.get('createdBy') == actor['id']
     edit = manage or actor['id'] in item.get('editorUserIds', []) or (
         actor.get('team_id') is not None and actor['team_id'] in item.get('editorTeamIds', []))
-    return {'edit': bool(edit), 'manage': bool(manage),
-            'approve': bool(actor['role'] == 'admin' or actor.get('team_id') is not None)}
+    decision = bool(actor['role'] == 'admin' or actor.get('team_id') is not None)
+    return {'edit': bool(edit), 'manage': bool(manage), 'approve': decision, 'quote': decision}
 
 
 def _require(item, actor, permission):
@@ -91,6 +92,7 @@ def _require(item, actor, permission):
             'manage': 'Only the creator or an administrator can assign, delete, or manage access.',
             'edit': 'Only the creator, an administrator, or an authorised editor can edit this opportunity.',
             'approve': 'An administrator or a user who belongs to a team must make this decision.',
+            'quote': 'An administrator or a user who belongs to a team must record the quote.',
         }
         raise tenders.ValidationError(messages[permission], 403)
 
@@ -362,6 +364,30 @@ def _assignment_events(store, db, actor, before, item, users):
                 f'{actor["name"]} updated who can edit this opportunity.')
 
 
+def _approve_assignment_requested(payload, item, actor):
+    """Explicit authorised team assignment is a decision, including past dates."""
+    return bool('assignedTeamIds' in payload and item.get('assignedTeamIds') and
+                item['status'] != 'approved' and permissions(item, actor)['manage'])
+
+
+def _set_approved(item, actor, moment):
+    item.update(status='approved', decisionBy=actor['id'], decisionByName=actor['name'],
+                decisionAt=moment, decisionReason='', approvedBy=actor['id'],
+                approvedByName=actor['name'], approvedAt=moment)
+    if item.get('quoteStatus') == 'not_quoted':
+        item['quoteStatus'] = ''
+
+
+def _assignment_approval_event(store, db, actor, before, item, users):
+    event = _activity(store, db, actor, 'Approved opportunity', item, {
+        'before': before.get('status', 'pending'), 'after': 'approved',
+        'reason': 'Team assigned', 'automatic': True,
+        'assignedTeamIds': item['assignedTeamIds'],
+    })
+    _notify(db, _recipients(item, users), f'decision:{event}', 'approved', item,
+            f'{actor["name"]} approved this opportunity by assigning a team.')
+
+
 def save(store, payload, user):
     initialize(store)
     teams, users = directory()
@@ -381,27 +407,34 @@ def save(store, payload, user):
         item.update(_authority(payload, item, actor, teams, users))
         changed = {k: item.get(k) for k in fields if before.get(k) != item.get(k)}
         authority_changed = any(before.get(k, []) != item[k] for k in AUTHORITY_FIELDS)
-        if identifier and not changed and not authority_changed:
+        auto_approve = _approve_assignment_requested(payload, item, actor)
+        if identifier and not changed and not authority_changed and not auto_approve:
             return _detail(db, item, actor)
         moment = tenders.timestamp()
         item.update(updatedAt=moment, updatedBy=actor['id'], updatedByName=actor['name'])
         if identifier:
             item['revision'] += 1
         expired = bool(item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']))
-        if item['status'] == 'expired' and not expired:
+        if auto_approve:
+            _set_approved(item, actor, moment)
+        elif item['status'] == 'expired' and not expired:
             item.update(status='pending', decisionBy=None, decisionByName='', decisionAt='', decisionReason='')
             _activity(store, db, actor, 'Reopened opportunity', item, {'reason': 'Deadline extended'})
-        elif item['status'] in ('pending', 'approved') and expired:
+        elif item['status'] == 'pending' and expired:
             item['status'] = 'expired'
         _write(db, item, new=not identifier)
         if changed or not identifier:
             action = 'Updated opportunity' if identifier else 'Created opportunity'
             event = _activity(store, db, actor, action, item,
                               {'before': {k: before.get(k) for k in changed}, 'after': changed})
-            creation = 'added an opportunity awaiting approval' if item['status'] == 'pending' else 'added an expired opportunity'
+            creation = {'pending': 'added an opportunity awaiting approval',
+                        'approved': 'added an approved opportunity',
+                        'expired': 'added an expired opportunity'}.get(item['status'], 'added an opportunity')
             _notify(db, _recipients(item, users), f'change:{event}', 'updated' if identifier else 'created', item,
                     f'{actor["name"]} {"updated this opportunity" if identifier else creation}.')
         _assignment_events(store, db, actor, before, item, users)
+        if auto_approve:
+            _assignment_approval_event(store, db, actor, before, item, users)
         if item['status'] == 'expired' and before.get('status') != 'expired':
             _record_time_event(store, db, item, users, 'expired', 'Expired opportunity',
                                'The deadline has passed. This opportunity is now expired.')
@@ -421,12 +454,17 @@ def update_authority(store, payload, user, kind):
         if any(k in payload and payload[k] != before.get(k, []) for k in AUTHORITY_FIELDS if k not in allowed):
             raise tenders.ValidationError('Use the appropriate assignment or access action.')
         item = {**before, **_authority(payload, before, actor, teams, users)}
-        if all(item[k] == before.get(k, []) for k in AUTHORITY_FIELDS):
+        auto_approve = kind == 'assign' and _approve_assignment_requested(payload, item, actor)
+        if all(item[k] == before.get(k, []) for k in AUTHORITY_FIELDS) and not auto_approve:
             return _detail(db, item, actor)
         item.update(revision=item['revision'] + 1, updatedAt=tenders.timestamp(),
                     updatedBy=actor['id'], updatedByName=actor['name'])
+        if auto_approve:
+            _set_approved(item, actor, item['updatedAt'])
         _write(db, item)
         _assignment_events(store, db, actor, before, item, users)
+        if auto_approve:
+            _assignment_approval_event(store, db, actor, before, item, users)
         return _detail(db, item, actor)
 
 
@@ -439,18 +477,16 @@ def decide(store, payload, user):
     if decision not in ('pending', 'approved', 'rejected'):
         raise tenders.ValidationError('Choose Approve, Reject, or Request approval.')
     reason = tenders.text(payload.get('reason'), 'Decision note', limit=4000)
-    if decision == 'rejected' and not reason:
-        raise tenders.ValidationError('Please explain why this opportunity was rejected.')
     with _transaction(store) as db:
         item = _find(db, identifier)
         _require(item, actor, 'manage' if decision == 'pending' else 'approve')
         _revision(item, payload)
-        if item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
-            raise tenders.ValidationError('The deadline has passed. Extend the deadline before requesting or granting approval.', 409)
-        if decision in ('approved', 'rejected') and item['status'] != 'pending':
-            raise tenders.ValidationError('Only opportunities awaiting approval can be approved or rejected.', 409)
-        if decision == 'pending' and item['status'] == 'pending':
+        if item.get('quoteStatus') == 'quoted' and decision != 'approved':
+            raise tenders.ValidationError('This opportunity has already been quoted. Update its outcome in Project Chase-up.', 409)
+        if item['status'] == decision:
             return _detail(db, item, actor)
+        if decision == 'pending' and item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
+            raise tenders.ValidationError('Approve this opportunity to proceed after its deadline, or extend the deadline before requesting approval.', 409)
         before = item['status']
         moment = tenders.timestamp()
         item.update(status=decision, revision=item['revision'] + 1, updatedAt=moment,
@@ -458,15 +494,29 @@ def decide(store, payload, user):
                     decisionBy=actor['id'] if decision != 'pending' else None,
                     decisionByName=actor['name'] if decision != 'pending' else '',
                     decisionAt=moment if decision != 'pending' else '', decisionReason=reason)
+        if decision == 'approved':
+            _set_approved(item, actor, moment)
+            item['decisionReason'] = reason
+        elif decision == 'rejected' and before == 'approved':
+            item.update(quoteStatus='not_quoted', notQuotedBy=actor['id'],
+                        notQuotedByName=actor['name'], notQuotedAt=moment)
+        elif decision == 'pending' and item.get('quoteStatus') == 'not_quoted':
+            item['quoteStatus'] = ''
         _write(db, item)
         action = {'approved': 'Approved opportunity', 'rejected': 'Rejected opportunity',
                   'pending': 'Requested opportunity approval'}[decision]
-        event = _activity(store, db, actor, action, item, {'before': before, 'after': decision, 'reason': reason})
+        event = _activity(store, db, actor, action, item, {'before': before, 'after': decision, 'reason': reason,
+                                                        **({'quoteStatus': 'not_quoted'} if decision == 'rejected' and before == 'approved' else {})})
         message = f'{actor["name"]} {"requested approval for" if decision == "pending" else decision} this opportunity.'
         if reason:
             message += ' ' + reason
         _notify(db, _recipients(item, users), f'decision:{event}', decision, item, message)
         return _detail(db, item, actor)
+
+
+def quote(store, payload, user):
+    from .opportunity_quoting import quote as record_quote
+    return record_quote(store, payload, user)
 
 
 def delete(store, payload, user):
@@ -691,19 +741,29 @@ def process_due(store, force=False, now=None):
             return
         _, users = directory()
         instant = now or datetime.now(timezone.utc)
+        utc_day = instant.astimezone(timezone.utc).date()
         with _transaction(store) as db:
-            rows = db.execute("SELECT body,revision,created_by FROM opportunities WHERE deleted_at IS NULL AND status IN ('pending','approved') AND due!='' AND " +
-                              active_sql('opportunity', 'opportunities.id')).fetchall()
+            # Keep permanent approvals out of the expiry work queue. The UTC
+            # buffer includes every region's local day; exact regional dates
+            # below still decide expiry/reminders, including daylight saving.
+            rows = db.execute("SELECT body,revision,created_by FROM opportunities WHERE deleted_at IS NULL "
+                              "AND due!='' AND due<=? AND (status='pending' OR "
+                              "(status='approved' AND due>=? AND COALESCE(json_extract(body,'$.quoteStatus'),'')!='quoted')) AND " +
+                              active_sql('opportunity', 'opportunities.id'),
+                              ((utc_day + timedelta(days=8)).isoformat(), (utc_day - timedelta(days=1)).isoformat())).fetchall()
+            region_days = {}
             for row in rows:
                 item = _decode_opportunity(row)
-                days = (date.fromisoformat(item['due']) - _today(db, item['region'], instant)).days
-                if days < 0:
+                if item['region'] not in region_days:
+                    region_days[item['region']] = _today(db, item['region'], instant)
+                days = (date.fromisoformat(item['due']) - region_days[item['region']]).days
+                if days < 0 and item['status'] == 'pending':
                     item.update(status='expired', revision=item['revision'] + 1,
                                 updatedAt=instant.isoformat(), expiredAt=instant.isoformat())
                     _write(db, item)
                     _record_time_event(store, db, item, users, 'expired', 'Expired opportunity',
                                        'The deadline has passed. This opportunity is now expired.', instant)
-                elif days <= 7:
+                elif 0 <= days <= 7 and item.get('quoteStatus') != 'quoted':
                     kind = 'due-today' if days == 0 else 'due-soon' if days <= 1 else 'upcoming'
                     message = 'The opportunity deadline is today.' if days == 0 else f'The opportunity deadline is in {days} day{"s" if days != 1 else ""}.'
                     _record_time_event(store, db, item, users, kind, 'Opportunity deadline reminder', message, instant)
@@ -840,7 +900,7 @@ def import_records(store, records, actor, source, seed_key=None, expected_genera
             if seed_key and item['sourceStatus'] in ('approved', 'rejected'):
                 item['status'] = item['sourceStatus']
             expired = bool(item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']))
-            if expired and item['status'] in ('pending', 'approved'):
+            if expired and item['status'] == 'pending':
                 item['status'] = 'expired'
             _write(db, item, new=True)
             _activity(store, db, actor, 'Imported opportunity', item,

@@ -150,6 +150,9 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
 
     detail_title_row = 4
     detail_header_row = detail_title_row + 1
+    # Keep item prices visible; a numeric include flag gates only roll-up totals.
+    inclusion_flag_column = 16
+    included_columns = {"G": "Q", "I": "R", "J": "S", "K": "T", "L": "U"}
 
     _merge_value(ws, "A1:N1", '=B2&" — COST ESTIMATE"', fill=DARK_NAVY, color=WHITE, size=18, bold=True)
     ws.row_dimensions[1].height = 44
@@ -253,7 +256,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         parent_row = current_row
         parent_rows.append(parent_row)
         line_parent_rows.append((line, parent_row))
-        scope = (line.get("category_snapshot") or "Other").strip() or "Other"
+        scope = line["category_key"]
         components = list(line.get("components") or []) or [{
             "item_no": "", "description": line.get("name_snapshot") or "Manual item", "quantity_per_unit": 1.0,
             "uom": line.get("uom") or "EA", "unit_material": 0.0, "material_factor": 1.0,
@@ -357,14 +360,27 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 len(textwrap.wrap(str(ws.cell(row, 14).value or ""), width=28))) + 10)
         current_row = detail_end + 1
 
+    for line, parent_row in line_parent_rows:
+        flag=ws.cell(parent_row,inclusion_flag_column,int(line.get('included_in_total',True)))
+        flag.number_format='[=1]"On";[=0]"Off";General'
+        flag.fill=PatternFill('solid',fgColor=CREAM)
+        flag.font=Font(name='Aptos',bold=True,color=INPUT_BLUE)
+        flag.alignment=Alignment(horizontal='center',vertical='center')
+        flag.protection=Protection(locked=False)
+        flag.comment=Comment('On (1) includes this item in estimate totals. Off (0) retains its prices and quantities while excluding its cost and hours. The initial value follows its section in TEC ConEst.','TEC ConEst')
+        for source,target in included_columns.items():
+            ws[f'{target}{parent_row}']=f'={source}{parent_row}*P{parent_row}'
+        ws.conditional_formatting.add(f'A{parent_row}:P{parent_row}',FormulaRule(
+            formula=[f'$P{parent_row}=0'],fill=PatternFill('solid',fgColor='E9E5DC')))
+    for column in included_columns.values():ws.column_dimensions[column].hidden=True
     total_row = current_row
     ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=5)
     ws.cell(total_row, 1, "CONNECTED ESTIMATE TOTAL")
-    ws.cell(total_row, 7, _sum_cells("G", parent_rows))
-    ws.cell(total_row, 9, _sum_cells("I", parent_rows))
-    ws.cell(total_row, 10, _sum_cells("J", parent_rows))
-    ws.cell(total_row, 11, _sum_cells("K", parent_rows))
-    ws.cell(total_row, 12, _sum_cells("L", parent_rows))
+    ws.cell(total_row, 7, _sum_cells("Q", parent_rows))
+    ws.cell(total_row, 9, _sum_cells("R", parent_rows))
+    ws.cell(total_row, 10, _sum_cells("S", parent_rows))
+    ws.cell(total_row, 11, _sum_cells("T", parent_rows))
+    ws.cell(total_row, 12, _sum_cells("U", parent_rows))
     for cell in ws[total_row][:14]:
         cell.fill = PatternFill("solid", fgColor=DARK_NAVY)
         cell.font = Font(name="Aptos", size=10, bold=True, color=WHITE)
@@ -407,6 +423,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     helper_last_row = helper_first_row + len(parent_rows)*2 - 1
     for index,(line,parent_row) in enumerate(line_parent_rows):
         components=line.get('components') or []
+        final_ref='0' if line.get('exclude_final_markup') else f'{settings_ref}$C$6'
         supply_offset=next((i for i,c in enumerate(components) if c.get('is_parent')),0)
         supply_row=parent_row+1+supply_offset
         supply_rows=[parent_row+1+i for i,c in enumerate(components) if i==supply_offset or c.get('is_supply_copy')]
@@ -428,6 +445,8 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
                 ws.cell(row,1,f'=IF({lighting},A{parent_row}&" / Installation cost","")')
                 formulas={3:f'IF({lighting},G{parent_row}-C{row-1},0)',4:f'IF({lighting},I{parent_row},0)',
                     5:f'IF({lighting},J{parent_row},0)',6:f'IF({lighting},L{parent_row}-F{row-1},0)',7:f'IF({lighting},1,0)'}
+            excluded_condition=f'P{parent_row}=0' if part==0 else f'AND(P{parent_row}=0,{lighting})'
+            ws.cell(row,1,ws.cell(row,1).value+f'&IF({excluded_condition}," [Excluded]","")')
             ws.cell(row,2,'=1' if row==helper_first_row else f'=IF(A{row}="",0,IF(SUMPRODUCT(--($A${helper_first_row}:A{row}=A{row}))=1,MAX($B${helper_first_row}:B{row-1})+1,0))')
             for col,formula in formulas.items():ws.cell(row,col,'='+formula)
             ws.row_dimensions[row].hidden=True
@@ -447,7 +466,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     ws.row_dimensions[scope_header_row].height = 30
     categories = f"{detail_ref}$A${helper_first_row}:$A${helper_last_row}"
     scope_numbers = f"{detail_ref}$B${helper_first_row}:$B${helper_last_row}"
-    assembly_count = f"COUNT({detail_ref}$M${detail_header_row + 1}:$M${total_row - 1})" if parent_rows else "0"
+    assembly_count = "SUM("+",".join(f"{detail_ref}P{parent}" for parent in parent_rows)+")" if parent_rows else "0"
     for index, row in enumerate(range(scope_first_row, scope_last_row + 1), 1):
         is_total = f"{index}=MAX({scope_numbers})+1" if parent_rows else "TRUE"
         label = f'=IFERROR(INDEX({categories},MATCH({index},{scope_numbers},0)),IF({is_total},"TOTAL",""))' if parent_rows else "TOTAL"
@@ -530,6 +549,13 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     work_labels=['Installation','Supply only','Supply & installation','Relocation','Demolition','Relocation and Demolition']
     detail.cell(detail_header_row,15,'Work type').font=Font(name='Aptos',bold=True,color=DARK)
     detail.column_dimensions['O'].width=30
+    detail.cell(detail_header_row,16,'Include in total').font=Font(name='Aptos',bold=True,color=DARK)
+    detail.cell(detail_header_row,16).alignment=Alignment(wrap_text=True)
+    detail.column_dimensions['P'].width=18
+    include_rule=DataValidation(type='whole',operator='between',formula1=0,formula2=1,allow_blank=False)
+    include_rule.errorTitle='Use On or Off';include_rule.error='Enter 1 for On or 0 for Off.';include_rule.showErrorMessage=True
+    detail.add_data_validation(include_rule)
+    for _,parent in line_parent_rows:include_rule.add(detail.cell(parent,16))
     for line,parent in line_parent_rows:
         kind=line.get('work_type_snapshot') or 'assembly'
         label='Installation' if kind in ('assembly','installation_only') else WORK_TYPES.get(kind,'Installation')
@@ -551,13 +577,13 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
         row+=1
         _merge_value(overview,f'A{row}:C{row}',label,size=10,bold=label=='TOTAL')
         for start,end,source,fmt in [('D','E',None,'0'),('F','H','G',money),('I','J','I',hours),('K','L','J',money),('M','N','L',money)]:
-            terms=[f'IF({detail_ref}O{parent}=A{row},'+(f'{detail_ref}{source}{parent}' if source else '1')+',0)' for parent in parent_rows]
+            terms=[f'IF({detail_ref}O{parent}=A{row},'+(f'{detail_ref}{source}{parent}*{detail_ref}P{parent}' if source else f'{detail_ref}P{parent}')+',0)' for parent in parent_rows]
             formula='='+('+'.join(terms) or '0')
             if label=='TOTAL':formula=f'=SUM({start}{work_first}:{start}{row-1})'
             _merge_value(overview,f'{start}{row}:{end}{row}',formula,number_format=fmt,horizontal='right',size=10,bold=label=='TOTAL',fill=GREEN_LIGHT)
         overview.row_dimensions[row].height=30
     overview.print_area=f'A1:N{row}'
-    detail.print_area=f'A1:O{total_row}'
+    detail.print_area=f'A1:P{total_row}'
 
     builder_lines = sum(max(1, (len(name) + 39) // 40) for name in project.get('builders') or [])
     overview.row_dimensions[2].height = max(overview.row_dimensions[2].height or 30, min(409, 16 * builder_lines + 12))

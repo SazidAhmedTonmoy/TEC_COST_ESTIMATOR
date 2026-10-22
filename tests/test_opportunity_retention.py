@@ -326,7 +326,7 @@ class OpportunityRetentionTests(unittest.TestCase):
         self.assertEqual(op.list_opportunities(self.store, {}, self.actor)['total'], 0)
         self.assertIsNotNone(self.row(old['id']))
 
-    def test_edits_decisions_and_expiry_preserve_unchanged_assignment_references(self):
+    def test_edits_decisions_and_deadline_sweep_preserve_unchanged_assignment_references(self):
         item = self.create(assignedTeamIds=[self.team], assignedUserIds=[self.member['id']])
         with self.store.connect() as db:
             db.execute('''CREATE TABLE historical_assignment_reference (
@@ -345,7 +345,7 @@ class OpportunityRetentionTests(unittest.TestCase):
             self.assertEqual(assigned, {('assignedTeamIds', self.team), ('assignedUserIds', self.other_member['id'])})
         op.process_due(self.store, force=True, now=datetime(2100, 1, 1, tzinfo=timezone.utc))
         item = op.detail(self.store, item['id'], self.actor)['opportunity']
-        self.assertEqual(item['status'], 'expired')
+        self.assertEqual(item['status'], 'approved')
         op.delete(self.store, item, self.actor)
         with self.store.connect() as db:
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])

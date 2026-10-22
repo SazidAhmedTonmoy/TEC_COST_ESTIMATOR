@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
+from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import accounts, workspace, productivity, help_chat
 from conest_app.builders import read_builders, stored_builders, validate_builders
 from conest_app.database import connect
@@ -58,7 +59,7 @@ class Builders235Tests(unittest.TestCase):
             self.assertEqual(c.execute('SELECT client FROM projects WHERE id=?',(self.d['project_id'],)).fetchone()[0],before)
             p=create_project(c,{'name':'Comma name','client':'One, Two & Three'})['project']
             self.assertEqual(p['builders'],['One, Two & Three'])
-            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],31)
+            self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],CURRENT_SCHEMA)
 
     def test_manager_add_clear_reopen_and_activity(self):
         with connect() as c:

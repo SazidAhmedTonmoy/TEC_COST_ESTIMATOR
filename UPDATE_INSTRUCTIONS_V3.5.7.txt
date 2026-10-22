@@ -1,0 +1,208 @@
+TEC ConEst v3.5.7 — Opportunity quoting and estimate section switches
+Prepared 22 October 2026
+
+WHAT CHANGES
+
+This release adds optional rejection notes, approval through team assignment,
+permanent approval after the closing date, a Quoted / Not quoted workflow,
+larger coloured deadline labels and estimate section inclusion switches.
+Existing themes, mobile layouts and the v3.5.6 Link/import features remain.
+
+OPPORTUNITIES: APPROVAL AND QUOTE OUTCOME
+
+The Reason for rejection and decision-note fields may remain blank. Your
+identity, decision and time are still recorded in activity and contributions.
+
+Assigning at least one team automatically moves the opportunity to Approved,
+including an expired opportunity. Selected team members and individually
+assigned people receive notifications. Team assignment triggers approval;
+individual assignments continue to identify and notify their recipients.
+Assignment/access management remains limited to the creator or an administrator.
+Administrators and eligible team members can also approve an expired entry
+directly. Removing a team later does not undo an existing approval.
+
+Once approved, deadline processing leaves the opportunity Approved. Its card
+can show a red passed-deadline label while its status stays Approved. Editing
+its deadline or other project fields also preserves its approval.
+
+Approved cards and details offer these outcomes:
+
+- QUOTED: enter the Electrical services submission value in AUD. This is the
+  amount actually submitted, separate from the project's budget/range and the
+  earlier estimated tender value. Select at least one builder already linked
+  to the opportunity. Enter an optional quote number and note, choose the
+  submitted team, and confirm the submitted date. A blank date uses today in
+  the opportunity's region. A zero value is permitted; a blank value is not.
+- Saving creates an Open Tender submission for each selected builder under
+  the same project. The common submitted value is applied across those
+  builders. Project name, region, location, original closing deadline, working
+  scope and a source-opportunity link are retained. The screen opens Project
+  Chase-up, where you can continue follow-ups and update Tender outcomes.
+- The original opportunity remains Approved and displays its quoted amount,
+  recorded details and an Open Project Chase-up link. Repeating an identical
+  submission request is safe and does not create duplicate records. Later
+  quote edits belong in the linked Tender project. If a matching project
+  already exists in Projects / Project Chase-up, conversion stops with a
+  clear message so the existing submissions are not silently overwritten.
+- NOT QUOTED: moves an approved opportunity to Rejected. Its rejection note
+  is optional. An already-quoted opportunity is managed through Chase-up,
+  where its real submissions now exist.
+
+The original opportunity may contain builders that did not receive the quote.
+Selecting only the relevant builders does not remove the others from its
+history. Add a builder to the opportunity before quoting if none is recorded.
+
+DEADLINE COLOURS
+
+  Red            Passed deadline, due today, or 1–3 days remaining
+  Yellow/amber   4–7 days remaining
+  Green          More than 7 days remaining
+  Neutral        No deadline, or an unavailable/invalid stored date
+
+The larger badge retains text and the exact closing date. Days are calendar
+days, including weekends, in the opportunity's regional timezone. NSW uses
+Australia/Sydney; VIC uses Australia/Melbourne. Other configured regions use
+their saved timezone. The count changes at local midnight without added API
+polling, and the viewer's own device timezone does not change the count.
+
+ESTIMATE SECTION ON/OFF SWITCH
+
+Each section/category heading now has an On/Off switch beside its expand
+control. Existing projects and new sections default to On. Off retains all
+items, components, quantities, rates and raw category totals, but excludes
+that section from the estimate's material, labour, direct cost, markup/quoted
+total, labour hours/days and work-type summary totals. The category remains
+visible with an Excluded from total label, so it can be reviewed or switched
+back on without rebuilding its contents.
+
+The switch requires the same editing access as the estimate. Its change is
+recorded, and a stale browser revision cannot silently overwrite newer work.
+The setting survives refresh, project copying, revision snapshots/restoration
+and Project JSON export/import. New items added within an excluded section
+follow that section's setting.
+
+Imported category names with extra spaces are treated as the same displayed
+section, while their original stored names remain intact. Public shared
+estimates also label excluded categories/items and identify the included total.
+
+Excel exports keep the raw item prices visible. On CONNECTED COST DETAIL,
+column P is labelled Include in total. Enter 1 for On or 0 for Off; the cell
+displays the corresponding word. Initial values follow the website's section
+settings. Workbook totals and summaries use these inclusion flags. These are
+item controls inside the exported workbook; workbook edits do not update the
+website automatically.
+
+DATABASE UPGRADE AND PRESERVED WORK
+
+The Estimator database upgrades automatically to schema 32. This adds a
+project-specific excluded_categories setting whose empty default means all
+sections are included. The upgrade uses the existing process lock and verified
+pre-upgrade backup. For the reported database location, the catalogue snapshot
+is data/upgrade_backups/conest_catalog-before-schema-32.db.
+
+A separate one-time correction checks previously expired opportunities. It
+restores Approved only where the current record matches a genuine recorded
+approval and a later automatic System expiry, with no later conflicting
+decision. It retains the original approver/date and full history, adds an
+explicit restoration event, and notifies the relevant recipients. A verified
+Tender backup is made before any such correction. Expired records without
+that evidence remain available for an explicit approval or team assignment.
+
+Previous legacy-schema repairs remain included. The existing one-time clear
+keeps its opportunities-owner-reset-v351 completion key. Completed clears are
+not repeated, and retired/deleted records are excluded from restoration. Later
+projects, imported work, audit history and contribution records are preserved.
+
+CHOOSE THE ZIP
+
+TEC_COST_ESTIMATOR_v3.5.7_CHANGED_FILES.zip contains changed/new files relative
+to the complete previously supplied v3.5.6 release. Use it only on that base.
+
+TEC_COST_ESTIMATOR_v3.5.7_FULL.zip supplies the complete application code. Use
+it when the deployed version is older, incomplete or uncertain. Both packages
+are code updates: preserve your live databases and host-specific configuration.
+
+UPLOAD BOTH INTERFACES AND RESTART
+
+1. Extract the chosen ZIP and copy the CONTENTS of TEC_COST_ESTIMATOR into:
+
+     /home/ampecportal/tec-const.ampecportal.com/
+
+   Keep the existing level of app.py and conest_app/. Complete the upload
+   before restarting the application. Avoid creating a second nested app root.
+
+2. Include both compiled interfaces and every supplied supporting file:
+
+     assets/index.html
+     all supplied files under assets/, including new hashed app.*.js
+     and styles.*.css bundles
+     tenders_web/index.html
+     all supplied files under tenders_web/assets/, including the Opportunities
+     JavaScript chunk
+
+   The files are already built. Uploading Python/frontend source alone will
+   leave the old interface visible. Uploading an index file without its new
+   bundles can prevent that interface from loading. Older hashed files may
+   remain during the overlay for existing tabs; the new index selects the new
+   files. No frontend build or new package dependency is needed on the host.
+
+3. Preserve data/, uploads, .htaccess, working passenger_wsgi.py, environment
+   settings and the virtual environment. Keep the working Passenger Python:
+
+     /home/ampecportal/tec-conest-py311/bin/python
+
+   A different shell Python does not change Passenger's configured interpreter.
+
+4. After all files are uploaded, use the hosting panel's application Restart
+   action, or run this block in the hosting terminal:
+
+bash <<'SH'
+set -eu
+cd /home/ampecportal/tec-const.ampecportal.com
+/home/ampecportal/tec-conest-py311/bin/python - <<'PY'
+import sqlite3
+import sys
+from conest_app import __version__
+from conest_app.auto_upgrade import CURRENT_SCHEMA
+print('Application release on disk:', __version__)
+print('Expected schema:', CURRENT_SCHEMA)
+print('Python:', sys.executable, sys.version.split()[0])
+print('SQLite:', sqlite3.sqlite_version)
+if __version__ != '3.5.7' or CURRENT_SCHEMA != 32:
+    raise SystemExit('Upload all v3.5.7 files to the actual application root first.')
+PY
+mkdir -p tmp
+touch tmp/restart.txt
+SH
+
+   Restart all application workers. Initialization performs the required
+   migrations; a version file on disk alone does not prove workers reloaded.
+
+5. Open:
+
+     https://tec-const.ampecportal.com/api/health?check=tenders
+
+   Expect success:true, status:"ok", release:"3.5.7", schema_version:32, and
+   "ok" for tenders, opportunities, timezones and sqlite. The check=tenders
+   query is needed to exercise both workspaces. Then hard-refresh the browser:
+   Ctrl+Shift+R on Windows/Linux, or Command+Shift+R on macOS.
+
+QUICK ACCEPTANCE CHECK
+
+- Reject an opportunity with a blank reason.
+- Assign a team to an expired opportunity and confirm Approved and notification.
+- Record a quote with its actual electrical value and selected builders; check
+  the opened Chase-up entry, note, source link and Approved/Quoted source card.
+- Mark a different approved opportunity Not quoted with a blank note; confirm
+  it appears in Rejected.
+- Compare 3-, 4-, 7- and 8-day cards and check both desktop and mobile views.
+- Switch an estimate section Off. Confirm raw items remain while project cost
+  and hours decrease. Refresh, export Excel, and switch On to restore totals.
+
+If startup fails, use the new error reference while signed in as an admin:
+
+  /api/admin/startup-diagnostics?reference=<new-reference>
+
+This protected diagnostic does not require stderr.log. See
+QUALITY_REVIEW_V3.5.7.txt for final test evidence and its limits. The release has
+been prepared for upload; the live hosting process was not changed here.
