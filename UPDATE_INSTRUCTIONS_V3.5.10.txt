@@ -1,0 +1,24 @@
+TEC ConEst v3.5.10 - Tender Opportunities rejection button clean-up
+22 October 2026
+
+APPLY OVER COMPLETE v3.5.9
+- Expired opportunity cards no longer show a Reject button.
+- Expired opportunity detail panels no longer show Reject; any guidance in the panel now describes only approval.
+- Approved and Rejected entries continue to have no Reject button, as in v3.5.9.
+- Awaiting approval can still be approved or rejected from its detail panel, and active approved items keep their Quoted/Not quoted actions.
+- No database migration or data reset. Schema remains 32. Existing opportunities, builder records, submissions, and notifications are untouched.
+
+HOW TO INSTALL
+1. Back up the application and data on your hosting account before uploading.
+2. If v3.5.9 was installed in full, choose TEC_COST_ESTIMATOR_v3.5.10_CHANGED_FILES.zip. Otherwise use the full v3.5.10 ZIP.
+3. Extract and merge the CONTENTS of TEC_COST_ESTIMATOR/ into /home/ampecportal/tec-const.ampecportal.com/. Keep the relative folder structure.
+4. Make sure tenders_web/index.html AND the NEW index-v3510.js and opportunities-v3510.js files under tenders_web/assets/ are uploaded. CSS is unchanged and still uses index-v359.css. The frontend is precompiled; no npm build on hosting is necessary.
+5. Keep live databases and data/ files, uploads, .htaccess, passenger_wsgi.py, hosting configuration, and Python 3.11 environment unchanged.
+6. Restart Passenger (in the app directory): mkdir -p tmp && touch tmp/restart.txt. Refresh your browser (hard refresh if needed).
+7. Verify https://tec-const.ampecportal.com/api/health?check=tenders shows release 3.5.10 / schema 32, then open Opportunities > Expired. Expired cards and details must have no Reject button; approve controls, if eligible, remain.
+
+VERIFICATION
+- Focused JavaScript tests validate that expired/approved/rejected never expose Reject, and that only Pending is eligible.
+- Static packaged-assets tests cover the compiled card and detail UI and asset linking.
+- Node --check runs on the packaged modules.
+- No backend or database business logic was changed in this patch.

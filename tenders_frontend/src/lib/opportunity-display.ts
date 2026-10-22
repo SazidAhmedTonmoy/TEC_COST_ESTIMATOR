@@ -74,11 +74,12 @@ export function canQuoteOpportunity(item:Opportunity,regions:OpportunityRegion[]
   return days===null||days>=0;
 }
 
-/** Keep Reject for awaiting and genuinely expired opportunities, not Approved ones.
- * Approved opportunities use Not quoted while the quote workflow is active. */
+/** Reject is only offered during Awaiting approval.
+ * Approved opportunities use Not quoted while the quote workflow is active;
+ * Expired and decided opportunities remain read-only for this decision. */
 export function canRejectOpportunity(item:Opportunity,_regions:OpportunityRegion[]=[],_now=Date.now()) {
   if(item.deletedAt||!item.permissions.approve||isOpportunityQuoted(item))return false;
-  return item.status==='pending'||item.status==='expired';
+  return item.status==='pending';
 }
 
 /** Next local midnight across the visible regions; no fixed 24-hour assumption. */

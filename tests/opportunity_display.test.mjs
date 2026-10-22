@@ -31,7 +31,7 @@ test('only active pending deadlines use inclusive three-day and seven-day colors
 
 const actionable=(changes={})=>({status:'approved',due:'2026-10-22',region:'NSW',assignedTeamIds:[1],permissions:{approve:true,quote:true},...changes});
 
-test('approved past-deadline records hide quote outcomes and Reject controls',()=>{
+test('approved and expired records hide Reject controls',()=>{
   const before=Date.parse('2026-10-22T12:59:59.999Z'),after=Date.parse('2026-10-22T13:00:00Z');
   const item=actionable();
   assert.equal(canQuoteOpportunity(item,regions,before),true);
@@ -41,9 +41,11 @@ test('approved past-deadline records hide quote outcomes and Reject controls',()
   assert.equal(canQuoteOpportunity(actionable({region:'WA'}),regions,after),true);
   assert.equal(canRejectOpportunity(actionable({region:'WA'}),regions,after),false);
   assert.equal(canQuoteOpportunity(actionable({due:''}),regions,after),true);
-  assert.equal(canRejectOpportunity(actionable({status:'expired'}),regions,before),true);
+  assert.equal(canRejectOpportunity(actionable({status:'expired'}),regions,before),false);
   assert.equal(canRejectOpportunity(actionable({status:'pending'}),regions,before),true);
   assert.equal(canRejectOpportunity(actionable({status:'rejected'}),regions,after),false);
+  assert.equal(canRejectOpportunity(actionable({status:'expired',due:'2027-04-21'}),regions,before),false);
+  assert.equal(canRejectOpportunity(actionable({status:'pending',permissions:{approve:false,quote:false}}),regions,before),false);
 });
 
 test('quoted links, deleted records and missing permissions never expose quote or reject controls',()=>{
