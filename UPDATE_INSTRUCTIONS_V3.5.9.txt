@@ -1,0 +1,30 @@
+TEC ConEst v3.5.9 - small Tender opportunity UI update
+22 October 2026
+
+This patch applies over the COMPLETE v3.5.8 application.
+
+CHANGES
+1. Approved, Rejected and Expired opportunity deadlines now use normal 12px, regular-weight grey text, without badge padding or background. The same styling applies to their blank/unavailable dates. Pending opportunities retain their existing coloured urgency markers.
+2. Approved opportunities no longer show the Reject action on cards OR in their detail panel, even when the deadline has passed. Expired opportunities (not yet approved) keep their Reject option, and awaiting approval can still be rejected in its detail view. Active approved opportunities retain the separate Not quoted outcome.
+3. No schema change or opportunity data reset. Release is 3.5.9; database schema remains 32.
+
+INSTALL
+1. Back up your live application and databases.
+2. If already on complete v3.5.8, use TEC_COST_ESTIMATOR_v3.5.9_CHANGED_FILES.zip. Otherwise use the full package.
+3. Extract the ZIP and merge the CONTENTS of TEC_COST_ESTIMATOR into /home/ampecportal/tec-const.ampecportal.com/ preserving subfolders.
+4. Upload tenders_web/index.html and ALL new assets in tenders_web/assets. This small release includes precompiled browser assets and DOES NOT require npm on the host. DO NOT upload a node_modules directory.
+5. Do not overwrite the live data/ directory, passenger_wsgi.py, .htaccess or your environment configuration.
+6. Restart Passenger from cPanel or run in the application root: mkdir -p tmp && touch tmp/restart.txt
+7. Refresh the Tender page. Check https://tec-const.ampecportal.com/api/health?check=tenders for release 3.5.9, schema_version 32, and all readiness checks ok.
+8. Verify an Approved past-due card: normal-size neutral date, NO Reject button. Verify a genuinely Expired (unapproved) opportunity: Reject remains.
+
+TESTS
+- 12 opportunity deadline/action JS tests passed with Node --experimental-strip-types.
+- 6 existing backend opportunity workflow tests passed.
+- Compiled JS smoke test passed (approved Reject hidden, expired Reject retained, neutral status dates, asset references).
+- Browser computed-style checks at 320px, 390px and 920px passed (neutral font 12px / weight 400 / no padding / icon 14px).
+- JS syntax checks passed for both patched chunks.
+- Source changes were mirrored into the existing compiled v3.5.8 assets because the test environment could not download npm packages; the bundled browser assets were verified as above.
+- Full Python suite was attempted but not completed due to an unrelated pre-existing legacy fixture failure and execution timeout. No backend business logic or schema was changed by this release.
+
+The source and original v3.5.8 application databases were not modified.

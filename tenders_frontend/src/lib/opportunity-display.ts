@@ -49,9 +49,10 @@ export function opportunityDeadline(
   now=Date.now(),
 ):OpportunityDeadline {
   const timezone=opportunityTimezone(item.region,regions);
-  if(!item.due)return {days:null,label:'No deadline',tone:'none',timezone};
+  const decided=item.status==='approved'||item.status==='rejected'||item.status==='expired';
+  if(!item.due)return {days:null,label:'No deadline',tone:decided?'neutral':'none',timezone};
   const due=deadlineDay(item.due);
-  if(due===null)return {days:null,label:'Deadline unavailable',tone:'none',timezone};
+  if(due===null)return {days:null,label:'Deadline unavailable',tone:decided?'neutral':'none',timezone};
   // Calendar ordinals avoid rounding errors on 23-hour and 25-hour DST days.
   const days=due-localDay(now,timezone);
   if(days<0){
@@ -59,7 +60,6 @@ export function opportunityDeadline(
     const prefix=item.status==='expired'?'Expired':'Deadline passed';
     return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:'neutral',timezone};
   }
-  const decided=item.status==='approved'||item.status==='rejected'||item.status==='expired';
   return {days,label:days===0?'Due today':days===1?'Due tomorrow':`${days} days left`,tone:decided?'neutral':days<=3?'urgent':days<=7?'warning':'safe',timezone};
 }
 
@@ -74,11 +74,11 @@ export function canQuoteOpportunity(item:Opportunity,regions:OpportunityRegion[]
   return days===null||days>=0;
 }
 
-export function canRejectOpportunity(item:Opportunity,regions:OpportunityRegion[]=[],now=Date.now()) {
+/** Keep Reject for awaiting and genuinely expired opportunities, not Approved ones.
+ * Approved opportunities use Not quoted while the quote workflow is active. */
+export function canRejectOpportunity(item:Opportunity,_regions:OpportunityRegion[]=[],_now=Date.now()) {
   if(item.deletedAt||!item.permissions.approve||isOpportunityQuoted(item))return false;
-  if(item.status==='pending'||item.status==='expired')return true;
-  const days=opportunityDeadline(item,regions,now).days;
-  return item.status==='approved'&&days!==null&&days<0;
+  return item.status==='pending'||item.status==='expired';
 }
 
 /** Next local midnight across the visible regions; no fixed 24-hour assumption. */

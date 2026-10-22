@@ -1,0 +1,16 @@
+TEC ConEst v3.5.9 - focused UI verification
+Date: 22 October 2026
+
+Actual changes: neutral deadline font for decided statuses, hide Reject on Approved cards and details.
+Pending urgency colours remain; Reject remains on genuinely Expired records.
+
+Verified:
+- 12 Node opportunity-display tests PASS.
+- 6 existing Python opportunity workflow tests PASS.
+- Compiled JS smoke PASS (helper logic and cyclic asset imports).
+- Browser CSS checks PASS at 320px, 390px and 920px (font-size 12px, weight 400, padding 0, border 0, icon width 14px).
+- Node syntax checks PASS on patched production JS chunks.
+- New asset names index-v359.js, opportunities-v359.js, index-v359.css are cache-busting; the delivered tenders_web/index.html references them.
+- The complete Python test suite was attempted but not completed in the execution window; it encountered an unrelated legacy fixture issue.
+- npm rebuild was unavailable because the test environment could not resolve registry.npmjs.org. Therefore the existing compiled v3.5.8 files were patched with source-equivalent edits and browser/style/syntax verified. Do not interpret this as a successful npm build.
+- No production hosting connection or database migration was performed here.

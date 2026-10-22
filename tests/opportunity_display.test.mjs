@@ -24,20 +24,20 @@ test('only active pending deadlines use inclusive three-day and seven-day colors
   assert.equal(deadline('2026-10-20',now).tone,'neutral');
   for(const status of ['approved','rejected','expired']){
     for(const due of ['2026-10-20','2026-10-21','2026-10-22','2026-10-24','2026-10-25','2026-10-28','2026-10-29','2027-01-01'])assert.equal(deadline(due,now,'NSW',status).tone,'neutral');
-    assert.equal(deadline('',now,'NSW',status).tone,'none');
-    assert.equal(deadline('invalid',now,'NSW',status).tone,'none');
+    assert.equal(deadline('',now,'NSW',status).tone,'neutral');
+    assert.equal(deadline('invalid',now,'NSW',status).tone,'neutral');
   }
 });
 
 const actionable=(changes={})=>({status:'approved',due:'2026-10-22',region:'NSW',assignedTeamIds:[1],permissions:{approve:true,quote:true},...changes});
 
-test('approved past-deadline records hide quote outcomes and allow ordinary rejection',()=>{
+test('approved past-deadline records hide quote outcomes and Reject controls',()=>{
   const before=Date.parse('2026-10-22T12:59:59.999Z'),after=Date.parse('2026-10-22T13:00:00Z');
   const item=actionable();
   assert.equal(canQuoteOpportunity(item,regions,before),true);
   assert.equal(canRejectOpportunity(item,regions,before),false);
   assert.equal(canQuoteOpportunity(item,regions,after),false);
-  assert.equal(canRejectOpportunity(item,regions,after),true);
+  assert.equal(canRejectOpportunity(item,regions,after),false);
   assert.equal(canQuoteOpportunity(actionable({region:'WA'}),regions,after),true);
   assert.equal(canRejectOpportunity(actionable({region:'WA'}),regions,after),false);
   assert.equal(canQuoteOpportunity(actionable({due:''}),regions,after),true);
