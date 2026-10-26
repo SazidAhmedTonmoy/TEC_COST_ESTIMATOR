@@ -39,6 +39,10 @@ Shared links show a collapsible floor/room/area breakdown alongside existing cat
 
 Allocations are stored with estimate lines, survive line/project copying and revision snapshots, and are included in project JSON exports. JSON imports validate that allocated quantities equal the item quantity. Invalid, negative, non-finite, duplicate-area or zero-total allocations are rejected. Saves use the existing authenticated permissions and revision checks.
 
+## CI correction
+
+The inherited mobile regression test expected release `3.5.12`, which blocked the v3.7 deployment before the upload stage. Its version assertion now expects `3.7`; all existing mobile stylesheet, drawer, compiled-bundle and KPI checks remain in place. Deploy a new commit containing `tests/test_v3512_mobile.py`; rerunning the failed old commit will retain its old assertion.
+
 ## Deployment
 
 Overlay the changed-files ZIP on the supplied v3.6 application, or use the full v3.7 package. Keep production databases, uploads, configuration and secrets. Commit and deploy the new code, then restart Passenger through the existing deployment workflow. The automatic upgrade adds an `area_allocations` column, preserves existing estimates and creates the normal pre-upgrade safety backup. Database files are not included or replaced by this release.
