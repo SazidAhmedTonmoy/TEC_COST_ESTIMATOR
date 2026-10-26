@@ -255,9 +255,9 @@ class EstimateSectionTests(unittest.TestCase):
             with connect() as conn:
                 after=projects.calculate_project(conn,pid)
                 self.assertEqual(after['totals'],before['totals'])
-                self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],32)
+                self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],auto_upgrade.CURRENT_SCHEMA)
                 self.assertEqual(conn.execute('PRAGMA foreign_key_check').fetchall(),[])
-        backup=database_path().parent/'upgrade_backups'/f'{database_path().stem}-before-schema-32.db'
+        backup=database_path().parent/'upgrade_backups'/f'{database_path().stem}-before-schema-{auto_upgrade.CURRENT_SCHEMA}.db'
         self.assertTrue(backup.is_file())
         with _raw_connect(backup) as saved:
             self.assertEqual(saved.execute('SELECT version FROM schema_version').fetchone()[0],31)

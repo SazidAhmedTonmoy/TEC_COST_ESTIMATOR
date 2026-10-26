@@ -1,3 +1,56 @@
+# TEC ConEst v3.7 — Area-based estimates
+
+Built from the supplied `TEC_ConEst_v3.6_CI_FIX_FULL.zip`. Application release 3.7; main database schema 33.
+
+## Floors, rooms, levels and areas
+
+Each estimate item has an **Areas / floors** button. Add a named location and the quantity installed there. Use names such as `Level 1 / Reception`, `Level 2 / Meeting room`, or `External works`. Existing location names are suggested when entering another item.
+
+- **Divide total equally** splits the existing item quantity across the area rows you have added. You can then adjust each quantity for an uneven split. Fractional quantities are allowed; adjust whole-unit products manually when the total is not divisible by the number of areas.
+- An item can occur in one, several, or every area: enter a quantity for each applicable area.
+- Allocated quantities add up to the estimate item's total quantity. Edit quantities in the allocation dialog; the main quantity field becomes read-only for allocated items.
+- To repeat ten fittings on three floors, enter 10 against each floor; the project contains 30 fittings, not 10.
+- To split ten fittings across floors, enter the split (for example 3 and 7); the project contains 10 fittings.
+- Common project-wide work may remain in **Shared / Unallocated**, or be allocated across locations. Existing estimates initially use Shared / Unallocated and keep their previous totals.
+- **Clear allocations** retains the last total item quantity and returns the item to Shared / Unallocated.
+- **Area breakdown**, beside Share, shows quantities and totals by location. Material, labour hours, labour price and quoted amounts are calculated from the estimate. Optional sections remain separate from included totals.
+- Fixed-total components and independent supply allowances are apportioned in proportion to the item's allocated quantities, rather than charged again in each location. If a fixed component belongs only to one area, make it a separate estimate item and allocate it there.
+- Allocations use one set of item rates. For different prices or component build-ups in different rooms, copy the estimate item, edit the copy, and allocate each item separately.
+- These are named locations; labels containing `/` provide readable level/room paths. This release does not introduce a nested building tree or drawing takeoff.
+
+## Connected Excel workbook
+
+Two worksheets supplement the existing COST ESTIMATE and CONNECTED COST DETAIL:
+
+1. **AREA ALLOCATIONS** — item quantities by area, linked material/hours/labour/quoted costs and cost treatment.
+2. **AREA SUMMARY** — included and optional totals for each area, plus grand totals.
+
+For allocated items, edit the yellow quantity cells in AREA ALLOCATIONS. Their sums drive the parent quantity in CONNECTED COST DETAIL, which drives the component calculations and the existing estimate summary. Area cost formulas refer back to the calculated parent costs. Price, markup and included/optional changes therefore feed into the area results.
+
+For unallocated items, continue editing the parent quantity in CONNECTED COST DETAIL; the Shared / Unallocated row reads that quantity. Do not replace linked formulas. Define or rename locations on the website and re-export; changing worksheet labels or inserting rows does not rebuild the allocation structure automatically. Excel edits are local to that workbook and do not synchronise back to the website.
+
+If all allocated quantities are set to zero in Excel, fixed-total component costs remain charged once against the first allocated area. Remove or zero those fixed allowances separately if no longer required. The website requires a positive sum for explicit allocations; clear allocations to use a zero-quantity item.
+
+Excel calculation is automatic and requested on opening. Formulas have been recalculated using LibreOffice and compared with website totals, including quantity, price and optional-treatment edits. No formula errors were found in the tested workbooks. Live Microsoft Excel testing was not available.
+
+## Shared project links and saved estimates
+
+Shared links show a collapsible floor/room/area breakdown alongside existing categories. They remain read-only and show only that project. Included and optional totals are separate. Markup percentages are not exposed by the new breakdown.
+
+Allocations are stored with estimate lines, survive line/project copying and revision snapshots, and are included in project JSON exports. JSON imports validate that allocated quantities equal the item quantity. Invalid, negative, non-finite, duplicate-area or zero-total allocations are rejected. Saves use the existing authenticated permissions and revision checks.
+
+## Deployment
+
+Overlay the changed-files ZIP on the supplied v3.6 application, or use the full v3.7 package. Keep production databases, uploads, configuration and secrets. Commit and deploy the new code, then restart Passenger through the existing deployment workflow. The automatic upgrade adds an `area_allocations` column, preserves existing estimates and creates the normal pre-upgrade safety backup. Database files are not included or replaced by this release.
+
+After deployment, open an estimate, allocate an item to two rooms, export Excel, and open its shared link. Review a copied project and an optional section. The underlying Tenders workflow is unchanged. New allocation dialogs use responsive layouts and native keyboard-accessible dialogs; a live browser/mobile visual review remains recommended before rolling out to all users.
+
+Validation: allocation validation and reconciliation, proportional fixed costs, optional costs, public HTML, JSON import/export, existing section inclusion/upgrade regressions, JavaScript syntax, and recalculated spreadsheet formulas. No live deployment was performed.
+
+---
+
+## Earlier release documentation
+
 <div align="center">
 
 # ⚡ TEC ConEst

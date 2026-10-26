@@ -607,6 +607,8 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
 
     builder_lines = sum(max(1, (len(name) + 39) // 40) for name in project.get('builders') or [])
     overview.row_dimensions[2].height = max(overview.row_dimensions[2].height or 30, min(409, 16 * builder_lines + 12))
+    from .estimate_areas import excel
+    excel(wb,line_parent_rows)
     wb.save(output)
     return output
 

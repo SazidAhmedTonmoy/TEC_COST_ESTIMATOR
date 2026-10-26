@@ -109,7 +109,7 @@ def redeploy_revision(conn, pid, rid, user, payload):
 
 
 def compare_snapshots(before,after):
-    fields=('exclude_material_markup','exclude_hours_markup','exclude_final_markup','reference_name','name_snapshot','size_snapshot','sort_order','category_snapshot','quantity','uom','work_type_snapshot','notes','quoted_total','supply_quantity_override','supply_unit_cost_override')
+    fields=('area_allocations','exclude_material_markup','exclude_hours_markup','exclude_final_markup','reference_name','name_snapshot','size_snapshot','sort_order','category_snapshot','quantity','uom','work_type_snapshot','notes','quoted_total','supply_quantity_override','supply_unit_cost_override')
     component_fields=('description','size','is_supply_copy','fixed_quantity','source_quantity','quantity_per_unit','uom','unit_material','material_factor','unit_hours','labor_factor','labor_pricing','unit_labor_price')
     old={r['id']:r for r in before['lines']};new={r['id']:r for r in after['lines']}
     changes=[]

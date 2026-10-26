@@ -9,7 +9,7 @@ from .taxonomy import WORK_TYPES
 from .estimate_sections import excluded_categories, encode_exclusions, section_key
 
 PROJECT='name client currency material_markup labor_rate labor_hours_markup overhead_markup crew_size hours_per_day notes scope_of_work submission_deadline status review_deadline award_status scope_order excluded_categories'.split()
-LINE='name_snapshot description_snapshot scope_snapshot category_snapshot quantity uom work_type_snapshot notes reference_name size_snapshot supply_unit_cost_override supply_quantity_override exclude_material_markup exclude_hours_markup exclude_final_markup'.split()
+LINE='area_allocations name_snapshot description_snapshot scope_snapshot category_snapshot quantity uom work_type_snapshot notes reference_name size_snapshot supply_unit_cost_override supply_quantity_override exclude_material_markup exclude_hours_markup exclude_final_markup'.split()
 COMPONENT='description quantity_per_unit uom size unit_material material_factor unit_hours labor_factor is_parent notes labor_pricing unit_labor_price is_supply_copy fixed_quantity source_quantity'.split()
 NUMBERS=set('material_markup labor_rate labor_hours_markup overhead_markup crew_size hours_per_day quantity quantity_per_unit unit_material material_factor unit_hours labor_factor unit_labor_price source_quantity supply_unit_cost_override supply_quantity_override'.split())
 FLAGS=set('is_parent is_supply_copy fixed_quantity exclude_material_markup exclude_hours_markup exclude_final_markup'.split())
@@ -66,6 +66,10 @@ def import_json(conn,raw,user):
  parsed=[];count=0
  for i,row in enumerate(rows):
   line=checked(row,LINE,f'Item {i+1}')
+  from .estimate_areas import allocations
+  assigned=allocations(line.get('area_allocations','[]'))
+  line['area_allocations']=json.dumps(assigned)
+  if assigned and not math.isclose(sum(a['quantity'] for a in assigned),line.get('quantity',0)):raise ValueError('Area quantities must equal the item quantity')
   if not line.get('name_snapshot','').strip() or len(line['name_snapshot'])>500:raise ValueError('Each item needs a name of up to 500 characters')
   if line.get('work_type_snapshot','assembly') not in WORK_TYPES:raise ValueError('Invalid item work type')
   components=row.get('components',[])

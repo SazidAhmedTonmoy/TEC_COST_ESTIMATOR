@@ -27,6 +27,8 @@ def annotate_catalog(item,components):
     return item
 
 def initialize_options(conn):
+    if 'area_allocations' not in {r['name'] for r in conn.execute('PRAGMA table_info(project_lines)')}:
+        conn.execute("ALTER TABLE project_lines ADD COLUMN area_allocations TEXT NOT NULL DEFAULT '[]'")
     for table,column in [('catalog_items','assembly_size'),('project_lines','size_snapshot')]:
         if column not in {r['name'] for r in conn.execute(f'PRAGMA table_info({table})')}:
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")

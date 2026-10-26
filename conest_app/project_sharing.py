@@ -40,7 +40,17 @@ def shared_html(data):
             item_label='<small class="exclusion-label">Optional cost</small>' if line.get('included_in_total') is False else ''
             items.append('<details class="estimate-item'+(' section-excluded' if line.get('included_in_total') is False else '')+'"><summary><div class="item-title"><b>'+text(line.get('name_snapshot'))+'</b><small>'+number(line.get('quantity'))+' '+text(line.get('uom'))+'</small>'+item_label+'</div>'+totals(values)+'</summary><div class="item-detail">'+details+'</div></details>')
         categories.append('<details class="category'+(' section-excluded' if excluded else '')+'"><summary><div class="category-title"><h3>'+text(category)+'</h3><span>'+str(len(lines))+' items</span>'+section_label+'</div>'+totals(aggregate)+'</summary><div class="category-items">'+''.join(items)+'</div></details>')
-    status={'draft':'Not started','in_progress':'In progress','in_review':'In review','submitted':'Submitted','closed':'Closed'}.get(p.get('status'),p.get('status',''))
+    area_html='<section><h2>Floor / room / area breakdown</h2>'
+    has_areas=any(line.get('area_allocations','[]')!='[]' for line in data['lines'])
+    for area in data.get('area_summary',[]) if has_areas else []:
+        area_html+='<details class="category"><summary><h3>'+text(area['area'])+'</h3>'+totals(area['included'])+'</summary>'
+        for item in area['items']:
+            area_html+='<article class="item-detail"><b>'+text(item['name'])+'</b><p>'+number(item['quantity'])+' '+text(item['uom'])+(' · Optional cost' if item['optional'] else '')+'</p>'+totals(item)+'</article>'
+        if any(i['optional'] for i in area['items']):area_html+='<h3>Optional costs</h3>'+totals(area['optional'])
+        area_html+='</details>'
+    area_html+='</section>'
+    if not has_areas:area_html=''
+    status={'draft' :'Not started','in_progress':'In progress','in_review':'In review','submitted':'Submitted','closed':'Closed'}.get(p.get('status'),p.get('status',''))
     details=info([('Builders',p.get('client')),('Status',status),('Submission deadline',p.get('submission_deadline')),('Review deadline',p.get('review_deadline')),('Scope of work',p.get('scope_of_work')),('Project remarks',p.get('notes'))])
     total_heading='<h2>Included estimate total</h2>' if has_excluded else ''
     optional_summary=''
@@ -49,7 +59,7 @@ def shared_html(data):
                          for key,field in [('material','total_material'),('hours','total_hours'),
                                            ('labor','total_labor'),('quoted','quoted_total')]}
         optional_summary='<section class="optional-totals"><h2>Optional costs</h2><p>These items are not included in the estimate total.</p>'+totals(optional_values)+'</section>'
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+text(p['name'])+' — TEC ConEst</title><link rel="stylesheet" href="/assets/public_project.css"></head><body><main><header><b>TEC ConEst Estimator</b><span>Shared project · Read only</span></header><h1>'+text(p['name'])+'</h1><section class="project-totals">'+total_heading+totals(data['totals'])+'</section>'+optional_summary+'<section><h2>Project details</h2>'+details+'</section><section class="estimate-section"><h2>Estimate categories</h2><p>All amounts in '+currency+'. Select + to expand a category or item, and − to shrink it.</p>'+''.join(categories)+'</section></main></body></html>'
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>'+text(p['name'])+' — TEC ConEst</title><link rel="stylesheet" href="/assets/public_project.css"></head><body><main><header><b>TEC ConEst Estimator</b><span>Shared project · Read only</span></header><h1>'+text(p['name'])+'</h1><section class="project-totals">'+total_heading+totals(data['totals'])+'</section>'+optional_summary+area_html+'<section><h2>Project details</h2>'+details+'</section><section class="estimate-section"><h2>Estimate categories</h2><p>All amounts in '+currency+'. Select + to expand a category or item, and − to shrink it.</p>'+''.join(categories)+'</section></main></body></html>'
 
 
 def route(handler,path):

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import math
 import sqlite3
 import json
-import math
 from datetime import date
 from typing import Any
 
@@ -209,6 +209,10 @@ def save_manual_estimate_item(conn, project_id, payload, line_id=None):
     from .release_v31_item_markups import markup_options
     exclusions=markup_options(payload,line)
     quantity=_nonnegative(payload.get('quantity',line['quantity'] if line else 1),'Estimate quantity')
+    if line is not None:
+        from .estimate_areas import allocations
+        assigned=allocations(line['area_allocations'])
+        if assigned and not math.isclose(quantity,sum(r['quantity'] for r in assigned)):raise ValueError('Edit the area quantities to change this allocated item quantity')
     source=payload.get('item')
     if not isinstance(source,dict):raise ValueError('Catalog item details are required')
     raw=deepcopy(source)
@@ -280,6 +284,13 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
     if not name or len(name)>500:raise ValueError('Estimate name must be 1–500 characters')
     from .release_v31_item_markups import markup_options
     extra={'name_snapshot':name,**markup_options(payload,line)}
+    from .estimate_areas import allocations
+    assigned=allocations(payload.get('area_allocations',line['area_allocations']))
+    if assigned:
+        total=sum(r['quantity'] for r in assigned)
+        if 'quantity' in payload and not math.isclose(quantity,total):raise ValueError('Edit the area quantities to change this allocated item quantity')
+        quantity=total
+    if 'area_allocations' in payload:extra['area_allocations']=json.dumps(assigned)
     if 'reference_name' in payload:
         if not isinstance(payload['reference_name'], str):
             raise ValueError('Reference name must be text')
@@ -307,6 +318,7 @@ def update_project_line(conn: sqlite3.Connection, project_id: int, line_id: int,
         if payload.get('supply_quantity_override') is not None:
             quantity=_nonnegative(payload['supply_quantity_override'],'Quantity')
 
+        if assigned and not math.isclose(quantity,sum(r['quantity'] for r in assigned)):raise ValueError('Edit the area quantities to change this allocated item quantity')
         payload=dict(payload, supply_quantity_override=None)
 
     for field in ('supply_quantity_override','supply_unit_cost_override'):
@@ -519,6 +531,7 @@ def _calculate_rows(project, line_rows, component_rows, include_components=True)
         for out,key in [('material','total_material'),('hours','total_hours'),('labor','total_labor'),('quoted','quoted_total')]:row[out]+=line[key]
     return {
         "crew_plan":{'crew_size':project.get('crew_size',2),'hours_per_day':project.get('hours_per_day',8),'crew_hours_per_day':project.get('crew_size',2)*project.get('hours_per_day',8),'person_days':total_hours/project.get('hours_per_day',8),'working_days':total_hours/(project.get('crew_size',2)*project.get('hours_per_day',8))},
+        "area_summary":__import__(__package__+'.estimate_areas',fromlist=['summary']).summary(lines),
         "work_summary":list(work_summary.values()),
         "project": project,
         "lines": lines,
