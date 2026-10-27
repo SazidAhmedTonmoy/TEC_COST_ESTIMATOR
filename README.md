@@ -1,3 +1,13 @@
+# TEC ConEst v3.7.1
+
+Breakdown is now beside Revisions in the selected estimate only. It lists every estimate item in a quantity matrix with named breakdown columns, main-estimate quantity, a Shared tick and remaining quantity. Add breakdowns and name them. Shared divides the item quantity equally; manual edits switch it to an uneven split. Each row must reconcile to the main quantity before saving. Zero-quantity items remain unallocated. Changes save item by item; a conflict stops further saves and reports how many items saved. Reopen the dialog to review before retrying.
+
+Shared links omit Project details and use clearer spacing for breakdown items. Excel includes linked breakdown costs on the main page, optional quoted cost beneath the estimate total, and removes the work-type summary. Allocation and cost formulas remain linked to connected cost detail.
+
+Deploy as a code overlay; keep existing databases. This release retains schema 33. No live deployment performed. Browser visual verification remains outstanding.
+
+---
+
 # TEC ConEst v3.7 — Area-based estimates
 
 Built from the supplied `TEC_ConEst_v3.6_CI_FIX_FULL.zip`. Application release 3.7; main database schema 33.

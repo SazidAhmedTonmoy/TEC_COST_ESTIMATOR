@@ -2,3 +2,5 @@
 
 .category.section-excluded{border-left-color:#a86b11}.category.section-excluded>summary{background:#fff5df}.category-title .exclusion-label,.item-title .exclusion-label{display:inline-block;color:#805008;background:#fff0cc;border:1px solid #e6c881;border-radius:5px;padding:3px 7px;font-size:12px;font-weight:700}.item-title .exclusion-label{margin-top:6px}.project-totals>p{color:#58717c;margin:0 0 16px}
 .optional-totals{border-color:#e6c881;background:#fffaf0}.optional-totals>p{color:#805008;margin:0 0 16px}.optional-totals .totals>div:last-child strong{color:#805008}
+
+.breakdown-item{border-bottom:1px solid #cad9dd;padding:16px!important}.breakdown-item .totals{margin-top:8px}.category>h3{padding:16px}.category>.totals{padding:16px}

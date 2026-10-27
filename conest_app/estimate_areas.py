@@ -14,7 +14,7 @@ def allocations(value):
         if not name or len(name)>120:raise ValueError('Area names must be 1–120 characters')
         if name.casefold() in seen:raise ValueError('An area can appear only once per item')
         if type(q) not in (float,int) or not math.isfinite(q) or not 0<=q<=1e9:raise ValueError('Area quantities must be finite and non-negative')
-        seen.add(name.casefold());result.append({'area':name,'quantity':float(q)})
+        seen.add(name.casefold());result.append({'area':name,'quantity':float(q),**({'shared':True} if r.get('shared') is True else {})})
     if result and sum(r['quantity'] for r in result)<=0:raise ValueError('Allocated items need a positive total quantity; clear allocations for a zero-quantity item')
     return result
 
@@ -80,3 +80,11 @@ def excel(wb,line_parent_rows):
                 if c.column>1:c.number_format='#,##0.00'
         for col in range(1,10):sheet.column_dimensions[get_column_letter(col)].width=32 if col==1 or (sheet==ws and col in (2,3)) else 19
         sheet.print_title_rows='1:1';sheet.page_setup.orientation='landscape';sheet.sheet_properties.pageSetUpPr.fitToPage=True;sheet.page_setup.fitToWidth=1;sheet.page_setup.fitToHeight=0
+
+    main=wb['COST ESTIMATE'];start=main.max_row+3
+    main.cell(start,1,'BREAKDOWN COST SUMMARY').font=Font(bold=True,color='087F75',size=14)
+    for col,title in enumerate(['Breakdown','Material','Hours','Labour','Quoted total','Optional material','Optional hours','Optional labour','Optional quoted'],1):main.cell(start+1,col,title).font=Font(bold=True)
+    for r in range(2,overview.max_row+1):
+        for col in range(1,10):
+            c=main.cell(start+r,col,f"='AREA SUMMARY'!{get_column_letter(col)}{r}");c.number_format='#,##0.00' if col>1 else 'General'
+    main.print_area=f'A1:N{start+overview.max_row}'

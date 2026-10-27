@@ -587,21 +587,7 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     rule.errorTitle='Choose a work type';rule.error='Use a work type from the list.';rule.showErrorMessage=True
     detail.add_data_validation(rule)
     for _,parent in line_parent_rows:rule.add(detail.cell(parent,15))
-    row=scope_last_row+3
-    _section_title(overview,row,'WORK TYPE COST SUMMARY (included items)',NAVY)
-    row+=1
-    for start,end,label in scope_headers:
-        _merge_value(overview,f'{start}{row}:{end}{row}', 'Work type' if start=='A' else label,fill=YELLOW,bold=True,size=10)
-    work_first=row+1
-    for label in work_labels+['TOTAL']:
-        row+=1
-        _merge_value(overview,f'A{row}:C{row}',label,size=10,bold=label=='TOTAL')
-        for start,end,source,fmt in [('D','E',None,'0'),('F','H','G',money),('I','J','I',hours),('K','L','J',money),('M','N','L',money)]:
-            terms=[f'IF({detail_ref}O{parent}=A{row},'+(f'{detail_ref}{source}{parent}*{detail_ref}P{parent}' if source else f'{detail_ref}P{parent}')+',0)' for parent in parent_rows]
-            formula='='+('+'.join(terms) or '0')
-            if label=='TOTAL':formula=f'=SUM({start}{work_first}:{start}{row-1})'
-            _merge_value(overview,f'{start}{row}:{end}{row}',formula,number_format=fmt,horizontal='right',size=10,bold=label=='TOTAL',fill=GREEN_LIGHT)
-        overview.row_dimensions[row].height=30
+    row=scope_last_row
     overview.print_area=f'A1:N{row}'
     detail.print_area=f'A1:P{optional_total_row}'
 
@@ -609,6 +595,16 @@ def export_project(conn: sqlite3.Connection, project_id: int, output_path: str |
     overview.row_dimensions[2].height = max(overview.row_dimensions[2].height or 30, min(409, 16 * builder_lines + 12))
     from .estimate_areas import excel
     excel(wb,line_parent_rows)
+    optional_formula=overview['G8'].value
+    for merged in list(overview.merged_cells.ranges):
+        if merged.min_row==8 and merged.max_col<=9:overview.unmerge_cells(str(merged))
+    for col in range(1,10):overview.cell(8,col).value=None
+    for merged in list(overview.merged_cells.ranges):
+        if merged.min_row<=10<=merged.max_row:overview.unmerge_cells(str(merged))
+    overview.merge_cells('A10:I10')
+    _merge_value(overview,'J10:L10','OPTIONAL QUOTED COST',fill=CREAM,bold=True)
+    _merge_value(overview,'M10:N10',optional_formula,fill=CREAM,bold=True,number_format=money)
+
     wb.save(output)
     return output
 

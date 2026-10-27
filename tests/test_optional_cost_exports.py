@@ -63,8 +63,8 @@ class OptionalCostExportTests(unittest.TestCase):
                                 if detail.cell(row, 1).value == 'INCLUDED ESTIMATE TOTAL')
             optional_row = included_row + 1
             self.assertEqual(detail.cell(optional_row, 1).value, 'OPTIONAL COST TOTAL (excluded)')
-            self.assertEqual(summary['A8'].value, 'OPTIONAL QUOTED COST')
-            self.assertEqual(summary['G8'].value, f"='CONNECTED COST DETAIL'!L{optional_row}")
+            self.assertEqual(summary['J10'].value, 'OPTIONAL QUOTED COST')
+            self.assertEqual(summary['M10'].value, f"='CONNECTED COST DETAIL'!L{optional_row}")
             self.assertEqual(detail['P5'].value, 'Cost treatment')
             self.assertIn(f'$P${optional_row}', str(detail.print_area))
             self.assertTrue(detail.row_dimensions[optional_row].height >= 30)
@@ -76,7 +76,7 @@ class OptionalCostExportTests(unittest.TestCase):
             self.assertTrue(all(not re.search(r'\b(?:On|Off)\b', rule.error or '')
                                 for rule in detail.data_validations.dataValidation))
             self.assertAlmostEqual(self.numeric_cell(book, 'COST ESTIMATE', 'M9'), after['totals']['quoted'])
-            self.assertAlmostEqual(self.numeric_cell(book, 'COST ESTIMATE', 'G8'), before['lines'][0]['quoted_total'])
+            self.assertAlmostEqual(self.numeric_cell(book, 'COST ESTIMATE', 'M10'), before['lines'][0]['quoted_total'])
 
             cases = ((0, 1), (0, 0), (1, 1), (1, 0))
             mappings = (('G', 'material', 'total_material'), ('I', 'hours', 'total_hours'),
@@ -100,12 +100,12 @@ class OptionalCostExportTests(unittest.TestCase):
             detail.cell(first, 16, 0)
             detail.cell(parent_rows[1], 16, 1)
             included_before = self.numeric_cell(book, summary.title, 'M9')
-            optional_before = self.numeric_cell(book, summary.title, 'G8')
+            optional_before = self.numeric_cell(book, summary.title, 'M10')
             component_price = detail.cell(first + 1, 6)
             component_price.value += 25
             self.assertAlmostEqual(self.numeric_cell(book, summary.title, 'M9'), included_before)
-            self.assertGreater(self.numeric_cell(book, summary.title, 'G8'), optional_before)
-            self.assertAlmostEqual(self.numeric_cell(book, summary.title, 'G8'),
+            self.assertGreater(self.numeric_cell(book, summary.title, 'M10'), optional_before)
+            self.assertAlmostEqual(self.numeric_cell(book, summary.title, 'M10'),
                                    self.numeric_cell(book, detail.title, f'L{first}'))
         finally:
             book.close()
@@ -150,7 +150,7 @@ class OptionalCostExportTests(unittest.TestCase):
         book = load_workbook(path)
         try:
             self.assertEqual(self.numeric_cell(book, 'COST ESTIMATE', 'M9'), 0)
-            self.assertEqual(self.numeric_cell(book, 'COST ESTIMATE', 'G8'), 0)
+            self.assertEqual(self.numeric_cell(book, 'COST ESTIMATE', 'M10'), 0)
         finally:
             book.close()
 
