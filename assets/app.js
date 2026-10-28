@@ -333,7 +333,7 @@ function renderProject() {
   if(project.id) refreshNoteBadge(project.id).catch(()=>{});
   if(available && !project.can_edit) {
     $$('#estimate-view input, #estimate-view textarea, #estimate-view select, #estimate-view button').forEach(field=>field.disabled=true);
-    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings').forEach(field=>field.disabled=false);
+    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .catalog-highlight-toggle, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings').forEach(field=>field.disabled=false);
     $('#floating-search-button').disabled=true;
   }
 }
@@ -436,9 +436,9 @@ function renderEstimateLine(line) {
       <td>—</td><td><button type="button" class="component-remove-live delete-line-component" data-line-id="${line.id}" data-component-id="${component.id}" aria-label="Remove component from this estimate" title="Remove from this estimate only">×</button></td>
     </tr>`).join("");
   return `
-    <tr class="assembly-row" data-line-id="${line.id}">
+    <tr class="assembly-row ${estimateLineHighlighted(line.id)?'catalog-highlighted':''}" data-line-id="${line.id}">
       <td class="assembly-cell"><div class="assembly-title">
-        <button class="toggle-details" data-line-id="${line.id}" aria-label="Expand component details" aria-expanded="false">+</button>
+        <div class="catalog-row-controls"><button class="toggle-details" data-line-id="${line.id}" aria-label="Expand component details" aria-expanded="false">+</button><button type="button" class="catalog-highlight-toggle" data-line-id="${line.id}" aria-label="Highlight catalog item" aria-pressed="${estimateLineHighlighted(line.id)}" title="${estimateLineHighlighted(line.id)?'Remove highlight':'Highlight catalog item'}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 3 7 7-9 9-7-7zM5 12l-2 6 3 3 6-2M2 22h12"/></svg></button></div>
         <div class="assembly-copy">
           <div class="line-heading-grid">
             <div class="line-name-field"><div class="assembly-name-row"><span class="drag-handle" draggable="true" data-drag-kind="line" data-line-id="${line.id}" title="Drag item within this category">⠿</span><textarea class="line-estimate-name" data-line-id="${line.id}" rows="1" maxlength="500" aria-label="Estimate item name">${escapeHtml(line.display_name || cleanEstimateTitle(line.name_snapshot))}</textarea></div>

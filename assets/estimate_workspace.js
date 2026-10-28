@@ -1,5 +1,23 @@
 /* Estimate navigation and editing. Saved data is always updated through guarded APIs. */
 const estimateViewState={collapsed:new Set(),expanded:new Set(),query:'',drag:null,busy:false};
+const estimateHighlightCache=new Map();
+function estimateHighlightKey(){return `tec-estimate-highlight:${state.user?.id||'guest'}:${state.projectId}`;}
+function estimateHighlights(){
+  const key=estimateHighlightKey();
+  if(!estimateHighlightCache.has(key)){
+    let saved=[];try{const parsed=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(parsed))saved=parsed.filter(id=>typeof id==='string');}catch{}
+    estimateHighlightCache.set(key,new Set(saved));
+  }
+  return estimateHighlightCache.get(key);
+}
+function estimateLineHighlighted(id){return estimateHighlights().has(String(id));}
+function toggleEstimateHighlight(button){
+  const id=button.dataset.lineId,selected=estimateHighlights();
+  if(selected.has(id))selected.delete(id);else selected.add(id);
+  const on=selected.has(id);button.closest('.assembly-row')?.classList.toggle('catalog-highlighted',on);
+  button.setAttribute('aria-pressed',String(on));button.title=on?'Remove highlight':'Highlight catalog item';
+  try{localStorage.setItem(estimateHighlightKey(),JSON.stringify([...selected]));}catch{}
+}
 function scopeKey(category){return `${state.projectId}:${category}`;}
 // The server key is authoritative; the fallback matches Python clean_text for old snapshots.
 function estimateSectionName(line){return line?.category_key||String(line?.category_snapshot??'').replace(/[\u0009-\u000d\u001c-\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/g,' ').replace(/^ | $/g,'')||'Other';}
@@ -37,7 +55,7 @@ function renderGroupedEstimate(lines){
   syncCategoryToggle();
   syncExpandEstimateAll();
   if(state.projectData?.project?.can_edit===false){
-    $$('#estimate-lines input, #estimate-lines textarea, #estimate-lines select, #estimate-lines button').forEach(field=>field.disabled=!field.matches('.toggle-details,.toggle-scope'));
+    $$('#estimate-lines input, #estimate-lines textarea, #estimate-lines select, #estimate-lines button').forEach(field=>field.disabled=!field.matches('.toggle-details,.toggle-scope,.catalog-highlight-toggle'));
   }
   $('#estimate-line-count').textContent=query?`${matches.length} of ${lines.length} items`:`${lines.length} items`;
   $('#floating-bottom-button').classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
@@ -103,6 +121,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   });
   $('#estimate-lines').addEventListener('input',event=>{if(event.target.matches('textarea')){event.target.style.height='auto';event.target.style.height=`${event.target.scrollHeight+2}px`;}});
   $('#estimate-lines').addEventListener('click',event=>{
+    const highlight=event.target.closest('.catalog-highlight-toggle');
+    if(highlight){toggleEstimateHighlight(highlight);return;}
     const inclusion=event.target.closest('.scope-inclusion');
     if(inclusion){
       const category=inclusion.dataset.scope,included=inclusion.getAttribute('aria-checked')!=='true';
