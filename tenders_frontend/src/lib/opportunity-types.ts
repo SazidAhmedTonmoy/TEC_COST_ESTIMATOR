@@ -9,7 +9,7 @@ export type Opportunity = {
   category?:string; budget?:string; addedDate?:string; sourceData?:Record<string,unknown>;sourceStatus?:OpportunityStatus;
   status:OpportunityStatus; assignedTeamIds:number[]; assignedUserIds:number[];
   editorTeamIds:number[]; editorUserIds:number[]; createdBy:number; createdByName:string;
-  createdAt:string; updatedAt?:string; approvedByName?:string; rejectedByName?:string;
+  createdAt:string; updatedAt?:string; updatedByName?:string; approvedByName?:string; rejectedByName?:string;
   decisionReason?:string; decisionByName?:string; decisionAt?:string; deletedAt?:string;
   quoteStatus?:'quoted'|'not_quoted'; submissionIds?:string[]; quotedValue?:number;
   quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
@@ -22,7 +22,7 @@ export type OpportunityActivity = {
 };
 export type OpportunityDetail = {opportunity:Opportunity; activity:OpportunityActivity[];activityTotal?:number;hasMoreActivity?:boolean;nextActivityCursor?:number|null};
 export type OpportunityList = {
-  items:Opportunity[]; total:number; page:number; pageSize:number;
+  items:Opportunity[]; latestOpportunity?:Opportunity|null; total:number; page:number; pageSize:number;
   counts:Record<OpportunityStatus|'all',number>; regions:OpportunityRegion[];
   teams:OpportunityTeam[]; users:OpportunityUser[]; builders:string[];
   teamCounts:{id:number; name:string; count:number}[]; canApprove:boolean;

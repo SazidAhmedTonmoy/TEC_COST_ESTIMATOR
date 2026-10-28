@@ -669,10 +669,11 @@ def list_opportunities(store, filters, user):
         page = min(page, max(1, (total + size - 1) // size))
         order = {'due': "CASE WHEN due='' THEN 1 ELSE 0 END,due,updated_at DESC,id",
                  'updated': 'updated_at DESC,id', 'name': 'project_key,id'}.get(filters.get('sort'),
-                     "CASE WHEN due='' THEN 1 ELSE 0 END,due,updated_at DESC,id")
+                     "updated_at DESC,id")
         rows = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where +
                           ' ORDER BY ' + order + ' LIMIT ? OFFSET ?',
                           (*args, size, (page - 1) * size)).fetchall()
+        latest_row = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where + ' ORDER BY updated_at DESC,id LIMIT 1', args).fetchone()
         counts = {status: 0 for status in STATUSES}
         counts.update({r['status']: r['n'] for r in db.execute('SELECT status,COUNT(*) n FROM opportunities o WHERE ' +
                        count_where + ' GROUP BY status', count_args)})
@@ -698,6 +699,7 @@ def list_opportunities(store, filters, user):
                 if name.strip():
                     builders.setdefault(tenders.builder_key(name), name.strip())
     return {'items': [_public(_decode_opportunity(r), actor) for r in rows],
+            'latestOpportunity': _public(_decode_opportunity(latest_row), actor) if latest_row else None,
             'total': total, 'page': page, 'pageSize': size, 'counts': counts,
             'regions': regions, 'teams': teams, 'users': users,
             'builders': sorted(builders.values(), key=str.casefold),

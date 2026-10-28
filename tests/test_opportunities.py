@@ -50,6 +50,21 @@ class OpportunityTests(unittest.TestCase):
                        'builders': ['Builder One', 'Builder Two'], 'due': '2099-03-04',
                        'workingScope': 'Power, lighting and communications', **changes}, self.creator)['opportunity']
 
+    def test_recent_activity_respects_filters_and_pagination(self):
+        with patch.object(op.tenders, 'timestamp', return_value='2026-10-27T10:00:00Z'):
+            first = self.create(project='Earlier NSW', region='NSW', due='2099-01-01')
+        with patch.object(op.tenders, 'timestamp', return_value='2026-10-28T10:00:00Z'):
+            second = self.create(project='Latest VIC', region='VIC', due='2099-12-01')
+        result = op.list_opportunities(self.store, {}, self.admin)
+        self.assertEqual(result['items'][0]['id'], second['id'])
+        self.assertEqual(result['latestOpportunity']['createdByName'], self.creator['name'])
+        page = op.list_opportunities(self.store, {'page': 2, 'pageSize': 1}, self.admin)
+        self.assertEqual(page['latestOpportunity']['id'], second['id'])
+        filtered = op.list_opportunities(self.store, {'region': 'NSW'}, self.admin)
+        self.assertEqual(filtered['latestOpportunity']['id'], first['id'])
+        empty = op.list_opportunities(self.store, {'q': 'does not exist'}, self.admin)
+        self.assertIsNone(empty['latestOpportunity'])
+
     def assert_denied(self, operation, status=403):
         with self.assertRaises(tenders.ValidationError) as caught:
             operation()
