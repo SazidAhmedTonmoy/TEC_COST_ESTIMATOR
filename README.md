@@ -1,3 +1,9 @@
+# TEC ConEst v3.7.3
+
+Release correction: the previous delivery labelled V3.5.2 was v3.7.2.
+
+v3.7.3 fixes the Project Chase-up table layout: all nine columns now have explicit widths, compact row spacing, wrapped note previews, right-aligned values and readable date/action columns. Narrow screens retain horizontal table scrolling. All v3.7.2 features remain included.
+
 # TEC ConEst v3.7.1
 
 Breakdown is now beside Revisions in the selected estimate only. It lists every estimate item in a quantity matrix with named breakdown columns, main-estimate quantity, a Shared tick and remaining quantity. Add breakdowns and name them. Shared divides the item quantity equally; manual edits switch it to an uneven split. Each row must reconcile to the main quantity before saving. Zero-quantity items remain unallocated. Changes save item by item; a conflict stops further saves and reports how many items saved. Reopen the dialog to review before retrying.
