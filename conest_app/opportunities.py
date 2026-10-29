@@ -79,18 +79,24 @@ def _actor(user, users):
 
 
 def permissions(item, actor):
+    # Team membership is checked against the live, active user directory, not
+    # against fields submitted by the browser. This matches existing approval
+    # eligibility, and now also grants detail edits and assignment rights.
+    team_member = actor.get('team_id') is not None
     manage = actor['role'] == 'admin' or item.get('createdBy') == actor['id']
-    edit = manage or actor['id'] in item.get('editorUserIds', []) or (
-        actor.get('team_id') is not None and actor['team_id'] in item.get('editorTeamIds', []))
-    decision = bool(actor['role'] == 'admin' or actor.get('team_id') is not None)
-    return {'edit': bool(edit), 'manage': bool(manage), 'approve': decision, 'quote': decision}
+    edit = manage or team_member or actor['id'] in item.get('editorUserIds', []) or (
+        team_member and actor['team_id'] in item.get('editorTeamIds', []))
+    decision = bool(actor['role'] == 'admin' or team_member)
+    return {'edit': bool(edit), 'assign': bool(manage or team_member),
+            'manage': bool(manage), 'approve': decision, 'quote': decision}
 
 
 def _require(item, actor, permission):
     if not permissions(item, actor)[permission]:
         messages = {
-            'manage': 'Only the creator or an administrator can assign, delete, or manage access.',
-            'edit': 'Only the creator, an administrator, or an authorised editor can edit this opportunity.',
+            'manage': 'Only the creator or an administrator can delete or manage editing access.',
+            'assign': 'Only the creator, an administrator, or an active team member can assign an opportunity.',
+            'edit': 'Only the creator, an administrator, an active team member, or an authorised editor can edit this opportunity.',
             'approve': 'An administrator or a user who belongs to a team must make this decision.',
             'quote': 'An administrator or a user who belongs to a team must record the quote.',
         }
@@ -112,6 +118,8 @@ def _decode_opportunity(row):
     item = json.loads(row['body'])
     if 'createdBy' not in item:
         item['createdBy'] = row['created_by']
+    # Existing rows need no schema change: absent state means not available.
+    item['documentsAvailable'] = item.get('documentsAvailable') is True
     return {**item, 'revision': row['revision']}
 
 
@@ -338,7 +346,7 @@ def _new_item(db, fields, actor):
             'createdBy': actor['id'] or None, 'createdByName': actor['name'],
             'createdAt': now, 'updatedAt': now, 'updatedBy': actor['id'] or None,
             'updatedByName': actor['name'], 'decisionBy': None, 'decisionByName': '',
-            'decisionAt': '', 'decisionReason': '',
+            'decisionAt': '', 'decisionReason': '', 'documentsAvailable': False,
             **{kind: [] for kind in AUTHORITY_FIELDS}}
 
 
@@ -351,8 +359,11 @@ def _authority(payload, current, actor, teams, users):
             continue
         valid = {x['id'] for x in (teams if 'Team' in field else users)}
         ids = _ids(payload[field], 'teams' if 'Team' in field else 'people', valid)
-        if ids != current.get(field, []) and not manage:
-            raise tenders.ValidationError('Only the creator or an administrator can change assignments or editor access.', 403)
+        permission = 'assign' if field in AUTHORITY_FIELDS[:2] else 'manage'
+        if ids != current.get(field, []) and not permissions(current, actor)[permission]:
+            raise tenders.ValidationError(
+                'Only the creator or an administrator can change editing access.' if permission == 'manage'
+                else 'Only the creator, an administrator, or an active team member can assign teams or people.', 403)
         result[field] = ids
     return result
 
@@ -376,7 +387,7 @@ def _assignment_events(store, db, actor, before, item, users):
 def _approve_assignment_requested(payload, item, actor):
     """Explicit authorised team assignment is a decision, including past dates."""
     return bool('assignedTeamIds' in payload and item.get('assignedTeamIds') and
-                item['status'] != 'approved' and permissions(item, actor)['manage'])
+                item['status'] != 'approved' and permissions(item, actor)['assign'])
 
 
 def _set_approved(item, actor, moment):
@@ -462,7 +473,7 @@ def update_authority(store, payload, user, kind):
     identifier = _identifier(payload.get('id'))
     with _transaction(store) as db:
         before = _find(db, identifier)
-        _require(before, actor, 'manage')
+        _require(before, actor, 'assign' if kind == 'assign' else 'manage')
         _revision(before, payload)
         if any(k in payload and payload[k] != before.get(k, []) for k in AUTHORITY_FIELDS if k not in allowed):
             raise tenders.ValidationError('Use the appropriate assignment or access action.')
@@ -530,6 +541,42 @@ def decide(store, payload, user):
         _notify(db, _recipients(item, users), f'decision:{event}', decision, item, message)
         return _detail(db, item, actor)
 
+
+
+def set_documents_available(store, payload, user):
+    """Record the availability of project documents independently of URL links.
+
+    Only Awaiting approval and Approved opportunities expose this control. An
+    explicit boolean and current revision are required to avoid accidental
+    overwrites from stale pages or an untrusted imported workbook.
+    """
+    initialize(store)
+    _, users = directory()
+    actor = _actor(user, users)
+    identifier = _identifier(payload.get('id'))
+    available = payload.get('available')
+    if type(available) is not bool:
+        raise tenders.ValidationError('Choose Available or Not available for the documents.')
+    with _transaction(store) as db:
+        item = _find(db, identifier)
+        _require(item, actor, 'edit')
+        _revision(item, payload)
+        if item['status'] not in ('pending', 'approved'):
+            raise tenders.ValidationError(
+                'Document availability is only tracked for Awaiting approval and Approved opportunities.', 409)
+        previous = item.get('documentsAvailable') is True
+        if previous == available:
+            return _detail(db, item, actor)
+        moment = tenders.timestamp()
+        item.update(documentsAvailable=available, revision=item['revision'] + 1,
+                    updatedAt=moment, updatedBy=actor['id'], updatedByName=actor['name'])
+        _write(db, item)
+        event = _activity(store, db, actor, 'Updated document availability', item,
+                          {'before': previous, 'after': available})
+        _notify(db, _recipients(item, users), f'documents:{event}', 'updated', item,
+                f'{actor["name"]} marked project documents as '
+                f'{"Available" if available else "Not available"}.')
+        return _detail(db, item, actor)
 
 def quote(store, payload, user):
     from .opportunity_quoting import quote as record_quote

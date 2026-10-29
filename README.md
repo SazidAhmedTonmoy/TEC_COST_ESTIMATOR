@@ -1,3 +1,48 @@
+# TEC ConEst v3.7.6 — Team editing and document availability
+
+TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. Version **3.7.6** builds on the full **v3.7.5** application with two focused workflow improvements, without changing estimation calculations or tender project links.
+
+## What's new
+
+| Feature | Behaviour |
+| --- | --- |
+| **Team members can edit** | An **active user belonging to any team** has the same eligibility already used to approve opportunities. They can now also **Edit** opportunity details (scope, builders, budget, location, deadlines, links and notes). Team membership is retrieved from the account database, not the form. |
+| **Team members can assign** | The same users can **Assign** teams and individuals, even on opportunities created by someone else or with a past deadline. Assigning a team continues to approve the opportunity automatically. New assignees receive notifications. |
+| **Creator/admin protections** | Only the creator and administrators can **Delete** opportunities, **Manage editing access**, or request approval again. Delegated editors who have no team can still edit details but cannot assign or change editing access. |
+| **Documents available** | Awaiting approval and Approved opportunities show a small **Documents available / Documents not available** switch on their cards and detail panel. A permitted editor can change it whenever the record is in one of those two statuses. |
+| **Historical data** | Existing opportunities default to **Documents not available** until explicitly marked otherwise. Rejected and Expired opportunities have no document control. A separate website `Link` does **not** automatically mean documents are available. |
+| **Auditing and notifications** | Every actual availability change records the actor, time, before/after state and contribution activity, and notifies relevant colleagues. Every save uses the record revision to stop stale changes. |
+
+### Permissions at a glance
+
+| Action | Creator | Admin | Active team member | Delegated editor without team | Other signed-in user |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| Approve / reject | Only if also on a team | Yes | Yes | No | No |
+| Edit opportunity details | Yes | Yes | Yes | Yes | No |
+| Assign team / person | Yes | Yes | Yes | No | No |
+| Set document availability (pending/approved) | Yes | Yes | Yes | Yes | No |
+| Manage editing access / delete | Yes | Yes | No | No | No |
+
+## Deployment
+
+1. Back up your live code and database. This release does **not** include or overwrite any runtime databases.
+2. **Changed-files ZIP**: overlay onto the complete **v3.7.5** application, preserving subdirectory paths. Otherwise use the full ZIP. Include `tenders_web/index.html` and the new `index-v376.js`, `opportunities-v376.js`, `index-v376.css` under `tenders_web/assets/`.
+3. Preserve live `data/`, uploads, secrets, `.env`, and the working Passenger adapter/interpreter configuration. Never replace the live database with a local development database.
+4. Restart Passenger, hard-refresh the browser, and open `https://tec-const.ampecportal.com/api/health?check=tenders`. The expected release is **3.7.6**, schema **33**.
+5. Sign in with an active team member, open **Tenders → Opportunities**, edit a record created by someone else, assign a team, and toggle document availability on an Awaiting approval or Approved card. Check its Activity tab. Confirm Rejected/Expired cards omit the switch and ordinary team members cannot manage editing access or delete.
+
+A developer-facing API route was added: authenticated `POST /api/tenders/opportunities/documents`, JSON `{"id":"<opportunity ID>","revision":0,"available":true}`. It enforces live permissions, active status, strict boolean input and revision matching, and returns the updated opportunity/detail history. Document state is stored in the existing opportunity JSON; **database schema 33 is unchanged** and there is no automatic reset or migration.
+
+## Verification and limitations
+
+- **25 focused opportunity tests passed** (`test_opportunities.py` and `test_opportunity_v376.py`), covering team permissions, assignment/auto-approval, audit, notifications, document-state persistence, invalid input, stale revisions and rejected/expired protection.
+- Previous v3.7.4–v3.7.5, import, compatibility and migration checks passed in the targeted regression run. All existing JavaScript test files passed with Node's TypeScript stripping support.
+- The **12 v3.7.6 UI/asset consistency checks** passed. Compiled Tender JavaScript passed `node --check`, and React source passed TypeScript transpilation syntax checks.
+- The complete cross-module Python test runner did not finish within the execution limit. A full Vite production build and authenticated browser end-to-end run also could not be reproduced in the local sandbox; the deployable JavaScript and CSS were updated directly to match the React source. Run the normal GitHub CI and verify the hosted page before broad rollout.
+- The application code and temporary test databases were used locally; **no production data or live website was changed**.
+
+---
+
 # TEC ConEst v3.7.5 — Opportunity quote outcomes and deadline sorting
 
 TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. This is a focused update to the Opportunities workflow based on v3.7.4 R2; existing project links, quotes, users, estimates, and UI themes are preserved.

@@ -144,16 +144,21 @@ class OpportunityTests(unittest.TestCase):
         item = self.create()
         self.assertEqual(item['status'], 'pending')
         self.assertFalse(op.permissions(item, self.creator)['approve'])
-        self.assert_denied(lambda: op.save(self.store, {**item, 'remarks': 'Unauthorised'}, self.member))
-        access = op.update_authority(self.store, {**item, 'editorTeamIds': [self.team]}, self.creator, 'access')['opportunity']
+        self.assert_denied(lambda: op.save(self.store, {**item, 'remarks': 'Unauthorised'}, self.no_team))
+        # Team members can now edit details even without explicit editing access.
+        from_team = op.save(self.store, {**item, 'remarks': 'Team reviewed'}, self.member)['opportunity']
+        access = op.update_authority(self.store, {**from_team, 'editorTeamIds': [self.team]}, self.creator, 'access')['opportunity']
         edited = op.save(self.store, {**access, 'workingScope': 'New authorised scope'}, self.member)['opportunity']
         self.assertEqual(edited['workingScope'], 'New authorised scope')
         for actor in (self.member, self.outsider):
             self.assert_denied(lambda actor=actor: op.delete(self.store, edited, actor))
-            self.assert_denied(lambda actor=actor: op.update_authority(self.store, {**edited, 'assignedUserIds': [actor['id']]}, actor, 'assign'))
         self.assert_denied(lambda: op.save(self.store, {**edited, 'editorUserIds': [self.outsider['id']]}, self.member))
-        self.assert_denied(lambda: op.save(self.store, {**edited, 'createdBy': self.member['id'], 'assignedTeamIds': [self.other_team]}, self.member))
-        admin_edit = op.save(self.store, {**edited, 'remarks': 'Admin review'}, self.admin)['opportunity']
+        # Team members may assign, but cannot forge creator ownership.
+        assigned = op.save(self.store, {**edited, 'createdBy': self.member['id'],
+                                      'assignedTeamIds': [self.other_team]}, self.member)['opportunity']
+        self.assertEqual(assigned['createdBy'], self.creator['id'])
+        self.assertTrue(assigned['permissions']['edit'])
+        admin_edit = op.save(self.store, {**assigned, 'remarks': 'Admin review'}, self.admin)['opportunity']
         self.assertEqual(admin_edit['remarks'], 'Admin review')
 
     def test_approval_team_members_admin_and_live_role_checks(self):

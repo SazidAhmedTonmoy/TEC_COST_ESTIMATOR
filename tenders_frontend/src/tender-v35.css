@@ -154,3 +154,19 @@ html[data-theme=dark] .op-deadline.op-deadline-neutral{color:#b0b7c0}
 .op-link-dialog>.op-search input{width:100%;min-width:0}
 .op-dialog .op-duplicate-review>label{flex-direction:row;color:var(--foreground);font-size:13px;font-weight:500;align-items:flex-start}
 .op-dialog .op-duplicate-review input[type=checkbox]{width:16px!important;min-width:16px;height:16px!important;min-height:16px!important;padding:0;margin:2px 0 0;box-shadow:none;accent-color:var(--primary)}
+
+/* 3.7.6 — document availability is independent of the project Link URL. */
+.op-docs-card-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 12px;min-width:0}
+.op-docs-toggle{appearance:none;display:inline-flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:7px;max-width:100%;min-height:39px;padding:8px 12px;border:1px solid var(--border);border-radius:9px;font-size:12px;font-weight:700;line-height:1.45;text-align:left;cursor:pointer;transition:background-color .15s,border-color .15s}
+.op-docs-toggle svg{flex:none}
+.op-docs-toggle:focus-visible{outline:2px solid var(--primary);outline-offset:3px}
+.op-docs-toggle:disabled{opacity:.85;cursor:default}
+.op-docs-yes{background:#dff5e9;border-color:#8dccab;color:#125e3d}
+.op-docs-no{background:#f1f3f5;border-color:#cad2db;color:#526072}
+html[data-theme=dark] .op-docs-yes{background:#143b30;border-color:#31745c;color:#9fe8c4}
+html[data-theme=dark] .op-docs-no{background:#202f3a;border-color:#3d5361;color:#c1cbd4}
+.op-docs-change{font-weight:500;opacity:.8;font-size:11px;margin-left:3px}
+.op-docs-compact{min-height:34px;padding:6px 10px;font-size:11px}
+.op-docs-detail-row{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 0 16px;margin:0 0 8px;border-bottom:1px solid var(--border)}
+.op-docs-detail-row>span{font-size:12px;font-weight:700;color:var(--muted-foreground)}
+@media(max-width:380px){.op-docs-toggle{min-height:42px}.op-docs-card-row .op-docs-toggle{width:100%}}

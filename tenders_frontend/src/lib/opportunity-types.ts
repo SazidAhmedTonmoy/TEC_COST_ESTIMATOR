@@ -7,14 +7,14 @@ export type Opportunity = {
   due:string; workingScope:string; remarks:string; link?:string;
   value:number|null; distanceKm:number|null; distanceOrigin:string;
   category?:string; budget?:string; addedDate?:string; sourceData?:Record<string,unknown>;sourceStatus?:OpportunityStatus;
-  status:OpportunityStatus; assignedTeamIds:number[]; assignedUserIds:number[];
+  status:OpportunityStatus; documentsAvailable?:boolean; assignedTeamIds:number[]; assignedUserIds:number[];
   editorTeamIds:number[]; editorUserIds:number[]; createdBy:number; createdByName:string;
   createdAt:string; updatedAt?:string; updatedByName?:string; approvedByName?:string; rejectedByName?:string;
   decisionReason?:string; decisionByName?:string; decisionAt?:string; deletedAt?:string;
   quoteStatus?:'quoted'|'not_quoted'; submissionIds?:string[]; quotedValue?:number;
   linkedProjectName?:string; linkedAt?:string; linkedByName?:string; quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
   quotedBy?:number; quotedByName?:string; quotedBuilders?:string[]; submittedByTeamId?:number|null;
-  revision:number; permissions:{edit:boolean; manage:boolean; approve:boolean; quote?:boolean};
+  revision:number; permissions:{edit:boolean; assign:boolean; manage:boolean; approve:boolean; quote?:boolean};
 };
 export type OpportunityActivity = {
   id:number; action:string; actorId:number; actorName:string; createdAt:string;

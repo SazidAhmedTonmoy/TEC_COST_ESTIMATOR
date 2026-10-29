@@ -61,6 +61,8 @@ def route(handler, path, store, send):
         result = opportunities.save(store, payload, handler.user)
     elif path == prefix + '/decision':
         result = opportunities.decide(store, payload, handler.user)
+    elif path == prefix + '/documents':
+        result = opportunities.set_documents_available(store, payload, handler.user)
     elif path == prefix + '/link-project':
         from .opportunity_matching import link_project
         result = link_project(store, payload, handler.user)
