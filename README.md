@@ -1,3 +1,18 @@
+# TEC ConEst v3.7.9 — Clear workspace navigation & reliable CI
+
+**What changed:** Estimator and Tenders each show clearly named **Estimator | Tenders** tabs directly beneath the logo (desktop, mobile header and navigation drawer). The current workspace is highlighted in teal or yellow, with keyboard-focus and screen-reader labels. The previous circular-arrow workspace switch is removed. The existing same-site transition and login session are retained.
+
+**CI:** The v3.7.8 asset validation now follows the actual built Vite HTML/CSS and validates the real server pagination (18 opportunities/page) rather than relying on the prebuilt bundle's exact minified text. This prevents the GitHub rebuild from triggering a false release-test failure.
+
+**Deploy:** Apply the changed-files ZIP over a complete v3.7.8 installation, or use the full ZIP. Upload both Estimator browser assets and Tender frontend source/build, restart Passenger and hard-refresh. No database schema or data migration is required (schema 33).
+
+**Tests:** 61 Python test modules, 16 JavaScript test files, and 8 browser viewport checks (320, 390, 768, and 1280px, for both workspaces) passed. A simulated Vite build with renamed modules and minified spacing CSS also passed the corrected validation checks. The Tender source and included prebuilt assets were checked for syntax and workspace-tab consistency. A fresh local Vite build could not be completed because npm dependencies were not cached; the GitHub deployment will run `npm ci && npm run build` before validating production assets.
+
+**Install notes:** Keep the host's existing `data/`, database, uploads, environment files, `.htaccess`, and `passenger_wsgi.py`. On a complete v3.7.8 checkout, overlay the changed-files ZIP, commit and push to trigger the standard GitHub workflow; for a manual installation restart Passenger after upload. The workspace-tab anchors retain the existing `workspace-swap` transition only when moving to the other workspace.
+
+
+---
+
 # TEC ConEst v3.7.8 — Interface spacing and Opportunities pagination
 
 ## Release highlights

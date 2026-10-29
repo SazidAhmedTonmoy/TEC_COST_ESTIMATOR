@@ -15,7 +15,7 @@ class Mobile3512Tests(unittest.TestCase):
         self.assertGreaterEqual(tuple(int(part) for part in __version__.split('.')), (3,5,12))
         html=(ROOT/'assets/index.html').read_text()
         self.assertIn('estimator-menu-backdrop',html)
-        self.assertIn('/assets/mobile-v3512.css?v=3.5.12',html)
+        self.assertRegex(html,r'/assets/mobile-v3512\.css\?v=\d+(?:\.\d+){2}')
         tender=(ROOT/'tenders_web/index.html').read_text()
         # Either the prebuilt direct stylesheet or Vite's hashed CSS is valid.
         import re

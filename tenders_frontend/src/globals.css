@@ -277,3 +277,36 @@ textarea{resize:vertical}.project-name,.builder-chips button,[data-slot=sheet-ti
 .tender-table .schedule-link,.tender-table .next-action {display:inline-flex;align-items:center;justify-content:center;gap:4px;font-size:12px;max-width:100%;white-space:normal;padding:5px 7px}
 .tender-table td:last-child,.tender-table th:last-child {padding-left:2px!important;padding-right:2px!important;text-align:center}
 .tender-table .badge {font-size:12px;white-space:normal;line-height:1.35}
+
+
+/* v3.7.9: visually explicit two-workspace tabs instead of Refresh-looking arrows. */
+.tec-sidebar [data-slot=sidebar-header]{margin-bottom:18px}
+.workspace-brand-block{display:flex;flex-direction:column;align-items:stretch;gap:13px;min-width:0;width:100%}
+.workspace-brand-block>.conest-brand{height:auto;min-height:42px;min-width:0;flex:none;padding:0;margin:0}
+.workspace-brand-block .conest-brand>a:first-child{min-width:0}
+.workspace-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px;width:100%;padding:3px;border:1px solid #425a69;border-radius:11px;background:#0b1e2d;box-sizing:border-box}
+.workspace-tabs .workspace-tab{display:flex;align-items:center;justify-content:center;min-width:0;min-height:39px;padding:8px 4px;border-radius:8px;color:#b4c8d3;text-decoration:none;text-align:center;white-space:nowrap;font-size:12px;line-height:1.2;font-weight:700;transition:background-color .15s,color .15s}
+.workspace-tabs .workspace-tab:not(.is-active):hover{background:#27475b;color:#fff}
+.workspace-tabs .workspace-tab.is-active{background:#edbe28;color:#172b3a;box-shadow:0 2px 10px #07152170}
+.workspace-tabs .workspace-tab:focus-visible{outline:2px solid #ffe168;outline-offset:2px}
+@media(max-width:767px){
+ .mobile-brand-bar{align-items:flex-start;min-height:110px;height:auto;gap:10px;padding:12px 16px}
+ .mobile-brand-bar .workspace-brand-block{flex:1 1 auto;min-width:0;max-width:270px;gap:9px}
+ .mobile-brand-bar .workspace-tabs{width:100%;max-width:240px}
+ .mobile-brand-bar .workspace-tab{min-height:42px}
+ .mobile-brand-bar .mobile-menu{flex:none;min-width:84px;margin-top:2px}
+ .tec-sidebar [data-mobile=true] .workspace-brand-block{max-width:100%}
+}
+@media(max-width:360px){.mobile-brand-bar{padding:10px}.mobile-brand-bar .workspace-brand-block{max-width:calc(100% - 100px)}.mobile-brand-bar .workspace-tabs .workspace-tab{font-size:11px;padding-inline:2px}}
+
+/* v3.7.9: workspace switcher is a second row inside the branding block. */
+.tec-sidebar .conest-brand,.mobile-brand-bar .conest-brand{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:13px!important;height:auto!important;min-height:0!important;width:100%;min-width:0}
+.tec-sidebar .conest-brand>a:first-child,.mobile-brand-bar .conest-brand>a:first-child{flex:initial;display:flex;align-items:center;min-width:0}
+.tec-sidebar .conest-brand .workspace-tabs{width:100%}
+@media(max-width:767px){
+ .mobile-brand-bar .conest-brand{flex:1 1 auto;width:calc(100% - 105px);max-width:270px;gap:8px!important}
+ .mobile-brand-bar .conest-brand .workspace-tabs{width:100%;max-width:260px}
+ .mobile-brand-bar .mobile-menu{flex:0 0 auto}
+}
+/* Override legacy .conest-brand .workspace-swap icon dimensions. */
+.conest-brand .workspace-tabs .workspace-tab{width:100%!important;height:auto!important;margin:0!important;min-width:0!important;box-sizing:border-box}

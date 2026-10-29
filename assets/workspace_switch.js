@@ -2,9 +2,28 @@
 document.addEventListener('DOMContentLoaded',()=>{
  const inTenders=new URLSearchParams(location.search).get('workspace')==='tenders';
  const brand=document.querySelector('.sidebar .brand');
- const swap=document.createElement('a');swap.className='workspace-swap';swap.href=inTenders?'/':'/tenders/';swap.title=inTenders?'Switch to Estimator':'Switch to Tenders';swap.setAttribute('aria-label',swap.title);
- swap.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10a9 9 0 0 1 15-6l3 3M21 2v5h-5M21 14a9 9 0 0 1-15 6l-3-3M3 22v-5h5"/></svg>';
- const wrap=document.createElement('div');wrap.className='workspace-brand';brand.before(wrap);wrap.append(brand,swap);
+ // Visible workspace tabs replace the ambiguous circular-arrow control.
+ // Keep the workspace-swap class on the *inactive* link so the existing
+ // cross-workspace loading transition continues to work without interception.
+ if(!brand||brand.closest('.workspace-brand'))return;
+ const tabs=document.createElement('nav');
+ tabs.className='workspace-tabs';
+ tabs.setAttribute('aria-label','Switch workspace');
+ for(const [name,url,active] of [
+   ['Estimator','/',!inTenders],['Tenders','/tenders/',inTenders]
+ ]){
+   const tab=document.createElement('a');
+   tab.className='workspace-tab'+(active?' is-active':' workspace-swap');
+   tab.href=active?(inTenders?'/tenders/':'#/home'):url;
+   tab.textContent=name;
+   if(active)tab.setAttribute('aria-current','page');
+   else tab.setAttribute('aria-label','Switch to '+name);
+   tabs.append(tab);
+ }
+ const wrap=document.createElement('div');
+ wrap.className='workspace-brand';
+ brand.before(wrap);
+ wrap.append(brand,tabs);
  if(inTenders){document.documentElement.dataset.workspace='tenders';brand.querySelector('div:last-child span').textContent='TENDERS';brand.href='/tenders/';brand.removeAttribute('data-view');
  const nav=document.querySelector('#main-navigation');nav.querySelectorAll('.nav-button').forEach(a=>a.remove());
  const pages=[['dashboard','Home','⌂'],['chase-up','Project Chase-up','☷'],['projects','Projects','▦'],['builders','Builders','♙'],['calendar','Calendar','▤'],['reminders','Reminders','◷']];

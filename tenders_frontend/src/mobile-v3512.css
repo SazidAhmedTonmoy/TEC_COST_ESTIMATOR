@@ -57,3 +57,10 @@ html,body,#root,.main-shell,.page-content {max-width:100%;min-width:0}
 @media(prefers-reduced-motion:reduce) {
   .page-content * {scroll-behavior:auto}
 }
+
+/* v3.7.9: keep workspace tabs usable in the mobile Tender drawer. */
+@media(max-width:767px){
+ [data-mobile=true][data-sidebar=sidebar] [data-slot=sidebar-header]{padding:20px 16px 12px}
+ [data-mobile=true][data-sidebar=sidebar] .workspace-brand-block{width:100%;max-width:100%}
+ [data-mobile=true][data-sidebar=sidebar] .workspace-tabs .workspace-tab{min-height:44px}
+}
