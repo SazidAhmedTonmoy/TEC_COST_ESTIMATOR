@@ -37,14 +37,16 @@ function DocumentAvailability({item,change,busy,compact=false}:{item:Opportunity
   if(item.deletedAt||!['pending','approved'].includes(item.status))return null;
   const available=item.documentsAvailable===true;
   const canChange=item.permissions.edit;
-  const label=available?'Documents available':'Documents not available';
+  const label='Documents available';
+  const stateText=available?'Yes':'No';
   return <button type="button" role="switch" aria-checked={available}
-    aria-label={`${label} for ${item.project}${canChange?'. Click to change status.':'. Read only.'}`}
-    title={canChange?'Change document availability':'Only authorised users can change document availability'}
+    aria-label={`${label}: ${stateText} for ${item.project}${canChange?'. Click to change status.':'. Read only.'}`}
+    title={canChange?`Change document availability · currently ${stateText}`:`Only authorised users can change document availability`}
     className={`op-docs-toggle ${available?'op-docs-yes':'op-docs-no'}${compact?' op-docs-compact':''}`}
     disabled={!canChange||busy} onClick={()=>change(item)}>
-    <FileCheck2 size={compact?15:17} aria-hidden="true"/><span>{label}</span>
-    {canChange&&<span className="op-docs-change" aria-hidden="true">Change</span>}
+    <FileCheck2 size={compact?15:17} aria-hidden="true"/>
+    <span className="op-docs-label">{label}</span>
+    <span className="op-docs-state" aria-hidden="true">{stateText}</span>
   </button>;
 }
 function useDeadlineClock(regions:OpportunityRegion[]){
@@ -199,7 +201,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
         <div className="op-card-top"><StatusBadge status={item.status}/><span className="op-region">{item.region}</span></div>
         <button className="op-project-link" onClick={()=>openItem(item.id)}>{item.project}<ArrowUpRight size={17}/></button><p className="op-builders"><Building2 size={14}/>{item.builders.length?item.builders.join(' · '):'Builder to be confirmed'}</p>{item.workingScope&&<p className="op-card-scope">{item.workingScope}</p>}
         <div className="op-card-deadline"><DeadlineBadge item={item} regions={regions} now={deadlineNow}/>{item.due&&<time dateTime={item.due}>{opportunityDate(item.due)}</time>}</div>
-        <div className="op-card-facts">{item.location?.trim()?<a className="op-card-route" href={opportunityRouteUrl(item,regions)} target="_blank" rel="noopener noreferrer" aria-label={'View route to '+item.location} title={'View route from '+(item.distanceOrigin||regions.find(r=>r.code===item.region)?.origin||'your location')}><MapPin size={14}/><span>{item.location}</span><ArrowUpRight size={13} aria-hidden="true"/></a>:<span><MapPin size={14}/>Location to be confirmed</span>}</div><OpportunityLink value={item.link} project={item.project} compact/><p className="op-card-creator"><Users size={13} aria-hidden="true"/>Created by <strong>{item.createdByName||'Imported source'}</strong></p>{!item.deletedAt&&['pending','approved'].includes(item.status)&&<div className="op-docs-card-row"><DocumentAvailability item={item} change={toggleDocuments} busy={busy} compact/></div>}
+        <div className="op-card-facts">{item.location?.trim()?<a className="op-card-route" href={opportunityRouteUrl(item,regions)} target="_blank" rel="noopener noreferrer" aria-label={'View route to '+item.location} title={'View route from '+(item.distanceOrigin||regions.find(r=>r.code===item.region)?.origin||'your location')}><MapPin size={14}/><span>{item.location}</span><ArrowUpRight size={13} aria-hidden="true"/></a>:<span><MapPin size={14}/>Location to be confirmed</span>}</div><OpportunityLink value={item.link} project={item.project} compact/><div className="op-card-info-row"><p className="op-card-creator"><Users size={13} aria-hidden="true"/>Created by <strong>{item.createdByName||'Imported source'}</strong></p>{!item.deletedAt&&['pending','approved'].includes(item.status)&&<div className="op-docs-card-row"><DocumentAvailability item={item} change={toggleDocuments} busy={busy} compact/></div>}</div>
         <div className="op-card-meta"><span>{item.budget?`Budget: ${item.budget}`:<Money value={item.value}/>}</span>{item.distanceKm!=null&&<span title={'Distance from '+item.distanceOrigin}>{item.distanceKm} km</span>}</div>
         <div className="op-card-footer"><span className="op-assignees"><Users size={15}/>{assigned.length?assigned.join(' · '):'Not assigned'}</span><button className="secondary-btn" onClick={()=>openItem(item.id)}>View details</button></div>
         {item.status==='approved'&&isOpportunityQuoted(item)&&<div className="op-card-quoted"><span><FileCheck2 size={17}/><b>{item.linkedAt?'Linked to tender':'Quoted'}</b>{item.quotedValue!=null&&<Money value={item.quotedValue} precise/>}</span>{item.submissionIds?.[0]&&<button className="secondary-btn" onClick={()=>onOpenChaseUp(item.submissionIds![0])}>Open Project Chase-up<ArrowUpRight size={15}/></button>}</div>}
