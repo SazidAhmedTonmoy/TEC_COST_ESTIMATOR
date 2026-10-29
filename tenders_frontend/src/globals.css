@@ -310,3 +310,15 @@ textarea{resize:vertical}.project-name,.builder-chips button,[data-slot=sheet-ti
 }
 /* Override legacy .conest-brand .workspace-swap icon dimensions. */
 .conest-brand .workspace-tabs .workspace-tab{width:100%!important;height:auto!important;margin:0!important;min-width:0!important;box-sizing:border-box}
+
+
+/* v3.7.10: same workspace-brand spacing in Estimator and Tenders, with no subtitle under the logo. */
+.tec-sidebar .conest-brand,.mobile-brand-bar .conest-brand{gap:12px!important}
+.tec-sidebar .conest-brand>a:first-child,.mobile-brand-bar .conest-brand>a:first-child{gap:12px;min-height:42px}
+.tec-sidebar .conest-brand>a:first-child>span:last-child,.mobile-brand-bar .conest-brand>a:first-child>span:last-child{display:flex;align-items:center;min-height:42px;line-height:1.08}
+.tec-sidebar .conest-brand small,.mobile-brand-bar .conest-brand small{display:none!important}
+.tec-sidebar .workspace-tabs,.mobile-brand-bar .workspace-tabs{margin-top:0}
+@media(max-width:767px){
+ .mobile-brand-bar .conest-brand{gap:12px!important;width:calc(100% - 105px)}
+ .mobile-brand-bar .conest-brand>a:first-child>span:last-child{min-height:36px}
+}

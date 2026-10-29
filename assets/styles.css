@@ -2246,3 +2246,15 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlighted>td{bac
 }
 /* Override legacy 30px icon sizing on the inactive workspace link. */
 .app-shell > .sidebar .workspace-tabs .workspace-tab{width:100%!important;height:auto!important;margin:0!important;min-width:0!important;box-sizing:border-box}
+
+/* v3.7.10: keep both workspace brands aligned and remove subtitle text. */
+.app-shell > .sidebar .brand{align-items:center;gap:12px}
+.app-shell > .sidebar .brand > div:last-child{display:flex;align-items:center;min-height:42px;line-height:1.08}
+.app-shell > .sidebar .brand > div:last-child span{display:none!important}
+.app-shell > .sidebar .workspace-brand{gap:12px;margin:0 0 22px}
+.app-shell > .sidebar .workspace-tabs{margin-top:0}
+@media(max-width:820px){
+ .app-shell > .sidebar:not(.menu-open) .brand > div:last-child{display:flex!important;align-items:center!important;min-height:36px!important}
+ .app-shell > .sidebar.menu-open .brand > div:last-child{display:flex!important;align-items:center!important;min-height:42px!important}
+}
+
