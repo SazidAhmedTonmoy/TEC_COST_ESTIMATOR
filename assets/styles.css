@@ -2242,7 +2242,7 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlighted>td{bac
  .app-shell > .sidebar.menu-open .workspace-tabs{width:100%}
  .app-shell > .sidebar.menu-open nav.workspace-tabs{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:3px!important;margin:0!important;padding:3px!important}
  .app-shell > .sidebar.menu-open nav.workspace-tabs .workspace-tab{min-height:43px}
- .app-shell > .sidebar.menu-open nav#main-navigation{margin-top:8px!important}
+ .app-shell > .sidebar.menu-open nav#main-navigation{margin-top:12px!important}
 }
 /* Override legacy 30px icon sizing on the inactive workspace link. */
 .app-shell > .sidebar .workspace-tabs .workspace-tab{width:100%!important;height:auto!important;margin:0!important;min-width:0!important;box-sizing:border-box}
@@ -2251,10 +2251,19 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlighted>td{bac
 .app-shell > .sidebar .brand{align-items:center;gap:12px}
 .app-shell > .sidebar .brand > div:last-child{display:flex;align-items:center;min-height:42px;line-height:1.08}
 .app-shell > .sidebar .brand > div:last-child span{display:none!important}
-.app-shell > .sidebar .workspace-brand{gap:12px;margin:0 0 22px}
-.app-shell > .sidebar .workspace-tabs{margin-top:0}
+.app-shell > .sidebar .workspace-brand{gap:12px;margin:0}
+.app-shell > .sidebar nav.workspace-tabs{margin:0!important}
+.app-shell > .sidebar #main-navigation{margin-top:12px}
 @media(max-width:820px){
  .app-shell > .sidebar:not(.menu-open) .brand > div:last-child{display:flex!important;align-items:center!important;min-height:36px!important}
  .app-shell > .sidebar.menu-open .brand > div:last-child{display:flex!important;align-items:center!important;min-height:42px!important}
 }
 
+
+/* v3.7.10a: align Estimator sidebar spacing with Tenders. */
+.app-shell > .sidebar .workspace-brand{margin:0!important}
+.app-shell > .sidebar nav.workspace-tabs{margin:0!important}
+.app-shell > .sidebar #main-navigation{margin-top:12px!important}
+@media(max-width:820px){
+ .app-shell > .sidebar.menu-open nav#main-navigation{margin-top:12px!important}
+}
