@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 class Mobile3512Tests(unittest.TestCase):
     def test_release_and_html_assets(self):
-        self.assertEqual(__version__, "3.7.4")
+        self.assertEqual(__version__, "3.7.5")
         html=(ROOT/'assets/index.html').read_text()
         self.assertIn('estimator-menu-backdrop',html)
         self.assertIn('/assets/mobile-v3512.css?v=3.5.12',html)

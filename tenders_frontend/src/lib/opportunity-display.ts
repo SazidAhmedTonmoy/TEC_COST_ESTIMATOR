@@ -67,11 +67,12 @@ export function isOpportunityQuoted(item:Pick<Opportunity,'quoteStatus'|'submiss
   return item.quoteStatus==='quoted'||!!item.submissionIds?.length;
 }
 
-/** A past deadline must not start another quotation workflow for an old project. */
-export function canQuoteOpportunity(item:Opportunity,regions:OpportunityRegion[]=[],now=Date.now()) {
-  if(item.deletedAt||item.status!=='approved'||isOpportunityQuoted(item)||!(item.permissions.quote??item.permissions.approve))return false;
-  const days=opportunityDeadline(item,regions,now).days;
-  return days===null||days>=0;
+/** An approved, unlinked opportunity can be quoted even after its deadline.
+ * The deadline controls urgency, not the recorded approval decision.
+ * Linked tenders are managed in Chase-up rather than converted twice. */
+export function canQuoteOpportunity(item:Opportunity,_regions:OpportunityRegion[]=[],_now=Date.now()) {
+  return !item.deletedAt&&item.status==='approved'&&!isOpportunityQuoted(item)&&!item.linkedAt&&
+    !!(item.permissions.quote??item.permissions.approve);
 }
 
 /** Reject is only offered during Awaiting approval.

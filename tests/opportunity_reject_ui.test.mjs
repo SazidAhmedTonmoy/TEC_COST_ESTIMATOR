@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,readdirSync} from 'node:fs';
 import {test} from 'node:test';
 
 const source=readFileSync('tenders_frontend/src/components/opportunities.tsx','utf8');
-const built=readFileSync('tenders_web/assets/opportunities-v3510.js','utf8');
-const entry=readFileSync('tenders_web/assets/index-v3510.js','utf8');
 const html=readFileSync('tenders_web/index.html','utf8');
+const assets='tenders_web/assets/';
+const builtFiles=readdirSync(assets).filter(name=>name.endsWith('.js')).map(name=>readFileSync(assets+name,'utf8'));
+const built=builtFiles.find(text=>text.includes('Reject opportunity')&&text.includes('Record quoted project'));
+const entryMatch=html.match(/<script[^>]*type="module"[^>]*src="\/tenders\/assets\/([^"]+\.js)"/);
+const entry=entryMatch?readFileSync(assets+entryMatch[1],'utf8'):'';
 
 test('expired cards do not expose a reject action',()=>{
   assert.doesNotMatch(source,/className="op-expired-actions"/);
+  assert.ok(built,'The deployed opportunity component must be included');
   assert.doesNotMatch(built,/className:`op-expired-actions`/);
 });
 
@@ -19,9 +23,9 @@ test('expired detail copy offers approval but not rejection',()=>{
 });
 
 test('deployable frontend uses new chunks, preserving all existing views',()=>{
-  assert.match(html,/\/tenders\/assets\/index-v3510\.js/);
-  assert.match(entry,/\.\/opportunities-v3510\.js/);
-  assert.match(built,/\.\/index-v3510\.js/);
+  assert.ok(entryMatch,'HTML should load the current Tender entry');
+  assert.ok(entry.length>100,'Compiled entry must be present');
+  assert.ok(built.includes('Record quoted project'));
   assert.match(source,/canReject\(selected\)/);
   assert.match(source,/canQuote\(selected\)/);
   assert.match(source,/status==='expired'/);

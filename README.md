@@ -1,3 +1,42 @@
+# TEC ConEst v3.7.5 — Opportunity quote outcomes and deadline sorting
+
+TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. This is a focused update to the Opportunities workflow based on v3.7.4 R2; existing project links, quotes, users, estimates, and UI themes are preserved.
+
+## What's new in v3.7.5
+
+| Feature | Behaviour |
+| --- | --- |
+| **Quoted / Not quoted after deadline** | If an opportunity is **Approved**, is **not linked** to a tender project or submission, and the user has quote permission, both decisions remain available even after its submission deadline. The card and detail panel follow the same rule. |
+| **Quoted** | Enter the electrical services submission value, submission date, builder(s), and optional note/quote number. The system creates the corresponding submissions in **Projects** and **Project Chase-up**; an exact retry does not duplicate them. |
+| **Not quoted** | Moves the unlinked, Approved opportunity to **Rejected** and records the `not_quoted` decision, actor, time, and optional reason—even when the deadline has passed. |
+| **Already linked** | No new quote actions are shown. Use **Open Project Chase-up** or **Change linked project**. Existing submissions cannot be overwritten or duplicated by the conversion flow. |
+| **Deadline: Low to High** | Sort by the earliest date first (including past dates), then later dates. Opportunities without a closing date are last. |
+| **Deadline: High to Low** | Sort by the latest date first, then earlier dates. Opportunities without a closing date are last. |
+
+Both date sorts execute on the **server** before pagination, so all pages use the same order. An Approved opportunity remains Approved after its deadline. A project website **Link** is not itself a linked Tender project; only recorded Tender submissions/link history are treated as connected.
+
+## Installation and update
+
+1. **Back up** the production application and databases before updating.
+2. For an existing complete **v3.7.4 R2** installation, overlay the contents of the `TEC_COST_ESTIMATOR/` directory from the **changed-files ZIP**. Use the **full ZIP** for a clean copy of all application code.
+3. Preserve live `data/`, uploads, `.env`, the Passenger startup adapter, and hosting-specific settings. **Do not replace production databases.**
+4. Copy `tenders_web/index.html` and the updated JavaScript files under `tenders_web/assets/`. The deployed HTML references newly named JavaScript to bypass old browser caches. When deploying through GitHub Actions, its `npm ci && npm run build` regenerates this bundle from updated React sources.
+5. Restart the existing Python application/Passenger and refresh the browser. On the configured cPanel host, from the application directory use `mkdir -p tmp && touch tmp/restart.txt` if the hosting setup supports this restart mechanism.
+6. Verify `https://tec-const.ampecportal.com/api/health?check=tenders` reports **release `3.7.5`** and schema **33**. Then open **Tenders → Opportunities** to test an Approved, unlinked opportunity with a past deadline and both sorting directions.
+
+**Database schema:** 33 (unchanged). This update has no database migration or automatic reset. Users still need the established team/admin quote permissions.
+
+## Verification
+
+- Full Python test runner: **57 modules passed**, including opportunity creation, approval, late quotes, tender linking, existing submission preservation, duplicate protection, permissions, date sorting and pagination.
+- JavaScript checks: **40 passed** (including opportunity UI eligibility and sort controls); updated shipped JavaScript passed `node --check`.
+- Frontend build limitation: A fresh Vite build was not possible in this offline environment because the npm dependencies could not be fully installed. The updated React/TypeScript source and directly patched deployable JS are included. The next GitHub Actions run should verify the production Vite build.
+- Tests and database operations used private fixtures; no live hosting account or production data was changed.
+
+---
+
+## Previous release notes
+
 # TEC ConEst v3.7.4 R2 — Change existing project links
 
 Approved opportunities now show **Change linked project** when connected. Select a different project, or select a project currently connected to another opportunity. Review the old connections, then click **Move link**. The transfer removes the previous connection and attaches all current builder submissions to the selected opportunity in one transaction. Existing tender prices, deadlines and chase-up records remain. Link summaries are cleared on the former opportunity, which stays Approved. Changes are recorded in opportunity activity, contribution history and notifications. Original quote attribution remains in tender records and historical audit entries.

@@ -36,7 +36,7 @@ test('approved and expired records hide Reject controls',()=>{
   const item=actionable();
   assert.equal(canQuoteOpportunity(item,regions,before),true);
   assert.equal(canRejectOpportunity(item,regions,before),false);
-  assert.equal(canQuoteOpportunity(item,regions,after),false);
+  assert.equal(canQuoteOpportunity(item,regions,after),true); // Approved remains actionable after expiry.
   assert.equal(canRejectOpportunity(item,regions,after),false);
   assert.equal(canQuoteOpportunity(actionable({region:'WA'}),regions,after),true);
   assert.equal(canRejectOpportunity(actionable({region:'WA'}),regions,after),false);
@@ -50,7 +50,7 @@ test('approved and expired records hide Reject controls',()=>{
 
 test('quoted links, deleted records and missing permissions never expose quote or reject controls',()=>{
   const now=Date.parse('2026-10-23T08:00:00Z');
-  for(const changes of [{quoteStatus:'quoted'},{submissionIds:['linked-quote']},{deletedAt:'2026-10-22T00:00:00Z'},{permissions:{approve:false,quote:false}}]){
+  for(const changes of [{quoteStatus:'quoted'},{submissionIds:['linked-quote']},{linkedAt:'2026-10-22T00:00:00Z'},{deletedAt:'2026-10-22T00:00:00Z'},{permissions:{approve:false,quote:false}}]){
     const item=actionable(changes);
     assert.equal(canQuoteOpportunity(item,regions,now),false);
     assert.equal(canRejectOpportunity(item,regions,now),false);

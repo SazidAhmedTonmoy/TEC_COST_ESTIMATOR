@@ -494,16 +494,17 @@ def decide(store, payload, user):
         item = _find(db, identifier)
         _require(item, actor, 'manage' if decision == 'pending' else 'approve')
         _revision(item, payload)
-        if _is_quoted(item) and decision != 'approved':
-            raise tenders.ValidationError('This opportunity has already been quoted. Update its outcome in Project Chase-up.', 409)
+        if (_is_quoted(item) or item.get('linkedAt')) and decision != 'approved':
+            raise tenders.ValidationError('This opportunity is already linked to tender submissions. Update its outcome in Project Chase-up.', 409)
         if item['status'] == decision:
             return _detail(db, item, actor)
         if decision == 'pending' and item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
             raise tenders.ValidationError('Approve this opportunity to proceed after its deadline, or extend the deadline before requesting approval.', 409)
         before = item['status']
-        # Older approved projects may already be followed up elsewhere. A
-        # normal rejection after expiry must not invent a Not quoted outcome.
-        not_quoted = decision == 'rejected' and before == 'approved' and not _deadline_passed(db, item)
+        # An explicit Not quoted decision is valid after a deadline too, but
+        # never overrides an existing tender link. Expired (not approved)
+        # records still use ordinary rejection without a quote outcome.
+        not_quoted = decision == 'rejected' and before == 'approved' and not _is_quoted(item) and not item.get('linkedAt')
         moment = tenders.timestamp()
         item.update(status=decision, revision=item['revision'] + 1, updatedAt=moment,
                     updatedBy=actor['id'], updatedByName=actor['name'],
@@ -672,7 +673,10 @@ def list_opportunities(store, filters, user):
         db.execute('BEGIN')
         total = db.execute('SELECT COUNT(*) FROM opportunities o WHERE ' + where, args).fetchone()[0]
         page = min(page, max(1, (total + size - 1) // size))
-        order = {'due': "CASE WHEN due='' THEN 1 ELSE 0 END,due,updated_at DESC,id",
+        deadline_first = "CASE WHEN COALESCE(due,'')='' THEN 1 ELSE 0 END,"
+        order = {'due': deadline_first + 'due ASC,updated_at DESC,id',  # Backward-compatible sort value.
+                 'due_asc': deadline_first + 'due ASC,updated_at DESC,id',
+                 'due_desc': deadline_first + 'due DESC,updated_at DESC,id',
                  'updated': 'updated_at DESC,id', 'name': 'project_key,id'}.get(filters.get('sort'),
                      "updated_at DESC,id")
         rows = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where +

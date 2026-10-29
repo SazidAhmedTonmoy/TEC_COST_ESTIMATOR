@@ -34,30 +34,36 @@ class OpportunityExpiredActionsTests(unittest.TestCase):
             self.assertTrue(db.execute("SELECT 1 FROM tender_activity WHERE action='Rejected opportunity' AND actor_id=?",
                                        (self.member['id'],)).fetchone())
 
-    def test_assigning_expired_approves_without_creating_quote_and_can_be_rejected(self):
+    def test_assigning_expired_allows_quoting_and_records_linked_submissions(self):
         expired = self.create(due='2000-01-01')
         approved = op.update_authority(self.store, {**expired, 'assignedTeamIds': [self.team]},
                                        self.creator, 'assign')['opportunity']
         self.assertEqual(approved['status'], 'approved')
-        before = self.snapshot()
-        self.assert_denied(lambda: op.quote(self.store, self.quote_payload(approved), self.admin), 409)
-        self.assertEqual(self.snapshot(), before)
+        quoted = op.quote(self.store, self.quote_payload(approved), self.admin)
+        self.assertEqual(quoted['opportunity']['status'], 'approved')
+        self.assertEqual(quoted['opportunity']['quoteStatus'], 'quoted')
+        self.assertEqual(len(quoted['submissionIds']), 2)
+        self.assert_denied(lambda: op.decide(self.store, {
+            'id': approved['id'], 'revision': quoted['opportunity']['revision'],
+            'decision': 'rejected'}, self.admin), 409)
+
+    def test_expired_approved_not_quoted_marks_rejection_outcome_without_note(self):
+        expired = self.create(due='2000-01-01')
+        approved = op.update_authority(self.store, {**expired, 'assignedTeamIds': [self.team]},
+                                       self.creator, 'assign')['opportunity']
         result = op.decide(self.store, {**approved, 'decision': 'rejected'}, self.admin)
         self.assertEqual(result['opportunity']['status'], 'rejected')
-        self.assertFalse(result['opportunity'].get('quoteStatus'))
-        self.assertNotIn('notQuotedBy', result['opportunity'])
+        self.assertEqual(result['opportunity']['quoteStatus'], 'not_quoted')
+        self.assertEqual(result['opportunity']['notQuotedBy'], self.admin['id'])
         self.assertEqual(result['activity'][0]['details']['before'], 'approved')
-        self.assertNotIn('quoteStatus', result['activity'][0]['details'])
+        self.assertEqual(result['activity'][0]['details']['quoteStatus'], 'not_quoted')
+        self.assertEqual(result['opportunity']['decisionReason'], '')
 
-    def test_quote_accepts_due_today_or_blank_but_rejects_yesterday(self):
+    def test_quote_accepts_due_today_blank_and_yesterday_if_approved(self):
         with patch.object(op, '_today', return_value=date(2026, 10, 22)):
-            for due in ('2026-10-22', ''):
-                item = self.approved(project='Current or blank ' + due, due=due)
+            for i, due in enumerate(('2026-10-22', '', '2026-10-21', '2000-01-01')):
+                item = self.approved(project='Deadline quote ' + str(i), due=due, region='VIC')
                 self.assertTrue(op.quote(self.store, self.quote_payload(item), self.admin)['quoted'])
-            past = self.approved(project='Yesterday', due='2026-10-21', region='VIC')
-            before = self.snapshot()
-            self.assert_denied(lambda: op.quote(self.store, self.quote_payload(past), self.admin), 409)
-            self.assertEqual(self.snapshot(), before)
 
     def test_saved_quote_retry_remains_idempotent_after_deadline(self):
         with patch.object(op, '_today', return_value=date(2026, 10, 22)):

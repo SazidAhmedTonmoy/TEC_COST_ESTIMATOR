@@ -107,8 +107,8 @@ class OpportunityWorkflowTests(unittest.TestCase):
         repeated = op.decide(self.store, {**item, 'decision': 'approved'}, self.member)['opportunity']
         self.assertEqual(repeated['revision'], item['revision'])
         result = op.decide(self.store, {**item, 'decision': 'rejected'}, self.member)['opportunity']
-        self.assertEqual((result['status'], result.get('quoteStatus', ''), result['decisionReason']), ('rejected', '', ''))
-        self.assertNotIn('notQuotedBy', result)
+        self.assertEqual((result['status'], result.get('quoteStatus', ''), result['decisionReason']), ('rejected', 'not_quoted', ''))
+        self.assertEqual(result['notQuotedBy'], self.member['id'])
         again = op.update_authority(self.store, {**result, 'assignedTeamIds': [self.team]}, self.creator, 'assign')['opportunity']
         self.assertEqual(again['status'], 'approved')
         self.assertEqual(again.get('quoteStatus', ''), '')
