@@ -1,3 +1,21 @@
+# TEC ConEst v3.7.4
+
+## Opportunities: consistent categories, duplicate review and existing-project links
+
+- Category dropdown: standard classifications plus existing imported categories. Matching case variants use one canonical option; historical values are retained.
+- Duplicate review: entering a new opportunity checks the active register for matching project names or addresses, ignoring case, punctuation and extra spaces. Matching records show their name, location, region, status and builders. Review the warning and tick the acknowledgement to save genuinely separate work. The server rechecks on save; new/changed matches require review again. Blank/placeholder addresses do not create false matches. This is a potential-duplicate check, not fuzzy address/geographic matching or automatic merging.
+- Link existing project: on an approved opportunity, choose **Link existing project**, search by project/address/builder, review the project and builder submission count, then select **Link project**. Available to administrators and team members, including approved opportunities past their deadline. Links all current builder submissions for the selected tender project without creating new tenders or overwriting their commercial fields/history. Existing links to another opportunity are blocked. Linking records its own actor/time in activity, notifications and contribution history; it does not credit the linker with the original submissions. Newly added builder submissions are not automatically linked by this action.
+
+### Validation
+
+56 Python test modules passed, including duplicate review, stale-review protection, linking permissions, retries and preservation of existing tender data. Production build and TypeScript checks passed. Browser interaction/layout checks with fixture data passed at 1440px dark, 1280px light and 390px mobile dark. No live deployment or production database changes were performed.
+
+### Deployment
+
+Extract the changed-files ZIP into the current application root, or use the full code package. Preserve production databases and environment configuration. Restart the application/Passenger workers and refresh the browser. Frontend assets are already built; npm is not needed on the hosting server. This update retains schema 33 and does not replace any database. The patch is relative to v3.7.3 R2.
+
+---
+
 # TEC ConEst v3.7.3
 
 Release correction: the previous delivery labelled V3.5.2 was v3.7.2.

@@ -224,6 +224,7 @@ def _normalise(db, payload, current=None):
     # Shared contact details are legacy source information. Ignore new writes,
     # while save() preserves any historical values already in the stored body.
     base.update({k: v for k, v in payload.items() if k not in ('sourceData', 'contact', 'email')})
+    from .opportunity_matching import canonical_category
     fields = {
         'project': tenders.text(base.get('project'), 'Project name', required=True, limit=500),
         'region': _region_code(base.get('region') or 'NSW'),
@@ -231,7 +232,7 @@ def _normalise(db, payload, current=None):
         'workingScope': tenders.text(base.get('workingScope'), 'Working scope', limit=20000),
         'remarks': tenders.text(base.get('remarks'), 'Notes', limit=20000),
         'link': normalise_link(base.get('link')),
-        'category': tenders.text(base.get('category'), 'Category', limit=500),
+        'category': canonical_category(db, base.get('category')),
         'budget': tenders.text(base.get('budget'), 'Budget', limit=500),
         'addedDate': tenders.date_value(base.get('addedDate')),
         'due': tenders.date_value(base.get('due')),
@@ -410,6 +411,10 @@ def save(store, payload, user):
             item = {**before, **fields}
         else:
             fields = _normalise(db, payload)
+            from .opportunity_matching import duplicate_matches
+            review = duplicate_matches(db, fields['project'], fields['location'])
+            if review['duplicateCount'] and payload.get('duplicateToken') != review['duplicateToken']:
+                return {**review, 'requiresDuplicateReview': True}
             before = {}
             item = _new_item(db, fields, actor)
         item.update(_authority(payload, item, actor, teams, users))
@@ -673,6 +678,8 @@ def list_opportunities(store, filters, user):
         rows = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where +
                           ' ORDER BY ' + order + ' LIMIT ? OFFSET ?',
                           (*args, size, (page - 1) * size)).fetchall()
+        from .opportunity_matching import categories
+        category_options = categories(db)
         latest_row = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where + ' ORDER BY updated_at DESC,id LIMIT 1', args).fetchone()
         counts = {status: 0 for status in STATUSES}
         counts.update({r['status']: r['n'] for r in db.execute('SELECT status,COUNT(*) n FROM opportunities o WHERE ' +
@@ -701,7 +708,7 @@ def list_opportunities(store, filters, user):
     return {'items': [_public(_decode_opportunity(r), actor) for r in rows],
             'latestOpportunity': _public(_decode_opportunity(latest_row), actor) if latest_row else None,
             'total': total, 'page': page, 'pageSize': size, 'counts': counts,
-            'regions': regions, 'teams': teams, 'users': users,
+            'regions': regions, 'teams': teams, 'users': users, 'categories': category_options,
             'builders': sorted(builders.values(), key=str.casefold),
             'teamCounts': [{**team, 'count': assigned.get(team['id'], 0)} for team in teams],
             'unassignedCount': unassigned,

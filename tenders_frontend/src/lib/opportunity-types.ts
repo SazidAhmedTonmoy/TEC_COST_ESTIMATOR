@@ -12,7 +12,7 @@ export type Opportunity = {
   createdAt:string; updatedAt?:string; updatedByName?:string; approvedByName?:string; rejectedByName?:string;
   decisionReason?:string; decisionByName?:string; decisionAt?:string; deletedAt?:string;
   quoteStatus?:'quoted'|'not_quoted'; submissionIds?:string[]; quotedValue?:number;
-  quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
+  linkedProjectName?:string; linkedAt?:string; linkedByName?:string; quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
   quotedBy?:number; quotedByName?:string; quotedBuilders?:string[]; submittedByTeamId?:number|null;
   revision:number; permissions:{edit:boolean; manage:boolean; approve:boolean; quote?:boolean};
 };
@@ -22,7 +22,7 @@ export type OpportunityActivity = {
 };
 export type OpportunityDetail = {opportunity:Opportunity; activity:OpportunityActivity[];activityTotal?:number;hasMoreActivity?:boolean;nextActivityCursor?:number|null};
 export type OpportunityList = {
-  items:Opportunity[]; latestOpportunity?:Opportunity|null; total:number; page:number; pageSize:number;
+  categories?:string[]; items:Opportunity[]; latestOpportunity?:Opportunity|null; total:number; page:number; pageSize:number;
   counts:Record<OpportunityStatus|'all',number>; regions:OpportunityRegion[];
   teams:OpportunityTeam[]; users:OpportunityUser[]; builders:string[];
   teamCounts:{id:number; name:string; count:number}[]; canApprove:boolean;

@@ -19,6 +19,12 @@ def route(handler, path, store, send):
     if handler.command == 'GET':
         if path == prefix:
             result = opportunities.list_opportunities(store, params, handler.user)
+        elif path == prefix + '/duplicates':
+            from .opportunity_matching import check_duplicates
+            result = check_duplicates(store, params, handler.user)
+        elif path == prefix + '/link-projects':
+            from .opportunity_matching import project_choices
+            result = project_choices(store, params, handler.user)
         elif path == prefix + '/detail':
             result = opportunities.detail(store, params.get('id'), handler.user)
         elif path == prefix + '/activity':
@@ -55,6 +61,9 @@ def route(handler, path, store, send):
         result = opportunities.save(store, payload, handler.user)
     elif path == prefix + '/decision':
         result = opportunities.decide(store, payload, handler.user)
+    elif path == prefix + '/link-project':
+        from .opportunity_matching import link_project
+        result = link_project(store, payload, handler.user)
     elif path == prefix + '/quote':
         result = opportunities.quote(store, payload, handler.user)
     elif path in (prefix + '/assign', prefix + '/access'):

@@ -134,3 +134,23 @@ html[data-theme=dark] .op-deadline.op-deadline-neutral{color:#b0b7c0}
 .op-latest-activity strong {color:var(--foreground)}
 .op-latest-project {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:800px){.op-latest-activity{margin-left:0;max-width:100%;flex-basis:100%}}
+
+.op-duplicate-review{padding:14px;border:1px solid var(--border);border-left:3px solid #b99732;border-radius:10px;background:var(--muted);font-size:13px;line-height:1.5}
+.op-duplicate-review>p{color:var(--muted-foreground);margin:6px 0}
+.op-duplicate-list{max-height:210px;overflow:auto;margin:10px 0}
+.op-duplicate-list details{padding:7px 0;border-bottom:1px solid var(--border)}
+.op-duplicate-list summary{cursor:pointer;font-weight:600}
+.op-duplicate-review>label{display:flex;align-items:flex-start;gap:8px;margin-top:10px}
+.op-duplicate-review input{width:16px;height:16px;flex:none;margin-top:2px}
+.op-link-dialog{max-width:680px!important}
+.op-link-results{max-height:40vh;overflow:auto;display:grid;gap:8px}
+.op-link-results button{padding:12px;text-align:left;border:1px solid var(--border);border-radius:9px;display:grid;gap:4px;overflow-wrap:anywhere;background:var(--card);color:var(--foreground)}
+.op-link-results button[aria-checked=true]{border-color:var(--primary);box-shadow:inset 3px 0 var(--primary);background:var(--muted)}
+.op-link-results button span,.op-link-results button small{font-size:12px;color:var(--muted-foreground)}
+.op-link-confirm{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--border);padding:12px;border-radius:9px;font-size:13px;line-height:1.5}
+.op-link-confirm svg{flex:none;margin-top:2px}
+.op-link-existing{margin-top:12px}
+.op-link-dialog>.op-search{width:100%;max-width:none;margin:0;flex-basis:auto}
+.op-link-dialog>.op-search input{width:100%;min-width:0}
+.op-dialog .op-duplicate-review>label{flex-direction:row;color:var(--foreground);font-size:13px;font-weight:500;align-items:flex-start}
+.op-dialog .op-duplicate-review input[type=checkbox]{width:16px!important;min-width:16px;height:16px!important;min-height:16px!important;padding:0;margin:2px 0 0;box-shadow:none;accent-color:var(--primary)}
