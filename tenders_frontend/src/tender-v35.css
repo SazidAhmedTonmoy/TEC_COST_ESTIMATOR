@@ -209,3 +209,97 @@ html[data-theme=dark] .op-docs-no .op-docs-state{background:#202f3a;border-color
 .op-docs-compact .op-docs-label{font-size:10px}
 .op-docs-compact .op-docs-state{min-width:30px;padding:3px 8px;font-size:10px}
 @media(max-width:680px){.op-card-info-row{align-items:flex-start;flex-direction:column}.op-card-info-row .op-docs-card-row,.op-card-info-row .op-docs-toggle{width:100%}.op-docs-toggle{justify-content:space-between}}
+
+
+/* 3.7.8 - shared spacing rhythm across Tenders pages.
+   4/8/12/16/24 px scale; compact rows, readable touch controls. */
+.page-content{--tec-space-1:4px;--tec-space-2:8px;--tec-space-3:12px;--tec-space-4:16px;--tec-space-6:24px;
+  padding:24px clamp(16px,2vw,28px) 24px}
+.page-heading{gap:16px;margin-bottom:20px}
+.heading-actions,.dashboard-filters,.filter-row{gap:10px 12px}
+.kpi-grid{gap:14px;margin-bottom:18px}
+.kpi{padding:17px 18px}
+.kpi>strong{margin:8px 0 10px}
+.dashboard-mid{gap:14px;margin-bottom:18px}
+.dashboard-mid .panel-heading,.panel-heading{padding:16px 18px;gap:12px}
+.panel-heading p{margin-top:4px}
+.panel-foot{padding:11px 16px;gap:10px}
+.filter-sections{gap:12px 14px;padding:14px 18px}
+.list-tabs,.view-strip{gap:8px 12px}
+.notice-panel{gap:12px;padding:16px 18px}
+.calendar-summary{gap:12px}
+.agenda-row,.reminder-row,.relation-row{gap:12px;padding-block:11px}
+.pagination{padding:12px 16px;gap:12px;flex-wrap:wrap}
+/* Tables belong in scroll containers, rather than demanding a wider page. */
+.table-wrap,.tender-table-wrap{max-width:100%;overflow-x:auto}
+.tender-table :is(th,[data-slot=table-head]){height:auto!important;min-height:40px;padding:10px 13px!important;line-height:1.45}
+.tender-table :is(td,[data-slot=table-cell]){padding:10px 13px!important;line-height:1.48;vertical-align:middle}
+.tender-table :is(td,th):first-child{padding-left:16px!important}
+.tender-table .sub-line{margin-top:3px}
+.tender-table .project-name{line-height:1.4}
+.tender-table :is(.badge,.schedule-link){white-space:normal}
+/* Register toolbar and opportunity cards: content flows tightly, actions align. */
+.op-heading{gap:16px;margin-bottom:18px}
+.op-heading h2{margin:6px 0}
+.op-stats{gap:12px;margin-bottom:18px}
+.op-stat{gap:8px;padding:16px 18px;border-radius:16px}
+.op-register.panel{border-radius:16px}
+.op-register-heading{padding:16px 18px;gap:12px}
+.op-toolbar{gap:10px 12px;padding:13px 18px}
+.op-list-options{gap:8px 12px;padding:10px 18px}
+.op-cards{gap:14px;padding:8px 18px 18px}
+.op-card{padding:16px;border-radius:14px;min-width:0}
+.op-card-top{margin-bottom:8px}
+.op-project-link{margin-bottom:5px;line-height:1.45}
+.op-builders{line-height:1.5}
+.op-card-scope{margin-top:7px;line-height:1.5}
+.op-card-deadline{margin-top:10px;gap:7px 10px}
+.op-card-facts{margin:7px 0 0;gap:8px 12px;line-height:1.5}
+.op-card-external-link{min-height:0;padding:5px 0;margin:4px 0 0;line-height:1.5}
+.op-card-info-row{gap:10px;margin:9px 0 0}
+.op-card-info-row .op-docs-card-row{margin:0}
+.op-card-meta{margin-top:12px;padding-bottom:0;gap:10px}
+.op-card-footer{margin-top:auto;padding-top:12px;gap:10px}
+.op-link-existing{margin-top:10px}
+.op-card>.op-quote-actions,.op-card-quoted{padding-top:12px;margin-top:12px}
+.op-card-quoted{gap:8px}
+.op-card-quoted>button{min-height:38px}
+.op-quote-actions>button{min-height:40px}
+.op-pagination{padding:12px 18px}
+.op-detail-sheet [data-slot=sheet-header]{padding:20px 24px 16px;gap:8px}
+.op-detail-body{padding:18px 24px 24px}
+.op-detail-status{margin-bottom:14px}
+.op-detail-actions{gap:8px;margin-bottom:14px}
+.op-info{margin-bottom:14px}
+.op-quote-prompt,.op-quote-summary{margin:14px 0;padding:14px}
+.op-dialog .op-form-grid{gap:12px 16px}
+.op-dialog .op-dialog-actions{gap:10px;margin-top:16px}
+/* Readable on tablet/phone, without squeezing touch targets. */
+@media(max-width:800px){
+ .page-content{padding:18px 14px 22px}
+ .op-cards{padding:8px 14px 16px;gap:12px}
+ .op-toolbar{padding:12px 14px}
+ .op-list-options{padding:10px 14px}
+ .op-register-heading{padding:14px}
+ .op-heading{margin-bottom:14px}
+ .op-stat{padding:14px}
+ .op-detail-sheet [data-slot=sheet-header]{padding:20px 42px 14px 18px}
+ .op-detail-body{padding:16px 18px 24px}
+}
+@media(max-width:767px){
+ .page-content{padding:14px 12px 20px}
+ .page-heading{gap:10px;margin-bottom:15px}
+ .heading-actions{gap:8px}
+ .kpi-grid{gap:10px;margin-bottom:14px}
+ .dashboard-mid{gap:12px;margin-bottom:14px}
+ .panel-heading{padding:14px 15px}
+ .op-cards{padding:8px 12px 14px}
+ .op-card{padding:14px}
+ .op-card-info-row{gap:8px}
+ .op-card-info-row .op-docs-card-row{width:100%}
+ .op-card-info-row .op-docs-toggle{width:100%;min-height:42px}
+ .op-card-meta{margin-top:10px}
+ .op-card-footer{padding-top:10px}
+ .op-detail-actions button{min-height:42px}
+}
+@media(max-width:390px){.page-content{padding-inline:10px}.op-cards{padding-inline:10px}.op-card{padding:13px}}

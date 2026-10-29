@@ -1,0 +1,37 @@
+/* TEC ConEst 3.7.8: shared 4/8/12/16/24px spacing rhythm.
+   Scoped to authenticated screens; login artwork and sizing stay unchanged. */
+.app-shell:not(.hidden){--tec-space-1:4px;--tec-space-2:8px;--tec-space-3:12px;--tec-space-4:16px;--tec-space-6:24px}
+.app-shell:not(.hidden) .topbar{gap:16px}
+.app-shell:not(.hidden) .view>.panel{margin-bottom:16px}
+.app-shell:not(.hidden) .view>.panel>.panel-heading{margin-bottom:14px}
+.app-shell:not(.hidden) .workspace-welcome{padding:8px 0 18px;gap:14px}
+.app-shell:not(.hidden) .home-grid{gap:16px}
+.app-shell:not(.hidden) .metric-grid{gap:12px;margin-bottom:16px}
+.app-shell:not(.hidden) .panel-heading{gap:12px}
+.app-shell:not(.hidden) .project-board{gap:12px}
+.app-shell:not(.hidden) .project-board .project-card{padding:16px}
+.app-shell:not(.hidden) .project-board .project-card-heading{gap:10px}
+.app-shell:not(.hidden) .project-board-tools{gap:8px}
+.app-shell:not(.hidden) .project-tabs{gap:7px;padding:10px 14px 14px}
+.app-shell:not(.hidden) .split-heading{margin:4px 0 16px;gap:12px}
+.app-shell:not(.hidden) .settings-grid,.app-shell:not(.hidden) .team-cards{gap:12px}
+.app-shell:not(.hidden) .inline-actions,.app-shell:not(.hidden) .dialog-actions{gap:10px}
+.app-shell:not(.hidden) .table-scroll{max-width:100%;overflow-x:auto}
+.app-shell:not(.hidden) .data-table :is(th,td){padding:10px 12px}
+.app-shell:not(.hidden) .data-table :is(th,td):first-child{padding-left:14px}
+.app-shell:not(.hidden) .helper-text{line-height:1.5}
+@media(max-width:820px){
+ .app-shell:not(.hidden) .home-grid{gap:12px}
+ .app-shell:not(.hidden) .metric-grid{gap:10px}
+ .app-shell:not(.hidden) .project-board{gap:10px}
+ .app-shell:not(.hidden) .project-board .project-card{padding:14px}
+ .app-shell:not(.hidden) .workspace-welcome{padding-bottom:14px}
+ .app-shell:not(.hidden) .view>.panel{margin-bottom:12px}
+}
+@media(max-width:600px){
+ .app-shell:not(.hidden) .project-board-tools{gap:8px}
+ .app-shell:not(.hidden) .project-tabs{gap:6px;padding:8px 12px 12px}
+ .app-shell:not(.hidden) .project-board .project-card{padding:12px}
+ .app-shell:not(.hidden) .settings-grid{gap:10px}
+ .app-shell:not(.hidden) .topbar{gap:12px}
+}

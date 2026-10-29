@@ -713,7 +713,7 @@ def list_opportunities(store, filters, user):
     teams, users = directory()
     actor = _actor(user, users)
     page = _page(filters.get('page'), 1, 100000)
-    size = _page(filters.get('pageSize'), 30, 100)
+    size = _page(filters.get('pageSize'), 18, 100)
     where, args = _query(filters, users=users)
     count_where, count_args = _query(filters, include_status=False, users=users)
     with store.connect() as db:

@@ -10,6 +10,7 @@ import {opportunityDate,opportunityStatusLabels} from '@/lib/opportunity-types';
 import {canQuoteOpportunity,canRejectOpportunity,isOpportunityQuoted,nextOpportunityDayChange,opportunityDeadline,opportunityLocalDate,opportunityTimezone,opportunityRouteUrl,safeOpportunityLink} from '@/lib/opportunity-display';
 import type {Opportunity,OpportunityActivity,OpportunityDetail,OpportunityList,OpportunityRegion,OpportunityStatus} from '@/lib/opportunity-types';
 
+const OPPORTUNITY_PAGE_SIZE = 18;
 const statusIcons={pending:Clock,approved:CheckCircle2,rejected:XCircle,expired:CalendarDays};
 const defaultRegions=[{code:'NSW',origin:'63-79 Parramatta Rd Silverwater, NSW 2128',timezone:'Australia/Sydney'},{code:'VIC',origin:'CBD, Melbourne',timezone:'Australia/Melbourne'}];
 type Draft={id?:string;revision?:number;project:string;builders:string[];region:string;location:string;due:string;workingScope:string;remarks:string;link:string;value:number|null;distanceKm:number|null;distanceOrigin:string;category:string;budget:string;addedDate:string};
@@ -115,12 +116,12 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
   useEffect(()=>{const timer=setTimeout(()=>{setSearch(query);setPage(1)},250);return()=>clearTimeout(timer)},[query]);
   const loadList=useCallback(async()=>{
     listRequest.current?.abort();const controller=new AbortController();listRequest.current=controller;setLoading(true);setError('');
-    const params=new URLSearchParams({q:search,status,page:String(page),pageSize:'20',sort});
+    const params=new URLSearchParams({q:search,status,page:String(page),pageSize:String(OPPORTUNITY_PAGE_SIZE),sort});
     if(region)params.set('region',region);if(team)params.set('teamId',team);if(person)params.set('userId',person);
     try {
       const response=await apiFetch('opportunities?'+params,{signal:controller.signal});
       const data=await response.json();if(!response.ok)throw Error(data.error||'Unable to load opportunities.');
-      if(!controller.signal.aborted){setResult(data);const last=Math.max(1,Math.ceil(data.total/20));if(page>last)setPage(last)}
+      if(!controller.signal.aborted){setResult(data);const last=Math.max(1,Math.ceil(data.total/OPPORTUNITY_PAGE_SIZE));if(page>last)setPage(last)}
     }catch(e){if(!controller.signal.aborted)setError((e as Error).message)}finally{if(!controller.signal.aborted)setLoading(false)}
   },[search,status,page,sort,region,team,person]);
   useEffect(()=>{void loadList();return()=>listRequest.current?.abort()},[loadList,reload]);
@@ -182,7 +183,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
   }
   function assignedNames(item:Opportunity){return [...(item.assignedTeamIds||[]).map(id=>teamNames.get(id)||'Former team'),...(item.assignedUserIds||[]).map(id=>userNames.get(id)||'Former user')]}
   const filterCount=[status!=='all',region,team,person,search].filter(Boolean).length;
-  const currentPage=result?.page||page,totalPages=Math.max(1,Math.ceil((result?.total||0)/20));
+  const currentPage=result?.page||page,totalPages=Math.max(1,Math.ceil((result?.total||0)/OPPORTUNITY_PAGE_SIZE));
   const statusList:OpportunityStatus[]=['pending','approved','rejected','expired'];
   const activeTeamName=team==='unassigned'?'No team assigned':teams.find(t=>String(t.id)===team)?.name;
   const latestOpportunity=result?.latestOpportunity;
@@ -208,7 +209,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
         {canLink(item)&&<button className="secondary-btn op-link-existing" onClick={()=>{setActionError('');setLinkItem(item)}}><Link2 size={15}/>{isOpportunityQuoted(item)?'Change linked project':'Link existing project'}</button>}
         {canQuote(item)&&<div className="op-quote-actions" aria-label={'Quote outcome for '+item.project}><button className="primary-btn" disabled={busy} onClick={()=>openQuote(item)}><FileCheck2 size={16}/>Quoted</button><button className="secondary-btn danger-text" disabled={busy} onClick={()=>markNotQuoted(item)}><XCircle size={16}/>Not quoted</button></div>}
       </article>})}{!result?.items.length&&!error&&<div className="op-empty"><ClipboardList size={33}/><h3>{filterCount?'No opportunities match these filters':'No opportunities yet'}</h3><p>{filterCount?'Try another team, region or search.':'Add a potential project or import your opportunity workbook.'}</p><button className="secondary-btn" onClick={filterCount?clearFilters:()=>edit()}>{filterCount?'Clear filters':'Add opportunity'}</button></div>}</div>}
-      {(result?.total||0)>0&&<div className="pagination op-pagination"><span>{(currentPage-1)*20+1}–{Math.min(currentPage*20,result!.total)} of {result!.total}</span><div><button className="icon-btn" aria-label="Previous opportunities page" disabled={currentPage<=1||loading} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={19}/></button><span>Page {currentPage} of {totalPages}</span><button className="icon-btn" aria-label="Next opportunities page" disabled={currentPage>=totalPages||loading} onClick={()=>setPage(currentPage+1)}><ChevronRight size={19}/></button></div></div>}
+      {(result?.total||0)>0&&<div className="pagination op-pagination"><span>{(currentPage-1)*OPPORTUNITY_PAGE_SIZE+1}–{Math.min(currentPage*OPPORTUNITY_PAGE_SIZE,result!.total)} of {result!.total}</span><div><button className="icon-btn" aria-label="Previous opportunities page" disabled={currentPage<=1||loading} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={19}/></button><span>Page {currentPage} of {totalPages}</span><button className="icon-btn" aria-label="Next opportunities page" disabled={currentPage>=totalPages||loading} onClick={()=>setPage(currentPage+1)}><ChevronRight size={19}/></button></div></div>}
     </div>
 
     <Sheet open={!!selectedId} onOpenChange={open=>{if(!open)setSelectedId(null)}}><SheetContent className="op-detail-sheet"><SheetHeader><div className="op-eyebrow">OPPORTUNITY</div><SheetTitle>{selected?.project||'Opportunity details'}</SheetTitle><SheetDescription>{selected?`${selected.region} · Created by ${selected.createdByName||'Workbook import'}`:'Loading project information'}</SheetDescription></SheetHeader>

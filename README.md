@@ -1,6 +1,31 @@
-# TEC ConEst v3.7.7 — Opportunities UI and CI validation
+# TEC ConEst v3.7.8 — Interface spacing and Opportunities pagination
 
-This release updates the **Tender / Opportunities** workspace on top of **v3.7.6**, without changing the underlying database schema (**33**) or existing opportunity data.
+## Release highlights
+
+This UI-only release introduces a consistent spacing scale (4, 8, 12, 16 and 24 px)
+across Estimator and Tenders. The main improvements are more compact Opportunity
+cards, clearer alignment of creator/documents/budget/actions, more consistent
+panel/forms/filters, less padded Projects and Chase-up tables, and responsive
+mobile spacing. Opportunity lists now request **18 cards per page** instead of 20;
+page totals, page boundaries, server defaults and pagination counts agree.
+Other Tender views retain their existing per-page record counts.
+
+The release preserves the previous database **schema 33** and existing user data.
+Upload the complete changed-files package over **v3.7.7o** (the professional
+Yes/No document control update) or use the full ZIP. Preserve the hosting
+configuration, database and uploads; restart Passenger and reload the browser.
+
+Verification: 60 Python test modules passed, 20 JavaScript test files passed,
+15 Chromium layout checks (Tenders cards, Tender tables and Estimator sample
+layouts at 320, 390, 768, 1280 and 1660 pixels) passed, plus compiled JavaScript
+syntax tests. Browser checks used representative layouts rather than the full
+live authenticated website. A fresh Vite build was not possible in this offline
+environment because only TypeScript was installed locally; both React source
+and versioned production assets were updated. GitHub's normal npm build can
+regenerate and fingerprint the frontend.
+
+
+The historical v3.7.7 release updated the **Tender / Opportunities** workspace on top of **v3.7.6**, without changing the underlying database schema (**33**) or existing opportunity data.
 
 | Change | Result |
 | --- | --- |
@@ -9,7 +34,7 @@ This release updates the **Tender / Opportunities** workspace on top of **v3.7.6
 | **Click location for route** | Clicking a recorded card location opens Google Maps directions in a new tab using the nominated or NSW/VIC regional distance origin. Unknown locations remain plain text. The detail panel uses the same route builder. |
 | **GitHub Actions fix** | The former `test_v3512_mobile.py` failure is corrected by comparing the Python release with the Tender package version rather than an outdated fixed string. |
 
-## Install v3.7.7
+## Historical installation instructions: v3.7.7
 
 1. Back up your server code and live database. Overlay the **changed-files-only ZIP** onto a complete **v3.7.6** application, preserving relative directory paths. For an incomplete installation use the full ZIP.
 2. Include **`tenders_web/index.html` and its `index-v377.js`, `opportunities-v377.js`, `index-v377.css` assets**. The normal GitHub pipeline runs `npm ci && npm run build` and replaces these with the Vite build of the same updated React sources.
@@ -31,7 +56,7 @@ TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** 
 | **Team members can edit** | An **active user belonging to any team** has the same eligibility already used to approve opportunities. They can now also **Edit** opportunity details (scope, builders, budget, location, deadlines, links and notes). Team membership is retrieved from the account database, not the form. |
 | **Team members can assign** | The same users can **Assign** teams and individuals, even on opportunities created by someone else or with a past deadline. Assigning a team continues to approve the opportunity automatically. New assignees receive notifications. |
 | **Creator/admin protections** | Only the creator and administrators can **Delete** opportunities, **Manage editing access**, or request approval again. Delegated editors who have no team can still edit details but cannot assign or change editing access. |
-| **Documents available** | Awaiting approval and Approved opportunities show a small **Documents available / Documents not available** switch on their cards and detail panel. A permitted editor can change it whenever the record is in one of those two statuses. |
+| **Documents available** | Awaiting approval and Approved opportunities show a compact **Documents available** control with a clear **Yes / No** indicator on their cards and detail panel. A permitted editor can change it whenever the record is in one of those two statuses. |
 | **Historical data** | Existing opportunities default to **Documents not available** until explicitly marked otherwise. Rejected and Expired opportunities have no document control. A separate website `Link` does **not** automatically mean documents are available. |
 | **Auditing and notifications** | Every actual availability change records the actor, time, before/after state and contribution activity, and notifies relevant colleagues. Every save uses the record revision to stop stale changes. |
 

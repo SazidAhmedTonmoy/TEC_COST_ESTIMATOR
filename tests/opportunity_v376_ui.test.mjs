@@ -30,7 +30,7 @@ const checks=[
   ['source uses separate authorised Assign', source.includes('selected.permissions.assign')&&source.includes('selected.permissions.manage')],
   ['source calls availability endpoint', source.includes("mutate('/documents'")],
   ['typescript includes boolean availability and assignment permission', types.includes('documentsAvailable?:boolean')&&types.includes('assign:boolean')],
-  ['compiled module includes availability labels', built.includes('Documents not available')&&built.includes('Documents available')],
+  ['compiled module includes fixed label and Yes/No status', built.includes('Documents available')&&built.includes('op-docs-state')&&built.includes('Yes')&&built.includes('No')],
   ['compiled module controls permissions', built.includes('.permissions.assign')&&built.includes('.permissions.manage')],
   ['compiled module limits document status to active opportunities', built.includes('pending')&&built.includes('approved')],
   ['page points to existing built assets',!!app.code.length&&!!css.code.length],
