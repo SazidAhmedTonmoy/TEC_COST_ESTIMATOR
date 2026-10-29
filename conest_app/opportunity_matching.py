@@ -68,12 +68,12 @@ def project_choices(store, params, user):
     for row in store.all_data()['submissions']:
         key = tenders.project_key(row.get('project'))
         group = groups.setdefault(key, {'submissionId': row['id'], 'project': row.get('project', ''),
-            'builders': [], 'locations': [], 'regions': [], 'value': None, 'count': 0, 'blocked': False})
+            'builders': [], 'locations': [], 'regions': [], 'value': None, 'count': 0, 'blocked': False, 'linkedTo': []})
         group['count'] += 1
         for field, source in [('builders', 'builder'), ('locations', 'location'), ('regions', 'region')]:
             if row.get(source) and row[source] not in group[field]: group[field].append(row[source])
         if row.get('value') is not None: group['value'] = max(group['value'] or 0, row['value'])
-        if row.get('opportunityId') and row['opportunityId'] != item['id']: group['blocked'] = True
+        if row.get('opportunityId') and row['opportunityId'] not in group['linkedTo']: group['linkedTo'].append(row['opportunityId'])
     choices = [g for g in groups.values() if not query or query in match_key(' '.join([g['project'], *g['locations'], *g['builders']]))]
     choices.sort(key=lambda g: (tenders.project_key(g['project']) != tenders.project_key(item['project']), g['project'].casefold()))
     return {'items': choices[:50], 'total': len(choices)}
@@ -91,20 +91,59 @@ def link_project(store, payload, user):
         if not target: raise tenders.ValidationError('This tender project no longer exists. Refresh the list.', 409)
         target = json.loads(target['body'])
         key = tenders.project_key(target['project'])
-        rows = [json.loads(row['body']) for row in db.execute('SELECT body FROM submissions')]
-        rows = [row for row in rows if tenders.project_key(row.get('project')) == key]
+        all_rows = [{**json.loads(row['body']), '_revision': row['revision']} for row in db.execute('SELECT * FROM submissions')]
+        rows = [row for row in all_rows if tenders.project_key(row.get('project')) == key]
         ids = sorted(row['id'] for row in rows)
-        if any(row.get('opportunityId') not in (None, '', item['id']) for row in rows):
-            raise tenders.ValidationError('This tender project is linked to another opportunity. No data was changed.', 409)
-        if item.get('submissionIds'):
-            if sorted(item['submissionIds']) == ids and all(row.get('opportunityId') == item['id'] for row in rows):
-                return {**op._detail(db, item, actor), 'alreadyLinked': True}
-            raise tenders.ValidationError('This opportunity already has a linked project. No data was changed.', 409)
+        previous_ids = sorted(item.get('submissionIds', []))
+        previous_rows = [row for row in all_rows if row.get('opportunityId') == item['id'] and row['id'] not in ids]
+        owners = sorted({row['opportunityId'] for row in rows if row.get('opportunityId') not in (None, '', item['id'])})
+        former = [op._find(db, owner, include_deleted=True) for owner in owners]
+        for old in former: op._require(old, actor, 'quote')
+        if previous_ids == ids and all(row.get('opportunityId') == item['id'] for row in rows) and not previous_rows:
+            return {**op._detail(db, item, actor), 'alreadyLinked': True}
         op._revision(item, payload)
+        moving = bool(former or previous_rows or (previous_ids and previous_ids != ids))
+        token = hashlib.sha256(json.dumps([item['id'], item['revision'],
+            [(r['id'], r['_revision'], r.get('opportunityId')) for r in sorted(rows+previous_rows, key=lambda r:r['id'])],
+            [(old['id'], old['revision']) for old in former]], sort_keys=True).encode()).hexdigest()
+        if moving and payload.get('reviewToken') != token:
+            return {'requiresLinkReview': True, 'reviewToken': token,
+                    'previousOpportunities': [{'id':old['id'], 'project':old['project']} for old in former],
+                    'previousProjects': sorted({row['project'] for row in previous_rows}),
+                    'project': target['project'], 'submissionCount': len(ids)}
         moment = tenders.timestamp()
+        summary_fields = ('submissionIds','quoteStatus','linkedProjectName','linkedAt','linkedBy','linkedByName',
+            'quotedValue','quotedBuilders','quotedBy','quotedByName','quotedAt','quoteNote','quoteNo','submittedDate','submittedByTeamId')
+        for old in former:
+            snapshot = {field:old[field] for field in summary_fields if field in old}
+            remaining = [sid for sid in old.get('submissionIds', []) if sid not in ids]
+            if remaining:
+                old['submissionIds'] = remaining
+            else:
+                for field in summary_fields: old.pop(field, None)
+            old.update(updatedAt=moment, updatedBy=actor['id'], updatedByName=actor['name'], revision=old['revision']+1)
+            op._write(db, old)
+            event = op._activity(store, db, actor, 'Moved tender link to another opportunity', old,
+                {'newOpportunityId':item['id'], 'newOpportunity':item['project'], 'submissionIds':ids, 'previousLink':snapshot})
+            op._notify(db, op._recipients(old, users), f'link-moved:{event}', 'updated', old,
+                f'{actor["name"]} moved the tender link to {item["project"]}.')
+        if moving:
+            op._activity(store, db, actor, 'Changed existing tender link', item,
+                {'previousLink':{field:item[field] for field in summary_fields if field in item},
+                 'previousProjects': sorted({row['project'] for row in previous_rows}),
+                 'previousOpportunityIds':owners, 'newProject':target['project']})
+        for row in previous_rows:
+            row.pop('_revision', None)
+            for field in ('opportunityId','opportunityLink','opportunityRemarks'): row.pop(field, None)
+            db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?', (json.dumps(row, ensure_ascii=False),row['id']))
         for row in rows:
+            row.pop('_revision', None)
+            if row.get('opportunityId') != item['id']:
+                if 'opportunityLink' in row: row['opportunityLink'] = item.get('link', '')
+                if 'opportunityRemarks' in row: row['opportunityRemarks'] = item.get('remarks', '')
             row.update(opportunityId=item['id'])
             db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?', (json.dumps(row, ensure_ascii=False), row['id']))
+        for field in summary_fields: item.pop(field, None)
         values = [row['value'] for row in rows if row.get('value') is not None]
         item.update(submissionIds=ids, quoteStatus='quoted', linkedProjectName=target['project'],
             linkedAt=moment, linkedBy=actor['id'], linkedByName=actor['name'],

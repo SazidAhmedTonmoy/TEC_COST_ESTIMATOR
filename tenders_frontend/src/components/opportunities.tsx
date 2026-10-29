@@ -82,7 +82,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
   const selected=detail?.opportunity;
   const regions=result?.regions?.length?result.regions:defaultRegions,teams=result?.teams||[],users=result?.users||[];
   const deadlineNow=useDeadlineClock(regions);
-  const canLink=(item:Opportunity)=>!item.deletedAt&&item.status==='approved'&&!isOpportunityQuoted(item)&&!!(item.permissions.quote??item.permissions.approve);
+  const canLink=(item:Opportunity)=>!item.deletedAt&&item.status==='approved'&&!!(item.permissions.quote??item.permissions.approve);
   const categoryOptions=[...new Set([...(result?.categories||[]),...(form?.category?[form.category]:[])])];
   useEffect(()=>{
     setDuplicateReview(null);setDuplicateAccepted(false);setDuplicateChecking(false);
@@ -183,7 +183,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
         <div className="op-card-meta"><span>{item.budget?`Budget: ${item.budget}`:<Money value={item.value}/>}</span>{item.distanceKm!=null&&<span title={'Distance from '+item.distanceOrigin}>{item.distanceKm} km</span>}</div>
         <div className="op-card-footer"><span className="op-assignees"><Users size={15}/>{assigned.length?assigned.join(' · '):'Not assigned'}</span><button className="secondary-btn" onClick={()=>openItem(item.id)}>View details</button></div>
         {item.status==='approved'&&isOpportunityQuoted(item)&&<div className="op-card-quoted"><span><FileCheck2 size={17}/><b>{item.linkedAt?'Linked to tender':'Quoted'}</b>{item.quotedValue!=null&&<Money value={item.quotedValue} precise/>}</span>{item.submissionIds?.[0]&&<button className="secondary-btn" onClick={()=>onOpenChaseUp(item.submissionIds![0])}>Open Project Chase-up<ArrowUpRight size={15}/></button>}</div>}
-        {canLink(item)&&<button className="secondary-btn op-link-existing" onClick={()=>{setActionError('');setLinkItem(item)}}><Link2 size={15}/>Link existing project</button>}
+        {canLink(item)&&<button className="secondary-btn op-link-existing" onClick={()=>{setActionError('');setLinkItem(item)}}><Link2 size={15}/>{isOpportunityQuoted(item)?'Change linked project':'Link existing project'}</button>}
         {canQuote(item)&&<div className="op-quote-actions" aria-label={'Quote outcome for '+item.project}><button className="primary-btn" disabled={busy} onClick={()=>openQuote(item)}><FileCheck2 size={16}/>Quoted</button><button className="secondary-btn danger-text" disabled={busy} onClick={()=>markNotQuoted(item)}><XCircle size={16}/>Not quoted</button></div>}
       </article>})}{!result?.items.length&&!error&&<div className="op-empty"><ClipboardList size={33}/><h3>{filterCount?'No opportunities match these filters':'No opportunities yet'}</h3><p>{filterCount?'Try another team, region or search.':'Add a potential project or import your opportunity workbook.'}</p><button className="secondary-btn" onClick={filterCount?clearFilters:()=>edit()}>{filterCount?'Clear filters':'Add opportunity'}</button></div>}</div>}
       {(result?.total||0)>0&&<div className="pagination op-pagination"><span>{(currentPage-1)*20+1}–{Math.min(currentPage*20,result!.total)} of {result!.total}</span><div><button className="icon-btn" aria-label="Previous opportunities page" disabled={currentPage<=1||loading} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={19}/></button><span>Page {currentPage} of {totalPages}</span><button className="icon-btn" aria-label="Next opportunities page" disabled={currentPage>=totalPages||loading} onClick={()=>setPage(currentPage+1)}><ChevronRight size={19}/></button></div></div>}
@@ -195,7 +195,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
         {!selected.deletedAt&&selected.permissions.edit&&<button className="secondary-btn" onClick={()=>edit(selected)}><Pencil size={15}/>Edit</button>}
         {!selected.deletedAt&&selected.permissions.manage&&<><button className="secondary-btn" onClick={()=>{setActionError('');setManagement({kind:'assign',teams:selected.assignedTeamIds||[],users:selected.assignedUserIds||[]})}}><Users size={15}/>Assign</button><button className="secondary-btn" onClick={()=>{setActionError('');setManagement({kind:'access',teams:selected.editorTeamIds||[],users:selected.editorUserIds||[]})}}><ShieldCheck size={15}/>Editing access</button></>}
         {!selected.deletedAt&&selected.permissions.approve&&['pending','expired'].includes(selected.status)&&<button className="primary-btn" onClick={()=>{setDecision('approved');setReason('');setActionError('')}}><Check size={16}/>Approve</button>}
-        {canLink(selected)&&<button className="secondary-btn" onClick={()=>setLinkItem(selected)}><Link2 size={15}/>Link existing project</button>}
+        {canLink(selected)&&<button className="secondary-btn" onClick={()=>setLinkItem(selected)}><Link2 size={15}/>{isOpportunityQuoted(selected)?'Change linked project':'Link existing project'}</button>}
         {canReject(selected)&&<button className="secondary-btn danger-text" onClick={()=>rejectOpportunity(selected)}><X size={15}/>Reject</button>}
         {!selected.deletedAt&&selected.permissions.manage&&selected.status==='rejected'&&<button className="secondary-btn" onClick={()=>{setDecision('pending');setReason('');setActionError('')}}>Request approval</button>}
       </div>

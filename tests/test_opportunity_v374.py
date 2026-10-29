@@ -81,9 +81,40 @@ class Opportunity374Tests(unittest.TestCase):
         self.assertEqual(matching.project_choices(self.store,{'id':item['id'],'q':'EXISTING'},self.admin)['total'],1)
         matching.link_project(self.store,body,self.member)
         other=self.approved(project='Opportunity B')
-        self.assert_denied(lambda:matching.link_project(self.store,{**body,'id':other['id'],'revision':other['revision']},self.admin),409)
-        self.assertTrue(matching.project_choices(self.store,{'id':other['id'],'q':'Existing project'},self.admin)['items'][0]['blocked'])
+        move={**body,'id':other['id'],'revision':other['revision']}
+        review=matching.link_project(self.store,move,self.admin)
+        self.assertTrue(review['requiresLinkReview'])
+        self.assertFalse(matching.project_choices(self.store,{'id':other['id'],'q':'Existing project'},self.admin)['items'][0]['blocked'])
+        matching.link_project(self.store,{**move,'reviewToken':review['reviewToken']},self.admin)
+        old=op.detail(self.store,item['id'],self.admin)['opportunity']
+        self.assertFalse(old.get('submissionIds'))
+        self.assertFalse(old.get('quoteStatus'))
+        new=op.detail(self.store,other['id'],self.admin)['opportunity']
+        self.assertIn(sid,new['submissionIds'])
         pending=self.create(project='Pending')
         self.assert_denied(lambda:matching.link_project(self.store,{**body,'id':pending['id'],'revision':pending['revision']},self.admin),409)
 
-if __name__=='__main__':unittest.main()
+    def test_change_project_and_stale_transfer_review(self):
+        item=self.approved(project='First opportunity')
+        one=self.tender(name='Project One')
+        two=self.tender(name='Project Two')
+        item=matching.link_project(self.store,{'id':item['id'],'revision':item['revision'],'submissionId':one},self.admin)['opportunity']
+        request={'id':item['id'],'revision':item['revision'],'submissionId':two}
+        review=matching.link_project(self.store,request,self.admin)
+        self.assertTrue(review['requiresLinkReview'])
+        self.assertEqual(review['previousProjects'],['Project One'])
+        # A concurrent tender edit invalidates the proposed transfer.
+        with self.store.connect(write=True) as db:
+            db.execute('UPDATE submissions SET revision=revision+1 WHERE id=?',(two,))
+        stale=matching.link_project(self.store,{**request,'reviewToken':review['reviewToken']},self.admin)
+        self.assertTrue(stale['requiresLinkReview'])
+        self.assertNotEqual(stale['reviewToken'],review['reviewToken'])
+        result=matching.link_project(self.store,{**request,'reviewToken':stale['reviewToken']},self.admin)
+        self.assertEqual(result['opportunity']['submissionIds'],[two])
+        data={row['id']:row for row in self.store.all_data()['submissions']}
+        self.assertFalse(data[one].get('opportunityId'))
+        self.assertEqual(data[two]['opportunityId'],item['id'])
+        self.assertEqual(data[one]['value'],100)
+        self.assertEqual(data[two]['value'],100)
+
+if __name__=='__main__' :unittest.main()

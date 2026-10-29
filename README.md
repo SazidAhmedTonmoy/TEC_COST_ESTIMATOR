@@ -1,10 +1,20 @@
+# TEC ConEst v3.7.4 R2 — Change existing project links
+
+Approved opportunities now show **Change linked project** when connected. Select a different project, or select a project currently connected to another opportunity. Review the old connections, then click **Move link**. The transfer removes the previous connection and attaches all current builder submissions to the selected opportunity in one transaction. Existing tender prices, deadlines and chase-up records remain. Link summaries are cleared on the former opportunity, which stays Approved. Changes are recorded in opportunity activity, contribution history and notifications. Original quote attribution remains in tender records and historical audit entries.
+
+A concurrent change invalidates the transfer review; review again before confirming. The same administrator/team-member permissions apply. No database replacement or schema change is required.
+
+Validation: five focused backend tests, TypeScript, production build and desktop light/dark and mobile browser interaction checks passed. No live deployment performed. This changed-files package updates v3.7.4; deploy over the application root, restart application workers and refresh the browser. See below for the earlier release details.
+
+---
+
 # TEC ConEst v3.7.4
 
 ## Opportunities: consistent categories, duplicate review and existing-project links
 
 - Category dropdown: standard classifications plus existing imported categories. Matching case variants use one canonical option; historical values are retained.
 - Duplicate review: entering a new opportunity checks the active register for matching project names or addresses, ignoring case, punctuation and extra spaces. Matching records show their name, location, region, status and builders. Review the warning and tick the acknowledgement to save genuinely separate work. The server rechecks on save; new/changed matches require review again. Blank/placeholder addresses do not create false matches. This is a potential-duplicate check, not fuzzy address/geographic matching or automatic merging.
-- Link existing project: on an approved opportunity, choose **Link existing project**, search by project/address/builder, review the project and builder submission count, then select **Link project**. Available to administrators and team members, including approved opportunities past their deadline. Links all current builder submissions for the selected tender project without creating new tenders or overwriting their commercial fields/history. Existing links to another opportunity are blocked. Linking records its own actor/time in activity, notifications and contribution history; it does not credit the linker with the original submissions. Newly added builder submissions are not automatically linked by this action.
+- Link existing project: on an approved opportunity, choose **Link existing project**, search by project/address/builder, review the project and builder submission count, then select **Link project**. Available to administrators and team members, including approved opportunities past their deadline. Links all current builder submissions for the selected tender project without creating new tenders or overwriting their commercial fields/history. Existing links can be moved after reviewing the old connection. Linking records its own actor/time in activity, notifications and contribution history; it does not credit the linker with the original submissions. Newly added builder submissions are not automatically linked by this action.
 
 ### Validation
 
