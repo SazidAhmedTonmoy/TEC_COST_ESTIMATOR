@@ -1,6 +1,7 @@
 """3.5.12 regression: compiled mobile behaviour and source/build parity."""
 from pathlib import Path
 import unittest
+import json
 
 from conest_app import __version__
 from tools.check_tender_css import served_mobile_css
@@ -9,7 +10,9 @@ ROOT=Path(__file__).resolve().parents[1]
 
 class Mobile3512Tests(unittest.TestCase):
     def test_release_and_html_assets(self):
-        self.assertEqual(__version__, "3.7.5")
+        package=json.loads((ROOT/'tenders_frontend/package.json').read_text())
+        self.assertEqual(__version__, package['version'])
+        self.assertGreaterEqual(tuple(int(part) for part in __version__.split('.')), (3,5,12))
         html=(ROOT/'assets/index.html').read_text()
         self.assertIn('estimator-menu-backdrop',html)
         self.assertIn('/assets/mobile-v3512.css?v=3.5.12',html)

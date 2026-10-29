@@ -99,6 +99,19 @@ export function nextOpportunityDayChange(timezones:string[],now=Date.now()) {
   return next;
 }
 
+/** Google Maps directions from the opportunity's nominated or regional origin. */
+export function opportunityRouteUrl(
+  item:Pick<Opportunity,'location'|'region'|'distanceOrigin'>,
+  regions:OpportunityRegion[]=[],
+) {
+  const destination=(item.location||'').trim();
+  if(!destination)return '';
+  const origin=(item.distanceOrigin||regions.find(r=>r.code===item.region)?.origin||'').trim();
+  const query=new URLSearchParams({api:'1',destination});
+  if(origin)query.set('origin',origin);
+  return 'https://www.google.com/maps/dir/?'+query.toString();
+}
+
 /** Defence in depth for legacy/imported data; link normalization belongs to the API. */
 export function safeOpportunityLink(value?:string|null) {
   if(typeof value!=='string')return '';

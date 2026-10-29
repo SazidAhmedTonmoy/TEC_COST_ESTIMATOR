@@ -1,3 +1,25 @@
+# TEC ConEst v3.7.7 — Opportunities UI and CI validation
+
+This release updates the **Tender / Opportunities** workspace on top of **v3.7.6**, without changing the underlying database schema (**33**) or existing opportunity data.
+
+| Change | Result |
+| --- | --- |
+| **Region / Added date swap** | The new/edit opportunity form now places **Added date** beside **Closing deadline**, and **Region** beside **Estimated tender value**. Fields keep their original stored values and input behaviour. |
+| **Opportunity creator on cards** | Each card displays **Created by [name]**. Imported records without a named creator say **Imported source**. |
+| **Click location for route** | Clicking a recorded card location opens Google Maps directions in a new tab using the nominated or NSW/VIC regional distance origin. Unknown locations remain plain text. The detail panel uses the same route builder. |
+| **GitHub Actions fix** | The former `test_v3512_mobile.py` failure is corrected by comparing the Python release with the Tender package version rather than an outdated fixed string. |
+
+## Install v3.7.7
+
+1. Back up your server code and live database. Overlay the **changed-files-only ZIP** onto a complete **v3.7.6** application, preserving relative directory paths. For an incomplete installation use the full ZIP.
+2. Include **`tenders_web/index.html` and its `index-v377.js`, `opportunities-v377.js`, `index-v377.css` assets**. The normal GitHub pipeline runs `npm ci && npm run build` and replaces these with the Vite build of the same updated React sources.
+3. Preserve `data/`, production database files, uploads, secrets, and the existing Python 3.11 Passenger startup configuration. Restart the app after deployment.
+4. Check `/api/health?check=tenders` for release **3.7.7** and schema **33**. Verify a card's creator, location route, and the form field positions.
+
+*No database migration, data reset or permission change is introduced. Historical instructions for earlier releases follow.*
+
+---
+
 # TEC ConEst v3.7.6 — Team editing and document availability
 
 TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. Version **3.7.6** builds on the full **v3.7.5** application with two focused workflow improvements, without changing estimation calculations or tender project links.
@@ -549,6 +571,8 @@ Production health only confirms application readiness; it is not a guarantee tha
 
 | Release | Major themes |
 |---|---|
+| **3.7.7** | Fixed CI release checks, opportunity creator and clickable routes, and swapped form fields |
+| **3.7.6** | Team-member editing and document availability |
 | **3.6** | Consolidated shared Estimator/Tenders login and mobile release: drawer navigation, hidden login floating controls, Tender KPI 2x2 grid, responsive checks, performance and documentation cleanup |
 | **3.5.11** | Shared login carousel, mobile coverage, static delivery and refresh improvements, consolidated docs |
 | **3.5.10** | Removed Reject actions from Expired cards/details |
@@ -570,3 +594,13 @@ Production health only confirms application readiness; it is not a guarantee tha
 ---
 
 <sub>TEC ConEst is a private operational application. This repository's code and documentation do not include production passwords or databases. Keep releases and user access within authorised company systems.</sub>
+
+
+### v3.7.7 — Opportunity cards and deployment validation
+
+- Swapped **Region** and **Added date** in the opportunity form; all field data, validation and region-specific distance origins remain unchanged.
+- Every opportunity card now identifies its **creator** (or explicitly identifies an imported record without a named creator).
+- Project locations on cards open **Google Maps directions** in a new tab, using the nominated distance origin or the configured regional office. Missing locations remain non-clickable.
+- Fixed the GitHub Actions `test_v3512_mobile.py` version assertion: it validates the Python release against the Tender package version rather than hard-coding an older release.
+- Updated the packaged Tender browser assets and retained the existing database schema. No data migration, reset or configuration changes are required.
+
