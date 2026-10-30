@@ -512,6 +512,15 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     lambda conn: self._authorize_connection(conn, path))
                 self._send_json({'success': True, **result})
                 return
+            breakdown_match=re.fullmatch(r'/api/projects/(\d+)/breakdown',path)
+            if breakdown_match:
+                from conest_app.estimate_areas import save_breakdown
+                payload=self._json_body();pid=int(breakdown_match.group(1))
+                with self._write_connection() as conn:
+                    result=self._project_payload(conn,save_breakdown(conn,pid,self.user,payload))
+                    conn.commit()
+                self._send_json({'success':True,**result})
+                return
             tools_match=re.fullmatch(r'/api/projects/(\d+)/(copy|reorder|sections/(?:remove|inclusion)|lines/(\d+)/(copy|components/reorder|components/(\d+)/(?:copy|remove)))',path)
             if tools_match:
                 from conest_app import estimate_tools

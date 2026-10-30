@@ -119,9 +119,13 @@ def copy_project(conn,pid,user,payload):
     new=create_project(conn,details)['project']['id']
     register_project(conn,new,user)
     conn.execute('UPDATE projects SET scope_of_work=?,scope_order=?,crew_size=?,hours_per_day=?,submission_deadline=? WHERE id=?',(scope,source['scope_order'],source['crew_size'],source['hours_per_day'],deadline,new))
+    from .estimate_areas import names_for_project, initialize_breakdown_areas
+    initialize_breakdown_areas(conn)
+    conn.executemany('INSERT INTO project_breakdown_areas(project_id,area,sort_order) VALUES(?,?,?)',
+        ((new, name, i) for i,name in enumerate(names_for_project(conn,pid))))
     for line in conn.execute('SELECT * FROM project_lines WHERE project_id=? ORDER BY sort_order,id',(pid,)).fetchall():
         changes={'project_id':new,'revision':0,'created_at':utc_now(),'updated_at':utc_now()}
-        if reset:changes.update(quantity=0,supply_quantity_override=None)
+        if reset:changes.update(quantity=0,supply_quantity_override=None,area_allocations='[]')
         new_line=insert_copy(conn,'project_lines',line,changes)
         for row in conn.execute('SELECT * FROM project_line_components WHERE project_line_id=?',(line['id'],)).fetchall():
             changes={'project_line_id':new_line}

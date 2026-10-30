@@ -40,16 +40,20 @@ def shared_html(data):
             item_label='<small class="exclusion-label">Optional cost</small>' if line.get('included_in_total') is False else ''
             items.append('<details class="estimate-item'+(' section-excluded' if line.get('included_in_total') is False else '')+'"><summary><div class="item-title"><b>'+text(line.get('name_snapshot'))+'</b><small>'+number(line.get('quantity'))+' '+text(line.get('uom'))+'</small>'+item_label+'</div>'+totals(values)+'</summary><div class="item-detail">'+details+'</div></details>')
         categories.append('<details class="category'+(' section-excluded' if excluded else '')+'"><summary><div class="category-title"><h3>'+text(category)+'</h3><span>'+str(len(lines))+' items</span>'+section_label+'</div>'+totals(aggregate)+'</summary><div class="category-items">'+''.join(items)+'</div></details>')
-    area_html='<section><h2>Floor / room / area breakdown</h2>'
-    has_areas=any(line.get('area_allocations','[]')!='[]' for line in data['lines'])
+    area_html='<section><h2>Breakdown by area / floor / space</h2>'
+    has_areas=bool(data.get('area_names')) or any(line.get('area_allocations','[]')!='[]' for line in data['lines'])
     for area in data.get('area_summary',[]) if has_areas else []:
-        area_html+='<details class="category"><summary><h3>'+text(area['area'])+'</h3>'+totals(area['included'])+'</summary>'
-        area_html+='<div class="component-scroll"><table><thead><tr><th>Item</th><th>Quantity</th><th>Material</th><th>Hours</th><th>Labour</th><th>Total</th><th>Cost treatment</th></tr></thead><tbody>'
-        for item in area['items']:
-            if not item['quantity'] and not item['quoted']:continue
-            area_html+='<tr><td>'+text(item['name'])+'</td><td>'+number(item['quantity'])+' '+text(item['uom'])+'</td>'+''.join('<td>'+number(item[k])+'</td>' for k in ('material','hours','labor','quoted'))+'<td>'+('Optional cost' if item['optional'] else 'Included')+'</td></tr>'
-        area_html+='</tbody></table></div>'
-        if any(i['optional'] for i in area['items']):area_html+='<h3>Optional costs</h3>'+totals(area['optional'])
+        included=area['included'];optional=area['optional']
+        area_html+='<details class="category area-breakdown"><summary><div class="category-title"><h3>'+text(area['area'])+'</h3><span>'+str(area.get('item_count',len(area['items'])))+' items · '+number(area.get('quantity_total',0))+' allocated units</span></div>'+totals(included)+'</summary>'
+        for category in area.get('categories',[]):
+            area_html+='<details class="category breakdown-nested"><summary><div class="category-title"><h3>'+text(category['category'])+'</h3><span>'+str(len(category['items']))+' items</span></div>'+totals(category['included'])+'</summary>'
+            for item in category['items']:
+                values={k:item[k] for k in ('material','hours','labor','quoted')}
+                flag='<span class="exclusion-label">Optional cost</span>' if item['optional'] else ''
+                area_html+='<details class="estimate-item"><summary><div class="item-title"><b>'+text(item['name'])+'</b><small>'+number(item['quantity'])+' '+text(item['uom'])+'</small>'+flag+'</div>'+totals(values)+'</summary></details>'
+            if category['optional']['quoted']:area_html+='<div class="breakdown-optional">Optional costs (separate): '+text(currency)+' '+number(category['optional']['quoted'])+'</div>'
+            area_html+='</details>'
+        if optional['quoted']:area_html+='<div class="breakdown-optional">Area optional quoted cost: '+text(currency)+' '+number(optional['quoted'])+'</div>'
         area_html+='</details>'
     area_html+='</section>'
     if not has_areas:area_html=''

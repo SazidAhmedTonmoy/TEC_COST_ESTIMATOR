@@ -103,6 +103,11 @@ def redeploy_revision(conn, pid, rid, user, payload):
         line_id = insert('project_lines', row)
         for component in line.get('components', []):
             insert('project_line_components', {**component, 'project_line_id': line_id})
+    from .estimate_areas import checked_names
+    names=checked_names(snapshot.get('area_names',[]))
+    conn.execute('DELETE FROM project_breakdown_areas WHERE project_id=?',(pid,))
+    conn.executemany('INSERT INTO project_breakdown_areas(project_id,area,sort_order) VALUES(?,?,?)',
+        ((pid,name,i) for i,name in enumerate(names)))
     conn.execute('DELETE FROM check_acknowledgements WHERE project_id=?', (pid,))
     record_activity(conn, pid, user, 'Redeployed tender revision', label)
     return {'safety_revision_id': safety, 'revisions': revisions(conn, pid, user)}
@@ -125,6 +130,8 @@ def compare_snapshots(before,after):
         ('name','client','currency','material_markup','labor_rate','labor_hours_markup','overhead_markup','notes','scope_of_work','submission_deadline')
         if before['project'].get(f)!=after['project'].get(f)}
     from .estimate_sections import excluded_categories
+    if before.get('area_names',[])!=after.get('area_names',[]):
+        settings['area_names']={'before':before.get('area_names',[]),'after':after.get('area_names',[])}
     old_sections=excluded_categories(before['project'].get('excluded_categories'))
     new_sections=excluded_categories(after['project'].get('excluded_categories'))
     if old_sections != new_sections:

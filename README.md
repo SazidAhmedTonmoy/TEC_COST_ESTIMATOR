@@ -1,3 +1,64 @@
+# TEC ConEst v3.7.12 — Structured Breakdown
+
+> **Release:** 3.7.12 · **Database schema:** 34 · **Upgrade:** automatic, non-destructive, safety-backed · **Scope:** Estimator Breakdown, structured Excel/shared views, and backward compatibility. Tenders workflows are unchanged.
+
+TEC ConEst provides electrical estimating, catalogue-based line items, tenders, opportunities, team approvals, Chase-up, supplier prices and workflow reporting in one application. This release redesigns **Breakdown** around the way estimators work: **Area / Floor / Space → Category → Estimate Item**.
+
+## Breakdown — what's new
+
+The estimate's existing **Breakdown** action opens two tabs:
+
+| Tab | Purpose |
+|---|---|
+| **Allocation** | Create, rename, reorder or remove empty areas; edit main quantities; allocate to a single area, multiple areas, or as a common item; reconcile before saving. Unassigned items remain under Unallocated until allocated. |
+| **Structured View** | Browse a collapsible Area → Category → Item hierarchy with search, expand/collapse controls, units, material, labour hours, labour cost and quoted values. |
+
+Areas and their order persist independently of line items, even before quantities are assigned. Each category inherits the item's existing pricing, labour rates, factors and exclusions. No new catalogue items are created.
+
+**Allocation rules:**
+
+- **Single area:** the full main quantity is assigned to one floor, room or space.
+- **Multiple areas:** distribute the main quantity manually. The explicit *Distribute equally* action is available, but never applied automatically.
+- **Common to All Areas:** one costed item references the whole project; it is stored as **one allocation**, with no multiplication by the number of floors. Use multiple-area quantities instead if an item must physically be installed in every floor.
+- **Unallocated:** for a line not yet assigned anywhere, the original quantity and price remain intact, reported in a separate Unallocated group, never silently treated as common.
+
+**Reconciliation:** assigned rows must satisfy `main quantity = area allocation quantities + common quantity` to within `0.0000001`; invalid, negative or non-finite quantities are rejected. The complete Breakdown is checked first and saved in **one database transaction**, so a failed save cannot leave partially updated lines. Quantity/price computations continue to use the original item components, fixed costs, markups, scope inclusions and labour basis. Optional costs are shown separately and excluded from the included estimate total.
+
+### Compatibility and safe migrations
+
+- Existing `project_lines.area_allocations` records and legacy `shared` flags are preserved and priced exactly as before. Old equal distributions **are not** reinterpreted as common items.
+- Schema **34** adds `project_breakdown_areas(project_id, area, sort_order)` for the project area registry. Previous allocations are still read directly from estimate lines; no destructive rewrite of historical lines is performed.
+- Startup auto-upgrade creates a verified pre-upgrade SQLite backup under `data/upgrade_backups/` (or beside your configured database path), applies the change and checks database integrity and foreign keys.
+- Old revisions without the new registry can still be restored; areas are inferred from their saved item allocations. New revisions, JSON project exports/imports and project copies also preserve the area registry. A project copied with zero quantities does not retain conflicting old allocations.
+- The project **Breakdown** remains the only item-allocation editor. The redundant Areas/floors button on individual lines stays removed.
+
+### Exports and shared read-only views
+
+Excel exports retain **COST ESTIMATE**, **CONNECTED COST DETAIL**, **AREA ALLOCATIONS**, and **AREA SUMMARY**, and add a formula-linked **STRUCTURED BREAKDOWN** worksheet with the same hierarchy. It contains item quantities, materials, hours, labour, included quotes and **separate optional** values, with area/category and project subtotals. It references editable quantity cells in AREA ALLOCATIONS; Excel recalculates the linked figures when the workbook is opened/edited. Common items appear once.
+
+Revocable public estimate links now show collapsible **Area → Category → Item** groupings, including an independent Common to All Areas section when present. Optional cost totals are identified separately. The existing sharing permission model is unchanged.
+
+### Technical/deployment notes
+
+- **Application release:** `conest_app.__version__ = 3.7.12`; Tender package version also matches for CI consistency.
+- **API:** authenticated `POST /api/projects/{project_id}/breakdown` accepts an expected project revision, an ordered `areas` array, and one row per estimate item (`id`, `expected_revision`, `quantity`, `allocations`). It validates ownership/edit access, per-line revisions, uniqueness, total reconciliation and area membership; the server commits or rolls back the complete update.
+- **Production:** retain the host's `data/`, `*.db`, uploads, environment files, `passenger_wsgi.py` and `.htaccess`. Apply the changed-files ZIP only to a complete v3.7.11 installation, otherwise use the full ZIP. Restart Passenger and hard-refresh; the HTML references new fingerprinted browser assets.
+- **Verification:** the Python regression suite (63 modules) passed before release packaging; the additional v3.7.12 tests cover atomicity, common/optional pricing, copies, revisions, JSON, Excel, legacy allocations and the upgrade. Chromium layout checks at 320/390/768/1280 px showed no page-level horizontal overflow and an internally scrollable allocation matrix. Browser checks used a local UI fixture, not the live authenticated hosting account.
+- **Rollback:** keep the protected database upgrade backup. Older code should **not** be run against a schema-34 database without restoring a compatible database snapshot; do not copy a blank database over production.
+
+---
+
+## Previous release history (retained for reference)
+
+### v3.7.11 — Breakdown workflow cleanup
+
+- Removed the redundant **Areas / floors** action from individual estimate lines. Use the existing project **Breakdown** button to distribute item quantities by area.
+- Allocated line quantities remain read-only on the estimate grid; both their total and their distribution can now be edited through the project Breakdown matrix. Unallocated quantities remain directly editable.
+- Existing allocation data, breakdown reports, quoted totals, shared project links, and Excel formulas are preserved. No database migration or reset is required (schema 33).
+- Deploy the changed-files ZIP over v3.7.10a; keep server databases, configuration and uploads. Compiled Estimator assets are fingerprinted for fresh browser loading.
+
+---
+
 # TEC ConEst v3.7.9 — Clear workspace navigation & reliable CI
 
 **What changed:** Estimator and Tenders each show clearly named **Estimator | Tenders** tabs directly beneath the logo (desktop, mobile header and navigation drawer). The current workspace is highlighted in teal or yellow, with keyboard-focus and screen-reader labels. The previous circular-arrow workspace switch is removed. The existing same-site transition and login session are retained.
@@ -194,19 +255,15 @@ Built from the supplied `TEC_ConEst_v3.6_CI_FIX_FULL.zip`. Application release 3
 
 ## Floors, rooms, levels and areas
 
-Each estimate item has an **Areas / floors** button. Add a named location and the quantity installed there. Use names such as `Level 1 / Reception`, `Level 2 / Meeting room`, or `External works`. Existing location names are suggested when entering another item.
+**Use the project-level Breakdown button** next to Revisions in the selected estimate to distribute quantities among floors, rooms or areas. The separate **Areas / floors** button on individual estimate items was removed in v3.7.11 to prevent duplicate workflows.
 
-- **Divide total equally** splits the existing item quantity across the area rows you have added. You can then adjust each quantity for an uneven split. Fractional quantities are allowed; adjust whole-unit products manually when the total is not divisible by the number of areas.
-- An item can occur in one, several, or every area: enter a quantity for each applicable area.
-- Allocated quantities add up to the estimate item's total quantity. Edit quantities in the allocation dialog; the main quantity field becomes read-only for allocated items.
-- To repeat ten fittings on three floors, enter 10 against each floor; the project contains 30 fittings, not 10.
-- To split ten fittings across floors, enter the split (for example 3 and 7); the project contains 10 fittings.
-- Common project-wide work may remain in **Shared / Unallocated**, or be allocated across locations. Existing estimates initially use Shared / Unallocated and keep their previous totals.
-- **Clear allocations** retains the last total item quantity and returns the item to Shared / Unallocated.
-- **Area breakdown**, beside Share, shows quantities and totals by location. Material, labour hours, labour price and quoted amounts are calculated from the estimate. Optional sections remain separate from included totals.
-- Fixed-total components and independent supply allowances are apportioned in proportion to the item's allocated quantities, rather than charged again in each location. If a fixed component belongs only to one area, make it a separate estimate item and allocate it there.
-- Allocations use one set of item rates. For different prices or component build-ups in different rooms, copy the estimate item, edit the copy, and allocate each item separately.
-- These are named locations; labels containing `/` provide readable level/room paths. This release does not introduce a nested building tree or drawing takeoff.
+- Add named breakdowns such as `Level 1 / Reception`, `Level 2 / Meeting room`, or `External works` in the project Breakdown matrix.
+- Each item shows its main quantity and an allocation column for each area. Use **Shared** to divide that quantity equally, or type quantities for an uneven split. Every item must reconcile to its main quantity before saving.
+- The estimate item's main quantity field is read-only once it has area allocations. Edit the **Main quantity** and its distribution through **Breakdown**; every row must reconcile before saving. Unallocated items retain ordinary quantity editing.
+- To repeat ten fittings on three floors, set the main item quantity to 30, then allocate 10 to each floor. To split ten fittings across two floors, allocate 3 and 7.
+- Shared / Unallocated values and saved breakdowns are preserved. Removing the per-item shortcut does **not** delete or change any allocations, quantities, line items, project costs or exports.
+- Fixed-total components and supply allowances are distributed in proportion to allocated quantities, rather than charged again in each area. If the rates or components vary by location, use separate estimate items.
+- The **Breakdown** matrix is the single editor for location-based quantities, while the ordinary scope/category cost Breakdown remains unchanged.
 
 ## Connected Excel workbook
 

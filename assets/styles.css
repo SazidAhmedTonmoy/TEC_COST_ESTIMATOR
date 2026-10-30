@@ -2267,3 +2267,74 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlighted>td{bac
 @media(max-width:820px){
  .app-shell > .sidebar.menu-open nav#main-navigation{margin-top:12px!important}
 }
+
+/* v3.7.12: Allocation + Structured View share the project breakdown dialog. */
+.breakdown-v3712{width:min(1320px,96vw);max-height:94dvh;border:1px solid var(--line);border-radius:18px;padding:0;color:var(--ink);background:var(--surface)}
+.breakdown-v3712>.dialog-card{display:flex;flex-direction:column;gap:0;width:100%;min-height:0;max-height:94dvh;overflow:hidden;padding:20px 24px}
+.breakdown-v3712 .breakdown-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex:none}
+.breakdown-v3712 .breakdown-heading h2{margin:0;font-size:23px}
+.breakdown-v3712 .breakdown-heading p{margin:7px 0 12px}
+.breakdown-v3712 .breakdown-heading [data-cancel]{padding:4px 12px;min-width:36px;font-size:18px}
+.breakdown-tabs{display:flex;flex:none;gap:5px;border-bottom:1px solid var(--line);padding:2px 0 10px}
+.breakdown-tabs button{background:transparent;color:var(--muted);border:1px solid transparent;border-radius:9px;padding:9px 15px;min-height:39px;font-weight:700;cursor:pointer}
+.breakdown-tabs button.active,.breakdown-tabs button[aria-selected=true]{background:rgba(11,160,148,.15);color:var(--ink);border-color:var(--teal)}
+.breakdown-tabs button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+.breakdown-v3712 .breakdown-pane{flex:1;min-height:0;overflow-y:auto;padding:14px 0 4px;scrollbar-width:thin}
+.breakdown-v3712 .breakdown-names{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;margin:0 0 16px}
+.breakdown-name-row{display:flex;gap:6px;align-items:flex-end;min-width:min(240px,100%);max-width:300px}
+.breakdown-name-row label{display:grid;gap:5px;font-size:11px;font-weight:700;flex:1;min-width:0}
+.breakdown-name-row input{margin:0;width:100%;min-width:0;height:38px}
+.breakdown-area-actions{display:flex;gap:3px}
+.breakdown-area-actions button{min-width:29px;width:29px;height:38px;padding:2px}
+.breakdown-v3712 .breakdown-scroll{width:100%;max-width:100%;max-height:min(52vh,530px);overflow:auto;scrollbar-width:thin;border:1px solid var(--line);border-radius:10px}
+.breakdown-v3712 .breakdown-scroll table{border-collapse:separate;border-spacing:0;min-width:900px;width:100%;table-layout:auto}
+.breakdown-v3712 .breakdown-scroll th,.breakdown-v3712 .breakdown-scroll td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle;text-align:left;font-size:12px}
+.breakdown-v3712 .breakdown-scroll thead th{position:sticky;z-index:3;top:0;background:var(--panel,#17313b);font-size:10px;letter-spacing:.03em;text-transform:uppercase}
+.breakdown-v3712 .breakdown-scroll tbody tr>th:first-child{position:sticky;z-index:2;left:0;background:var(--surface);white-space:normal;min-width:220px;max-width:280px}
+.breakdown-v3712 .breakdown-scroll tbody tr>th small{display:block;line-height:1.6;font-weight:400;color:var(--muted)}
+.breakdown-v3712 .breakdown-scroll .breakdown-category-row th{position:sticky;left:0;background:var(--canvas);color:var(--teal);font-size:12px;font-weight:750;padding-block:10px}
+.breakdown-v3712 .breakdown-scroll input[type=number]{width:100px;min-width:75px;max-width:100px;margin:0}
+.breakdown-v3712 .breakdown-scroll select{display:block;margin-bottom:5px;min-width:130px;max-width:165px;width:100%;padding:6px;font-size:12px}
+.breakdown-v3712 .breakdown-scroll [data-equal]{font-size:11px;white-space:nowrap}
+.breakdown-v3712 .breakdown-scroll input:disabled{opacity:.4}
+.area-reconciled{color:#81d8a8;font-weight:700}.area-unreconciled{color:#ff9f88;font-weight:800}
+.breakdown-v3712 .area-actions{display:flex;flex:none;justify-content:flex-end;align-items:center;gap:10px;border-top:1px solid var(--line);padding-top:13px;margin-top:10px}
+.breakdown-v3712 .area-actions .breakdown-save-note{margin-right:auto;font-size:12px;color:var(--muted)}
+.breakdown-v3712 .area-error{color:#ffb5b8;font-weight:650;min-height:14px;flex:none;margin:6px 0 0}
+.breakdown-tree-toolbar{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.breakdown-tree-toolbar label{display:grid;gap:5px;flex:1 1 260px;font-size:12px;font-weight:650}
+.breakdown-tree-toolbar input{width:100%;min-width:0;margin:0}
+.breakdown-tree{display:grid;gap:9px;max-height:min(57vh,570px);overflow-y:auto;padding:1px 3px 10px 1px}
+.breakdown-tree details{min-width:0;border-radius:10px;border:1px solid var(--line);background:var(--canvas);overflow:hidden}
+.breakdown-tree summary{display:flex;gap:9px;align-items:center;justify-content:space-between;cursor:pointer;padding:11px 12px;font-size:13px;list-style:none;user-select:none}
+.breakdown-tree summary::-webkit-details-marker{display:none}
+.breakdown-tree summary:before{content:'▸';color:var(--teal);font-size:15px;flex:none}
+.breakdown-tree details[open]>summary:before{content:'▾'}
+.breakdown-tree summary>span{display:flex;align-items:center;gap:8px;flex:1;min-width:0;overflow-wrap:anywhere}
+.breakdown-tree summary strong{flex:none;font-size:12px;white-space:nowrap}
+.breakdown-tree summary small{font-size:11px;color:var(--muted);font-weight:450}
+.breakdown-area>.breakdown-category{margin:6px 10px 10px 25px;background:var(--surface)}
+.breakdown-category>.breakdown-tree-item{margin:5px 8px 8px 24px;background:var(--canvas)}
+.breakdown-category>.breakdown-tree-item>summary{padding:9px 10px}
+.breakdown-category>.breakdown-tree-item>summary strong{font-size:11px}
+.breakdown-item-metrics{display:flex;flex-wrap:wrap;gap:7px 16px;padding:4px 12px 14px 35px;font-size:11px;color:var(--muted)}
+.breakdown-folder{color:var(--teal)}.breakdown-tree-totals{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--canvas);margin-top:12px;font-size:12px}
+.area-optional{color:#dab94b}
+@media(max-width:680px){
+ .breakdown-v3712{width:calc(100vw - 12px);max-height:97dvh}
+ .breakdown-v3712>.dialog-card{padding:12px;max-height:97dvh}
+ .breakdown-v3712 .breakdown-heading h2{font-size:18px;line-height:1.35}
+ .breakdown-v3712 .breakdown-names{display:grid;grid-template-columns:1fr;gap:10px}
+ .breakdown-name-row{min-width:0;width:100%;max-width:none}
+ .breakdown-v3712 .breakdown-scroll{max-height:50dvh}
+ .breakdown-v3712 .breakdown-scroll tbody tr>th:first-child{min-width:150px;max-width:200px}
+ .breakdown-v3712 .area-actions{flex-wrap:wrap;gap:6px}
+ .breakdown-v3712 .area-actions .breakdown-save-note{width:100%}
+ .breakdown-v3712 .area-actions button{min-height:42px;flex:1}
+ .breakdown-area>.breakdown-category{margin-left:8px}
+ .breakdown-category>.breakdown-tree-item{margin-left:8px}
+ .breakdown-tree summary{align-items:flex-start;flex-wrap:wrap;gap:5px}
+ .breakdown-tree summary>span{flex:1 1 100px;flex-wrap:wrap}
+ .breakdown-tree summary strong{margin-left:auto}
+ .breakdown-tree-toolbar button{flex:1}
+}

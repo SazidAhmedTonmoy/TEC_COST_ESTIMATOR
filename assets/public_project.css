@@ -4,3 +4,9 @@
 .optional-totals{border-color:#e6c881;background:#fffaf0}.optional-totals>p{color:#805008;margin:0 0 16px}.optional-totals .totals>div:last-child strong{color:#805008}
 
 .breakdown-item{border-bottom:1px solid #cad9dd;padding:16px!important}.breakdown-item .totals{margin-top:8px}.category>h3{padding:16px}.category>.totals{padding:16px}
+
+/* v3.7.12 hierarchy: area -> category -> item */
+.area-breakdown>.breakdown-nested{margin:10px 12px 10px 24px}
+.breakdown-nested>.estimate-item{margin:8px 10px 8px 25px}
+.breakdown-optional{color:#c99a43;font-size:12px;font-weight:700;margin:8px 15px 15px 28px}
+@media(max-width:600px){.area-breakdown>.breakdown-nested{margin:6px}.breakdown-nested>.estimate-item{margin:6px}}

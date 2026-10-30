@@ -361,7 +361,11 @@ def _calculation_inputs(conn, project_id):
 
 
 def calculate_project(conn: sqlite3.Connection, project_id: int, include_components: bool = True) -> dict[str, Any]:
-    return _calculate_rows(*_calculation_inputs(conn,project_id),include_components)
+    result=_calculate_rows(*_calculation_inputs(conn,project_id),include_components)
+    from .estimate_areas import names_for_project,summary
+    result['area_names']=names_for_project(conn,project_id,result['lines'])
+    result['area_summary']=summary(result['lines'],result['area_names'])
+    return result
 
 
 # Cache only numerical summaries, never account permissions or project records.

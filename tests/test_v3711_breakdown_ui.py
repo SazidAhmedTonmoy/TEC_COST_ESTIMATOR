@@ -18,7 +18,8 @@ class BreakdownOnlyUiTests(unittest.TestCase):
         self.assertIn("closest('[data-breakdown]')", allocation_ui)
         self.assertIn('data-add-breakdown', allocation_ui)
         self.assertIn('data-total=', allocation_ui)
-        self.assertIn('quantity:e.quantity,area_allocations:a', allocation_ui)
+        self.assertIn('rows:entries.map(e=>', allocation_ui)
+        self.assertIn('/breakdown', allocation_ui)
         self.assertIn('area_allocations', allocation_ui)
 
     def test_compiled_bundle_has_current_ui_and_is_loaded(self):

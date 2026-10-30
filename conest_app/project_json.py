@@ -20,7 +20,7 @@ def extract(row,fields):return {k:row[k] for k in fields if k in row}
 def export_json(conn,pid,user):
  require_project(conn,pid,user,'view')
  data=calculate_project(conn,pid)
- return {'format':'tec-conest-project','version':1,'project':extract(data['project'],PROJECT),'lines':[
+ return {'format':'tec-conest-project','version':1,'project':extract(data['project'],PROJECT),'areas':data.get('area_names',[]),'lines':[
   {**extract(line,LINE),'components':[extract(c,COMPONENT) for c in conn.execute('SELECT * FROM project_line_components WHERE project_line_id=? ORDER BY line_order,id',(line['id'],)).fetchall() for c in [dict(c)]]} for line in data['lines']]}
 
 def checked(raw,fields,label):

@@ -27,6 +27,8 @@ def annotate_catalog(item,components):
     return item
 
 def initialize_options(conn):
+    from .estimate_areas import initialize_breakdown_areas
+    initialize_breakdown_areas(conn)
     if 'area_allocations' not in {r['name'] for r in conn.execute('PRAGMA table_info(project_lines)')}:
         conn.execute("ALTER TABLE project_lines ADD COLUMN area_allocations TEXT NOT NULL DEFAULT '[]'")
     for table,column in [('catalog_items','assembly_size'),('project_lines','size_snapshot')]:
