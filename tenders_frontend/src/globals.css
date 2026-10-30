@@ -329,3 +329,19 @@ textarea{resize:vertical}.project-name,.builder-chips button,[data-slot=sheet-ti
 .detail-sheet .latest-note{border-color:var(--border);background:var(--card)!important}
 .detail-sheet .latest-note>span{color:var(--muted-foreground)!important;font-weight:750;letter-spacing:.08em}
 .detail-sheet .timeline article>div>span,.detail-sheet .chase-editor{color:var(--muted-foreground)!important}
+
+/* v3.7.15 — consistent opportunity controls, readable chase-up entries */
+.op-quick-filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 16px;border-bottom:1px solid var(--border)}
+.op-quick-filters .secondary-btn{font-size:12px;min-height:36px;border-radius:999px;padding:7px 13px;white-space:nowrap}
+.op-quick-filters .secondary-btn[aria-pressed="true"]{background:var(--primary);border-color:var(--primary);color:var(--primary-foreground);font-weight:750}
+.op-detail-sheet .op-detail-section{margin-top:16px;padding-top:14px}
+.op-detail-sheet .op-detail-section>h3{margin-bottom:9px}
+.op-detail-sheet .op-tags{gap:8px}
+.detail-sheet .chase-history-entry .chase-history-note,.detail-sheet .latest-note p{color:var(--foreground)!important;opacity:1!important}
+@media(max-width:640px){.op-quick-filters{gap:6px;padding:10px 12px}.op-quick-filters .secondary-btn{font-size:11px;padding:7px 10px}.op-detail-sheet .op-detail-section{margin-top:12px}}
+/* Keep Chase-up text legible on both themes, including imported multi-line notes. */
+html[data-theme="dark"] .detail-sheet .latest-note p,
+html[data-theme="dark"] .detail-sheet .chase-history-note{color:#eaf3f8!important;opacity:1!important}
+html[data-theme="dark"] .detail-sheet .chase-history-meta{color:#c0d0da!important;opacity:1!important}
+.detail-sheet .chase-history-entry .history-schedule-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--foreground);font-weight:650}
+.detail-sheet .chase-history-entry .history-schedule-btn:hover{background:var(--accent)}

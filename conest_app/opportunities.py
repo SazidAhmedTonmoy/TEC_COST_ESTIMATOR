@@ -695,6 +695,20 @@ def _query(filters, include_status=True, users=None):
                   "json_array_length(COALESCE(json_extract(o.body,'$.submissionIds'),'[]'))>0)")
         where.append("o.status='approved'")
         where.append(quoted if quote_filter == 'quoted' else 'NOT ' + quoted)
+    due_soon = filters.get('dueSoon', '')
+    if due_soon:
+        if due_soon != '7':
+            raise tenders.ValidationError('Choose a valid upcoming deadline range.')
+        today = datetime.now(ZoneInfo('Australia/Sydney')).date()
+        where.append("o.status IN ('pending','review','approved')")
+        where.append('o.due >= ? AND o.due <= ?')
+        args.extend([today.isoformat(), (today + timedelta(days=6)).isoformat()])
+    available = filters.get('documentsAvailable', '')
+    if available:
+        if available not in ('yes', 'no'):
+            raise tenders.ValidationError('Choose a valid document availability filter.')
+        where.append("json_extract(o.body,'$.documentsAvailable') = ?")
+        args.append(1 if available == 'yes' else 0)
     region = filters.get('region', '')
     if region and region != 'all':
         where.append('o.region=?')

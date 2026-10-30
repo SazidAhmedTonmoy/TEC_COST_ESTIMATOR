@@ -1,0 +1,8 @@
+/* TEC ConEst v3.7.15 — Estimator design tokens aligned with the Tender workspace. */
+#authenticated-app{--ui-space-xs:4px;--ui-space-sm:8px;--ui-space-md:12px;--ui-space-lg:16px;--ui-space-xl:24px;--ui-radius:10px}
+#authenticated-app .panel{border-radius:14px}
+#authenticated-app .button{border-radius:var(--ui-radius)}
+#authenticated-app .panel-heading{gap:var(--ui-space-md)}
+#authenticated-app :is(input:not([type=checkbox]):not([type=radio]),select,textarea){border-radius:9px}
+#authenticated-app :is(button,a,input,select,textarea):focus-visible{outline:2px solid var(--teal,#14b8a6);outline-offset:3px}
+@media(max-width:640px){#authenticated-app .panel-heading{gap:8px;flex-wrap:wrap}#authenticated-app .button{min-height:36px}}
