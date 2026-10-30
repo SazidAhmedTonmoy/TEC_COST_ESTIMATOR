@@ -744,7 +744,12 @@ def list_opportunities(store, filters, user):
         order = {'due': deadline_first + 'due ASC,updated_at DESC,id',  # Backward-compatible sort value.
                  'due_asc': deadline_first + 'due ASC,updated_at DESC,id',
                  'due_desc': deadline_first + 'due DESC,updated_at DESC,id',
-                 'updated': 'updated_at DESC,id', 'name': 'project_key,id'}.get(filters.get('sort'),
+                 'updated': 'updated_at DESC,id',
+                 # Imported records retain their supplied Added date; manual
+                 # records fall back to creation date, NOT last modification.
+                 # ISO dates compare correctly and tie-breakers stabilise paging.
+                 'added': "COALESCE(NULLIF(json_extract(o.body,'$.addedDate'),''),substr(json_extract(o.body,'$.createdAt'),1,10)) DESC,json_extract(o.body,'$.createdAt') DESC,o.id",
+                 'name': 'project_key,id'}.get(filters.get('sort'),
                      "updated_at DESC,id")
         rows = db.execute('SELECT body,revision,created_by FROM opportunities o WHERE ' + where +
                           ' ORDER BY ' + order + ' LIMIT ? OFFSET ?',
@@ -809,7 +814,7 @@ def approved_calendar(store, filters, user):
     """
     initialize(store)
     process_due(store)
-    _, users = directory()
+    teams, users = directory()
     _actor(user, users)
     month = filters.get('month', '')
     if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
@@ -825,8 +830,10 @@ def approved_calendar(store, filters, user):
     return {'month': month, 'items': [
         {'id': item['id'], 'project': item['project'], 'due': item['due'],
          'region': item['region'], 'builders': item.get('builders', []),
+         'assignedTeamIds': item.get('assignedTeamIds', []),
          'quoted': _is_quoted(item) or bool(item.get('linkedAt'))}
         for item in items], 'total': len(items),
+        'teams': teams,
         'quoted': sum(_is_quoted(item) or bool(item.get('linkedAt')) for item in items)}
 
 

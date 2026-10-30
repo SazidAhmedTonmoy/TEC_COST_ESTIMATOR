@@ -327,3 +327,21 @@ html[data-theme=dark] .approved-calendar .calendar-event.needs-quote,html[data-t
 html[data-theme=dark] .approved-calendar .calendar-event.is-quoted,html[data-theme=dark] .calendar-quote-state.is-quoted{background:#1e4b3c;color:#aff1d1}
 @media(max-width:850px){.op-stats-v3713{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:450px){.op-stat-breakdown{gap:3px;flex-direction:column;align-items:flex-start}.op-outcome-filters{padding-inline:12px}.op-outcome-filters button{flex:1;min-width:0}}
+
+/* v3.7.14: colour only unquoted approved deadlines by their assigned team. */
+.approved-calendar .calendar-event.needs-quote.team-coded,
+.calendar-quote-state.needs-quote.team-coded{
+  background:var(--team-calendar-bg,#e2e8f0);
+  color:var(--team-calendar-fg,#334155);
+  border-left:3px solid var(--team-calendar-accent,#94a3b8);
+}
+html[data-theme=dark] .approved-calendar .calendar-event.needs-quote.team-coded,
+html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
+  background:var(--team-calendar-dark-bg,#334155);
+  color:var(--team-calendar-dark-fg,#f1f5f9);
+}
+.team-calendar-legend{flex-wrap:wrap;gap:8px 18px}
+.team-calendar-legend .legend-dot{flex:none}
+.team-calendar-legend span:last-child{margin-left:auto}
+.calendar-quote-state.needs-quote.team-coded{border-radius:7px}
+@media(max-width:767px){.team-calendar-legend span:last-child{margin-left:0}}

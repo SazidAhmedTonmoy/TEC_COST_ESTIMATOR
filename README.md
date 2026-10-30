@@ -1,4 +1,11 @@
-# TEC ConEst v3.7.13 — Opportunity Workflow & Calendar
+# TEC ConEst v3.7.14 — Opportunity Calendar & Sorting
+
+## v3.7.14 — Team-coloured Approved calendar and Recently added sorting
+
+- **Approved Opportunities calendar:** Only **Needs quote** deadlines use distinct team colours, with an automatically generated legend showing assigned teams. Quoted/linked entries keep the existing green status. Unassigned opportunities use neutral grey. Multi-team opportunities use the lowest team ID for a stable colour, with all assigned team names shown in tooltips and agenda labels. No team colour settings or database migration are required.
+- **Recently added:** New Opportunity sort option orders records by their saved Added date (latest first), or their original creation date if no Added date was entered. Last-edited timestamps do not alter this ordering. Server-side sorting supports all pages; the default remains Deadline: High to Low.
+- API compatibility: the month-scoped approved-deadline endpoint additionally returns safe `teams` and `assignedTeamIds` fields. Existing calendar clients can ignore them.
+- **Deployment:** the Tender React client must be rebuilt using `npm ci && npm run build` in your CI workflow. Preserve the live `data/` folder, Passenger config, and all project databases. Schema remains **34**.
 
 ## v3.7.13 — Tender calendar and opportunity workflow
 
@@ -18,7 +25,7 @@
 
 > **Release:** 3.7.13 · **Database schema:** 34 (unchanged) · **Upgrade:** non-destructive · **Scope:** Tender calendar, opportunity workflow, Chase-up accessibility, and structured Breakdown totals.
 
-TEC ConEst provides electrical estimating, catalogue-based line items, tenders, opportunities, team approvals, Chase-up, supplier prices and workflow reporting in one application. This release redesigns **Breakdown** around the way estimators work: **Area / Floor / Space → Category → Estimate Item**.
+TEC ConEst provides electrical estimating, catalogue-based line items, tenders, opportunities, team approvals, Chase-up, supplier prices and workflow reporting in one application. The application also includes a Breakdown redesigned around the way estimators work: **Area / Floor / Space → Category → Estimate Item**.
 
 ## Breakdown — what's new
 
