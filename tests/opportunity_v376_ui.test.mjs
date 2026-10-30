@@ -26,7 +26,7 @@ assert.ok(chunk,'Current Tender entry must lazy-load an Opportunities chunk');
 const built=get('tenders_web/assets/'+chunk[1]);
 const checks=[
   ['source has card and detail controls', source.includes('op-docs-card-row')&&source.includes('op-docs-detail-row')],
-  ['source excludes rejected and expired status', source.includes("['pending','approved'].includes(item.status)")],
+  ['source excludes rejected and expired status', source.includes("['pending','review','approved'].includes(item.status)")],
   ['source uses separate authorised Assign', source.includes('selected.permissions.assign')&&source.includes('selected.permissions.manage')],
   ['source calls availability endpoint', source.includes("mutate('/documents'")],
   ['typescript includes boolean availability and assignment permission', types.includes('documentsAvailable?:boolean')&&types.includes('assign:boolean')],

@@ -1,4 +1,4 @@
-export type OpportunityStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+export type OpportunityStatus = 'pending' | 'review' | 'approved' | 'rejected' | 'expired';
 export type OpportunityTeam = {id:number; name:string};
 export type OpportunityUser = {id:number; name:string; teamId?:number|null; role?:string};
 export type OpportunityRegion = {code:string; origin:string; timezone?:string};
@@ -23,7 +23,7 @@ export type OpportunityActivity = {
 export type OpportunityDetail = {opportunity:Opportunity; activity:OpportunityActivity[];activityTotal?:number;hasMoreActivity?:boolean;nextActivityCursor?:number|null};
 export type OpportunityList = {
   categories?:string[]; items:Opportunity[]; latestOpportunity?:Opportunity|null; total:number; page:number; pageSize:number;
-  counts:Record<OpportunityStatus|'all',number>; regions:OpportunityRegion[];
+  counts:Record<OpportunityStatus|'all'|'closed',number>; quoteCounts?:{quoted:number;needsQuote:number}; regions:OpportunityRegion[];
   teams:OpportunityTeam[]; users:OpportunityUser[]; builders:string[];
   teamCounts:{id:number; name:string; count:number}[]; canApprove:boolean;
 };
@@ -36,7 +36,7 @@ export type NotificationList = {
   page?:number; pageSize?:number;
 };
 export const opportunityStatusLabels:Record<OpportunityStatus,string> = {
-  pending:'Awaiting approval', approved:'Approved', rejected:'Rejected', expired:'Expired',
+  pending:'Awaiting approval', review:'In Review', approved:'Approved', rejected:'Rejected', expired:'Expired',
 };
 export function opportunityDate(value?:string) {
   if (!value) return 'No deadline';

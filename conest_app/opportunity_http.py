@@ -19,6 +19,8 @@ def route(handler, path, store, send):
     if handler.command == 'GET':
         if path == prefix:
             result = opportunities.list_opportunities(store, params, handler.user)
+        elif path == prefix + '/calendar':
+            result = opportunities.approved_calendar(store, params, handler.user)
         elif path == prefix + '/duplicates':
             from .opportunity_matching import check_duplicates
             result = check_duplicates(store, params, handler.user)

@@ -2338,3 +2338,11 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlighted>td{bac
  .breakdown-tree summary strong{margin-left:auto}
  .breakdown-tree-toolbar button{flex:1}
 }
+
+/* v3.7.13: compact, default-collapsed breakdown totals. */
+.breakdown-v3712 .breakdown-area>summary,.breakdown-v3712 .breakdown-category>summary{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.breakdown-v3712 .breakdown-summary-metrics{display:grid;grid-template-columns:repeat(4,minmax(92px,1fr));align-items:center;gap:8px 15px;flex:0 1 580px;width:min(100%,580px)}
+.breakdown-v3712 .breakdown-summary-metrics>span{display:flex;flex-direction:column;gap:4px;text-align:right;white-space:nowrap}
+.breakdown-v3712 .breakdown-summary-metrics small{font-size:10px;line-height:1.2;color:var(--muted)}
+.breakdown-v3712 .breakdown-summary-metrics b{color:var(--ink);font-size:12px;font-variant-numeric:tabular-nums}
+@media(max-width:850px){.breakdown-v3712 .breakdown-summary-metrics{flex-basis:100%;grid-template-columns:repeat(2,minmax(0,1fr))}.breakdown-v3712 .breakdown-summary-metrics>span{text-align:left}}

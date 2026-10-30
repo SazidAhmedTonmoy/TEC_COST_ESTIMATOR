@@ -27,7 +27,7 @@ DEFAULT_REGIONS = {
     'NSW': ('63-79 Parramatta Rd Silverwater, NSW 2128', 'Australia/Sydney'),
     'VIC': ('CBD, Melbourne', 'Australia/Melbourne'),
 }
-STATUSES = ('pending', 'approved', 'rejected', 'expired')
+STATUSES = ('pending', 'review', 'approved', 'rejected', 'expired')
 AUTHORITY_FIELDS = ('assignedTeamIds', 'assignedUserIds', 'editorTeamIds', 'editorUserIds')
 SYSTEM = {'id': 0, 'name': 'System', 'role': 'system', 'team_id': None}
 _initialization_lock = threading.RLock()
@@ -444,7 +444,7 @@ def save(store, payload, user):
         elif item['status'] == 'expired' and not expired:
             item.update(status='pending', decisionBy=None, decisionByName='', decisionAt='', decisionReason='')
             _activity(store, db, actor, 'Reopened opportunity', item, {'reason': 'Deadline extended'})
-        elif item['status'] == 'pending' and expired:
+        elif item['status'] in ('pending', 'review') and expired:
             item['status'] = 'expired'
         _write(db, item, new=not identifier)
         if changed or not identifier:
@@ -452,6 +452,7 @@ def save(store, payload, user):
             event = _activity(store, db, actor, action, item,
                               {'before': {k: before.get(k) for k in changed}, 'after': changed})
             creation = {'pending': 'added an opportunity awaiting approval',
+                        'review': 'added an opportunity under review',
                         'approved': 'added an approved opportunity',
                         'expired': 'added an expired opportunity'}.get(item['status'], 'added an opportunity')
             _notify(db, _recipients(item, users), f'change:{event}', 'updated' if identifier else 'created', item,
@@ -498,8 +499,8 @@ def decide(store, payload, user):
     actor = _actor(user, users)
     identifier = _identifier(payload.get('id'))
     decision = payload.get('decision')
-    if decision not in ('pending', 'approved', 'rejected'):
-        raise tenders.ValidationError('Choose Approve, Reject, or Request approval.')
+    if decision not in ('pending', 'review', 'approved', 'rejected'):
+        raise tenders.ValidationError('Choose In Review, Approve, Reject, or Request approval.')
     reason = tenders.text(payload.get('reason'), 'Decision note', limit=4000)
     with _transaction(store) as db:
         item = _find(db, identifier)
@@ -509,7 +510,7 @@ def decide(store, payload, user):
             raise tenders.ValidationError('This opportunity is already linked to tender submissions. Update its outcome in Project Chase-up.', 409)
         if item['status'] == decision:
             return _detail(db, item, actor)
-        if decision == 'pending' and item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
+        if decision in ('pending', 'review') and item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
             raise tenders.ValidationError('Approve this opportunity to proceed after its deadline, or extend the deadline before requesting approval.', 409)
         before = item['status']
         # An explicit Not quoted decision is valid after a deadline too, but
@@ -525,6 +526,10 @@ def decide(store, payload, user):
         if decision == 'approved':
             _set_approved(item, actor, moment)
             item['decisionReason'] = reason
+        elif decision == 'review':
+            item['reviewedBy'] = actor['id']
+            item['reviewedByName'] = actor['name']
+            item['reviewedAt'] = moment
         elif not_quoted:
             item.update(quoteStatus='not_quoted', notQuotedBy=actor['id'],
                         notQuotedByName=actor['name'], notQuotedAt=moment)
@@ -532,7 +537,7 @@ def decide(store, payload, user):
             item['quoteStatus'] = ''
         _write(db, item)
         action = {'approved': 'Approved opportunity', 'rejected': 'Rejected opportunity',
-                  'pending': 'Requested opportunity approval'}[decision]
+                  'pending': 'Requested opportunity approval', 'review': 'Moved opportunity to In Review'}[decision]
         event = _activity(store, db, actor, action, item, {'before': before, 'after': decision, 'reason': reason,
                                                         **({'quoteStatus': 'not_quoted'} if not_quoted else {})})
         message = f'{actor["name"]} {"requested approval for" if decision == "pending" else decision} this opportunity.'
@@ -561,7 +566,7 @@ def set_documents_available(store, payload, user):
         item = _find(db, identifier)
         _require(item, actor, 'edit')
         _revision(item, payload)
-        if item['status'] not in ('pending', 'approved'):
+        if item['status'] not in ('pending', 'review', 'approved'):
             raise tenders.ValidationError(
                 'Document availability is only tracked for Awaiting approval and Approved opportunities.', 409)
         previous = item.get('documentsAvailable') is True
@@ -672,10 +677,24 @@ def _query(filters, include_status=True, users=None):
     args = []
     status = filters.get('status', '')
     if include_status and status and status != 'all':
-        if status not in STATUSES:
+        if status not in STATUSES and status != 'closed':
             raise tenders.ValidationError('Choose a valid opportunity status.')
-        where.append('o.status=?')
-        args.append(status)
+        if status == 'closed':
+            where.append("o.status IN ('rejected','expired')")
+        else:
+            where.append('o.status=?')
+            args.append(status)
+    quote_filter = filters.get('quoteFilter', '')
+    if quote_filter and quote_filter != 'all':
+        if quote_filter not in ('needs_quote', 'quoted'):
+            raise tenders.ValidationError('Choose a valid quotation filter.')
+        # Quotation filters apply only to approved opportunities. A separate
+        # closed status never inherits these conditions.
+        quoted = ("(COALESCE(json_extract(o.body,'$.quoteStatus'),'')='quoted' OR "
+                  "COALESCE(json_extract(o.body,'$.linkedAt'),'')!='' OR "
+                  "json_array_length(COALESCE(json_extract(o.body,'$.submissionIds'),'[]'))>0)")
+        where.append("o.status='approved'")
+        where.append(quoted if quote_filter == 'quoted' else 'NOT ' + quoted)
     region = filters.get('region', '')
     if region and region != 'all':
         where.append('o.region=?')
@@ -715,7 +734,8 @@ def list_opportunities(store, filters, user):
     page = _page(filters.get('page'), 1, 100000)
     size = _page(filters.get('pageSize'), 18, 100)
     where, args = _query(filters, users=users)
-    count_where, count_args = _query(filters, include_status=False, users=users)
+    count_filters = {**filters, 'quoteFilter': ''}
+    count_where, count_args = _query(count_filters, include_status=False, users=users)
     with store.connect() as db:
         db.execute('BEGIN')
         total = db.execute('SELECT COUNT(*) FROM opportunities o WHERE ' + where, args).fetchone()[0]
@@ -736,6 +756,19 @@ def list_opportunities(store, filters, user):
         counts.update({r['status']: r['n'] for r in db.execute('SELECT status,COUNT(*) n FROM opportunities o WHERE ' +
                        count_where + ' GROUP BY status', count_args)})
         counts['all'] = sum(counts.values())
+        counts['closed'] = counts['rejected'] + counts['expired']
+        quote_counts = db.execute("""SELECT
+            COALESCE(SUM(CASE WHEN status='approved' AND
+                (COALESCE(json_extract(body,'$.quoteStatus'),'')='quoted'
+                OR COALESCE(json_extract(body,'$.linkedAt'),'')!=''
+                OR json_array_length(COALESCE(json_extract(body,'$.submissionIds'),'[]'))>0)
+                THEN 1 ELSE 0 END),0),
+            COALESCE(SUM(CASE WHEN status='approved' AND NOT
+                (COALESCE(json_extract(body,'$.quoteStatus'),'')='quoted'
+                OR COALESCE(json_extract(body,'$.linkedAt'),'')!=''
+                OR json_array_length(COALESCE(json_extract(body,'$.submissionIds'),'[]'))>0)
+                THEN 1 ELSE 0 END),0)
+            FROM opportunities o WHERE """ + count_where, count_args).fetchone()
         regions = [dict(r) for r in db.execute('SELECT code,origin,timezone FROM opportunity_regions ORDER BY code')]
         saved_builders = [r[0] for r in db.execute('SELECT name FROM opportunity_builders WHERE ' +
                           active_sql('builder', 'opportunity_builders.builder_key') + ' ORDER BY name COLLATE NOCASE')]
@@ -759,11 +792,42 @@ def list_opportunities(store, filters, user):
     return {'items': [_public(_decode_opportunity(r), actor) for r in rows],
             'latestOpportunity': _public(_decode_opportunity(latest_row), actor) if latest_row else None,
             'total': total, 'page': page, 'pageSize': size, 'counts': counts,
+            'quoteCounts': {'quoted': quote_counts[0], 'needsQuote': quote_counts[1]},
             'regions': regions, 'teams': teams, 'users': users, 'categories': category_options,
             'builders': sorted(builders.values(), key=str.casefold),
             'teamCounts': [{**team, 'count': assigned.get(team['id'], 0)} for team in teams],
             'unassignedCount': unassigned,
             'canApprove': actor['role'] == 'admin' or actor.get('team_id') is not None}
+
+
+
+def approved_calendar(store, filters, user):
+    """Month-scoped deadlines for approved opportunities, independent of Chase-up.
+
+    Returning only the requested month avoids sending the entire opportunity
+    register to a calendar that needs at most 31 days of rows.
+    """
+    initialize(store)
+    process_due(store)
+    _, users = directory()
+    _actor(user, users)
+    month = filters.get('month', '')
+    if not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', month):
+        raise tenders.ValidationError('Choose a valid calendar month.')
+    start = month + '-01'
+    year, number = map(int, month.split('-'))
+    end = f'{year + (number == 12):04d}-{number % 12 + 1:02d}-01'
+    with store.connect() as db:
+        rows = db.execute("""SELECT body,revision,created_by FROM opportunities o
+            WHERE deleted_at IS NULL AND status='approved' AND due>=? AND due<? AND """ +
+            active_sql('opportunity', 'o.id') + ' ORDER BY due,project_key,id', (start,end)).fetchall()
+    items = [_decode_opportunity(row) for row in rows]
+    return {'month': month, 'items': [
+        {'id': item['id'], 'project': item['project'], 'due': item['due'],
+         'region': item['region'], 'builders': item.get('builders', []),
+         'quoted': _is_quoted(item) or bool(item.get('linkedAt'))}
+        for item in items], 'total': len(items),
+        'quoted': sum(_is_quoted(item) or bool(item.get('linkedAt')) for item in items)}
 
 
 def regions(store, user, payload=None):
@@ -818,7 +882,7 @@ def process_due(store, force=False, now=None):
             # buffer includes every region's local day; exact regional dates
             # below still decide expiry/reminders, including daylight saving.
             rows = db.execute("SELECT body,revision,created_by FROM opportunities WHERE deleted_at IS NULL "
-                              "AND due!='' AND due<=? AND (status='pending' OR "
+                              "AND due!='' AND due<=? AND (status IN ('pending','review') OR "
                               "(status='approved' AND due>=? AND COALESCE(json_extract(body,'$.quoteStatus'),'')!='quoted')) AND " +
                               active_sql('opportunity', 'opportunities.id'),
                               ((utc_day + timedelta(days=8)).isoformat(), (utc_day - timedelta(days=1)).isoformat())).fetchall()
@@ -828,7 +892,7 @@ def process_due(store, force=False, now=None):
                 if item['region'] not in region_days:
                     region_days[item['region']] = _today(db, item['region'], instant)
                 days = (date.fromisoformat(item['due']) - region_days[item['region']]).days
-                if days < 0 and item['status'] == 'pending':
+                if days < 0 and item['status'] in ('pending','review'):
                     item.update(status='expired', revision=item['revision'] + 1,
                                 updatedAt=instant.isoformat(), expiredAt=instant.isoformat())
                     _write(db, item)

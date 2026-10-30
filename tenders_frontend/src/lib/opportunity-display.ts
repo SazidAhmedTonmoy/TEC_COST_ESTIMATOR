@@ -49,7 +49,7 @@ export function opportunityDeadline(
   now=Date.now(),
 ):OpportunityDeadline {
   const timezone=opportunityTimezone(item.region,regions);
-  const decided=item.status==='approved'||item.status==='rejected'||item.status==='expired';
+  const decided=item.status==='rejected'||item.status==='expired';
   if(!item.due)return {days:null,label:'No deadline',tone:decided?'neutral':'none',timezone};
   const due=deadlineDay(item.due);
   if(due===null)return {days:null,label:'Deadline unavailable',tone:decided?'neutral':'none',timezone};
@@ -58,7 +58,7 @@ export function opportunityDeadline(
   if(days<0){
     const age=-days;
     const prefix=item.status==='expired'?'Expired':'Deadline passed';
-    return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:'neutral',timezone};
+    return {days,label:`${prefix} ${age} day${age===1?'':'s'} ago`,tone:decided?'neutral':'urgent',timezone};
   }
   return {days,label:days===0?'Due today':days===1?'Due tomorrow':`${days} days left`,tone:decided?'neutral':days<=3?'urgent':days<=7?'warning':'safe',timezone};
 }
@@ -80,7 +80,7 @@ export function canQuoteOpportunity(item:Opportunity,_regions:OpportunityRegion[
  * Expired and decided opportunities remain read-only for this decision. */
 export function canRejectOpportunity(item:Opportunity,_regions:OpportunityRegion[]=[],_now=Date.now()) {
   if(item.deletedAt||!item.permissions.approve||isOpportunityQuoted(item))return false;
-  return item.status==='pending';
+  return item.status==='pending'||item.status==='review';
 }
 
 /** Next local midnight across the visible regions; no fixed 24-hour assumption. */

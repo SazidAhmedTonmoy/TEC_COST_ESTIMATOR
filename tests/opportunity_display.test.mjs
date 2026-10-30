@@ -16,13 +16,18 @@ test('cards show calendar days remaining and due today/tomorrow immediately',()=
   assert.equal(deadline('2027-01-01','2026-12-30T13:00:00Z').days,1);
 });
 
-test('only active pending deadlines use inclusive three-day and seven-day colors',()=>{
+test('pending, in-review and approved deadlines retain the urgent/warning/safe colours',()=>{
   const now='2026-10-21T08:00:00Z';
   for(const due of ['2026-10-21','2026-10-22','2026-10-24'])assert.equal(deadline(due,now).tone,'urgent');
   for(const due of ['2026-10-25','2026-10-28'])assert.equal(deadline(due,now).tone,'warning');
   for(const due of ['2026-10-29','2027-01-01'])assert.equal(deadline(due,now).tone,'safe');
-  assert.equal(deadline('2026-10-20',now).tone,'neutral');
-  for(const status of ['approved','rejected','expired']){
+  assert.equal(deadline('2026-10-20',now).tone,'urgent');
+  for(const status of ['approved','review']){
+    assert.equal(deadline('2026-10-20',now,'NSW',status).tone,'urgent');
+    assert.equal(deadline('2026-10-25',now,'NSW',status).tone,'warning');
+    assert.equal(deadline('2026-10-29',now,'NSW',status).tone,'safe');
+  }
+  for(const status of ['rejected','expired']){
     for(const due of ['2026-10-20','2026-10-21','2026-10-22','2026-10-24','2026-10-25','2026-10-28','2026-10-29','2027-01-01'])assert.equal(deadline(due,now,'NSW',status).tone,'neutral');
     assert.equal(deadline('',now,'NSW',status).tone,'neutral');
     assert.equal(deadline('invalid',now,'NSW',status).tone,'neutral');
@@ -43,6 +48,7 @@ test('approved and expired records hide Reject controls',()=>{
   assert.equal(canQuoteOpportunity(actionable({due:''}),regions,after),true);
   assert.equal(canRejectOpportunity(actionable({status:'expired'}),regions,before),false);
   assert.equal(canRejectOpportunity(actionable({status:'pending'}),regions,before),true);
+  assert.equal(canRejectOpportunity(actionable({status:'review'}),regions,before),true);
   assert.equal(canRejectOpportunity(actionable({status:'rejected'}),regions,after),false);
   assert.equal(canRejectOpportunity(actionable({status:'expired',due:'2027-04-21'}),regions,before),false);
   assert.equal(canRejectOpportunity(actionable({status:'pending',permissions:{approve:false,quote:false}}),regions,before),false);

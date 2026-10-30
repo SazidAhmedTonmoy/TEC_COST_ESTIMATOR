@@ -322,3 +322,10 @@ textarea{resize:vertical}.project-name,.builder-chips button,[data-slot=sheet-ti
  .mobile-brand-bar .conest-brand{gap:12px!important;width:calc(100% - 105px)}
  .mobile-brand-bar .conest-brand>a:first-child>span:last-child{min-height:36px}
 }
+
+/* v3.7.13: readable chase-up history text on both themes. */
+.detail-sheet .latest-note p,.detail-sheet .timeline article p,.detail-sheet .timeline article b,.detail-sheet .history-heading,.detail-sheet .chase-editor,.detail-sheet .timeline article>div>span,.detail-sheet .muted{color:var(--foreground)!important;opacity:1!important}
+.detail-sheet .latest-note p,.detail-sheet .timeline article p{font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
+.detail-sheet .latest-note{border-color:var(--border);background:var(--card)!important}
+.detail-sheet .latest-note>span{color:var(--muted-foreground)!important;font-weight:750;letter-spacing:.08em}
+.detail-sheet .timeline article>div>span,.detail-sheet .chase-editor{color:var(--muted-foreground)!important}

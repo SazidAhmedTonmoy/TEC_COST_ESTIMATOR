@@ -303,3 +303,27 @@ html[data-theme=dark] .op-docs-no .op-docs-state{background:#202f3a;border-color
  .op-detail-actions button{min-height:42px}
 }
 @media(max-width:390px){.page-content{padding-inline:10px}.op-cards{padding-inline:10px}.op-card{padding:13px}}
+
+/* v3.7.13: opportunity workflow status and quote/closed filters. */
+.op-stats-v3713{grid-template-columns:repeat(4,minmax(0,1fr));}
+.op-stat-breakdown{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;font-size:12px;line-height:1.4}
+.op-stat-breakdown span{white-space:nowrap;color:var(--foreground);font-weight:650}
+.op-stat-breakdown span+span{color:var(--muted-foreground)}
+.op-status-review{background:#ede8ff;color:#5b4194;border-color:#c7b8ef}
+html[data-theme=dark] .op-status-review{background:#302b46;color:#dfcdfc;border-color:#51446d}
+.op-outcome-filters{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:10px 18px 4px}
+.op-outcome-filters .secondary-btn{min-height:35px;padding:7px 12px;font-size:12px}
+.op-outcome-filters button[aria-pressed=true]{border-color:var(--primary);background:var(--accent);color:var(--foreground);font-weight:750}
+.op-review-action{width:100%;margin-top:10px;min-height:36px}
+.calendar-mode-switch{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+.calendar-mode-switch button{min-height:42px;padding:10px 18px}
+.calendar-mode-switch button[aria-pressed=true]{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary);font-weight:700}
+.approved-calendar .calendar-event.needs-quote{background:#fff1c9;color:#745300;border-left:3px solid #d6a31c}
+.approved-calendar .calendar-event.is-quoted{background:#d4efdf;color:#155d42;border-left:3px solid #18a785}
+.calendar-quote-state{display:inline-flex;align-items:center;border-radius:7px;padding:5px 8px;font-size:12px;font-weight:700}
+.calendar-quote-state.needs-quote{background:#fff1c9;color:#745300}
+.calendar-quote-state.is-quoted{background:#d4efdf;color:#155d42}
+html[data-theme=dark] .approved-calendar .calendar-event.needs-quote,html[data-theme=dark] .calendar-quote-state.needs-quote{background:#55421b;color:#ffe8a7}
+html[data-theme=dark] .approved-calendar .calendar-event.is-quoted,html[data-theme=dark] .calendar-quote-state.is-quoted{background:#1e4b3c;color:#aff1d1}
+@media(max-width:850px){.op-stats-v3713{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:450px){.op-stat-breakdown{gap:3px;flex-direction:column;align-items:flex-start}.op-outcome-filters{padding-inline:12px}.op-outcome-filters button{flex:1;min-width:0}}

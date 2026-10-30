@@ -1,6 +1,22 @@
-# TEC ConEst v3.7.12 — Structured Breakdown
+# TEC ConEst v3.7.13 — Opportunity Workflow & Calendar
 
-> **Release:** 3.7.12 · **Database schema:** 34 · **Upgrade:** automatic, non-destructive, safety-backed · **Scope:** Estimator Breakdown, structured Excel/shared views, and backward compatibility. Tenders workflows are unchanged.
+## v3.7.13 — Tender calendar and opportunity workflow
+
+- Tender Calendar now offers two views: **Approved opportunity deadlines** (default) and **Project Chase-up**. The new monthly calendar reads approved opportunities for the selected month from `/api/tenders/opportunities/calendar`, keeps Chase-up activity separate, and opens the source opportunity when an event is selected.
+- Opportunity sorting defaults to **Deadline: High to Low**, with undated records last.
+- Approved summary shows **Need to quote** and **Already quoted** counts; the Approved view offers matching filters. Linked-to-tender records count as already quoted.
+- **In Review** is an active decision state with its own filter and colour. Review records can be approved or rejected and automatically expire after their deadline. Approvals remain permanent.
+- **Rejected / Expired** is one summary card with separate counts and Rejected-only / Expired-only filters; historical records retain their underlying status.
+- Approved and In Review deadlines use red/yellow/green urgency again; rejected and expired retain neutral presentation.
+- Chase-up latest note and history text has stronger contrast and improved wrapping.
+- Structured Breakdown now starts fully collapsed and the area/category headers show total material, hours, labour, and quoted values. Existing allocation and costing rules remain unchanged.
+
+**Data safety:** This update uses the existing schema **34** and does not reset data. No database migration is required. The In Review state is stored using the existing `status` field and JSON history; SQL indexes continue to support it.
+
+**Deployment:** Build the Tender frontend with `cd tenders_frontend && npm ci && npm run build` before publishing `tenders_web/` (GitHub Actions normally performs this). The bundled Tender frontend from the previous release is not a substitute for that build. Estimator assets can be regenerated with `python tools/build_frontend.py`. Run the Python and JavaScript test suites and check the health endpoint after deployment.
+
+
+> **Release:** 3.7.13 · **Database schema:** 34 (unchanged) · **Upgrade:** non-destructive · **Scope:** Tender calendar, opportunity workflow, Chase-up accessibility, and structured Breakdown totals.
 
 TEC ConEst provides electrical estimating, catalogue-based line items, tenders, opportunities, team approvals, Chase-up, supplier prices and workflow reporting in one application. This release redesigns **Breakdown** around the way estimators work: **Area / Floor / Space → Category → Estimate Item**.
 
@@ -700,4 +716,14 @@ Production health only confirms application readiness; it is not a guarantee tha
 - Project locations on cards open **Google Maps directions** in a new tab, using the nominated distance origin or the configured regional office. Missing locations remain non-clickable.
 - Fixed the GitHub Actions `test_v3512_mobile.py` version assertion: it validates the Python release against the Tender package version rather than hard-coding an older release.
 - Updated the packaged Tender browser assets and retained the existing database schema. No data migration, reset or configuration changes are required.
+
+
+### v3.7.13 validation and release notes
+
+- Python CI-style regression suite: **64 test modules passed, 0 failures**. Includes three new backend tests for In Review expiry and decisions, Approved quote counts/filters, and the approved-deadline calendar endpoint.
+- Node.js JavaScript suite: **44 tests passed, 0 failures**. Includes three additional source/UI checks and updated deadline-color requirements.
+- React/TypeScript syntax transpilation: **32 source files parsed with 0 errors**. This is a syntax check, not a full type-check or Vite build.
+- Estimator browser JS was rebuilt with `tools/build_frontend.py` and passed `node --check`. Its new content contains the collapsed Breakdown and four subtotal fields.
+- **Build limitation:** The npm registry was unreachable in this working environment. A new Tender Vite bundle could not be produced locally, so the included `tenders_web/` files are the previously compiled version. **Do not deploy this archive directly to production if you expect the new Tender UI to appear.** Apply the source changes to GitHub and allow `.github/workflows/deploy-cpanel.yml` to run `npm ci && npm run build` before upload. This release's PHP/cPanel deployment method is unchanged.
+- Existing SQLite schema remains **34**, with no reset and no migration. Back up live databases and confirm `/api/health?check=tenders` reports version 3.7.13 after deployment.
 

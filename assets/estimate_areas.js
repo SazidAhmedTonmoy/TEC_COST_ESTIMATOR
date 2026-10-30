@@ -26,7 +26,7 @@
     original:allocations,edited:false};
   });
   const d=document.createElement('dialog');d.className='area-dialog breakdown-matrix breakdown-v3712';d.setAttribute('aria-label','Project breakdown');document.body.append(d);
-  let tab='allocate',query='',treeState='default',busy=false;
+  let tab='allocate',query='',treeState='collapsed',busy=false;
   const invalid=(msg)=>{const el=d.querySelector('.area-error');if(el)el.textContent=msg;};
   const allocFor=e=>{
    if(e.mode==='unallocated')return !e.edited&&e.original.some(a=>a.area==='Shared / Unallocated')?e.original:[];
@@ -65,13 +65,14 @@
   const renderTree=()=>{
    const groups=rowsByArea();const filter=query.trim().toLowerCase();
    let total=0,optional=0,body='';
+   const totals=node=>`<span class="breakdown-summary-metrics"><span><small>Total Material</small><b>${money(node.material,currency)}</b></span><span><small>Total Hours</small><b>${fmt(node.hours)} hrs</b></span><span><small>Total Labour</small><b>${money(node.labor,currency)}</b></span><span><small>Quoted Total</small><b>${money(node.quoted,currency)}</b></span></span>`;
    for(const area of groups){
     const categories=[...area.categories.values()].map(g=>({...g,items:g.items.filter(x=>!filter||[area.name,g.name,x.e.line.name_snapshot].some(v=>String(v||'').toLowerCase().includes(filter)))})).filter(g=>g.items.length);
     if(filter&&!categories.length&&!area.name.toLowerCase().includes(filter))continue;
     total+=area.quoted;optional+=area.optional;
-    body+=`<details class="breakdown-area" ${treeState!=='collapsed'||filter?'open':''}><summary><span class="breakdown-tree-title"><span class="breakdown-folder">▤</span>${safe(area.name)} <small>${area.count} items · ${[...area.units.entries()].map(([unit,qty])=>fmt(qty)+' '+safe(unit)).slice(0,3).join(' · ')}</small></span><strong>${money(area.quoted,currency)}</strong></summary>`;
+    body+=`<details class="breakdown-area" ${treeState!=='collapsed'||filter?'open':''}><summary><span class="breakdown-tree-title"><span class="breakdown-folder">▤</span>${safe(area.name)} <small>${area.count} items · ${[...area.units.entries()].map(([unit,qty])=>fmt(qty)+' '+safe(unit)).slice(0,3).join(' · ')}</small></span>${totals(area)}</summary>`;
     for(const category of categories){
-     body+=`<details class="breakdown-category" ${treeState!=='collapsed'||filter?'open':''}><summary><span>${safe(category.name)} <small>${category.items.length} item${category.items.length===1?'':'s'}</small></span><strong>${money(category.quoted,currency)}</strong></summary>`;
+     body+=`<details class="breakdown-category" ${treeState!=='collapsed'||filter?'open':''}><summary><span>${safe(category.name)} <small>${category.items.length} item${category.items.length===1?'':'s'}</small></span>${totals(category)}</summary>`;
      for(const item of category.items){
       const l=item.e.line;
       body+=`<details class="breakdown-tree-item" ${treeState==='expanded'||filter?'open':''}><summary><span>${safe(l.name_snapshot)} <small>${fmt(item.qty)} ${safe(l.uom)}</small></span><strong>${item.optional?'<span class="area-optional">Optional</span> ':''}${money(item.quoted,currency)}</strong></summary><div class="breakdown-item-metrics"><span>Material: ${money(item.material,currency)}</span><span>Hours: ${fmt(item.hours)}</span><span>Labour: ${money(item.labor,currency)}</span><span>Quoted: ${money(item.quoted,currency)}</span></div></details>`;

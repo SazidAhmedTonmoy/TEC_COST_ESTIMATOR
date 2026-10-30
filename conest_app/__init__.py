@@ -1,3 +1,3 @@
 """ConEst Estimator application package."""
 
-__version__ = "3.7.12"
+__version__ = "3.7.13"
