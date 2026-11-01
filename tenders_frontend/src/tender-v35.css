@@ -314,7 +314,7 @@ html[data-theme=dark] .op-status-review{background:#302b46;color:#dfcdfc;border-
 .op-outcome-filters{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:10px 18px 4px}
 .op-outcome-filters .secondary-btn{min-height:35px;padding:7px 12px;font-size:12px}
 .op-outcome-filters button[aria-pressed=true]{border-color:var(--primary);background:var(--accent);color:var(--foreground);font-weight:750}
-.op-review-action{width:100%;margin-top:10px;min-height:36px}
+
 .calendar-mode-switch{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
 .calendar-mode-switch button{min-height:42px;padding:10px 18px}
 .calendar-mode-switch button[aria-pressed=true]{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary);font-weight:700}
@@ -370,10 +370,31 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 .chase-history-entry .timeline-dot{left:-8px}
 @media(max-width:700px){.agenda-range{margin-inline-start:0;width:100%}.calendar-agenda-entry{align-items:flex-start;flex-wrap:wrap}.calendar-agenda-entry>div{flex-basis:60%}.calendar-agenda-entry>.secondary-btn{width:100%}}
 
-.calendar-agenda-filter{display:flex;justify-content:flex-end;padding:14px 18px 0}.calendar-agenda-filter [data-slot=select-trigger]{min-width:190px}
+
 
 .agenda-urgency{font-size:11px;font-weight:750;padding:4px 8px;border:1px solid var(--border);border-radius:999px;white-space:nowrap}
 .agenda-urgency.urgent{color:#f8a0a0;border-color:#994e58;background:#5b293333}
 .agenda-urgency.soon{color:#f7cf66;border-color:#8b722e;background:#5d471e33}
 .agenda-urgency.upcoming{color:var(--muted-foreground)}
 .calendar-agenda-day h3{flex-wrap:wrap}
+
+/* v3.7.15o — calendar search, view switch and event filter share one aligned flow. */
+.chase-calendar-layout{display:flex;flex-direction:column;min-width:0;gap:0}
+.chase-calendar-layout>.filter-row{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:0 0 14px;padding:0;border:0;background:transparent;min-width:0}
+.chase-calendar-layout>.filter-row>.inline-search{flex:1 1 400px;min-height:40px;min-width:0;width:auto;max-width:none}
+.chase-calendar-layout>.filter-row>.inline-search input{min-width:0;width:100%}
+.chase-calendar-layout>.filter-sections{margin:0 0 14px;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.chase-calendar-layout>.calendar-display-switch{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-height:40px;margin:0 0 14px;padding:0}
+.chase-calendar-layout .agenda-range{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 0 auto}
+.chase-calendar-layout .calendar-event-filter{display:flex;align-items:center;flex:0 1 205px;min-width:170px;margin-left:8px}
+.chase-calendar-layout .calendar-event-filter [data-slot=select-trigger]{min-height:40px;width:100%;max-width:none}
+.chase-calendar-layout .opportunity-rolling-agenda{width:100%;min-width:0;overflow:hidden}
+.chase-calendar-layout .opportunity-rolling-agenda>.panel-heading{padding:18px 18px 16px}
+@media(max-width:767px){
+ .chase-calendar-layout>.filter-row{gap:8px;margin-bottom:12px}
+ .chase-calendar-layout>.filter-row>.inline-search{flex:1 1 100%;width:100%}
+ .chase-calendar-layout>.calendar-display-switch{gap:8px;margin-bottom:12px}
+ .chase-calendar-layout .agenda-range{order:2;margin-left:0}
+ .chase-calendar-layout .calendar-event-filter{order:3;flex:1 1 100%;min-width:0;margin-left:0}
+ .chase-calendar-layout .calendar-event-filter [data-slot=select-trigger]{width:100%}
+}
