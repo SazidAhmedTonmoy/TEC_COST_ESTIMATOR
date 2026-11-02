@@ -120,11 +120,23 @@ async function api(path,options={}){
   const key=readOnly&&!options.signal?`${state.csrfToken}:${apiGeneration}:${path}`:null;
   if(key&&pendingApiReads.has(key))return structuredClone(await pendingApiReads.get(key));
   if(!readOnly)apiGeneration++;
+  const estimateMutation=!readOnly && /^\/api\/projects\/\d+(?:\/|$)/.test(path)
+    && Number(path.match(/^\/api\/projects\/(\d+)/)?.[1])===state.projectId
+    && !/\/(?:presence|revisions|notes|share)(?:\/|$)/.test(path);
+  if(estimateMutation&&typeof setEstimateSaveState==='function')setEstimateSaveState('saving');
   state.apiPendingCount=(state.apiPendingCount||0)+1;
   const request=apiRequest(path,options);
   if(key)pendingApiReads.set(key,request);
-  try{return structuredClone(await request);}
-  finally{
+  try{
+    const result=structuredClone(await request);
+    if(estimateMutation&&typeof setEstimateSaveState==='function'
+       && Number(path.match(/^\/api\/projects\/(\d+)/)?.[1])===state.projectId)
+      setEstimateSaveState(projectSettingsQueued?'dirty':'saved');
+    return result;
+  }catch(error){
+    if(estimateMutation&&typeof setEstimateSaveState==='function')setEstimateSaveState('error');
+    throw error;
+  }finally{
     state.apiPendingCount=Math.max(0,(state.apiPendingCount||1)-1);
     if(key)pendingApiReads.delete(key);
     if(!readOnly)apiGeneration++;
@@ -280,7 +292,7 @@ function renderProjectSelect() {
 
 async function loadProject(projectId) {
   const request=state.projectLoadRequest=(state.projectLoadRequest||0)+1;
-  if (!projectId) { state.projectId = null; state.projectData = null; renderProject(); if(typeof rememberPage==='function')rememberPage('estimate'); return; }
+  if (!projectId) { state.projectId = null; state.projectData = null; renderProject(); if(typeof setEstimateSaveState==='function')setEstimateSaveState('idle'); if(typeof rememberPage==='function')rememberPage('estimate'); return; }
   const result = await api(`/api/projects/${projectId}`);
   // A read can start while a write is pending and return its older snapshot
   // after the write commits. Never replace a newer same-project response.
@@ -294,6 +306,7 @@ async function loadProject(projectId) {
   state.projectData = result;
   renderProjectSelect();
   renderProject();
+  if(typeof setEstimateSaveState==='function')setEstimateSaveState('saved');
   if(state.view==='estimate' && typeof rememberPage==='function') rememberPage('estimate');
   return result;
 }
@@ -315,6 +328,10 @@ function renderProject() {
   if(typeof updateEstimateExtras==='function')updateEstimateExtras(data);
   $("#metric-labour").textContent = fmtMoney(totals.labor, project.currency);
   $("#metric-quoted").textContent = fmtMoney(totals.quoted, project.currency);
+  const optionalCost=lines.filter(line=>line.included_in_total===false)
+    .reduce((sum,line)=>sum+Number(line.quoted_total||0),0);
+  $("#estimate-included-total").textContent=fmtMoney(totals.quoted,project.currency);
+  $("#estimate-optional-total").textContent=fmtMoney(optionalCost,project.currency);
   $("#estimate-line-count").textContent = `${lines.length} assembl${lines.length === 1 ? "y" : "ies"}`;
   $("#project-name").value = project.name || "";
   $("#project-builders").value = projectBuilders(project).join("\n");
@@ -333,7 +350,7 @@ function renderProject() {
   if(project.id) refreshNoteBadge(project.id).catch(()=>{});
   if(available && !project.can_edit) {
     $$('#estimate-view input, #estimate-view textarea, #estimate-view select, #estimate-view button').forEach(field=>field.disabled=true);
-    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .catalog-highlight-toggle, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings').forEach(field=>field.disabled=false);
+    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .catalog-highlight-toggle, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings, #estimate-setup-guide-open').forEach(field=>field.disabled=false);
     $('#floating-search-button').disabled=true;
   }
 }
@@ -352,7 +369,9 @@ function renderScopeBreakdown(data) {
   function summaryRow(row,child=false){return `<tr class="${child?'scope-subcategory':''} ${row.included===false?'scope-summary-excluded':''}"><td>${escapeHtml(row.category)}${row.included===false&&!child?'<small class="scope-excluded-label">Optional cost</small>':''}</td><td>${child?'':row.assemblies}</td><td>${fmtMoney(row.material)}</td><td>${fmtNumber(row.hours)} hrs</td><td>${fmtMoney(row.labor)}</td><td><strong>${fmtMoney(row.quoted)}</strong></td></tr>`;}
   $('#scope-breakdown-rows').innerHTML=summary.length?summary.map(row=>summaryRow(row)+(row.subcategories||[]).map(child=>summaryRow(child,true)).join('')).join(''):'<tr><td colspan="6" class="scope-empty">Add estimate items to see the breakdown.</td></tr>';
   const totals = data.totals;
-  $("#scope-breakdown-total").innerHTML = `<tr><td>${data.totals.included_line_count<data.lines.length?'TOTAL INCLUDED':'TOTAL'}</td><td>${data.totals.included_line_count??data.lines.length}</td><td>${fmtMoney(totals.material)}</td><td>${fmtNumber(totals.hours)} hrs</td><td>${fmtMoney(totals.labor)}</td><td>${fmtMoney(totals.quoted)}</td></tr>`;
+  const optionalLines=data.lines.filter(l=>l.included_in_total===false);
+  const optionalSum=(key)=>optionalLines.reduce((sum,line)=>sum+Number(line[key]||0),0);
+  $("#scope-breakdown-total").innerHTML = `<tr><td>INCLUDED QUOTED TOTAL</td><td>${data.totals.included_line_count??data.lines.length}</td><td>${fmtMoney(totals.material)}</td><td>${fmtNumber(totals.hours)} hrs</td><td>${fmtMoney(totals.labor)}</td><td>${fmtMoney(totals.quoted)}</td></tr><tr class="scope-optional-row"><td>OPTIONAL COSTS (excluded)</td><td>${optionalLines.length}</td><td>${fmtMoney(optionalSum('total_material'))}</td><td>${fmtNumber(optionalSum('total_hours'))} hrs</td><td>${fmtMoney(optionalSum('total_labor'))}</td><td>${fmtMoney(optionalSum('quoted_total'))}</td></tr>`;
 }
 
 async function deleteCurrentProject() {
@@ -481,10 +500,10 @@ function renderSmartSuggestions(items) {
     return;
   }
   box.innerHTML = items.map((item, index) => `
-    <button class="suggestion-item catalog-peek" type="button" role="option" aria-selected="false" data-index="${index}" data-catalog-preview="${item.id}">
+    <div class="suggestion-entry"><button class="suggestion-item catalog-peek" type="button" role="option" aria-selected="false" data-index="${index}" data-catalog-preview="${item.id}">
       <span class="suggestion-copy"><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</small></span>
       ${ratingStamp(item)}<span class="suggestion-meta"><em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em>${fmtMoney(item.unit_material)} · ${catalogLaborLabel(item)}</span>
-    </button>`).join("");
+    </button><button type="button" class="button primary small suggestion-quick-add" data-quick-add="${Number(item.id)}" aria-label="Add ${escapeHtml(item.display_name || item.name)} directly to estimate" ${state.projectData?.project?.can_edit?'':'disabled'}>+ Add</button></div>`).join("");
   box.classList.remove("hidden");
   input.setAttribute("aria-expanded", "true");
 }
@@ -664,6 +683,7 @@ function queueProjectSettings(){
  if(!state.projectData?.project.can_edit)return;
  projectSettingsOwner=state.projectId;projectSettingsQueued=true;
  $('#project-autosave-status').textContent='Unsaved changes…';
+ if(typeof setEstimateSaveState==='function')setEstimateSaveState('dirty');
  clearTimeout(projectSettingsTimer);projectSettingsTimer=setTimeout(()=>saveProjectSettings().catch(()=>{}),450);
 }
 async function saveProjectSettings(event) {
@@ -671,7 +691,7 @@ async function saveProjectSettings(event) {
  if(projectSettingsBusy){projectSettingsQueued=true;return;}
  if(!state.projectId||!state.projectData?.project.can_edit)return;
  if(projectSettingsOwner&&projectSettingsOwner!==state.projectId){projectSettingsQueued=false;projectSettingsOwner=null;return;}
- if(!$('#project-settings-form').checkValidity()){$('#project-autosave-status').textContent='Enter valid values to save';return;}
+ if(!$('#project-settings-form').checkValidity()){$('#project-autosave-status').textContent='Enter valid values to save';if(typeof setEstimateSaveState==='function')setEstimateSaveState('dirty');return;}
  const pid=state.projectId;
   const payload = {
     name: $("#project-name").value,
@@ -688,6 +708,7 @@ async function saveProjectSettings(event) {
  payload.expected_revision=state.projectData.project.revision;
  projectSettingsBusy=true;projectSettingsQueued=false;
  $('#project-autosave-status').textContent='Saving…';
+ if(typeof setEstimateSaveState==='function')setEstimateSaveState('saving');
  try{
   const result=await api(`/api/projects/${pid}`,{method:'PATCH',body:payload});
   if(state.projectId!==pid)return;
@@ -696,7 +717,8 @@ async function saveProjectSettings(event) {
   if(projectSettingsQueued){for(const [id,value] of Object.entries(draft))$('#'+id).value=value;}
   const i=state.projects.findIndex(p=>p.id===pid);if(i>=0)state.projects[i]={...state.projects[i],...result.project,totals:result.totals};
   $('#project-autosave-status').textContent=projectSettingsQueued?'Saving latest changes…':'Saved · totals updated';
- }catch(error){projectSettingsQueued=false;$('#project-autosave-status').textContent='Not saved — '+error.message;toast(error.message,true);}
+  if(typeof setEstimateSaveState==='function')setEstimateSaveState(projectSettingsQueued?'dirty':'saved');
+ }catch(error){projectSettingsQueued=false;$('#project-autosave-status').textContent='Not saved — '+error.message;if(typeof setEstimateSaveState==='function')setEstimateSaveState('error');toast(error.message,true);}
  finally{projectSettingsBusy=false;if(projectSettingsQueued&&state.projectId===pid)saveProjectSettings().catch(()=>{});}
 }
 
@@ -1239,6 +1261,17 @@ function bindEvents() {
   $("#smart-search-suggestions").addEventListener("click", (event) => {
     const more=event.target.closest('.suggestion-more');
     if(more){more.disabled=true;loadSmartSuggestions(true).catch(error=>toast(error.message,true));return;}
+    const direct = event.target.closest(".suggestion-quick-add");
+    if (direct){
+      const item=state.suggestions.find(x=>Number(x.id)===Number(direct.dataset.quickAdd));
+      const quantity=typedQuantity($('#smart-search-input').value.trim());
+      if(!state.projectData?.project?.can_edit||!item||!Number.isFinite(quantity)||quantity<0){toast('Select an editable project and a valid quantity first',true);return;}
+      direct.disabled=true;
+      addCatalogItem(item.id,item.display_name||item.name,quantity)
+        .then(()=>{hideSmartSuggestions();$('#smart-search-input').value='';toast('Item added to estimate');})
+        .catch(error=>{direct.disabled=false;toast(error.message,true);});
+      return;
+    }
     const button = event.target.closest(".suggestion-item");
     if (button) chooseSmartSuggestion(Number(button.dataset.index)).catch((error) => toast(error.message, true));
   });

@@ -1,3 +1,37 @@
+# TEC ConEst v3.7.18 - Estimator Usability & Breakdown Refinements
+
+**Base release:** v3.7.17  |  **Application version:** 3.7.18  |  **Database schema:** 34 (unchanged)  |  **Migration:** none
+
+## What changed
+
+- **Visible save state:** The Estimate page now displays **Saved**, **Saving...**, **Unsaved changes**, or **Save failed**. Project settings autosave and successful or failed estimate writes update the badge. Edits are still persisted through the existing revision-checked APIs; this is not an offline cache or a promise that a failed request was saved.
+- **Breakdown / Unallocated:** Allocation and Structured View both offer **Show unallocated only**, with a visible count. Partially allocated quantities appear separately under Unallocated in the draft preview; all-area included and optional totals remain shown even when a filter is active.
+- **Remember expanded areas:** Area/category/item tree expansion is remembered per authenticated user and project in that browser. The first visit stays collapsed. This is a UI preference only and is not synced between devices.
+- **Breakdown Undo / Redo:** Up to 50 unsaved allocation changes can be reversed **inside the open Breakdown dialog**, including area changes and edited quantities. Undo/Redo do not issue API writes and do not roll back saved estimates or other users' changes. After Save, reopen the dialog to begin a new edit session. Native input-level undo remains available while typing.
+- **Cost clarity:** Estimate totals display **Included quoted total** separately from **Optional costs (excluded)**. The Scope cost summary has a distinct optional-cost subtotal; optional lines remain excluded from the main quoted total and Excel/export arithmetic is unchanged.
+- **Revision difference table:** The existing Tender Revisions dialog now shows a side-by-side totals table (material, labour hours, labour cost, quoted total) and item-level changes in quantities, component rates where they were recorded, and quoted values. Full saved revision data and detailed field differences remain accessible. This comparison is read-only.
+- **Faster catalog:** Catalog suggestions have a separate **+ Add** action to add the selected item immediately with the entered quantity. Selecting the suggestion itself still opens its components for review; use that route when rates or contents need inspection.
+- **Optional Estimate Setup guide:** A five-step guided path points new estimators to Project details, Catalog items, Quantities and areas, Cost review, and Save/Revisions/Export. It uses the current project and controls rather than creating another project/estimate system. Experienced users can ignore the guide.
+
+## Deployment and safety
+
+1. Apply the **changed-files ZIP** to an existing **v3.7.17** repository, preserving the `TEC_COST_ESTIMATOR/` directory structure. The full ZIP may be used for a clean source deployment.
+2. Commit and deploy through the normal GitHub Actions pipeline. The updated **Estimator** browser JavaScript and CSS are already built and fingerprinted; the normal Tender build remains part of the deployment workflow. Old fingerprinted Estimator assets may remain on disk but are no longer referenced by `assets/index.html`.
+3. Preserve `data/`, local or hosted SQLite databases, `.env`, uploaded documents, and Passenger configuration. This release changes no table, schema, project value, quotation rate, stored allocation or project revision.
+4. Restart Passenger if your deployment mechanism requires it. Refresh the browser. Verify app version `3.7.18` and schema `34`, test a small editable estimate, optional-cost separation, a Breakdown edit/undo/save, and the revision comparison.
+5. Do not discard unsaved edits when saving fails; review the error and retry after confirming the current revision. There is no automatic server-side history rollback in this release.
+
+## Verification
+
+- Full existing Python CI-style regression: **69 modules passed, no failures** (after synchronising package/version metadata).
+- New Estimator-specific Python checks: **5 passed**.
+- JavaScript suite: **58 passed** using Node 22 with experimental TypeScript stripping and a temporary local TypeScript symlink; no dependencies are bundled in the release.
+- Chromium interaction fixtures: Breakdown and Estimate Setup both passed at **320, 390, 768 and 1280 px**. Tests cover allocation filtering/count, draft Undo/Redo, tree expansion persistence, guide navigation, save status and no page-level horizontal overflow.
+- Estimator fingerprinted assets rebuilt by `tools/build_frontend.py`; JS source and bundle syntax checks passed.
+- Limit: Browser fixtures test representative controls, not a full authenticated production session. Final live hosting validation and any Tender CI build must still be performed by the deployment pipeline.
+
+---
+
 # TEC ConEst v3.7.17 — Project Journey & Opportunity Form Cleanup
 
 **Baseline:** v3.7.16o · **Executable version:** 3.7.17 · **Database schema:** 34 (unchanged) · **Migration:** none
