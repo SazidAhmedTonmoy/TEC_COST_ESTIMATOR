@@ -24,6 +24,9 @@ def route(handler, path, store, send):
         elif path == prefix + '/duplicates':
             from .opportunity_matching import check_duplicates
             result = check_duplicates(store, params, handler.user)
+        elif path == prefix + '/estimator-projects':
+            from .opportunity_journey import estimator_choices
+            result = estimator_choices(store, params, handler.user)
         elif path == prefix + '/link-projects':
             from .opportunity_matching import project_choices
             result = project_choices(store, params, handler.user)
@@ -65,6 +68,9 @@ def route(handler, path, store, send):
         result = opportunities.decide(store, payload, handler.user)
     elif path == prefix + '/documents':
         result = opportunities.set_documents_available(store, payload, handler.user)
+    elif path == prefix + '/estimator-link':
+        from .opportunity_journey import link_estimator
+        result = link_estimator(store, payload, handler.user)
     elif path == prefix + '/link-project':
         from .opportunity_matching import link_project
         result = link_project(store, payload, handler.user)

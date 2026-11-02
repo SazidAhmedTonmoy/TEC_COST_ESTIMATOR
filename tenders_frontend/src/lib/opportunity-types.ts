@@ -14,13 +14,22 @@ export type Opportunity = {
   quoteStatus?:'quoted'|'not_quoted'; submissionIds?:string[]; quotedValue?:number;
   linkedProjectName?:string; linkedAt?:string; linkedByName?:string; quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
   quotedBy?:number; quotedByName?:string; quotedBuilders?:string[]; submittedByTeamId?:number|null;
-  revision:number; permissions:{edit:boolean; assign:boolean; manage:boolean; approve:boolean; quote?:boolean};
+  estimatorProjectId?:number; revision:number; permissions:{edit:boolean; assign:boolean; manage:boolean; approve:boolean; quote?:boolean};
 };
 export type OpportunityActivity = {
   id:number; action:string; actorId:number; actorName:string; createdAt:string;
   details:Record<string,unknown>;
 };
-export type OpportunityDetail = {opportunity:Opportunity; activity:OpportunityActivity[];activityTotal?:number;hasMoreActivity?:boolean;nextActivityCursor?:number|null};
+export type OpportunityJourney = {
+  position:string;
+  nextAction:{title:string;description:string;submissionId:string|null};
+  created:{at:string;by:string};decision:{status:OpportunityStatus;at:string;by:string};
+  quotation:{status:'pending'|'quoted'|'not_quoted';value:number|null;quoteNo:string;submittedDate:string;linkedTenderName:string;submissionCount:number;missingSubmissions:boolean};
+  chaseUp:{started:boolean;updates:number;pendingReminders:number;overdueReminders:number;latest:{date:string;note:string;method:string;author:string}|null;nextFollowUp:{due:string;note:string}|null};
+  outcome:{key:string;label:string;completed:boolean;detail:string};
+  estimatorProject:{id:number;name:string;available:boolean}|null;
+};
+export type OpportunityDetail = {opportunity:Opportunity; journey?:OpportunityJourney; activity:OpportunityActivity[];activityTotal?:number;hasMoreActivity?:boolean;nextActivityCursor?:number|null};
 export type OpportunityList = {
   categories?:string[]; items:Opportunity[]; latestOpportunity?:Opportunity|null; total:number; page:number; pageSize:number;
   counts:Record<OpportunityStatus|'all'|'closed',number>; quoteCounts?:{quoted:number;needsQuote:number}; regions:OpportunityRegion[];

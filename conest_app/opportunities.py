@@ -632,7 +632,9 @@ def _public(item, actor):
 
 
 def _detail(db, item, actor):
-    return {'opportunity': _public(item, actor), **_activity_page(db, item['id'])}
+    from .opportunity_journey import build
+    return {'opportunity': _public(item, actor), 'journey': build(db, item),
+            **_activity_page(db, item['id'])}
 
 
 def _activity_page(db, identifier, before=None, limit=200):

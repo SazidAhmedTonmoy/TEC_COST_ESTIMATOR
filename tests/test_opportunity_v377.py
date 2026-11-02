@@ -27,12 +27,13 @@ class Opportunity377Tests(unittest.TestCase):
     def test_form_field_swap_preserves_region_mapping(self):
         text = FORM.split('<Dialog open={!!form}', 1)[1]
         fields = ['Project name', 'Added date', 'Closing deadline', 'Project location',
-                  'Working scope', 'Estimated tender value (AUD)', 'Region', 'Distance (km)']
+                  'Working scope', 'Estimated tender value (AUD)', 'Region', 'Distance from']
         offsets = [text.index('>' + field + '<') for field in fields]
         self.assertEqual(offsets, sorted(offsets))
         self.assertIn("distanceOrigin:existing?.origin||''", text)
         self.assertIn('value={form.addedDate}', text)
         self.assertIn('value={form.region}', text)
+        self.assertNotIn('>Distance (km)<', text)
 
     def test_card_credits_creator_and_clicks_location_only_when_present(self):
         cards = FORM.split('className="op-cards"', 1)[1].split('className="op-pagination"', 1)[0]

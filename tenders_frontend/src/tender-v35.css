@@ -408,3 +408,39 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 .op-documents-create-options [aria-pressed="true"]:focus-visible{outline:2px solid #e5c32d;outline-offset:2px}
 .op-documents-create small{font-size:11px;color:var(--muted-foreground,#9cbbcc)}
 @media(max-width:380px){.op-documents-create{padding:10px}.op-documents-create-options .secondary-btn{flex:1}}
+
+/* v3.7.17 - read-only end-to-end Project Journey; consistent desktop/mobile spacing. */
+.op-journey{margin:18px 0 24px;border:1px solid var(--border);background:var(--card);border-radius:14px;padding:17px;min-width:0}
+.op-journey-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.op-journey-eyebrow{display:block;font-size:10px;font-weight:800;letter-spacing:.1em;color:var(--muted-foreground)}
+.op-journey-header h3{font-size:17px;font-weight:750;margin-top:4px}
+.op-journey-current{padding:6px 10px;border-radius:999px;background:var(--muted);color:var(--foreground);border:1px solid var(--border);font-size:11px;font-weight:700}
+.op-journey-steps{list-style:none;margin:0;padding:2px 0 14px;display:grid;gap:0}
+.op-journey-step{display:grid;grid-template-columns:27px minmax(0,1fr);gap:9px;position:relative;min-height:54px;min-width:0}
+.op-journey-step:not(:last-child):before{content:'';position:absolute;top:26px;bottom:0;left:12px;width:1px;background:var(--border)}
+.op-journey-node{display:flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:50%;border:1px solid var(--border);background:var(--muted);font-size:11px;font-weight:700;color:var(--muted-foreground)}
+.op-journey-done .op-journey-node{border-color:#159a75;background:#12664f;color:#fff}
+.op-journey-active .op-journey-node{border-color:#e6bd2b;color:#e6bd2b;background:#5a461b}
+.op-journey-stopped .op-journey-node{opacity:.5}
+.op-journey-step-text{padding-bottom:10px;min-width:0}
+.op-journey-step-text strong{display:block;font-size:12px;line-height:1.45}
+.op-journey-step-text small{display:block;color:var(--muted-foreground);font-size:11px;line-height:1.5;overflow-wrap:anywhere;margin-top:2px}
+.op-journey-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:2px 0 14px}
+.op-journey-facts>div{border:1px solid var(--border);background:var(--muted);border-radius:9px;padding:11px;min-width:0;overflow-wrap:anywhere}
+.op-journey-facts>div>span{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted-foreground);margin-bottom:5px}
+.op-journey-facts b,.op-journey-facts a{font-size:12px;font-weight:650;line-height:1.45}
+.op-journey-facts a{display:inline-flex;align-items:center;gap:4px;color:#57c6cc;text-decoration:underline;text-underline-offset:2px}
+.op-journey-small-link{display:block!important;background:none;border:0;text-decoration:underline;text-underline-offset:2px;color:var(--primary);padding:6px 0 0!important;min-height:26px!important;font-size:11px!important;text-align:left;cursor:pointer}
+.op-journey-latest{display:flex;align-items:flex-start;gap:8px;margin:0 0 14px;color:var(--muted-foreground);font-size:11px;line-height:1.6;overflow-wrap:anywhere}
+.op-journey-latest>svg{flex:none;margin-top:2px}
+.op-journey-next{display:flex;gap:10px;align-items:flex-start;border-radius:10px;background:var(--muted);padding:12px;border:1px solid var(--border)}
+.op-journey-next>svg{flex:none;margin-top:2px;color:#d6af1a}
+.op-journey-next>div{flex:1;min-width:0}
+.op-journey-next strong{display:block;font-size:12px}
+.op-journey-next p{font-size:11px;color:var(--muted-foreground);line-height:1.6;margin:5px 0 0}
+.op-journey-next button{min-height:35px;flex:none;font-size:11px;padding:7px 9px}
+.op-journey-footnote{display:flex;align-items:center;gap:6px;color:var(--muted-foreground);font-size:10px;line-height:1.5;margin-top:12px}
+.op-journey-footnote svg{flex:none}
+.op-estimator-link-dialog .op-field{margin-bottom:12px}
+.op-estimator-link-dialog .op-field select{min-height:42px;border-radius:9px;border:1px solid var(--border);padding:8px 12px;background:var(--muted);color:var(--foreground)}
+@media(max-width:650px){.op-journey{padding:12px;margin:14px 0 20px}.op-journey-facts{grid-template-columns:1fr}.op-journey-next{flex-wrap:wrap}.op-journey-next button{width:100%}.op-journey-step{min-height:49px}}

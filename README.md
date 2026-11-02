@@ -1,3 +1,41 @@
+# TEC ConEst v3.7.17 — Project Journey & Opportunity Form Cleanup
+
+**Baseline:** v3.7.16o · **Executable version:** 3.7.17 · **Database schema:** 34 (unchanged) · **Migration:** none
+
+## Changes
+
+- **Removed manual Distance (km) entry** from New / Edit Opportunity. The region-specific **Distance from** origin remains editable for directions. Existing stored/imported distances remain visible on cards and in details, and can still be imported from Excel. Changing the project address or origin clears its stored distance rather than leaving a misleading value.
+- **Project Journey** now appears near the top of the Opportunity details Overview. Its five stages are Opportunity created → Decision → Quotation → Project Chase-up → Final outcome. Each reflects existing saved status and Tender records, not a second project history database.
+- **Live workflow summary** includes linked Tender project, electrical submission value, recorded builder outcomes, Chase-up update count, latest note, next scheduled reminder and next suggested action. A builder-award flag does not imply TEC won; final outcome is derived only from TEC submission statuses. Conflicting builder outcomes are shown as mixed.
+- **Estimator project linking** is now explicit and permission-controlled. Select **Link existing estimate** in the Project Journey to search current Estimator projects by name, or unlink one. The link is stored on the existing Opportunity JSON and audited; project records and estimate prices remain independent. Estimator links open the exact existing project (`/#/estimate/<id>`) in a new tab. Matching names alone never assert a link.
+- **Safety and compatibility:** all linking actions check the active user and current record revision; searches are limited to 50 results. Missing or moved Tender submission records are not displayed as active links. No new SQL tables or calculations. Opportunity changes and Estimator project links are recorded in the existing activity log and notifications.
+
+## Deployment
+
+1. Apply the changed-files ZIP over the complete **v3.7.16o** codebase, or use the full-source ZIP.
+2. **Build the Tender frontend in GitHub Actions** with `cd tenders_frontend && npm ci && npm run build` before uploading it to the server. Local Vite dependencies were unavailable here; prebuilt Tender browser assets in the source ZIP remain from the previous version. A direct cPanel upload without rebuilding will **not** show the new Project Journey.
+3. Preserve live database files (`data/*.db`), backups, uploads, environment settings and Passenger configuration. No database reset or migration is needed.
+4. Restart Passenger through the existing deployment workflow. Verify `GET /api/health?check=tenders` reports release **3.7.17** and schema **34**, then open an Approved opportunity in Tenders → Opportunities to verify its Journey and try the Estimator link selector.
+
+## Verification
+
+- Backend tests: `tests/test_v3717_journey.py` cover no false links, security and revision checks, explicit link/unlink audit, real quote/handoff, Chase-up history, reminders, TEC outcome and moved-linked submissions.
+- Frontend source checks: `tests/opportunity_v3717_ui.test.mjs` verify the removed Distance (km) field, Journey integration, link controls and mobile styles.
+- **Build constraint:** the fresh Tender Vite production build was not available locally (`vite: not found`). The CI frontend build is mandatory; see the GitHub Actions log for the final build and complete regression outcome.
+
+---
+
+# TEC ConEst v3.7.16o — Tender Deadline Display and Calendar Today Highlight
+
+**UI-only patch:** apply over v3.7.16 · **Executable release:** 3.7.16 · **Schema:** 34 · **Database migration:** none
+
+- **Submitted is not overdue:** An Approved opportunity already quoted or linked to a Tender submission shows a normal-size, neutral **Submitted** indicator beside its original deadline date on both the card and detail sheet. The date is still visible, but urgent/expired badges are suppressed. Unquoted Approved opportunities retain their normal urgency colours; Rejected and Expired stay neutral.
+- **Today on Tender Calendar:** Both **Approved Opportunities** and **Project Chase-up** Month views highlight today's Sydney calendar date with an accent top border and filled date number, matching the Estimator Calendar convention. Today includes an accessible `aria-current="date"` marker. Other days and calendar events retain their existing colours and behaviour.
+
+**Build requirement:** The local Vite dependencies were not available in this workspace. The ZIP contains updated Tender React/CSS source; run your normal GitHub Actions `npm ci && npm run build` before deploying. Do **not** directly upload old bundled Tender assets expecting these new views to appear. No data files or SQLite schema changes are included.
+
+---
+
 # TEC ConEst v3.7.16 — Opportunity Form & Review Workflow
 
 **Application release:** 3.7.16 · **Database schema:** 34 (unchanged) · **Base:** v3.7.15o CI fix · **Migration:** none
