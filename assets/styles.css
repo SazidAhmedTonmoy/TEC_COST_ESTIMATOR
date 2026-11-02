@@ -2401,3 +2401,44 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlighted>td{bac
  .estimate-guide-actions>.button{flex:1}
 }
 @media(prefers-reduced-motion:reduce){.estimate-save-state[data-status=saving] .save-dot{animation:none}}
+
+/* v3.7.19: action-oriented personal/team dashboard on Estimator Home. */
+.my-work-home{border:1px solid #32535f;border-radius:16px;background:#162b35;padding:20px;margin:0 0 20px;min-width:0;color:#e8f3f5}
+.my-work-home-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.my-work-home-heading h2{font-size:21px;letter-spacing:-.02em;margin:0;color:#f7fcff}
+.my-work-home-heading p:not(.my-work-home-eyebrow){font-size:12px;color:#a3b9c5;margin:5px 0 0}
+.my-work-home-eyebrow{color:#70d2d0;font-size:10px;font-weight:800;letter-spacing:.14em;margin:0 0 6px}
+.my-work-home-switch{display:flex;align-items:center;gap:4px;padding:4px;background:#10232d;border:1px solid #315361;border-radius:10px}
+.my-work-home-switch button{padding:8px 12px;min-height:36px;border-radius:7px;font-size:12px;color:#bdcfd7;font-weight:700;white-space:nowrap}
+.my-work-home-switch button.active{background:#16a3a0;color:#081d29}
+.my-work-home-switch button:not(.active):hover:not(:disabled){background:#29434d}
+.my-work-home-switch button:disabled{opacity:.45}
+.my-work-home-switch .my-work-home-refresh{font-size:18px;line-height:1;min-width:35px;padding:6px}
+.my-work-home-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.my-work-home-metric{border:1px solid #365461;background:#0f232e;padding:14px;border-radius:11px;min-width:0}
+.my-work-home-metric span{display:block;font-size:12px;color:#bfd0d9}
+.my-work-home-metric strong{display:block;font-size:30px;font-weight:850;margin-top:11px;color:#f7ffff}
+.my-work-home-actions-title{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.my-work-home-actions-title h3{margin:0;font-size:15px;font-weight:800;color:#f2fbfc}
+.my-work-home-actions-title small{color:#a8bdc7;font-size:11px}
+.my-work-home-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.my-work-home-action{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#102631;border:1px solid #31505e;border-radius:10px;padding:12px;min-width:0}
+.my-work-home-action>div{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.my-work-home-action strong{font-size:13px;overflow-wrap:anywhere;line-height:1.35}
+.my-work-home-action small{font-size:11px;color:#afc4cd;line-height:1.35}
+.my-work-home-action-tag{color:#66d4c9;font-size:10px;font-weight:800}
+.my-work-home-action-tag.urgent{color:#ff99a1}
+.my-work-home-action button{border:1px solid #375866;border-radius:8px;color:#eaf3f5;font-weight:750;font-size:11px;min-height:35px;padding:7px 10px;white-space:nowrap}
+.my-work-home-action button:hover{background:#234650}
+.my-work-home-empty{border:1px dashed #365461;padding:14px;border-radius:9px;font-size:12px;color:#b2c7d0}
+.my-work-home-error{display:flex;align-items:center;justify-content:space-between;border:1px solid #c16b7a;color:#ffb5be;border-radius:8px;padding:10px;margin-bottom:10px;font-size:12px}
+.my-work-home-error button{text-decoration:underline;font-weight:800}
+@media(max-width:950px){.my-work-home-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.my-work-home-actions{grid-template-columns:1fr}}
+@media(max-width:540px){.my-work-home{padding:12px;border-radius:12px}.my-work-home-metrics{gap:8px}.my-work-home-metric{padding:11px}.my-work-home-metric strong{font-size:24px}.my-work-home-switch{width:100%}.my-work-home-switch button:not(.my-work-home-refresh){flex:1}.my-work-home-action{align-items:stretch;flex-direction:column}.my-work-home-action button{align-self:flex-start}}
+/* Explicit button surfaces prevent native white-button defaults in dark mode. */
+.my-work-home-switch button{background:transparent;border:0;color:#c2d7df}
+.my-work-home-switch button.active{background:#16a3a0;color:#082532}
+.my-work-home-switch button:not(.active):hover:not(:disabled){background:#28434e;color:#fff}
+.my-work-home-switch button:focus-visible,.my-work-home-action button:focus-visible{outline:2px solid #79d7d0;outline-offset:2px}
+.my-work-home-action button{background:#173745;border:1px solid #426978;color:#eaf8ff}
+.my-work-home-action button:hover{background:#245467}

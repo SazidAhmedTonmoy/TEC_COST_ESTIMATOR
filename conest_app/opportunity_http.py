@@ -19,6 +19,9 @@ def route(handler, path, store, send):
     if handler.command == 'GET':
         if path == prefix:
             result = opportunities.list_opportunities(store, params, handler.user)
+        elif path == prefix + '/my-work':
+            from .my_work import summary
+            result = summary(store, handler.user, params.get('scope', 'mine'))
         elif path == prefix + '/calendar':
             result = opportunities.approved_calendar(store, params, handler.user)
         elif path == prefix + '/duplicates':
