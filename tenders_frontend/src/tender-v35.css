@@ -398,3 +398,13 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
  .chase-calendar-layout .calendar-event-filter{order:3;flex:1 1 100%;min-width:0;margin-left:0}
  .chase-calendar-layout .calendar-event-filter [data-slot=select-trigger]{width:100%}
 }
+
+/* v3.7.16: accessible new-opportunity document selector. */
+.op-documents-create{min-width:0;border:1px solid var(--border,#334c5b);border-radius:12px;padding:12px 14px;display:grid;gap:7px}
+.op-documents-create legend{font-size:12px;font-weight:700;padding:0 6px}
+.op-documents-create-options{display:flex;gap:8px;flex-wrap:wrap}
+.op-documents-create-options .secondary-btn{min-width:68px;min-height:38px;justify-content:center}
+.op-documents-create-options [aria-pressed="true"]{border-color:#1aa88e;background:rgba(12,145,127,.22);color:#a5f3de}
+.op-documents-create-options [aria-pressed="true"]:focus-visible{outline:2px solid #e5c32d;outline-offset:2px}
+.op-documents-create small{font-size:11px;color:var(--muted-foreground,#9cbbcc)}
+@media(max-width:380px){.op-documents-create{padding:10px}.op-documents-create-options .secondary-btn{flex:1}}

@@ -1,3 +1,30 @@
+# TEC ConEst v3.7.16 — Opportunity Form & Review Workflow
+
+**Application release:** 3.7.16 · **Database schema:** 34 (unchanged) · **Base:** v3.7.15o CI fix · **Migration:** none
+
+### Changes
+
+1. **Date-aware deadline:** Choosing an Added date makes earlier dates unavailable in the Closing deadline calendar (`min` attribute). If an existing deadline becomes invalid when Added date changes, it is cleared for reselection. The client blocks invalid manual dates, and the Python API validates the relationship independently. Same-day deadlines are allowed. Previously imported historical records with unchanged date fields are still editable without rewriting source history.
+2. **Documents available when creating:** The New opportunity form has a Yes / No selector (default **No**). The chosen boolean is stored when the record is created and appears immediately on its card and detail view. Creation activity records the initial flag. Subsequent document-status updates continue through the existing permissioned, revision-checked document control; ordinary edits cannot overwrite the saved status unexpectedly.
+3. **Region dropdown:** The form now offers **NSW** and **VIC** as selectable regions, plus any regions configured in the system. Existing legacy regions remain selectable when editing. Changing the selection keeps the configured distance-origin behaviour.
+4. **Approved → In Review:** Authorised team members or admins can move an unquoted, unlinked Approved opportunity to In Review, with the decision in Activity and notifications. Quoted/linked submissions cannot be reversed here. If its deadline has already passed, extend that deadline first; otherwise an In Review record would immediately become Expired, contradicting the established expiry rules. Approved may be restored from In Review.
+
+### Verification and compatibility
+
+- Focused backend tests cover the date range, persistence, notifications, document-state spoof prevention, legacy-date compatibility, and Approved → In Review transitions.
+- React/TypeScript source parses with the installed compiler. JavaScript tests cover the UI contracts. The full repository test results are recorded in the CI workflow when run.
+- **Tender frontend build required:** The local npm cache does not contain `vite@8.0.13`, so the bundled `tenders_web` assets are the prebuilt assets from the base release. GitHub Actions must complete `cd tenders_frontend && npm ci && npm run build` before deploying. Directly copying the source ZIP into cPanel without rebuilding will not activate the new Tender form.
+- No changes to estimate calculations, existing project data, opportunities, team permissions, submissions or reminders. Schema remains **34**, with no data reset.
+
+### Installation
+
+1. Apply the changed-files ZIP over the complete **v3.7.15o CI fix** repository. For another base, apply the full release source package.
+2. Commit/push to GitHub; let `.github/workflows/deploy-cpanel.yml` rebuild Tenders, run tests, then deploy.
+3. Keep all production `data/*.db`, uploads, `.env`, `passenger_wsgi.py` and hosting settings unchanged. After deployment, confirm the app health endpoint reports `3.7.16`, and test creating an opportunity with both document values and the minimum Closing deadline.
+4. If a CI test fails, inspect the earlier failure details in Actions; no database migration is needed for rollback.
+
+---
+
 # TEC ConEst v3.7.15 — Tender navigation, Agenda, Chase-up usability
 
 **Application release:** 3.7.15 · **Database schema:** 34 (unchanged) · **Base release:** 3.7.14 · **Data migration:** none
@@ -768,3 +795,30 @@ Production health only confirms application readiness; it is not a guarantee tha
 - **Build limitation:** The npm registry was unreachable in this working environment. A new Tender Vite bundle could not be produced locally, so the included `tenders_web/` files are the previously compiled version. **Do not deploy this archive directly to production if you expect the new Tender UI to appear.** Apply the source changes to GitHub and allow `.github/workflows/deploy-cpanel.yml` to run `npm ci && npm run build` before upload. This release's PHP/cPanel deployment method is unchanged.
 - Existing SQLite schema remains **34**, with no reset and no migration. Back up live databases and confirm `/api/health?check=tenders` reports version 3.7.13 after deployment.
 
+
+
+## v3.7.15o — Minor Tender UI correction
+
+### v3.7.15o CI test correction (1 November 2026)
+
+- Corrected `tests/test_v3713_workflows.py`: the Approved calendar test previously used fixed October 2026 deadlines. Once those deadlines passed, the test attempted to move an expired opportunity into In Review and correctly received a `ValidationError`, blocking deployment.
+- The fixture now selects a month sufficiently ahead of the current UTC date and generates three test deadlines within that month and the following month. It still verifies month filtering, exclusion of In Review, the quoted count, and rejection of an invalid month.
+- **No production behaviour changed.** Existing rules for expired opportunities, approvals, and In Review remain intact. Application version remains `3.7.15`; database schema remains `34`. No migration or reset is required.
+- Verified: all 3 tests in the previously failing module passed; 54 related opportunity/workflow tests passed. The complete Python CI runner exceeded the local execution limit, so the next GitHub Actions run is needed to confirm all modules.
+- To deploy: copy the changed-files ZIP contents over the complete v3.7.15o repository, commit and push; let GitHub Actions run its usual tests and Tender build before production upload.
+
+
+- Removed **Move to In Review** from the bottom of Awaiting approval opportunity cards. The same authorised decision remains in the opportunity details sheet; no workflow or permissions changed.
+- Re-aligned the Project Chase-up Calendar search field, Month / Agenda switch, 7-/30-day selectors, and event-type filter. The event filter now lives in the controls row rather than above the panel heading.
+- Responsive spacing is adjusted for phone and desktop widths; no database migration, data reset, or calculation changes.
+- **Deployment:** This patch updates Tender React source and CSS. Run the existing GitHub Actions frontend build (`npm ci && npm run build` in `tenders_frontend`) before uploading to Passenger; the included prebuilt Tender assets are from the preceding release.
+
+### v3.7.15o verification and scope
+
+- 25 focused Python tests passed, including opportunity decision permissions and quick-filter regression.
+- 27 JavaScript tests passed using the locally available Node TypeScript support.
+- Tender React source transpilation passed for the two modified components.
+- Calendar control alignment was checked in a standalone browser fixture at widths 320, 390, 768, 1280, and 1600 CSS px; these are layout checks, not authenticated end-to-end tests.
+- A fresh Vite build was **not** available locally (`vite: not found`); the GitHub Actions build is required. The shipped prebuilt Tender assets remain unchanged.
+- No full cross-module Python suite was run for this minor UI patch.
+- Release label **v3.7.15o** denotes the UI patch based on v3.7.15; the Python application version and npm package version remain `3.7.15` for compatibility with the current deployment and CI checks. Database schema remains **34**.

@@ -247,6 +247,13 @@ def _normalise(db, payload, current=None):
         'value': _number(base.get('value'), 'Tender value'),
         'distanceKm': _number(base.get('distanceKm'), 'Distance'),
     }
+    # The date range must be valid even when a client bypasses the HTML date
+    # picker. Historical imported records with an unchanged invalid date pair
+    # remain editable without silently rewriting their original source dates.
+    if (fields['addedDate'] and fields['due'] and fields['due'] < fields['addedDate']
+            and (current is None or fields['addedDate'] != (current.get('addedDate') or '')
+                 or fields['due'] != (current.get('due') or ''))):
+        raise tenders.ValidationError('Closing deadline cannot be before the Added date.')
     from .builders import validate_builders
     try:
         fields['builders'] = validate_builders(base.get('builders', []))
@@ -427,9 +434,18 @@ def save(store, payload, user):
             if review['duplicateCount'] and payload.get('duplicateToken') != review['duplicateToken']:
                 return {**review, 'requiresDuplicateReview': True}
             before = {}
+            # New opportunities may declare document availability immediately.
+            # Existing records still use the dedicated, revision-checked
+            # /documents endpoint so a stale generic edit cannot overwrite it.
+            documents_available = payload.get('documentsAvailable', False)
+            if type(documents_available) is not bool:
+                raise tenders.ValidationError('Choose Yes or No for Documents available.')
             item = _new_item(db, fields, actor)
+            item['documentsAvailable'] = documents_available
         item.update(_authority(payload, item, actor, teams, users))
         changed = {k: item.get(k) for k in fields if before.get(k) != item.get(k)}
+        if not identifier:
+            changed['documentsAvailable'] = item['documentsAvailable']
         authority_changed = any(before.get(k, []) != item[k] for k in AUTHORITY_FIELDS)
         auto_approve = _approve_assignment_requested(payload, item, actor)
         if identifier and not changed and not authority_changed and not auto_approve:
@@ -511,7 +527,10 @@ def decide(store, payload, user):
         if item['status'] == decision:
             return _detail(db, item, actor)
         if decision in ('pending', 'review') and item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']):
-            raise tenders.ValidationError('Approve this opportunity to proceed after its deadline, or extend the deadline before requesting approval.', 409)
+            message = ('Extend the closing deadline before moving this Approved opportunity to In Review.'
+                       if decision == 'review' and item['status'] == 'approved'
+                       else 'Approve this opportunity to proceed after its deadline, or extend the deadline before requesting approval.')
+            raise tenders.ValidationError(message, 409)
         before = item['status']
         # An explicit Not quoted decision is valid after a deadline too, but
         # never overrides an existing tender link. Expired (not approved)

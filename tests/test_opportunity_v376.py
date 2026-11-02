@@ -117,7 +117,7 @@ class Opportunity376Tests(unittest.TestCase):
         self.assertTrue(changed['documentsAvailable'])
 
     def test_edit_and_excel_cannot_override_document_status(self):
-        item = self.create(project='No spoofing', documentsAvailable=True)
+        item = self.create(project='No spoofing')
         self.assertFalse(item['documentsAvailable'])
         item = op.set_documents_available(self.store, {'id': item['id'], 'revision': item['revision'],
             'available': True}, self.creator)['opportunity']
