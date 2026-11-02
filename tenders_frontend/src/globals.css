@@ -345,3 +345,25 @@ html[data-theme="dark"] .detail-sheet .chase-history-note{color:#eaf3f8!importan
 html[data-theme="dark"] .detail-sheet .chase-history-meta{color:#c0d0da!important;opacity:1!important}
 .detail-sheet .chase-history-entry .history-schedule-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--foreground);font-weight:650}
 .detail-sheet .chase-history-entry .history-schedule-btn:hover{background:var(--accent)}
+
+
+/* v3.7.16o: highlighted Sydney "today" on both Approved and Chase-up month calendars. */
+.calendar-panel .calendar-day.is-today{
+  background:#fff9e4!important;
+  box-shadow:inset 0 3px 0 #e4b91e!important;
+}
+html[data-theme="dark"] .calendar-panel .calendar-day.is-today{
+  background:#20333d!important;
+  box-shadow:inset 0 3px 0 #f3cb39!important;
+}
+.calendar-panel .calendar-day.is-today .day-number{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:26px;
+  min-height:26px;
+  border-radius:5px;
+  background:#f3cb39!important;
+  color:#152736!important;
+  font-weight:750;
+}

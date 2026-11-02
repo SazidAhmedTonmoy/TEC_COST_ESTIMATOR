@@ -44,11 +44,21 @@ export function opportunityLocalDate(region:string,regions:OpportunityRegion[]=[
 }
 
 export function opportunityDeadline(
-  item:{due?:string;region:string;status?:OpportunityStatus},
+  item:{
+    due?:string;region:string;status?:OpportunityStatus;
+    quoteStatus?:Opportunity['quoteStatus'];submissionIds?:Opportunity['submissionIds'];linkedAt?:Opportunity['linkedAt'];
+  },
   regions:OpportunityRegion[]=[],
   now=Date.now(),
 ):OpportunityDeadline {
   const timezone=opportunityTimezone(item.region,regions);
+  // Once an Approved opportunity is submitted or linked, the closing deadline
+  // is historical information, not a call to action. Never flag it as overdue.
+  // Keep this display-only: the recorded deadline and quotation remain unchanged.
+  const submitted=item.status==='approved'&&(
+    item.quoteStatus==='quoted'||!!item.submissionIds?.length||!!item.linkedAt
+  );
+  if(submitted)return {days:null,label:'Submitted',tone:'neutral',timezone};
   const decided=item.status==='rejected'||item.status==='expired';
   if(!item.due)return {days:null,label:'No deadline',tone:decided?'neutral':'none',timezone};
   const due=deadlineDay(item.due);

@@ -96,7 +96,7 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
     <div className="calendar-grid">{Array.from({length:Math.ceil((offset+days)/7)*7},(_,i)=>{
       const number=i-offset+1;if(number<1||number>days)return <div key={i} className="calendar-day outside"/>;
       const date=month+'-'+String(number).padStart(2,'0'),events=byDay.get(date)||[];
-      return <div key={date} className={'calendar-day'+(day===date?' is-selected':'')}><button className="day-number" onClick={()=>setDay(day===date?'':date)}>{number}</button>{events.slice(0,3).map(event=>{
+      return <div key={date} className={'calendar-day'+(date===today?' is-today':'')+(day===date?' is-selected':'')}><button className="day-number" aria-current={date===today?'date':undefined} aria-label={date===today?'Today, '+label(date):label(date)} onClick={()=>setDay(day===date?'':date)}>{number}</button>{events.slice(0,3).map(event=>{
         const appearance=event.quoted?null:needsQuoteAppearance(event);
         return <button key={event.id} className={'calendar-event opportunity-calendar-event '+(event.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style} title={event.project+' · '+(event.quoted?'Quoted / linked':'Needs quote · '+appearance?.label)} aria-label={event.project+', '+(event.quoted?'already quoted or linked':'needs quote, '+appearance?.label)} onClick={()=>onOpen(event.id)}><span>{event.project}</span></button>;
       })}{events.length>3&&<button className="more-events" onClick={()=>setDay(date)}>+{events.length-3} more</button>}</div>;
