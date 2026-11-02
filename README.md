@@ -1,3 +1,54 @@
+# TEC ConEst v3.7.19 — Save Reliability, Mobile Usability & Team Workload
+
+**Base:** v3.7.18 · **Application version:** 3.7.19 · **Database schema:** 34 (unchanged) · **Migration:** none
+
+## v3.7.19 changes
+
+### 1. Prevent lost changes, silent failures and unnecessary reloading
+
+- Estimator project settings use a visible **Saved / Saving / Unsaved changes / Save failed** status. Save failures retain the typed values and display **Retry save** with an explanation. Failed write requests are **never automatically replayed**: a network error may mean the server accepted a request before the connection dropped. Verify the saved revision before retrying.
+- Navigating away, switching estimates or reloading while there are unconfirmed project-settings changes prompts or blocks the action. The explicit project refresh action also respects drafts. Debounced autosaving preserves input typed while an earlier request is still in flight.
+- The Breakdown allocation dialog warns before discarding an unsaved change, including keyboard Escape and navigation/reload. Its previous Undo/Redo behaviour remains available.
+- A persistent action-error banner surfaces unsuccessful Estimator writes until dismissed or a write to the same endpoint succeeds. Existing server optimistic revision checks, permissions, prices, and totals remain in place.
+- Dashboard navigation avoids fetching the already-loaded estimate. Background deadline reminders are de-duplicated and cached briefly. Tender focus-based reloading is throttled and skips active edits; form details are no longer silently replaced during background refreshes.
+- Tender submission and chase-up edit dialogs confirm before discarding changed fields. Tender detail sheets warn about unsubmitted chase-up or reminder text. Failed submission actions display a persistent error banner and do not auto-retry writes.
+
+### 2. Mobile-friendly workspace
+
+- Estimator project cards, collapsed **Details & actions** controls, navigation, and buttons have improved phone/tablet spacing and minimum 44-pixel touch targets.
+- Tender submissions have a separate phone-friendly card layout with project/building, value, deadline, feedback, next action and **Open tender / Actions** options. The desktop table remains available at larger widths.
+- Mobile dialogs use the available viewport height, retain readable form fields and offer keyboard-visible focus indicators.
+
+### 3. Shared design language
+
+- Estimator and Tender interfaces use the same typography fallback stack, design spacing scale, rounded form fields, button rhythm, teal primary accent, and consistent focus/disabled states. Existing light/dark themes remain supported.
+
+### 4. Team workload on Estimator Home
+
+- A new **Team workload** panel displays active estimates, deadlines due within the next seven calendar days, and overdue deadlines per active member, grouped by team. Admins see all teams; non-admins see their own team only.
+- The authenticated **GET `/api/team-workload`** endpoint is read-only. Active states: **Not started / In progress / In review**. Submitted and closed estimates are excluded. Review projects use their review deadline rather than their old submission deadline.
+- A project is attributed to its **owner** and explicitly named individual editors. Team sharing **does not** count the same project as an assignment for every colleague; team-shared unassigned work is reported separately.
+- The deadline cutoff and date use **Australia/Sydney**. **Tender Opportunities are not included** in these Estimator workload counts. No new tables or stored fields were added.
+
+## Deployment
+
+1. For an existing v3.7.18 repository, unpack the **changed-files ZIP** over the matching directory structure, or use the complete source ZIP. Preserve your original `.git` folder, `data/`, SQLite databases, `.env`, credentials, uploads, and local server configuration.
+2. Commit and push. The existing GitHub Actions workflow runs `npm ci && npm run build` in `tenders_frontend/`, then rebuilds fingerprinted Estimator assets via `python tools/build_frontend.py`. This step is **required** for the new Tender React UI to be reflected in `tenders_web/`.
+3. Keep your current database intact. Schema **34** is unchanged and no migration is required.
+4. Verify the health endpoint returns version `3.7.19`, then test editing and saving an estimate, cancelling a dirty Breakdown, using Tender cards on mobile, and viewing Team workload from an ordinary team member account and an administrator account.
+5. Do not assume a failed write was rolled back, or retry it blindly after a network interruption. Check for an updated project revision or saved tender entry first.
+
+## Build and verification
+
+- Estimator source assets have been regenerated with `python tools/build_frontend.py`; compiled JavaScript syntax checks pass.
+- New workload tests cover team scoping, explicit assignment, seven-day deadlines, overdue review deadlines, read-only behaviour, and the authenticated endpoint.
+- The Tender component's TSX syntax was checked with TypeScript's parser. **The precompiled Tender bundle in this source archive is still the existing v3.7.18 build** because the current environment could not reach the npm registry to install dependencies. This is not a production-built Tender release until the normal Vite build runs (as part of GitHub Actions). No working `node_modules` are included.
+- Existing application regression tests should run before production deployment; see `python tools/run_tests.py --workers 4` and the Node test files in `tests/`.
+
+---
+
+## Previous release — v3.7.18
+
 # TEC ConEst v3.7.18 - Estimator Usability & Breakdown Refinements
 
 **Base release:** v3.7.17  |  **Application version:** 3.7.18  |  **Database schema:** 34 (unchanged)  |  **Migration:** none

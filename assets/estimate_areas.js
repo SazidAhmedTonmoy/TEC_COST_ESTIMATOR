@@ -9,6 +9,10 @@
   if(!ev.target.closest('[data-breakdown]'))return;
   const project=state.projectData;
   if(!project||!project.lines)return;
+  if(typeof hasUncommittedProjectSettings==='function'&&hasUncommittedProjectSettings()){
+   if(typeof toast==='function')toast('Finish saving the project details before editing the breakdown.',true);
+   return;
+  }
   const pid=state.projectId,lines=project.lines,currency=project.project.currency||'AUD';
   let names=[...(project.area_names||[])];
   for(const line of lines)for(const a of JSON.parse(line.area_allocations||'[]')){
@@ -36,6 +40,17 @@
   const unallocatedCount=()=>entries.filter(unallocatedEntry).length;
   const undoStack=[],redoStack=[];
   const snapshot=()=>JSON.stringify({names,entries:entries.map(e=>({quantity:e.quantity,mode:e.mode,target:e.target,values:{...e.values},edited:e.edited}))});
+  const openedSnapshot=snapshot();let typedUnsaved=false,savedSuccessfully=false;
+  const dirtyBreakdown=()=>typedUnsaved||snapshot()!==openedSnapshot;
+  const requestClose=()=>{
+   if(busy){invalid('Saving in progress. Check the result before closing.');return;}
+   if(dirtyBreakdown()&&!confirm('Discard unsaved Breakdown changes?'))return;
+   d.close();
+  };
+  const beforeLeave=event=>{if(dirtyBreakdown()&&!savedSuccessfully){event.preventDefault();event.returnValue='';}};
+  window.addEventListener('beforeunload',beforeLeave);
+  d.addEventListener('cancel',event=>{event.preventDefault();requestClose();});
+  d.addEventListener('input',event=>{if(event.target.matches('[data-name],[data-total],[data-item]'))typedUnsaved=true;});
   const pushHistory=(previous=snapshot())=>{if(undoStack.at(-1)!==previous){undoStack.push(previous);if(undoStack.length>50)undoStack.shift();}redoStack.length=0;};
   const restoreSnapshot=data=>{const saved=JSON.parse(data);names=[...saved.names];saved.entries.forEach((row,i)=>{if(entries[i])Object.assign(entries[i],row)});render();};
   const historyAction=direction=>{const from=direction==='undo'?undoStack:redoStack,to=direction==='undo'?redoStack:undoStack;if(!from.length)return;const current=snapshot();to.push(current);restoreSnapshot(from.pop());};
@@ -121,7 +136,7 @@
   };
   function render(){
    d.innerHTML=`<form class="dialog-card" novalidate><div class="breakdown-heading"><div><h2>Breakdown — ${safe(project.project.name)}</h2><p class="helper-text">Area / Floor / Space → Category → Catalog Item</p></div><button type="button" class="button secondary" data-cancel aria-label="Close breakdown">×</button></div><div class="breakdown-tabs" role="tablist" aria-label="Breakdown view"><button type="button" role="tab" aria-selected="${tab==='allocate'}" class="${tab==='allocate'?'active':''}" data-tab="allocate">Allocation</button><button type="button" role="tab" aria-selected="${tab==='tree'}" class="${tab==='tree'?'active':''}" data-tab="tree">Structured View</button></div><div class="breakdown-utility-row"><label class="breakdown-unallocated-filter"><input type="checkbox" data-only-unallocated ${unallocatedOnly?'checked':''}> Show unallocated only <span class="breakdown-unallocated-count">${unallocatedCount()}</span></label><span class="breakdown-utility-actions"><button type="button" class="button secondary small" data-undo ${undoStack.length?'':'disabled'} title="Undo unsaved allocation change">Undo</button><button type="button" class="button secondary small" data-redo ${redoStack.length?'':'disabled'} title="Redo unsaved allocation change">Redo</button></span></div><section class="breakdown-pane" role="tabpanel">${tab==='allocate'?editor():renderTree()}</section><p role="alert" class="area-error"></p><div class="area-actions"><span class="breakdown-save-note">${entries.length} estimate items · ${names.length} areas</span><button type="button" class="button secondary" data-cancel>Cancel</button><button type="submit" class="button primary" ${busy?'disabled':''}>${busy?'Saving…':'Save breakdown'}</button></div></form>`;
-   d.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>d.close());
+   d.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=requestClose);
    d.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
    d.querySelector('[data-only-unallocated]').onchange=e=>{unallocatedOnly=e.target.checked;render()};
    d.querySelector('[data-undo]').onclick=()=>historyAction('undo');
@@ -170,7 +185,7 @@
     const response=await api(`/api/projects/${pid}/breakdown`,{method:'POST',body:{expected_revision:project.project.revision,areas:names,
      rows:entries.map(e=>({id:e.line.id,expected_revision:e.line.revision,quantity:e.quantity,allocations:allocFor(e)}))}});
     if(state.projectId===pid){state.projectData=response;renderProject()}
-    d.close();if(typeof toast==='function')toast('Breakdown saved');
+    savedSuccessfully=true;d.close();if(typeof toast==='function')toast('Breakdown saved');
    }catch(ex){busy=false;d.querySelectorAll('button,input,select').forEach(x=>x.disabled=false);d.querySelector('.area-error').textContent=ex.message+' No changes were saved.'}
   }
   d.addEventListener('keydown',event=>{
@@ -179,6 +194,6 @@
    if(event.key.toLowerCase()==='z'){event.preventDefault();historyAction(event.shiftKey?'redo':'undo');}
    if(event.key.toLowerCase()==='y'){event.preventDefault();historyAction('redo');}
   });
-  render();d.onclose=()=>d.remove();d.showModal();
+  render();d.onclose=()=>{window.removeEventListener('beforeunload',beforeLeave);d.remove();};d.showModal();
  });
 })();

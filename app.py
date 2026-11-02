@@ -407,6 +407,11 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 return
             if path == "/api/dashboard":
                 self._send_json(self._dashboard_payload());return
+            if path == "/api/team-workload":
+                from conest_app.team_workload import workload
+                with self._read_connection() as conn:
+                    result = workload(conn, self.user)
+                self._send_json({'success': True, **result});return
             if path == "/api/catalog/search":
                 page_info = {}
                 term = query.get("q", [""])[0]

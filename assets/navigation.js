@@ -32,13 +32,16 @@ async function restorePage(){
   const route=currentPageRoute();
   let id=route.id;
   try{
-    setView(route.view,false,false);
-    if(state.view!==route.view)id=null; // Existing role/setup restrictions remain authoritative.
+    if(setView(route.view,false,false)===false)return;
+    if(state.view!==route.view)id=null; // Role restrictions are still authoritative.
     const view=state.view;
     if(view==='estimate'){
-      // Remove another project's data while this URL is loading.
-      state.projectId=null;state.projectData=null;renderProjectSelect();renderProject();
-      if(id)await loadProject(id);
+      // Keep the current estimate visible while the requested project loads.
+      // Re-entering the same route must not fetch it or wipe unsaved inputs.
+      if(id && (id!==state.projectId || !state.projectData)){
+        const loaded=await loadProject(id);
+        if(loaded===false)return;
+      }
     }else if(view==='catalog'){
       state.currentCatalogItem=null;
       $('#catalog-detail').innerHTML='<p class="helper-text">Select a catalogue item to review.</p>';
@@ -59,9 +62,7 @@ async function restorePage(){
   }catch(error){
     if(request!==pageNavigation.request)return;
     toast(error.message,true);
-    if(state.view==='estimate'){
-      state.projectId=null;state.projectData=null;renderProjectSelect();renderProject();
-    }
+    // Errors must leave the previous project and its draft intact.
     if(state.view==='catalog')state.currentCatalogItem=null;
     if(state.view==='light-prices')lightPriceState.selected=null;
     id=null;

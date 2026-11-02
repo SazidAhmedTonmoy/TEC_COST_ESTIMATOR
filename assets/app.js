@@ -129,12 +129,20 @@ async function api(path,options={}){
   if(key)pendingApiReads.set(key,request);
   try{
     const result=structuredClone(await request);
+    if(!readOnly && /^\/api\/(?:projects|teams|users)(?:\/|$)/.test(path) && typeof workspaceState!=='undefined')workspaceState.workloadFetched=0;
+    if(!readOnly && state.actionErrorPath===path && typeof $==='function'){const banner=$('#action-error-banner');if(banner?.classList)banner.classList.add('hidden');state.actionErrorPath=null;}
     if(estimateMutation&&typeof setEstimateSaveState==='function'
        && Number(path.match(/^\/api\/projects\/(\d+)/)?.[1])===state.projectId)
-      setEstimateSaveState(projectSettingsQueued?'dirty':'saved');
+      setEstimateSaveState(typeof hasUncommittedProjectSettings==='function'&&hasUncommittedProjectSettings()?'dirty':'saved');
     return result;
   }catch(error){
     if(estimateMutation&&typeof setEstimateSaveState==='function')setEstimateSaveState('error');
+    if(!readOnly && !/\/(?:presence|reminders\/read)(?:$|\?)/.test(path)){
+      // Persistent message: an automatically caught error must never disappear silently.
+      state.actionErrorPath=path;
+      const banner=typeof $==='function'?$('#action-error-banner'):null;
+      if(banner?.classList){banner.classList.remove('hidden');const message=$('#action-error-text');if(message)message.textContent=`Action not confirmed: ${error.message}`;}
+    }
     throw error;
   }finally{
     state.apiPendingCount=Math.max(0,(state.apiPendingCount||1)-1);
@@ -227,6 +235,7 @@ function toast(message, error = false) {
 
 function setView(name, load = true, remember = true) {
   if (state.user?.must_change_password) name = 'profile';
+  if(state.view==='estimate'&&name!=='estimate'&&typeof canLeaveEstimate==='function'&&!canLeaveEstimate())return false;
   if (['users','settings'].includes(name) && state.user?.role !== 'admin') name = 'home';
   if(state.view !== name) { state.projectLoadRequest=(state.projectLoadRequest||0)+1; state.catalogDetailRequest=(state.catalogDetailRequest||0)+1; }
   state.view = name;
@@ -245,14 +254,15 @@ function setView(name, load = true, remember = true) {
   if(typeof closeProjectPicker==='function')closeProjectPicker();
   $('#delete-project-button').classList.toggle('hidden', name !== 'estimate');
   $('#new-project-button').classList.toggle('hidden', name !== 'estimate' || Boolean(state.user?.must_change_password));
-  if (name === 'home') { renderHome(); if (load) loadDashboard().catch(error => toast(error.message,true)); }
-  if (name === 'calendar') { renderCalendar(); if (load) loadDashboard().then(renderCalendar).catch(error => toast(error.message,true)); }
+  if (name === 'home') { renderHome(); if (load) loadDashboard(false).catch(error => toast(error.message,true)); }
+  if (name === 'calendar') { renderCalendar(); if (load) loadDashboard(false).then(renderCalendar).catch(error => toast(error.message,true)); }
   if (name === 'profile') renderProfile();
   if (load && name === 'users') loadUsers().catch(error => toast(error.message,true));
   if (load && name === "catalog") loadCatalog();
   if (load && name === "light-prices") loadLightPrices().catch(error=>toast(error.message,true));
   if (load && name === "imports") loadImports().catch(error=>toast(error.message,true));
-  if (load && name === "settings") {loadSettings(); if(typeof loadBackups==='function')loadBackups().catch(error=>toast(error.message,true));}
+  if (load && name === "settings") {loadSettings().catch(error=>toast(error.message,true)); if(typeof loadBackups==='function')loadBackups().catch(error=>toast(error.message,true));}
+  return true;
 }
 
 async function loadDashboard(reloadEstimate = true, initialData = null) {
@@ -265,9 +275,11 @@ async function loadDashboard(reloadEstimate = true, initialData = null) {
   renderCatalogCategoryFilter();
   renderProjectSelect();
   $("#category-options").innerHTML = (result.manual_options?.categories || []).map((category) => `<option value="${escapeHtml(category)}">`).join("");
-  if (!state.projects.some((project) => project.id === state.projectId && project.can_view)) state.projectId = null;
-  if (state.projectId) { if(reloadEstimate) await loadProject(state.projectId); }
-  else { state.projectData = null; renderProject(); }
+  if (!state.projects.some((project) => project.id === state.projectId && project.can_view)) {
+    // Do not discard an unsaved draft because an asynchronous dashboard changed.
+    if(!hasUncommittedProjectSettings()){state.projectId = null;state.projectData=null;renderProject();}
+  } else if(state.projectId && !state.projectData && reloadEstimate) await loadProject(state.projectId);
+  else if(!state.projectId){state.projectData = null;renderProject();}
   if(state.view==='home')renderHome();
 }
 
@@ -290,10 +302,20 @@ function renderProjectSelect() {
   if(typeof renderProjectPicker==='function')renderProjectPicker();
 }
 
-async function loadProject(projectId) {
+async function loadProject(projectId, {force=false}={}) {
+  const requested=Number(projectId)||null;
+  if(state.projectData?.project?.id===requested && !force && typeof hasUncommittedProjectSettings==='function' && hasUncommittedProjectSettings())return state.projectData;
+  if(requested!==state.projectId || force){
+    if(typeof canLeaveEstimate==='function'&&!canLeaveEstimate()){
+      renderProjectSelect();
+      if(typeof rememberPage==='function')rememberPage('estimate',state.projectId,true);
+      return false;
+    }
+  }
   const request=state.projectLoadRequest=(state.projectLoadRequest||0)+1;
   if (!projectId) { state.projectId = null; state.projectData = null; renderProject(); if(typeof setEstimateSaveState==='function')setEstimateSaveState('idle'); if(typeof rememberPage==='function')rememberPage('estimate'); return; }
   const result = await api(`/api/projects/${projectId}`);
+  if(typeof hasUncommittedProjectSettings==='function'&&hasUncommittedProjectSettings() && state.projectId===requested)return false;
   // A read can start while a write is pending and return its older snapshot
   // after the write commits. Never replace a newer same-project response.
   const stale=()=>request!==state.projectLoadRequest || (
@@ -678,17 +700,36 @@ async function removeLine(lineId) {
   toast("Assembly removed");
 }
 
-let projectSettingsTimer=null,projectSettingsBusy=false,projectSettingsQueued=false,projectSettingsOwner=null;
+let projectSettingsTimer=null,projectSettingsBusy=false,projectSettingsQueued=false,projectSettingsOwner=null,projectSettingsSaveFailed=false,projectSettingsEpoch=0;
+function hasUncommittedProjectSettings(){
+ return !!(projectSettingsQueued||projectSettingsBusy||projectSettingsSaveFailed);
+}
+function resetProjectSettingsDraft(){
+ clearTimeout(projectSettingsTimer);projectSettingsQueued=false;projectSettingsSaveFailed=false;projectSettingsOwner=null;
+ document.getElementById('estimate-save-alert')?.classList.add('hidden');
+ if(state.projectData){renderProject();setEstimateSaveState('saved');}
+}
+function canLeaveEstimate(){
+ if(projectSettingsBusy){toast('An estimate save is still running. Check its result before leaving.',true);return false;}
+ if(!hasUncommittedProjectSettings())return true;
+ if(!confirm('This estimate has changes that are not confirmed saved. Discard these changes?'))return false;
+ resetProjectSettingsDraft();return true;
+}
+function showSettingsSaveError(message){
+ const alert=document.getElementById('estimate-save-alert');if(!alert)return;
+ alert.classList.remove('hidden');$('#estimate-save-alert-message').textContent=message;
+}
 function queueProjectSettings(){
  if(!state.projectData?.project.can_edit)return;
- projectSettingsOwner=state.projectId;projectSettingsQueued=true;
- $('#project-autosave-status').textContent='Unsaved changes…';
- if(typeof setEstimateSaveState==='function')setEstimateSaveState('dirty');
- clearTimeout(projectSettingsTimer);projectSettingsTimer=setTimeout(()=>saveProjectSettings().catch(()=>{}),450);
+ projectSettingsOwner=state.projectId;projectSettingsQueued=true;projectSettingsEpoch++;
+ $('#project-autosave-status').textContent=projectSettingsSaveFailed?'Save failed — review and retry':'Unsaved changes…';
+ if(typeof setEstimateSaveState==='function')setEstimateSaveState(projectSettingsSaveFailed?'error':'dirty');
+ clearTimeout(projectSettingsTimer);
+ if(!projectSettingsSaveFailed)projectSettingsTimer=setTimeout(()=>saveProjectSettings().catch(error=>toast(error.message,true)),650);
 }
 async function saveProjectSettings(event) {
  event?.preventDefault();clearTimeout(projectSettingsTimer);
- if(projectSettingsBusy){projectSettingsQueued=true;return;}
+ if(projectSettingsBusy){return;}
  if(!state.projectId||!state.projectData?.project.can_edit)return;
  if(projectSettingsOwner&&projectSettingsOwner!==state.projectId){projectSettingsQueued=false;projectSettingsOwner=null;return;}
  if(!$('#project-settings-form').checkValidity()){$('#project-autosave-status').textContent='Enter valid values to save';if(typeof setEstimateSaveState==='function')setEstimateSaveState('dirty');return;}
@@ -706,20 +747,34 @@ async function saveProjectSettings(event) {
   if (state.projectData?.project.can_manage) payload.builders = $("#project-builders").value.split(/\r?\n/);
 
  payload.expected_revision=state.projectData.project.revision;
+ const savedEpoch=projectSettingsEpoch;
  projectSettingsBusy=true;projectSettingsQueued=false;
  $('#project-autosave-status').textContent='Saving…';
  if(typeof setEstimateSaveState==='function')setEstimateSaveState('saving');
  try{
   const result=await api(`/api/projects/${pid}`,{method:'PATCH',body:payload});
   if(state.projectId!==pid)return;
-  const draft=Object.fromEntries([...$('#project-settings-form').querySelectorAll('input,textarea')].map(f=>[f.id,f.value]));
+  // Preserve every keystroke made after the request started, even if an input
+  // event or another response arrives while the server is processing this save.
+  const pending=projectSettingsQueued||projectSettingsEpoch!==savedEpoch;
+  const draft=pending?Object.fromEntries([...$('#project-settings-form').querySelectorAll('input,textarea')].map(f=>[f.id,f.value])):null;
+  projectSettingsSaveFailed=false;
   state.projectData=result;renderProject();
-  if(projectSettingsQueued){for(const [id,value] of Object.entries(draft))$('#'+id).value=value;}
+  if(draft){for(const [id,value] of Object.entries(draft))$('#'+id).value=value;projectSettingsQueued=true;}
+  document.getElementById('estimate-save-alert')?.classList.add('hidden');
   const i=state.projects.findIndex(p=>p.id===pid);if(i>=0)state.projects[i]={...state.projects[i],...result.project,totals:result.totals};
   $('#project-autosave-status').textContent=projectSettingsQueued?'Saving latest changes…':'Saved · totals updated';
   if(typeof setEstimateSaveState==='function')setEstimateSaveState(projectSettingsQueued?'dirty':'saved');
- }catch(error){projectSettingsQueued=false;$('#project-autosave-status').textContent='Not saved — '+error.message;if(typeof setEstimateSaveState==='function')setEstimateSaveState('error');toast(error.message,true);}
- finally{projectSettingsBusy=false;if(projectSettingsQueued&&state.projectId===pid)saveProjectSettings().catch(()=>{});}
+ }catch(error){
+  projectSettingsSaveFailed=true;projectSettingsQueued=true;
+  $('#project-autosave-status').textContent='Not saved — '+error.message;
+  if(typeof setEstimateSaveState==='function')setEstimateSaveState('error');
+  showSettingsSaveError('Estimate settings not confirmed saved: '+error.message+' Keep this page open, check the latest revision if the connection failed, or retry the save.');
+  toast(error.message,true);
+ }finally{
+  projectSettingsBusy=false;
+  if(!projectSettingsSaveFailed&&projectSettingsQueued&&state.projectId===pid)saveProjectSettings().catch(error=>toast(error.message,true));
+ }
 }
 
 let projectCopySource=null;
@@ -1337,6 +1392,8 @@ function bindEvents() {
   $("#project-settings-form").addEventListener("input",queueProjectSettings);
   $("#project-settings-form").addEventListener("change",()=>saveProjectSettings().catch(()=>{}));
   $("#project-settings-form").addEventListener("submit", (event) => saveProjectSettings(event).catch((error) => toast(error.message, true)));
+  $('#estimate-retry-save').addEventListener('click',()=>saveProjectSettings().catch(error=>toast(error.message,true)));
+  $('#action-error-dismiss').addEventListener('click',()=>{state.actionErrorPath=null;$('#action-error-banner').classList.add('hidden');});
   $("#delete-project-button").addEventListener("click", () => deleteCurrentProject().catch((error) => toast(error.message, true)));
   $("#floating-search-button").addEventListener("click", () => { $("#smart-search-form").scrollIntoView({behavior:"smooth",block:"center"});$("#smart-search-input").focus({preventScroll:true}); });
   $("#quick-search-form").addEventListener("submit", (event) => { event.preventDefault(); runQuickSearch().catch((error) => toast(error.message, true)); });
@@ -1473,4 +1530,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindWorkspaceEvents();
   if(typeof bindProductivityEvents==='function')bindProductivityEvents();
   await bootWorkspace();
+});
+
+/* Browser leave protection covers unconfirmed project rates and any in-flight save.
+   It does not promise offline persistence: failed saves must be resolved here. */
+window.addEventListener('beforeunload',event=>{
+ if(hasUncommittedProjectSettings()){
+   event.preventDefault();event.returnValue='';
+ }
 });

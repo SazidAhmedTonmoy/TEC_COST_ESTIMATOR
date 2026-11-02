@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { workload: null, workloadUser: null, workloadFetched: 0, workloadPending: null, workloadError: '', filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted', closed: 'Closed' };
 
 function localDateKey(date = new Date()) {
@@ -19,7 +19,7 @@ function projectStatus(project) {
 function setAccount(user, token) {
   const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
-  if(changedUser){workspaceState.filter='month';workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
+  if(changedUser){workspaceState.workload=null;workspaceState.workloadUser=null;workspaceState.workloadFetched=0;workspaceState.workloadPending=null;workspaceState.workloadError='';workspaceState.filter='month';workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
     try{const saved=localStorage.getItem('conest-project-sort-v31-'+user.id);if(['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
     try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list'].includes(saved))workspaceState.boardView=saved;}catch(_){}
   }
@@ -40,6 +40,7 @@ function showLogin() {
   state.projectLoadRequest=(state.projectLoadRequest||0)+1;state.catalogDetailRequest=(state.catalogDetailRequest||0)+1;
   state.user = null; state.csrfToken = ''; state.projectId = null; state.projectData = null;
   state.projects = []; state.dashboard = null; state.appSettings = null; state.catalogCache.clear();
+  workspaceState.workload=null;workspaceState.workloadUser=null;workspaceState.workloadFetched=0;workspaceState.workloadPending=null;workspaceState.workloadError='';
   workspaceState.users = []; workspaceState.teams = []; workspaceState.noteCounts={}; workspaceState.noteStatusRequests={}; workspaceState.noteReadPending={}; workspaceState.notesProjectId=null; workspaceState.notesRequest++; workspaceState.filter = 'all'; workspaceState.briefId = null; workspaceState.briefRequest++;
   $$('dialog[open]').forEach(dialog => dialog.close());
   $('.app-shell').classList.add('hidden');
@@ -98,11 +99,47 @@ function renderHome() {
   $('#welcome-name').textContent = `Welcome, ${state.user.name}`;
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   renderProjectBoard();
-  if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(()=>{});
+  if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(error=>{toast('Deadlines could not be refreshed: '+error.message,true);});
+  renderTeamWorkload();
+  if(state.view==='home')loadTeamWorkload().catch(()=>{});
   renderSchedule();
   const values = new Map();
   projects.filter(isOpenProject).forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.quoted||0)));
   $('#portfolio-value').textContent = values.size ? 'Active estimate value: '+[...values].map(([currency,value])=>`${currency} ${fmtMoney(value,currency)}`).join(' · ') : '';
+}
+/* Workload is only attributed to the project owner or an explicitly named editor.
+   Team access alone never implies individual responsibility. */
+function renderTeamWorkload(){
+  const box=$('#team-workload-content');if(!box)return;
+  if(workspaceState.workloadError){
+    box.innerHTML=`<p class="workload-error" role="alert">Could not load team workload: ${escapeHtml(workspaceState.workloadError)} <button class="button secondary small" type="button" data-workload-retry>Retry</button></p>`;return;
+  }
+  const data=workspaceState.workload;
+  if(!data){box.innerHTML='<p class="helper-text">Loading team workload…</p>';return;}
+  if(!data.teams.length){box.innerHTML='<p class="helper-text">No active team members are assigned. Ask an administrator to review the team roster.</p>';return;}
+  box.innerHTML=data.teams.map(team=>`<section class="team-workload-group" aria-label="${escapeHtml(team.name)} workload">
+    <div class="team-workload-group-title"><h3>${escapeHtml(team.name)}</h3><span>${team.active_estimates} active team projects</span></div>
+    <div class="team-workload-cards">${team.members.map(member=>`<article class="team-workload-member${member.id===state.user.id?' is-me':''}">
+      <div class="team-workload-person"><strong>${escapeHtml(member.name)}${member.id===state.user.id?' (you)':''}</strong></div>
+      <dl><div><dt>Active estimates</dt><dd>${member.active_estimates}</dd></div><div><dt>Due in 7 days</dt><dd>${member.upcoming_deadlines}</dd></div><div><dt>Overdue</dt><dd class="${member.overdue_deadlines?'is-overdue':''}">${member.overdue_deadlines}</dd></div></dl>
+    </article>`).join('')||'<p class="helper-text">No active team members.</p>'}</div>
+    ${team.shared_unassigned?`<p class="team-workload-unassigned">${team.shared_unassigned} active ${team.shared_unassigned===1?'estimate is':'estimates are'} shared with this team but not assigned to a named colleague in this team.</p>`:''}
+  </section>`).join('');
+}
+async function loadTeamWorkload(force=false){
+  const uid=state.user?.id;if(!uid)return;
+  if(workspaceState.workloadPending)return workspaceState.workloadPending;
+  if(!force&&workspaceState.workload&&workspaceState.workloadUser===uid&&Date.now()-workspaceState.workloadFetched<60000)return;
+  workspaceState.workloadError='';
+  const pending=(async()=>{
+    try{const result=await api('/api/team-workload');
+      if(uid!==state.user?.id)return;
+      workspaceState.workload=result;workspaceState.workloadUser=uid;workspaceState.workloadFetched=Date.now();
+    }catch(error){if(uid===state.user?.id)workspaceState.workloadError=error.message;throw error;}
+    finally{if(uid===state.user?.id)renderTeamWorkload();}
+  })();
+  workspaceState.workloadPending=pending;
+  try{await pending}finally{if(workspaceState.workloadPending===pending)workspaceState.workloadPending=null;}
 }
 function renderSchedule(){
   const reminders=new Map(workspaceState.reminderRows.map(row=>[`${row.project_id}:${row.kind||'submission'}`,row]));
@@ -158,7 +195,7 @@ function renderProjectBoard() {
     <div class="project-card-heading"><div>${builderText(p)?`<p>${escapeHtml(builderText(p))}</p>`:''}<h3><button type="button" data-project-brief="${p.id}">${escapeHtml(p.name)}</button></h3></div><div class="project-badges">${inReviewQueue(p)?'<span class="project-status status-new">Newly added</span>':''}${projectStatus(p)}</div></div>
     <div class="project-facts"><span class="${isOverdue(p)?'overdue-text':''}">${isOverdue(p)?'Overdue · ':''}${p.status==='in_review'?'Review by · ':''}${dateLabel(projectDeadline(p))}</span>${projectOutcome(p)}${p.can_edit?'':'<span class="project-readonly-badge">Read-only</span>'}</div>
     <div class="project-card-footer"><span>${p.line_count||0} items <strong>${escapeHtml(p.currency)} ${fmtMoney(p.totals?.quoted,p.currency)}</strong></span><a class="button primary small" href="#/estimate/${p.id}" data-open-project="${p.id}">Open Estimate</a></div>
-    <details class="project-more"><summary>Project details</summary>${p.scope_of_work?`<p class="project-scope-excerpt">${escapeHtml(p.scope_of_work)}</p>`:''}<p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Creator not recorded')}${p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p><div class="project-more-actions"><button type="button" class="button secondary small" data-project-brief="${p.id}">${p.can_edit?'Manage Project':'View Project'}</button><button class="button secondary small" type="button" data-copy-project="${p.id}">Copy Project</button></div></details>
+    <details class="project-more"><summary>Details &amp; actions</summary>${p.scope_of_work?`<p class="project-scope-excerpt">${escapeHtml(p.scope_of_work)}</p>`:''}<p class="project-team"><strong>Team:</strong> ${escapeHtml(teamNames(p))}<br><strong>Added by:</strong> ${escapeHtml(p.created_by_name||'Creator not recorded')}${p.updated_by_name?`<br>Last edited by ${escapeHtml(p.updated_by_name)}`:''}</p><div class="project-more-actions"><button type="button" class="button secondary small" data-project-brief="${p.id}">${p.can_edit?'Manage Project':'View Project'}</button><button class="button secondary small" type="button" data-copy-project="${p.id}">Copy Project</button></div></details>
   </article>`).join('') : '<div class="board-empty"><h3>No matching projects</h3><p>Try a different search or status, or use New Project to add a project.</p></div>';
 
 }
@@ -381,7 +418,7 @@ async function saveUser() {
     try { const result=await api('/api/auth/session'); setAccount(result.user,result.csrf_token); }
     catch(error) { showLogin(); toast('Your account changed. Sign in again.'); return; }
   }
-  await loadUsers(); await loadDashboard(false); toast(id?'User updated':'User created');
+  await loadUsers(); await loadDashboard(false); await loadTeamWorkload(true).catch(()=>{}); toast(id?'User updated':'User created');
 }
 
 function syncUserRole() {
@@ -399,7 +436,7 @@ function openTeamEditor(id=null) {
 async function saveTeam() {
   const id=workspaceState.teamId;
   await api(id?`/api/teams/${id}`:'/api/teams',{method:id?'PATCH':'POST',body:{name:$('#team-name').value,member_ids:$$('#team-member-options input:checked').map(i=>Number(i.value))}});
-  $('#team-dialog').close(); await loadUsers(); await loadDashboard(false); toast('Team and members saved');
+  $('#team-dialog').close(); await loadUsers(); await loadDashboard(false); await loadTeamWorkload(true).catch(()=>{}); toast('Team and members saved');
 }
 async function refreshBoard() {
   if(workspaceState.boardRefreshing)return;
@@ -571,6 +608,7 @@ function bindWorkspaceEvents() {
   $('#brief-delete').addEventListener('click',()=>deleteManagedProject().catch(error=>toast(error.message,true)));
   $('#add-user').addEventListener('click',()=>openUserEditor());
   $('#project-search').addEventListener('input',renderProjectBoard);
+  $('#workload-refresh').addEventListener('click',()=>loadTeamWorkload(true).catch(()=>{}));
   $('#project-sort').addEventListener('change',event=>{
     const value=event.target.value;if(!['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(value))return;
     workspaceState.boardSort=value;
@@ -588,6 +626,7 @@ function bindWorkspaceEvents() {
   $('#calendar-prev').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()-1,1);renderCalendar();});
   $('#calendar-next').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()+1,1);renderCalendar();});
   document.addEventListener('click',event=>{
+    if(event.target.closest('[data-workload-retry]'))loadTeamWorkload(true).catch(()=>{});
     const older=event.target.closest('[data-older-activity]');
     if(older)loadOlderProjectActivity(older).catch(error=>toast(error.message,true));
     const note=event.target.closest('[data-project-notes]');
@@ -609,7 +648,7 @@ function bindWorkspaceEvents() {
     const team=event.target.closest('[data-edit-team]');
     if(team) openTeamEditor(team.dataset.editTeam);
     const refresh=event.target.closest('[data-refresh-estimate]');
-    if(refresh && confirm('Reload the latest estimate? Unsaved fields will be discarded.')) loadProject(Number(refresh.dataset.refreshEstimate)).catch(error=>toast(error.message,true));
+    if(refresh) loadProject(Number(refresh.dataset.refreshEstimate),{force:true}).catch(error=>toast(error.message,true));
     const filter=event.target.closest('[data-filter]');
     if(filter) { workspaceState.filter=filter.dataset.filter; renderProjectBoard(); }
   });

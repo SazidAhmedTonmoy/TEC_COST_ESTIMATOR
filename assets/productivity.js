@@ -1,12 +1,22 @@
 /* Productivity tools keep draft fields intact during background refreshes. */
 const productivityState={tab:Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-'),presence:null,presenceProject:null,busy:false,revisionProject:null,revisionVersion:null,priceItem:null,preview:null,reminderRequest:0};
-async function loadReminders(){
-  const uid=state.user?.id,request=++productivityState.reminderRequest;
-  const result=await api('/api/reminders');
-  if(uid!==state.user?.id||request!==productivityState.reminderRequest)return;
-  workspaceState.reminderRows=result.reminders;
-  renderSchedule();
+async function loadReminders(force=false){
+  const uid=state.user?.id;if(!uid)return;
+  if(!force && productivityState.reminderUser===uid && Date.now()-(productivityState.reminderFetched||0)<45000)return;
+  if(productivityState.reminderPending && productivityState.reminderUser===uid)return productivityState.reminderPending;
+  const request=++productivityState.reminderRequest;
+  productivityState.reminderUser=uid;
+  const task=(async()=>{
+    const result=await api('/api/reminders');
+    if(uid!==state.user?.id||request!==productivityState.reminderRequest)return;
+    workspaceState.reminderRows=result.reminders;
+    productivityState.reminderFetched=Date.now();
+    renderSchedule();
+  })();
+  productivityState.reminderPending=task;
+  try{return await task;}finally{if(productivityState.reminderPending===task)productivityState.reminderPending=null;}
 }
+
 function renderCollaboration(){
   const data=productivityState.presence,pid=state.projectId,box=$('#collaboration-status');
   if(!pid||productivityState.presenceProject!==pid||!data){box.innerHTML='';return;}
@@ -128,7 +138,7 @@ function bindProductivityEvents(){
         toast('Revision deleted');
       }
       if(target.dataset.priceHistory)await openPriceHistory(target.dataset.priceHistory);
-      if(target.dataset.readReminder){await api('/api/reminders/read',{method:'POST',body:{key:target.dataset.readReminder}});await loadReminders();}
+      if(target.dataset.readReminder){await api('/api/reminders/read',{method:'POST',body:{key:target.dataset.readReminder}});await loadReminders(true);}
       if(target.dataset.restoreBackup){
         const confirmation=prompt('Restore this backup? This replaces ALL current projects, catalogue data, users and settings. A safety backup is saved first. Everyone must sign in again. Type RESTORE to proceed.');
         if(confirmation==='RESTORE'){target.disabled=true;await api(`/api/backups/${encodeURIComponent(target.dataset.restoreBackup)}/restore`,{method:'POST',body:{confirmation}});showLogin();toast('Restored. Sign in using the accounts from the backup.');}
