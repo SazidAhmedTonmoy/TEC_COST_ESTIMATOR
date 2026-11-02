@@ -98,7 +98,6 @@ function renderHome() {
   $('#welcome-name').textContent = `Welcome, ${state.user.name}`;
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   renderProjectBoard();
-  if(typeof loadMyWork==='function')void loadMyWork();
   if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(()=>{});
   renderSchedule();
   const values = new Map();
