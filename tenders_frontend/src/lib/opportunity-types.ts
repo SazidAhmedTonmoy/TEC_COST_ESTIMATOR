@@ -14,7 +14,7 @@ export type Opportunity = {
   quoteStatus?:'quoted'|'not_quoted'; submissionIds?:string[]; quotedValue?:number;
   linkedProjectName?:string; linkedAt?:string; linkedByName?:string; quoteNote?:string; quoteNo?:string; submittedDate?:string; quotedAt?:string;
   quotedBy?:number; quotedByName?:string; quotedBuilders?:string[]; submittedByTeamId?:number|null;
-  estimatorProjectId?:number; revision:number; permissions:{edit:boolean; assign:boolean; manage:boolean; approve:boolean; quote?:boolean};
+  estimatorProjectId?:number; revision:number; permissions:{edit:boolean; assign:boolean; manage:boolean; approve:boolean; quote?:boolean; createEstimate?:boolean};
 };
 export type OpportunityActivity = {
   id:number; action:string; actorId:number; actorName:string; createdAt:string;

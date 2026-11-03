@@ -1,3 +1,50 @@
+# TEC ConEst v3.7.20 — Team Activity, Month Filters & Approved Opportunity → Estimate
+
+**Base:** v3.7.19 · **Application:** v3.7.20 · **Database schema:** 34 (unchanged) · **Migration:** none
+
+## What changed in v3.7.20
+
+### 1. Admin-only Team activity (Estimator Home)
+
+- Replaces individual member workload cards with **one summary per assigned team**. No employee details or personal workload appear in this panel.
+- Administrator can select a specific **ISO week** or **calendar month**, including previous/future weeks or months, and refresh at any time. All dates follow **Australia/Sydney** for consistent deadlines.
+- Each team shows three figures: **Assigned Tender opportunities**, **Estimates in progress**, and **Estimates done**. A separate small total identifies opportunities/estimates with no team assignment.
+- Counts include an item when its **closing/submission/review deadline falls in the selected period**; they are not counts of creation dates or completion timestamps. Active Tender opportunity states: **Awaiting approval, In review and Approved**. Estimator **in progress**: Not started, In progress, In review. **Done**: Submitted, Closed.
+- Projects explicitly assigned to two teams count once in **each** assigned team. No per-person duplication or names.
+- New read-only `GET /api/team-summary?mode=month&period=YYYY-MM` or `mode=week&period=YYYY-Www`; the server verifies the administrator's active role against the account database on each call. The legacy `/api/team-workload` personal-data endpoint is now retired (`410 Gone`).
+
+### 2. Project Board — select any month
+
+- A **Submission deadline month** picker sits below the Project Board filter chips. Selecting a month activates the month filter and displays projects whose submission deadlines are within the selected month, without requiring a full reload.
+- The filter chip reads **This month** for the current Sydney month or **Selected month** for any other choice; the chosen period appears alongside the picker. Other filters and project sorting continue to work.
+
+### 3. Create Estimate from an Approved Opportunity
+
+- In **Tenders → Opportunities → Approved → View details → Project journey**, the **Estimator project** panel now offers **Create Estimate** when unlinked and eligible.
+- Only an **active member of an explicitly assigned/approved team** or an **administrator** can create this way. Permissions, approved state, team existence, existing links and expected revision are checked **server-side**, not just by hiding a button.
+- Review confirmation shows the project name, approved team(s), builders, deadline, location and working scope. Creating it automatically adds a **draft Estimator project** carrying the original project name, builders, notes, budget/value, location, region, scope, source URL and deadline; the exact assigned team(s) receive project access.
+- The source opportunity and new estimate are linked. Subsequent attempts to create a second estimate from that opportunity are refused, with a link to the existing project available in its journey panel. Original quotation status is unchanged: **creating an estimate does not mark it Quoted**.
+- The operation uses a SQLite transaction covering both databases for **ordinary application failures** and a revision check for concurrent requests. As with other cross-database WAL workflows, use regular backups to protect against a power interruption.
+
+## Upgrade instructions
+
+1. **Back up** the live Estimator and Tender SQLite databases and preserve the deployed `.env` and `data/` directory.
+2. For an existing **v3.7.19** Git repository, overlay the **Update Only ZIP** files at the repository root. Alternatively use **Full Source** to obtain a complete code checkout; **never replace** live databases or local configuration with a release archive.
+3. Commit and push to your GitHub repository. Your existing `.github/workflows/deploy-cpanel.yml` action runs `npm ci && npm run build` inside `tenders_frontend`, **then** rebuilds the Estimator fingerprinted frontend assets and deploys them.
+4. After CI succeeds, confirm `/api/health` reports version **3.7.20**, sign in as an admin to test a selected month/week in Team activity, try Project Board's month picker, and sign in as an approved-team member to create a draft estimate from an **unlinked** approved opportunity.
+5. **Important build limitation:** The precompiled JavaScript in `tenders_web/` is from the prior release because npm registry access was unavailable in this environment. **Do not upload this ZIP directly to a live server expecting the new Tender Create Estimate button to work.** First allow the normal GitHub Actions npm/Vite build and upload the newly compiled `tenders_web/` directory. Estimator's compiled assets **are** included and up to date.
+
+## Verification
+
+- New backend tests cover team-level time-period aggregation, admin-only API access, the retired individual endpoint, approved-team/admin create permission, data and team handoff, duplicate/revision protection, historic deadlines, and application-error rollback.
+- Targeted existing + new Python regression suite: **23 tests passing**, including authenticated HTTP routes, prior Estimator UX checks and v3.7.19 workload logic regression.
+- Python modules compiled; Estimator source and fingerprinted browser bundle pass JavaScript syntax checks; changed Tender TSX and types pass TypeScript transpilation/parsing. This does **not** replace a full Vite production build or comprehensive type-check.
+- Schema remains **34** with no migration, reset or data conversion.
+
+---
+
+## Previous release — v3.7.19 (historical notes)
+
 # TEC ConEst v3.7.19 — Save Reliability, Mobile Usability & Team Workload
 
 **Base:** v3.7.18 · **Application version:** 3.7.19 · **Database schema:** 34 (unchanged) · **Migration:** none

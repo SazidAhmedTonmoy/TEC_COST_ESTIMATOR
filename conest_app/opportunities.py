@@ -87,8 +87,12 @@ def permissions(item, actor):
     edit = manage or team_member or actor['id'] in item.get('editorUserIds', []) or (
         team_member and actor['team_id'] in item.get('editorTeamIds', []))
     decision = bool(actor['role'] == 'admin' or team_member)
+    can_create_estimate = (item.get('status') == 'approved' and not item.get('deletedAt')
+        and not item.get('estimatorProjectId') and bool(item.get('assignedTeamIds'))
+        and (actor['role'] == 'admin' or actor.get('team_id') in item.get('assignedTeamIds', [])))
     return {'edit': bool(edit), 'assign': bool(manage or team_member),
-            'manage': bool(manage), 'approve': decision, 'quote': decision}
+            'manage': bool(manage), 'approve': decision, 'quote': decision,
+            'createEstimate': bool(can_create_estimate)}
 
 
 def _require(item, actor, permission):

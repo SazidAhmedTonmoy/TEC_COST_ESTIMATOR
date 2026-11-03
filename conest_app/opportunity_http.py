@@ -68,6 +68,9 @@ def route(handler, path, store, send):
         result = opportunities.decide(store, payload, handler.user)
     elif path == prefix + '/documents':
         result = opportunities.set_documents_available(store, payload, handler.user)
+    elif path == prefix + '/create-estimate':
+        from .opportunity_estimate import create_estimate
+        result = create_estimate(store, payload, handler.user)
     elif path == prefix + '/estimator-link':
         from .opportunity_journey import link_estimator
         result = link_estimator(store, payload, handler.user)

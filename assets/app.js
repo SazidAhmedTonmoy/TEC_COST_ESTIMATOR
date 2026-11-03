@@ -129,7 +129,7 @@ async function api(path,options={}){
   if(key)pendingApiReads.set(key,request);
   try{
     const result=structuredClone(await request);
-    if(!readOnly && /^\/api\/(?:projects|teams|users)(?:\/|$)/.test(path) && typeof workspaceState!=='undefined')workspaceState.workloadFetched=0;
+    if(!readOnly && /^\/api\/(?:projects|teams|users)(?:\/|$)/.test(path) && typeof workspaceState!=='undefined')workspaceState.teamSummaryFetched=0;
     if(!readOnly && state.actionErrorPath===path && typeof $==='function'){const banner=$('#action-error-banner');if(banner?.classList)banner.classList.add('hidden');state.actionErrorPath=null;}
     if(estimateMutation&&typeof setEstimateSaveState==='function'
        && Number(path.match(/^\/api\/projects\/(\d+)/)?.[1])===state.projectId)

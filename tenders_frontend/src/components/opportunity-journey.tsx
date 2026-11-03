@@ -9,9 +9,9 @@ const shortDate=(value?:string)=>{
   return Number.isNaN(date.getTime())?value:date.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'});
 };
 
-type Props={item:Opportunity; journey:OpportunityJourney; onChase:(id:string)=>void; onChooseEstimator:()=>void};
+type Props={item:Opportunity; journey:OpportunityJourney; onChase:(id:string)=>void; onChooseEstimator:()=>void; onCreateEstimate:()=>void};
 
-export default function OpportunityJourneyView({item,journey,onChase,onChooseEstimator}:Props){
+export default function OpportunityJourneyView({item,journey,onChase,onChooseEstimator,onCreateEstimate}:Props){
  const quoted=journey.quotation.status==='quoted';
  const finished=journey.outcome.completed;
  const decisionsDone=['approved','rejected','expired'].includes(item.status);
@@ -34,7 +34,9 @@ export default function OpportunityJourneyView({item,journey,onChase,onChooseEst
    })}</ol>
    <div className="op-journey-facts">
      <div><span><FileText size={14}/>Estimator project</span>{journey.estimatorProject?.available?<a href={'/#/estimate/'+journey.estimatorProject.id} target="_blank" rel="noopener noreferrer">{journey.estimatorProject.name}<ArrowUpRight size={13}/></a>:<b>{journey.estimatorProject?'Previous link unavailable':'Not linked'}</b>}
-       {item.permissions.edit&&<button type="button" className="op-journey-small-link" onClick={onChooseEstimator}>{journey.estimatorProject?'Change / unlink':'Link existing estimate'}</button>}</div>
+       {item.permissions.createEstimate&&<button type="button" className="primary-btn op-journey-create-estimate" onClick={onCreateEstimate}>Create Estimate</button>}
+       {item.permissions.edit&&<button type="button" className="op-journey-small-link" onClick={onChooseEstimator}>{journey.estimatorProject?'Change / unlink':'Link existing estimate'}</button>}
+       {item.status==='approved'&&!journey.estimatorProject&&!(item.assignedTeamIds||[]).length&&<small className="op-help">Assign an approved team before creating an estimate.</small>}</div>
      <div><span><Link2 size={14}/>Tender project</span><b>{journey.quotation.linkedTenderName||'Not linked'}</b></div>
      <div><span><FileText size={14}/>Electrical quote</span><b>{journey.quotation.value==null?'Not recorded':aud.format(journey.quotation.value)}</b></div>
      <div><span><MessageSquareText size={14}/>Follow-up status</span><b>{!journey.chaseUp.started?'Not started':journey.chaseUp.overdueReminders?`${journey.chaseUp.overdueReminders} reminder(s) overdue`:journey.chaseUp.nextFollowUp?`Next: ${shortDate(journey.chaseUp.nextFollowUp.due)}`:journey.chaseUp.updates?'No next follow-up scheduled':'Ready for first follow-up'}</b></div>

@@ -408,9 +408,13 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             if path == "/api/dashboard":
                 self._send_json(self._dashboard_payload());return
             if path == "/api/team-workload":
-                from conest_app.team_workload import workload
-                with self._read_connection() as conn:
-                    result = workload(conn, self.user)
+                # Retired: the old route returned individual names to team users.
+                # Team activity is now an admin-only, anonymised summary.
+                raise ApiError(410, "Individual workload reports have been retired. Administrators can use Team activity.")
+            if path == "/api/team-summary":
+                from conest_app.team_summary import summary
+                result = summary(self.user, mode=query.get('mode', ['month'])[0],
+                                 period=query.get('period', [''])[0])
                 self._send_json({'success': True, **result});return
             if path == "/api/catalog/search":
                 page_info = {}

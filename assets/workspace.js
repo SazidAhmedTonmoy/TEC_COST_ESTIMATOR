@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { workload: null, workloadUser: null, workloadFetched: 0, workloadPending: null, workloadError: '', filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { teamSummary: null, teamSummaryKey: '', teamSummaryFetched: 0, teamSummaryPending: null, teamSummaryPendingKey: '', teamSummaryRequest: 0, teamSummaryError: '', summaryMode: 'month', summaryPeriod: '', boardMonth: '', filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted', closed: 'Closed' };
 
 function localDateKey(date = new Date()) {
@@ -19,7 +19,7 @@ function projectStatus(project) {
 function setAccount(user, token) {
   const changedUser=state.user?.id!==user.id;
   state.user = user; state.csrfToken = token;
-  if(changedUser){workspaceState.workload=null;workspaceState.workloadUser=null;workspaceState.workloadFetched=0;workspaceState.workloadPending=null;workspaceState.workloadError='';workspaceState.filter='month';workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
+  if(changedUser){workspaceState.teamSummary=null;workspaceState.teamSummaryKey='';workspaceState.teamSummaryFetched=0;workspaceState.teamSummaryPending=null;workspaceState.teamSummaryPendingKey='';workspaceState.teamSummaryError='';workspaceState.teamSummaryRequest++;workspaceState.summaryMode='month';workspaceState.summaryPeriod='';workspaceState.boardMonth='';workspaceState.filter='month';workspaceState.reminderRows=[];workspaceState.boardView='cards';workspaceState.boardSort='newest';
     try{const saved=localStorage.getItem('conest-project-sort-v31-'+user.id);if(['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(saved))workspaceState.boardSort=saved;}catch(_){}
     try{const saved=localStorage.getItem('conest-project-view-'+user.id);if(['cards','list'].includes(saved))workspaceState.boardView=saved;}catch(_){}
   }
@@ -40,7 +40,7 @@ function showLogin() {
   state.projectLoadRequest=(state.projectLoadRequest||0)+1;state.catalogDetailRequest=(state.catalogDetailRequest||0)+1;
   state.user = null; state.csrfToken = ''; state.projectId = null; state.projectData = null;
   state.projects = []; state.dashboard = null; state.appSettings = null; state.catalogCache.clear();
-  workspaceState.workload=null;workspaceState.workloadUser=null;workspaceState.workloadFetched=0;workspaceState.workloadPending=null;workspaceState.workloadError='';
+  workspaceState.teamSummary=null;workspaceState.teamSummaryKey='';workspaceState.teamSummaryFetched=0;workspaceState.teamSummaryPending=null;workspaceState.teamSummaryPendingKey='';workspaceState.teamSummaryError='';workspaceState.teamSummaryRequest++;
   workspaceState.users = []; workspaceState.teams = []; workspaceState.noteCounts={}; workspaceState.noteStatusRequests={}; workspaceState.noteReadPending={}; workspaceState.notesProjectId=null; workspaceState.notesRequest++; workspaceState.filter = 'all'; workspaceState.briefId = null; workspaceState.briefRequest++;
   $$('dialog[open]').forEach(dialog => dialog.close());
   $('.app-shell').classList.add('hidden');
@@ -100,46 +100,62 @@ function renderHome() {
   $('#welcome-date').textContent = new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   renderProjectBoard();
   if(state.view==='home'&&typeof loadReminders==='function')loadReminders().catch(error=>{toast('Deadlines could not be refreshed: '+error.message,true);});
-  renderTeamWorkload();
-  if(state.view==='home')loadTeamWorkload().catch(()=>{});
+  if(state.user.role==='admin'){renderTeamSummary();if(state.view==='home')loadTeamSummary().catch(()=>{});}
   renderSchedule();
   const values = new Map();
   projects.filter(isOpenProject).forEach(p=>values.set(p.currency,(values.get(p.currency)||0)+Number(p.totals?.quoted||0)));
   $('#portfolio-value').textContent = values.size ? 'Active estimate value: '+[...values].map(([currency,value])=>`${currency} ${fmtMoney(value,currency)}`).join(' · ') : '';
 }
-/* Workload is only attributed to the project owner or an explicitly named editor.
-   Team access alone never implies individual responsibility. */
-function renderTeamWorkload(){
-  const box=$('#team-workload-content');if(!box)return;
-  if(workspaceState.workloadError){
-    box.innerHTML=`<p class="workload-error" role="alert">Could not load team workload: ${escapeHtml(workspaceState.workloadError)} <button class="button secondary small" type="button" data-workload-retry>Retry</button></p>`;return;
-  }
-  const data=workspaceState.workload;
-  if(!data){box.innerHTML='<p class="helper-text">Loading team workload…</p>';return;}
-  if(!data.teams.length){box.innerHTML='<p class="helper-text">No active team members are assigned. Ask an administrator to review the team roster.</p>';return;}
-  box.innerHTML=data.teams.map(team=>`<section class="team-workload-group" aria-label="${escapeHtml(team.name)} workload">
-    <div class="team-workload-group-title"><h3>${escapeHtml(team.name)}</h3><span>${team.active_estimates} active team projects</span></div>
-    <div class="team-workload-cards">${team.members.map(member=>`<article class="team-workload-member${member.id===state.user.id?' is-me':''}">
-      <div class="team-workload-person"><strong>${escapeHtml(member.name)}${member.id===state.user.id?' (you)':''}</strong></div>
-      <dl><div><dt>Active estimates</dt><dd>${member.active_estimates}</dd></div><div><dt>Due in 7 days</dt><dd>${member.upcoming_deadlines}</dd></div><div><dt>Overdue</dt><dd class="${member.overdue_deadlines?'is-overdue':''}">${member.overdue_deadlines}</dd></div></dl>
-    </article>`).join('')||'<p class="helper-text">No active team members.</p>'}</div>
-    ${team.shared_unassigned?`<p class="team-workload-unassigned">${team.shared_unassigned} active ${team.shared_unassigned===1?'estimate is':'estimates are'} shared with this team but not assigned to a named colleague in this team.</p>`:''}
-  </section>`).join('');
+/* Team-level counts only; no person cards, names or individual workload API. */
+function sydneyISOWeek(){
+  const pieces=new Intl.DateTimeFormat('en-GB',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+  const part=name=>Number(pieces.find(p=>p.type===name)?.value||0);
+  const thursday=new Date(Date.UTC(part('year'),part('month')-1,part('day')));
+  thursday.setUTCDate(thursday.getUTCDate()+4-(thursday.getUTCDay()||7));
+  const year=thursday.getUTCFullYear(),jan4=new Date(Date.UTC(year,0,4));
+  jan4.setUTCDate(jan4.getUTCDate()+4-(jan4.getUTCDay()||7));
+  const week=1+Math.round((thursday-jan4)/604800000);
+  return `${year}-W${String(week).padStart(2,'0')}`;
 }
-async function loadTeamWorkload(force=false){
-  const uid=state.user?.id;if(!uid)return;
-  if(workspaceState.workloadPending)return workspaceState.workloadPending;
-  if(!force&&workspaceState.workload&&workspaceState.workloadUser===uid&&Date.now()-workspaceState.workloadFetched<60000)return;
-  workspaceState.workloadError='';
+function teamSummaryPeriod(){return workspaceState.summaryPeriod||(workspaceState.summaryMode==='week'?sydneyISOWeek():sydneyMonth());}
+function renderTeamSummary(){
+  if(state.user?.role!=='admin')return;
+  const box=$('#team-workload-content');if(!box)return;
+  const mode=workspaceState.summaryMode,period=teamSummaryPeriod();
+  $('#team-summary-mode').value=mode;
+  const picker=$('#team-summary-period');picker.type=mode==='week'?'week':'month';picker.value=period;
+  const label=picker.closest('label');label.firstChild.textContent=mode==='week'?'Select week':'Select month';
+  if(workspaceState.teamSummaryError){box.innerHTML=`<p class="workload-error" role="alert">Could not load team activity: ${escapeHtml(workspaceState.teamSummaryError)} <button class="button secondary small" type="button" data-workload-retry>Retry</button></p>`;return;}
+  const data=workspaceState.teamSummary;
+  const key=`${state.user.id}:${mode}:${period}`;
+  if(!data||workspaceState.teamSummaryKey!==key){box.innerHTML='<p class="helper-text">Loading team activity…</p>';return;}
+  const teams=data.teams||[];
+  box.innerHTML=`<p class="team-summary-period-heading">${escapeHtml(data.window.label)} <span>· ${escapeHtml(data.window.start)} to ${escapeHtml(data.window.end)}</span></p>`+
+  (teams.length?`<div class="team-summary-grid">${teams.map(team=>`<section class="team-summary-card" aria-label="${escapeHtml(team.name)} summary">
+    <h3>${escapeHtml(team.name)}</h3><dl>
+      <div><dt>Assigned opportunities</dt><dd>${Number(team.assigned_opportunities||0)}</dd></div>
+      <div><dt>Estimates in progress</dt><dd>${Number(team.estimates_in_progress||0)}</dd></div>
+      <div><dt>Estimates done</dt><dd>${Number(team.estimates_done||0)}</dd></div>
+    </dl></section>`).join('')}</div>`:'<p class="helper-text">No teams have been created.</p>')+
+   ((data.unassigned_opportunities||data.unassigned_estimates)?`<p class="team-summary-unassigned">Unassigned in this period: ${Number(data.unassigned_opportunities||0)} tender opportunities · ${Number(data.unassigned_estimates||0)} estimates.</p>`:'');
+}
+async function loadTeamSummary(force=false){
+  if(state.user?.role!=='admin')return;
+  const uid=state.user.id,mode=workspaceState.summaryMode,period=teamSummaryPeriod();
+  const key=`${uid}:${mode}:${period}`;
+  if(!force&&workspaceState.teamSummaryPending&&workspaceState.teamSummaryPendingKey===key)return workspaceState.teamSummaryPending;
+  if(!force&&workspaceState.teamSummary&&workspaceState.teamSummaryKey===key&&Date.now()-workspaceState.teamSummaryFetched<60000)return;
+  const request=++workspaceState.teamSummaryRequest;
+  workspaceState.teamSummaryError='';
   const pending=(async()=>{
-    try{const result=await api('/api/team-workload');
-      if(uid!==state.user?.id)return;
-      workspaceState.workload=result;workspaceState.workloadUser=uid;workspaceState.workloadFetched=Date.now();
-    }catch(error){if(uid===state.user?.id)workspaceState.workloadError=error.message;throw error;}
-    finally{if(uid===state.user?.id)renderTeamWorkload();}
+    try{const result=await api(`/api/team-summary?${new URLSearchParams({mode,period})}`);
+      if(request!==workspaceState.teamSummaryRequest||uid!==state.user?.id)return;
+      workspaceState.teamSummary=result;workspaceState.teamSummaryKey=key;workspaceState.teamSummaryFetched=Date.now();
+    }catch(error){if(request===workspaceState.teamSummaryRequest&&uid===state.user?.id)workspaceState.teamSummaryError=error.message;throw error;}
+    finally{if(request===workspaceState.teamSummaryRequest&&uid===state.user?.id)renderTeamSummary();}
   })();
-  workspaceState.workloadPending=pending;
-  try{await pending}finally{if(workspaceState.workloadPending===pending)workspaceState.workloadPending=null;}
+  workspaceState.teamSummaryPending=pending;workspaceState.teamSummaryPendingKey=key;
+  try{await pending}finally{if(workspaceState.teamSummaryPending===pending){workspaceState.teamSummaryPending=null;workspaceState.teamSummaryPendingKey='';}}
 }
 function renderSchedule(){
   const reminders=new Map(workspaceState.reminderRows.map(row=>[`${row.project_id}:${row.kind||'submission'}`,row]));
@@ -160,11 +176,11 @@ function homeMetricProjects(projects, filter, month) {
   return projects;
 }
 function renderHomeMetrics() {
-  const projects=homeMetricProjects(state.projects,workspaceState.filter,sydneyMonth());
+  const projects=homeMetricProjects(state.projects,workspaceState.filter,workspaceState.boardMonth||sydneyMonth());
   const metrics = Object.entries(statusNames).map(([key,label]) => [label,projects.filter(p=>p.status===key).length,key]);
   $('#home-metrics').innerHTML = metrics.map(([label,value,filter]) => `<button class="metric home-metric ${filter==='new'?'accent':''}" type="button" data-filter="${filter}"><span>${label}</span><strong>${value}</strong><small>${filter==='new'?'Open to review new team projects':filter==='draft'?'Ready to begin':filter==='in_progress'?'Estimates being prepared':filter==='in_review'?'Review before the deadline':filter==='closed'?'Closed / not submitted':'Submitted estimate'}</small></button>`).join('');
   $('#home-metrics').classList.add('five-metrics');
-  $('#home-metrics').setAttribute('aria-label',workspaceState.filter==='month'?'This month project statistics':workspaceState.filter==='team'?'My team project statistics':'All time project statistics');
+  $('#home-metrics').setAttribute('aria-label',workspaceState.filter==='month'?`Projects for ${workspaceState.boardMonth||sydneyMonth()}`:workspaceState.filter==='team'?'My team project statistics':'All time project statistics');
 }
 
 function renderProjectBoard() {
@@ -172,11 +188,16 @@ function renderProjectBoard() {
   const filter = ['all','month','team',...Object.keys(statusNames)].includes(workspaceState.filter)?workspaceState.filter:'all';
   workspaceState.filter=filter;
   renderHomeMetrics();
+  const boardMonth=workspaceState.boardMonth||sydneyMonth();
+  $('#project-board-month').value=boardMonth;
+  const monthButton=$('#project-tabs [data-filter=\"month\"]');
+  if(monthButton){monthButton.textContent=boardMonth===sydneyMonth()?'This month':'Selected month';monthButton.title='Submission deadlines in '+boardMonth;}
+  $('#project-board-month-note').textContent=filter==='month'?'Showing projects with deadlines in '+new Date(boardMonth+'-15T12:00:00').toLocaleDateString('en-AU',{month:'long',year:'numeric'}):'Choosing another month activates the month filter.';
   const board=$('#project-board');board.dataset.view=workspaceState.boardView;$('#project-view-style').value=workspaceState.boardView;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   const projects = state.projects.filter(p=>{
     if (!(p.name+' '+builderText(p)+' '+(p.created_by_name||'')+' '+teamNames(p)+' '+(p.contributors||[]).map(c=>c.name).join(' ')).toLowerCase().includes(term)) return false;
-    if (filter==='month') return (p.submission_deadline||'').slice(0,7)===sydneyMonth();
+    if (filter==='month') return (p.submission_deadline||'').slice(0,7)===boardMonth;
     if (filter==='team') return p.is_assigned;
     if (statusNames[filter]) return p.status===filter;
     return true;
@@ -608,7 +629,19 @@ function bindWorkspaceEvents() {
   $('#brief-delete').addEventListener('click',()=>deleteManagedProject().catch(error=>toast(error.message,true)));
   $('#add-user').addEventListener('click',()=>openUserEditor());
   $('#project-search').addEventListener('input',renderProjectBoard);
-  $('#workload-refresh').addEventListener('click',()=>loadTeamWorkload(true).catch(()=>{}));
+  $('#workload-refresh').addEventListener('click',()=>loadTeamSummary(true).catch(()=>{}));
+  $('#team-summary-mode').addEventListener('change',event=>{
+    workspaceState.summaryMode=event.target.value==='week'?'week':'month';
+    workspaceState.summaryPeriod='';renderTeamSummary();loadTeamSummary(true).catch(()=>{});
+  });
+  $('#team-summary-period').addEventListener('change',event=>{
+    if(!event.target.value)return;
+    workspaceState.summaryPeriod=event.target.value;renderTeamSummary();loadTeamSummary(true).catch(()=>{});
+  });
+  $('#project-board-month').addEventListener('change',event=>{
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(event.target.value))return;
+    workspaceState.boardMonth=event.target.value;workspaceState.filter='month';renderProjectBoard();
+  });
   $('#project-sort').addEventListener('change',event=>{
     const value=event.target.value;if(!['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(value))return;
     workspaceState.boardSort=value;
@@ -626,7 +659,7 @@ function bindWorkspaceEvents() {
   $('#calendar-prev').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()-1,1);renderCalendar();});
   $('#calendar-next').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()+1,1);renderCalendar();});
   document.addEventListener('click',event=>{
-    if(event.target.closest('[data-workload-retry]'))loadTeamWorkload(true).catch(()=>{});
+    if(event.target.closest('[data-workload-retry]'))loadTeamSummary(true).catch(()=>{});
     const older=event.target.closest('[data-older-activity]');
     if(older)loadOlderProjectActivity(older).catch(error=>toast(error.message,true));
     const note=event.target.closest('[data-project-notes]');

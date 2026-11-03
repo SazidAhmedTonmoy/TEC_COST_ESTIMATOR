@@ -60,16 +60,15 @@ class WorkloadHttpTests(unittest.TestCase):
             conn.execute('UPDATE users SET is_active=0 WHERE id=?',(owner['id'],))
             with self.assertRaises(AccessError):workload(conn,owner,today=date(2026,11,2))
 
-    def test_authenticated_endpoint_and_no_schema_change(self):
+    def test_previous_personal_endpoint_retired_and_no_schema_change(self):
         status,data=self.request('GET','/api/team-workload')
-        self.assertEqual(status,200,data)
-        self.assertEqual(data['window_days'],7)
-        self.assertIn('teams',data)
-        self.assertIn('as_of',data)
-        self.assertTrue(data['success'])
+        self.assertEqual(status,410,data)
+        self.assertIn('retired',data['error'])
+        self.assertNotIn('teams',data)
         status,health=self.request('GET','/api/health')
         self.assertEqual((status,health['schema_version']),(200,34))
-        self.assertEqual(health['release'],'3.7.19')
+        from conest_app import __version__
+        self.assertEqual(health['release'],__version__)
 
 
 if __name__=='__main__':unittest.main()
