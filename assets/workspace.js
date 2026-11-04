@@ -132,12 +132,12 @@ function renderTeamSummary(){
   const teams=data.teams||[];
   box.innerHTML=`<p class="team-summary-period-heading">${escapeHtml(data.window.label)} <span>· ${escapeHtml(data.window.start)} to ${escapeHtml(data.window.end)}</span></p>`+
   (teams.length?`<div class="team-summary-grid">${teams.map(team=>`<section class="team-summary-card" aria-label="${escapeHtml(team.name)} summary">
-    <h3>${escapeHtml(team.name)}</h3><dl>
+    <h3>${escapeHtml(team.name)}</h3><dl class="${team.uses_estimator?'':'opportunities-only'}">
       <div><dt>Assigned opportunities</dt><dd>${Number(team.assigned_opportunities||0)}</dd></div>
-      <div><dt>Estimates in progress</dt><dd>${Number(team.estimates_in_progress||0)}</dd></div>
-      <div><dt>Estimates done</dt><dd>${Number(team.estimates_done||0)}</dd></div>
+      ${team.uses_estimator?`<div><dt>Estimates in progress</dt><dd>${Number(team.estimates_in_progress||0)}</dd></div>
+      <div><dt>Estimates submitted</dt><dd>${Number(team.estimates_done||0)}</dd></div>`:''}
     </dl></section>`).join('')}</div>`:'<p class="helper-text">No teams have been created.</p>')+
-   ((data.unassigned_opportunities||data.unassigned_estimates)?`<p class="team-summary-unassigned">Unassigned in this period: ${Number(data.unassigned_opportunities||0)} tender opportunities · ${Number(data.unassigned_estimates||0)} estimates.</p>`:'');
+   '';
 }
 async function loadTeamSummary(force=false){
   if(state.user?.role!=='admin')return;
@@ -192,7 +192,6 @@ function renderProjectBoard() {
   $('#project-board-month').value=boardMonth;
   const monthButton=$('#project-tabs [data-filter=\"month\"]');
   if(monthButton){monthButton.textContent=boardMonth===sydneyMonth()?'This month':'Selected month';monthButton.title='Submission deadlines in '+boardMonth;}
-  $('#project-board-month-note').textContent=filter==='month'?'Showing projects with deadlines in '+new Date(boardMonth+'-15T12:00:00').toLocaleDateString('en-AU',{month:'long',year:'numeric'}):'Choosing another month activates the month filter.';
   const board=$('#project-board');board.dataset.view=workspaceState.boardView;$('#project-view-style').value=workspaceState.boardView;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
   const projects = state.projects.filter(p=>{
@@ -259,7 +258,7 @@ async function loadUsers(render=true) {
   return result.users;
 }
 function renderTeams() {
-  $('#team-cards').innerHTML=workspaceState.teams.map(t=>`<article class="team-card"><div><h3>${escapeHtml(t.name)}</h3><span>${t.members.filter(m=>m.is_active).length} active members</span></div><p>${t.members.length?t.members.map(m=>escapeHtml(m.name)+(m.is_active?'':' (inactive)')).join(', '):'No members yet'}</p><button class="button secondary small" type="button" data-edit-team="${t.id}">Edit team & members</button><button class="button secondary small danger-text" type="button" data-delete-team="${t.id}">Delete team</button></article>`).join('');
+  $('#team-cards').innerHTML=workspaceState.teams.map(t=>`<article class="team-card"><div><h3>${escapeHtml(t.name)}</h3><span>${t.members.filter(m=>m.is_active).length} active members · ${t.uses_estimator?'Uses Estimator':'Tenders only'}</span></div><p>${t.members.length?t.members.map(m=>escapeHtml(m.name)+(m.is_active?'':' (inactive)')).join(', '):'No members yet'}</p><button class="button secondary small" type="button" data-edit-team="${t.id}">Edit team & members</button><button class="button secondary small danger-text" type="button" data-delete-team="${t.id}">Delete team</button></article>`).join('');
 }
 async function openProjectBrief(id) {
   const request=++workspaceState.briefRequest;
@@ -451,13 +450,14 @@ function syncUserRole() {
 function openTeamEditor(id=null) {
   const team=workspaceState.teams.find(t=>t.id===Number(id)); workspaceState.teamId=team?.id||null;
   $('#team-form').reset(); $('#team-dialog-title').textContent=team?'Edit team':'Add team'; $('#team-name').value=team?.name||'';
+  $('#team-uses-estimator').checked=team?.uses_estimator??true;
   $('#team-member-options').innerHTML=workspaceState.users.filter(u=>u.role==='user').map(u=>`<label class="checkbox-label"><input type="checkbox" value="${u.id}" ${u.team_id===team?.id?'checked':''}><span>${escapeHtml(u.name)}<small>${escapeHtml(u.team_name||'No team')}${u.is_active?'':' · Inactive'}</small></span></label>`).join('')||'<p class="helper-text">Add a user first.</p>';
   $('#team-dialog').showModal();
 }
 async function saveTeam() {
   const id=workspaceState.teamId;
-  await api(id?`/api/teams/${id}`:'/api/teams',{method:id?'PATCH':'POST',body:{name:$('#team-name').value,member_ids:$$('#team-member-options input:checked').map(i=>Number(i.value))}});
-  $('#team-dialog').close(); await loadUsers(); await loadDashboard(false); await loadTeamWorkload(true).catch(()=>{}); toast('Team and members saved');
+  await api(id?`/api/teams/${id}`:'/api/teams',{method:id?'PATCH':'POST',body:{name:$('#team-name').value,uses_estimator:$('#team-uses-estimator').checked,member_ids:$$('#team-member-options input:checked').map(i=>Number(i.value))}});
+  $('#team-dialog').close(); await loadUsers(); await loadDashboard(false); workspaceState.teamSummaryFetched=0; await loadTeamSummary(true).catch(()=>{}); toast('Team settings saved');
 }
 async function refreshBoard() {
   if(workspaceState.boardRefreshing)return;

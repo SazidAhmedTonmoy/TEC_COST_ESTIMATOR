@@ -2497,3 +2497,20 @@ input,select,textarea{min-height:42px;max-width:100%;line-height:1.5}
  .project-month-row label{width:100%;justify-content:space-between}
  #project-board-month-note{width:100%;padding:0}
 }
+
+
+/* v3.7.20 polish: even metric rows, one-line period controls and quiet dashboard. */
+.team-summary-card{display:flex;flex-direction:column}
+.team-summary-card dl{align-items:start;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:12px}
+.team-summary-card dl.opportunities-only{grid-template-columns:minmax(0,1fr)}
+.team-summary-card dl>div{display:grid;grid-template-rows:35px auto;align-content:start;justify-content:stretch;justify-items:start;gap:3px;min-width:0}
+.team-summary-card dd{grid-row:1;grid-column:1;align-self:start;font-variant-numeric:tabular-nums}
+.team-summary-card dt{grid-row:2;grid-column:1;align-self:start;line-height:1.45}
+.team-estimator-setting{margin:8px 0 18px;padding:12px;border:1px solid var(--line);border-radius:12px;align-items:flex-start}
+.team-estimator-setting small{display:block;margin-top:4px;font-size:12px;color:var(--muted);line-height:1.5;font-weight:400}
+.team-estimator-setting input{margin-top:3px}
+.project-tabs .project-month-picker{display:flex;align-items:center;min-height:40px;margin-left:auto;flex:0 0 auto}
+.project-month-picker input{min-width:158px;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--workspace-well);color:var(--ink);color-scheme:light dark;padding:6px 10px;font-size:13px}
+.project-month-picker input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+@media(max-width:740px){.project-tabs .project-month-picker{margin-left:0;width:100%}.project-month-picker input{width:100%;min-height:44px}}
+.sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}

@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from .accounts import AccessError
 from .database import connect
 from .opportunity_retention import active_sql
+from .teams import team_uses_estimator
 from . import tenders
 
 
@@ -60,23 +61,24 @@ def summary(user, *, mode='month', period='', store=None, today=None):
         if not current or not current['is_active'] or current['role'] != 'admin':
             raise AccessError(403, 'Administrator access is required for team summary.')
         rows = [dict(r) for r in conn.execute('SELECT id,name FROM teams ORDER BY name COLLATE NOCASE')]
+        for team in rows:
+            team['uses_estimator'] = team_uses_estimator(conn, team['id'], team['name'])
         totals = {r['id']: {**r, 'assigned_opportunities': 0, 'estimates_in_progress': 0,
                             'estimates_done': 0} for r in rows}
         active = ('draft', 'in_progress', 'in_review')
-        done = ('submitted', 'closed')
         # Estimator: unique per project/team. The review due date supersedes the
         # submission due date while a project is actually In Review.
         for row in conn.execute('''SELECT pt.team_id, p.status, COUNT(DISTINCT p.id) AS count
             FROM project_teams pt JOIN projects p ON p.id=pt.project_id
             WHERE (CASE WHEN p.status='in_review' THEN p.review_deadline
                         ELSE p.submission_deadline END) BETWEEN ? AND ?
-              AND p.status IN ('draft','in_progress','in_review','submitted','closed')
+              AND p.status IN ('draft','in_progress','in_review','submitted')
             GROUP BY pt.team_id,p.status''', (window['start'], window['end'])):
             entry = totals.get(row['team_id'])
-            if entry is not None:
+            if entry is not None and entry['uses_estimator']:
                 entry['estimates_in_progress' if row['status'] in active else 'estimates_done'] += row['count']
         unassigned_estimates = conn.execute('''SELECT COUNT(*) FROM projects p
-            WHERE p.status IN ('draft','in_progress','in_review','submitted','closed')
+            WHERE p.status IN ('draft','in_progress','in_review','submitted')
               AND (CASE WHEN p.status='in_review' THEN p.review_deadline ELSE p.submission_deadline END)
                  BETWEEN ? AND ?
               AND NOT EXISTS(SELECT 1 FROM project_teams pt WHERE pt.project_id=p.id)''',
@@ -102,4 +104,4 @@ def summary(user, *, mode='month', period='', store=None, today=None):
     return {'teams': list(totals.values()), 'window': window,
             'unassigned_opportunities': unassigned_opportunities,
             'unassigned_estimates': unassigned_estimates,
-            'definition': 'Counts use the selected closing/submission/review deadline. In progress = Not started, In progress or In review. Done = Submitted or Closed. Each project assigned to two teams counts once in each.'}
+            'definition': 'Counts use the selected closing/submission/review deadline. In progress = Not started, In progress or In review. Done = Submitted only. Closed estimates are excluded. Estimates are shown only for teams using Estimator.'}

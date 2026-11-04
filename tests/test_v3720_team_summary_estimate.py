@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from conest_app import opportunities as op, tenders
 from conest_app.database import connect
+from conest_app import teams as team_api
 from conest_app.team_summary import summary, period_dates
 from conest_app.opportunity_estimate import create_estimate
 from conest_app.accounts import AccessError
@@ -124,6 +125,10 @@ class TeamSummaryEstimateTests(unittest.TestCase):
         self.assertIsNone(stored.get('estimatorProjectId'))
 
     def test_admin_only_period_aggregation_and_week_month_filter(self):
+        # TEC AU is Tenders-only by default; explicitly opt it into Estimator
+        # for the existing report-count regression.
+        with connect() as db:
+            team_api.save_team(db, {'uses_estimator': True}, self.admin, self.team)
         item=self.opp(due='2026-11-05')
         result=create_estimate(self.store,{'id':item['id'],'revision':item['revision']},self.member)
         project_id=result['createdEstimatorProjectId']
@@ -145,6 +150,41 @@ class TeamSummaryEstimateTests(unittest.TestCase):
             with self.assertRaises(AccessError) as denied:
                 summary(user,mode='month',period='2026-11',store=self.store)
             self.assertEqual(denied.exception.status,403)
+
+    def test_estimator_setting_is_persistent_and_closed_is_not_done(self):
+        first=self.opp(project='Working',location='11 Other Street, NSW',due='2026-11-05')
+        first_project=create_estimate(self.store,{'id':first['id'],'revision':first['revision']},self.member)['createdEstimatorProjectId']
+        second=self.opp(project='Submitted',location='22 Other Street, NSW',due='2026-11-06')
+        second_project=create_estimate(self.store,{'id':second['id'],'revision':second['revision']},self.member)['createdEstimatorProjectId']
+        third=self.opp(project='Discarded',location='33 Other Street, NSW',due='2026-11-07')
+        third_project=create_estimate(self.store,{'id':third['id'],'revision':third['revision']},self.member)['createdEstimatorProjectId']
+        with connect() as db:
+            db.execute("UPDATE projects SET status='submitted' WHERE id=?",(second_project,))
+            db.execute("UPDATE projects SET status='closed' WHERE id=?",(third_project,))
+            self.assertFalse(team_api.team_uses_estimator(db,self.team,'TEC AU TEAM'))
+            self.assertTrue(team_api.team_uses_estimator(db,self.other,'TEC BD TEAM'))
+        def au():
+            return next(t for t in summary(self.admin,mode='month',period='2026-11',store=self.store)['teams'] if t['id']==self.team)
+        initial=au()
+        self.assertEqual((initial['assigned_opportunities'],initial['estimates_in_progress'],initial['estimates_done']),(3,0,0))
+        self.assertFalse(initial['uses_estimator'])
+        with connect() as db:
+            saved=team_api.save_team(db, {'uses_estimator':True},self.admin,self.team)
+            self.assertTrue(saved['uses_estimator'])
+        enabled=au()
+        self.assertEqual((enabled['assigned_opportunities'],enabled['estimates_in_progress'],enabled['estimates_done']),(3,1,1))
+        self.assertTrue(enabled['uses_estimator'])
+        with connect() as db:
+            # Rename must not reset a stored preference.
+            team_api.save_team(db, {'name':'AU Team Renamed'},self.admin,self.team)
+            self.assertTrue(team_api.list_teams(db,self.admin)[0]['uses_estimator'])
+            team_api.save_team(db, {'uses_estimator':False},self.admin,self.team)
+            with self.assertRaises(ValueError):
+                team_api.save_team(db, {'uses_estimator':'false'},self.admin,self.team)
+            with self.assertRaises(AccessError):
+                team_api.save_team(db, {'uses_estimator':True},self.member,self.team)
+        self.assertEqual((au()['estimates_in_progress'],au()['estimates_done']),(0,0))
+        self.assertEqual(au()['assigned_opportunities'],3)
 
     def test_invalid_periods_rejected(self):
         for mode,value in [('month','2026-13'),('month','2026-2'),('week','2026-W00'),('week','2026-W54'),('week','2021-W53'),('month','javascript:bad')]:

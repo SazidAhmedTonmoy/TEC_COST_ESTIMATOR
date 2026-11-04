@@ -15,7 +15,7 @@ const cases=[
   ['server validates the same date order',py.includes("fields['due'] < fields['addedDate'")],
   ['historical date pairs remain editable when unchanged',ui.includes('const legacyDatePairUnchanged=')],
   ['new opportunity has persistent document available option',ui.includes('op-documents-create')&&ui.includes('documentsAvailable:available')],
-  ['document option uses explicit Yes and No',ui.includes("label==='yes'?'Yes':'No'")&&ui.includes('aria-pressed={form.documentsAvailable===available}')],
+  ['document option uses explicit Yes and No',ui.includes("label==='yes'?'Yes':'No'")&&ui.includes('checked={form.documentsAvailable===available}')&&ui.includes('type="radio"')&&ui.includes('op-documents-choice-check')],
   ['new document flag is checked for strict boolean before saving',py.includes("type(documents_available) is not bool")],
   ['new opportunity defaults document availability to No',ui.includes('documentsAvailable:false')],
   ['region uses a select, not free-text datalist',ui.includes('<label className="op-field">Region<select required')&&!ui.includes('op-region-options')],

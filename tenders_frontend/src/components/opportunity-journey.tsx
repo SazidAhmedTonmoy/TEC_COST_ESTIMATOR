@@ -1,4 +1,4 @@
-import {ArrowUpRight,Check,ChevronRight,Clock,FileText,GitBranch,Link2,MessageSquareText,Target} from 'lucide-react';
+import {ArrowUpRight,Check,ChevronRight,Clock,FileText,GitBranch,Link2,MessageSquareText,Plus,Target} from 'lucide-react';
 import type {Opportunity,OpportunityJourney} from '@/lib/opportunity-types';
 import {opportunityStatusLabels} from '@/lib/opportunity-types';
 
@@ -33,9 +33,11 @@ export default function OpportunityJourneyView({item,journey,onChase,onChooseEst
     </li>;
    })}</ol>
    <div className="op-journey-facts">
-     <div><span><FileText size={14}/>Estimator project</span>{journey.estimatorProject?.available?<a href={'/#/estimate/'+journey.estimatorProject.id} target="_blank" rel="noopener noreferrer">{journey.estimatorProject.name}<ArrowUpRight size={13}/></a>:<b>{journey.estimatorProject?'Previous link unavailable':'Not linked'}</b>}
-       {item.permissions.createEstimate&&<button type="button" className="primary-btn op-journey-create-estimate" onClick={onCreateEstimate}>Create Estimate</button>}
-       {item.permissions.edit&&<button type="button" className="op-journey-small-link" onClick={onChooseEstimator}>{journey.estimatorProject?'Change / unlink':'Link existing estimate'}</button>}
+     <div className="op-journey-fact-estimator"><span><FileText size={14}/>Estimator project</span>{journey.estimatorProject?.available?<a href={'/#/estimate/'+journey.estimatorProject.id} target="_blank" rel="noopener noreferrer">{journey.estimatorProject.name}<ArrowUpRight size={13}/></a>:<b className="op-journey-estimator-state">{journey.estimatorProject?'Previous link unavailable':'Not linked'}</b>}
+       {(item.permissions.createEstimate||item.permissions.edit)&&<div className="op-journey-estimator-actions">
+         {item.permissions.createEstimate&&<button type="button" className="primary-btn op-journey-create-estimate" onClick={onCreateEstimate}><Plus size={15} aria-hidden="true"/>Create Estimate</button>}
+         {item.permissions.edit&&<button type="button" className="op-journey-small-link" onClick={onChooseEstimator}>{journey.estimatorProject?'Change / unlink':'Link existing estimate'}</button>}
+       </div>}
        {item.status==='approved'&&!journey.estimatorProject&&!(item.assignedTeamIds||[]).length&&<small className="op-help">Assign an approved team before creating an estimate.</small>}</div>
      <div><span><Link2 size={14}/>Tender project</span><b>{journey.quotation.linkedTenderName||'Not linked'}</b></div>
      <div><span><FileText size={14}/>Electrical quote</span><b>{journey.quotation.value==null?'Not recorded':aud.format(journey.quotation.value)}</b></div>

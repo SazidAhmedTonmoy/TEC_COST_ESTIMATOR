@@ -73,6 +73,19 @@ def initialize_teams(conn):
     conn.commit()
 
 
+def team_uses_estimator(conn, team_id, name):
+    """Preference for reporting only, stored in the existing settings table.
+
+    Existing TEC AU/Eman's teams default off; all other teams default on.
+    An administrator's explicit selection always wins, including after a rename.
+    """
+    row = conn.execute('SELECT value FROM settings WHERE key=?',
+        (f'team_uses_estimator:{team_id}',)).fetchone()
+    if row is not None:
+        return row['value'] == '1'
+    return name.strip().casefold() not in {'tec au team', 'tec au', "eman's team"}
+
+
 def validate_team(conn, role, team_id):
     if role=='admin': return None
     if team_id in (None,''):return None
@@ -87,6 +100,7 @@ def list_teams(conn, user):
     result=[]
     for row in conn.execute('SELECT * FROM teams'+where+' ORDER BY name COLLATE NOCASE',args):
         team=dict(row)
+        team['uses_estimator']=team_uses_estimator(conn,team['id'],team['name'])
         team['members']=[dict(u) for u in conn.execute('''SELECT id,name,username,is_active FROM users
             WHERE team_id=? AND role='user' ORDER BY name COLLATE NOCASE''',(team['id'],))]
         result.append(team)
@@ -95,7 +109,9 @@ def list_teams(conn, user):
 
 def save_team(conn, payload, actor, team_id=None):
     if actor['role']!='admin':raise AccessError(403,'Administrator access is required')
-    if set(payload)-{'name','member_ids'}:raise ValueError('Unknown team field')
+    if set(payload)-{'name','member_ids','uses_estimator'}:raise ValueError('Unknown team field')
+    if 'uses_estimator' in payload and type(payload['uses_estimator']) is not bool:
+        raise ValueError('Choose whether the team uses Estimator')
     current=conn.execute('SELECT * FROM teams WHERE id=?',(team_id,)).fetchone() if team_id else None
     if team_id and not current:raise LookupError('Team not found')
     name=str(payload.get('name',current['name'] if current else '')).strip()
@@ -105,6 +121,10 @@ def save_team(conn, payload, actor, team_id=None):
         conn.execute('INSERT INTO tender_team_aliases VALUES(?,?) ON CONFLICT(name) DO UPDATE SET team_id=excluded.team_id',(current['name'],team_id))
         conn.execute('UPDATE teams SET name=?,updated_at=? WHERE id=?',(name,now,team_id))
     else:team_id=conn.execute('INSERT INTO teams(name,created_at,updated_at) VALUES (?,?,?)',(name,now,now)).lastrowid
+    if 'uses_estimator' in payload:
+        conn.execute('''INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at''',
+            (f'team_uses_estimator:{team_id}', '1' if payload['uses_estimator'] else '0', now))
     if 'member_ids' in payload:
         ids=payload['member_ids']
         if not isinstance(ids,list) or len(ids)>500 or any(type(i) is not int or i<=0 for i in ids):
@@ -125,4 +145,5 @@ def delete_team(conn, team_id, actor):
     conn.execute('UPDATE users SET team_id=NULL,updated_at=? WHERE team_id=?',(utc_now(),team_id))
     conn.execute('DELETE FROM project_teams WHERE team_id=?',(team_id,))
     conn.execute('DELETE FROM teams WHERE id=?',(team_id,))
+    conn.execute('DELETE FROM settings WHERE key=?',(f'team_uses_estimator:{team_id}',))
     return {'success':True}

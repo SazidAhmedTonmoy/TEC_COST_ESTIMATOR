@@ -1,3 +1,16 @@
+# TEC ConEst v3.7.20 — UI polish (same version)
+
+**Apply over:** v3.7.20 · **Application/version remains:** 3.7.20 · **Schema remains:** 34 · **Database migration:** none
+
+- **Admin Team activity:** Closed projects are now excluded from the completed-estimate total; only Submitted estimates count as completed. Team cards have top-aligned metrics. Removed the unassigned footnote and lengthy caption. Admins can control **Uses Estimator** from **People and Access → Teams → Edit team**. Teams that don't use Estimator display only their Tender opportunities. TEC AU / the original Eman's Team defaults to Tenders-only, and TEC BD / other teams defaults to Estimator enabled. Explicit admin choices remain saved after a team is renamed.
+- **No database changes:** Each team's reporting preference is stored in the existing `settings` key/value table. Turning it off only hides team Estimator counts in this report; it does not delete estimates or revoke project editing rights.
+- **Project Board:** Moved the month picker next to the status filters. Removed the redundant label and explanatory sentence. The month picker still filters by the submission deadline.
+- **Opportunity form:** Replaced faint Yes / No document buttons with true, keyboard-accessible radio controls. The selected option displays a green checkmark and distinct border. The existing API continues to store `documentsAvailable` as a boolean.
+- **Project Journey:** Placed **Create Estimate** below the Estimator link status as a full-width, clearly separated action; existing project links and team permissions are unchanged.
+- **Deployment:** Overlay the UI-fix ZIP onto your existing v3.7.20 code, preserving `.env`, `.git`, `data/`, `*.db`, and uploads. Push through the existing GitHub Actions workflow: the Estimator fingerprinted assets are included; the Tender React source needs `npm ci && npm run build` to publish the updated selector and button. The ZIP's prebuilt Tender assets are from the existing baseline until CI rebuilds them.
+
+---
+
 # TEC ConEst v3.7.20 — Team Activity, Month Filters & Approved Opportunity → Estimate
 
 **Base:** v3.7.19 · **Application:** v3.7.20 · **Database schema:** 34 (unchanged) · **Migration:** none
