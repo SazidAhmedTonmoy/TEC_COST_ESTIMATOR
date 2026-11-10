@@ -2,38 +2,39 @@ import {useEffect,useMemo,useState} from 'react';
 import {BarChart3,CalendarDays,RefreshCw,Users} from 'lucide-react';
 import {apiFetch} from '../main';
 
-type Metric='added'|'approved'|'quoted';
-type Contributor={id:number|null;name:string;count:number};
-type Stats={mode:string;from:string;to:string;timezone:string;counts:Record<Metric,number>;contributors:Record<Metric,Contributor[]>;monthly:Array<{month:string}&Record<Metric,number>>};
-const metrics:Metric[]=['added','approved','quoted'];
-const titles:Record<Metric,string>={added:'Opportunities added',approved:'Approved',quoted:'Quoted'};
-const colors=['#17ad9c','#e5a828','#638de8','#aa75d8','#ef7676','#65bc71','#e88738','#40adc0','#879bac','#c59acb'];
+type OutcomeKey='added'|'approved'|'approvedNotQuoted'|'approvedQuoted'|'rejected'|'expired'|'pending'|'review';
+type OutcomeCounts=Record<OutcomeKey,number>;
+type Creator=OutcomeCounts&{id:number|null;name:string};
+type Month=OutcomeCounts&{month:string};
+type Stats={mode:string;from:string;to:string;timezone:string;outcomes:OutcomeCounts;creators:Creator[];monthlyOutcomes:Month[]};
+type Slice={name:string;count:number;color:string};
+const creatorColors=['#17ad9c','#e5a828','#638de8','#aa75d8','#ef7676','#65bc71','#e88738','#40adc0','#879bac','#c59acb'];
+const outcomeColors={approvedQuoted:'#16b19e',approvedNotQuoted:'#e7a735',rejected:'#e47574',expired:'#879bac',pending:'#638de8',review:'#aa75d8'};
 function currentSydneyDate(){
  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
  const part=(type:string)=>parts.find(p=>p.type===type)?.value||'';
  return `${part('year')}-${part('month')}-${part('day')}`;
 }
-function Pie({label,metric,total,contributors}:{label:string;metric:Metric;total:number;contributors:Contributor[]}){
- const top=contributors.slice(0,9),others=contributors.slice(9).reduce((a,c)=>a+c.count,0);
- const pieces=others?[...top,{id:null,name:'Other contributors',count:others}]:top;
+function Donut({title,total,centerLabel,slices}:{title:string;total:number;centerLabel:string;slices:Slice[]}){
+ const present=slices.filter(slice=>slice.count>0);
  let from=0;
- const gradient=pieces.map((item,index)=>{
-  const start=from;from+=item.count/Math.max(total,1)*100;
-  return `${colors[index%colors.length]} ${start}% ${from}%`;
+ const gradient=present.map(slice=>{
+  const first=from;from+=slice.count/Math.max(total,1)*100;
+  return `${slice.color} ${first}% ${from}%`;
  }).join(',');
- return <section className="op-analytics-card" aria-label={label}>
-  <h4>{label}</h4>
+ return <section className="op-analytics-card" aria-label={title}>
+  <h4>{title}</h4>
   <div className="op-analytics-pie-body">
-   <div className="op-analytics-donut" role="img" aria-label={`${label}: ${total} opportunities, by person`}
-    style={{background:pieces.length?`conic-gradient(${gradient})`:'conic-gradient(#536372 0% 100%)'}}>
-    <div><strong>{total}</strong><span>{metric}</span></div>
+   <div className="op-analytics-donut" role="img" aria-label={`${title}: ${total}`}
+    style={{background:present.length?`conic-gradient(${gradient})`:'conic-gradient(#536372 0% 100%)'}}>
+    <div><strong>{total}</strong><span>{centerLabel}</span></div>
    </div>
    <div className="op-analytics-legend">
-    {pieces.map((person,i)=><div className="op-analytics-legend-line" key={`${person.id}:${person.name}`} title={person.name}>
-     <span className="op-analytics-legend-dot" style={{background:colors[i%colors.length]}}/>
-     <span>{person.name}</span><strong>{person.count}</strong>
+    {slices.map((slice,i)=><div className="op-analytics-legend-line" key={`${slice.name}:${i}`}>
+     <span className="op-analytics-legend-dot" style={{background:slice.color}}/>
+     <span title={slice.name}>{slice.name}</span><strong>{slice.count}</strong>
     </div>)}
-    {!pieces.length&&<p className="op-analytics-empty">No activity in this period</p>}
+    {!slices.length&&<p className="op-analytics-empty">No activity in this period</p>}
    </div>
   </div>
  </section>;
@@ -68,18 +69,26 @@ export default function OpportunityAnalytics(){
   };
   void load();return()=>controller.abort();
  },[mode,month,year,from,to,refresh,canQuery]);
- const people=useMemo(()=>{
-  const all=new Map<string,{name:string,added:number,approved:number,quoted:number}>();
-  for(const metric of metrics)for(const person of data?.contributors[metric]||[]){
-   const key=person.id===null?'name:'+person.name:'id:'+person.id;
-   const row=all.get(key)||{name:person.name,added:0,approved:0,quoted:0};
-   row[metric]+=person.count;all.set(key,row);
-  }
-  return [...all.values()].sort((a,b)=>b.added+b.approved+b.quoted-(a.added+a.approved+a.quoted)||a.name.localeCompare(b.name));
- },[data]);
- const maxMonth=Math.max(1,...(data?.monthly||[]).flatMap(m=>metrics.map(k=>m[k])));
- const months=data?.monthly||[];
- return <div className="op-analytics" aria-label="Opportunity contribution analytics">
+ const outcome=data?.outcomes;
+ const people=data?.creators||[];
+ const addedSlices=useMemo(()=>{
+  const top=people.slice(0,9).map((person,i)=>({name:person.name,count:person.added,color:creatorColors[i%creatorColors.length]}));
+  const other=people.slice(9).reduce((total,person)=>total+person.added,0);
+  return other?[...top,{name:'Other creators',count:other,color:creatorColors[9]}]:top;
+ },[people]);
+ const outcomeSlices:Slice[]=outcome?[
+  {name:'Approved · quoted',count:outcome.approvedQuoted,color:outcomeColors.approvedQuoted},
+  {name:'Approved · not quoted',count:outcome.approvedNotQuoted,color:outcomeColors.approvedNotQuoted},
+  {name:'Rejected',count:outcome.rejected,color:outcomeColors.rejected},
+  {name:'Expired',count:outcome.expired,color:outcomeColors.expired},
+  {name:'Awaiting approval',count:outcome.pending,color:outcomeColors.pending},
+  {name:'In review',count:outcome.review,color:outcomeColors.review},
+ ]:[];
+ const approvalSlices:Slice[]=outcome?[
+  {name:'Approved · quoted',count:outcome.approvedQuoted,color:outcomeColors.approvedQuoted},
+  {name:'Approved · not quoted',count:outcome.approvedNotQuoted,color:outcomeColors.approvedNotQuoted},
+ ]:[];
+ return <div className="op-analytics" aria-label="Opportunity outcome analytics">
   <div className="op-analytics-filters">
    <div className="op-analytics-modes" role="group" aria-label="Analytics period">
     <button type="button" aria-pressed={mode==='month'} onClick={()=>setMode('month')}>Month</button>
@@ -95,12 +104,15 @@ export default function OpportunityAnalytics(){
   </div>
   {error&&<div className="op-refresh-warning" role="alert">{data?'Showing the last loaded analytics. ':''}{error}<button onClick={()=>setRefresh(n=>n+1)}>Retry</button></div>}
   {!data&&loading&&<div className="op-loading" role="status"><RefreshCw size={19} className="op-spin"/>Loading analytics…</div>}
-  {data&&<>
-   <div className="op-analytics-period"><CalendarDays size={16}/><strong>{data.from} — {data.to}</strong><span>Australia/Sydney dates{loading?' · Refreshing…':''}</span></div>
-   <div className="op-analytics-summary">{metrics.map(metric=><div key={metric}><span>{titles[metric]}</span><strong>{data.counts[metric]}</strong></div>)}</div>
-   <div className="op-analytics-pies">{metrics.map(metric=><Pie key={metric} label={titles[metric]} metric={metric} total={data.counts[metric]} contributors={data.contributors[metric]}/>)}</div>
-   <section className="op-analytics-table-panel"><h3><Users size={18}/> Contributor breakdown</h3><div className="op-analytics-table-scroll"><table><thead><tr><th>Person</th><th>Added</th><th>Approved</th><th>Quoted</th></tr></thead><tbody>{people.map(row=><tr key={row.name}><th scope="row">{row.name}</th><td>{row.added}</td><td>{row.approved}</td><td>{row.quoted}</td></tr>)}{!people.length&&<tr><td colSpan={4}>No recorded activity in this period.</td></tr>}</tbody></table></div></section>
-   <section className="op-analytics-table-panel"><h3><BarChart3 size={18}/> Monthly activity</h3><div className="op-analytics-trend-legend"><span>Added</span><span>Approved</span><span>Quoted</span></div><div className="op-analytics-trend">{months.map(row=><div key={row.month} className="op-analytics-trend-row"><time>{row.month}</time><div className="op-analytics-bars">{metrics.map((key,index)=><div key={key} className="op-analytics-bar-track" title={`${titles[key]}: ${row[key]}`}><div style={{width:`${row[key]/maxMonth*100}%`,background:colors[index]}}/></div>)}</div><strong>{row.added} / {row.approved} / {row.quoted}</strong></div>)}</div></section>
+  {data&&outcome&&<>
+   <div className="op-analytics-period"><CalendarDays size={16}/><strong>{data.from} — {data.to}</strong><span>{loading?'Refreshing…':'Current outcomes of opportunities added in this period'}</span></div>
+   <div className="op-analytics-pies">
+    <Donut title="Opportunities added" total={outcome.added} centerLabel="added" slices={addedSlices}/>
+    <Donut title="Opportunity outcomes" total={outcome.added} centerLabel="opportunities" slices={outcomeSlices}/>
+    <Donut title="Approved opportunities" total={outcome.approved} centerLabel="approved" slices={approvalSlices}/>
+   </div>
+   <section className="op-analytics-table-panel"><h3><Users size={18}/> Outcomes by person who added the opportunity</h3><div className="op-analytics-table-scroll"><table><thead><tr><th>Person</th><th>Added</th><th>Approved</th><th>Approved, not quoted</th><th>Quoted</th><th>Rejected</th><th>Expired</th></tr></thead><tbody>{people.map(row=><tr key={`${row.id}:${row.name}`}><th scope="row">{row.name}</th><td>{row.added}</td><td>{row.approved}</td><td>{row.approvedNotQuoted}</td><td>{row.approvedQuoted}</td><td>{row.rejected}</td><td>{row.expired}</td></tr>)}{!people.length&&<tr><td colSpan={7}>No opportunities added in this period.</td></tr>}</tbody></table></div></section>
+   <section className="op-analytics-table-panel"><h3><BarChart3 size={18}/> Month-by-month outcomes</h3><div className="op-analytics-table-scroll"><table><thead><tr><th>Month added</th><th>Added</th><th>Approved</th><th>Approved, not quoted</th><th>Quoted</th><th>Rejected</th><th>Expired</th></tr></thead><tbody>{data.monthlyOutcomes.map(row=><tr key={row.month}><th scope="row">{row.month}</th><td>{row.added}</td><td>{row.approved}</td><td>{row.approvedNotQuoted}</td><td>{row.approvedQuoted}</td><td>{row.rejected}</td><td>{row.expired}</td></tr>)}</tbody></table></div></section>
   </>}
  </div>;
 }

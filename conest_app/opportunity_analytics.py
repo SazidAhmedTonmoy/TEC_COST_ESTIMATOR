@@ -1,8 +1,9 @@
-"""Admin-only, event-time opportunity activity analytics without a schema change.
+"""Admin-only opportunity analytics without a schema change.
 
-Adds use each opportunity's immutable createdAt. Approvals and quotes use
-actor-attributed audit actions, with historical timestamp fallbacks only where
-no corresponding audit event exists. Deadlines are deliberately not counted.
+The UI reports today's outcomes of opportunities CREATED in the chosen
+Sydney-date period, attributed to their creators. Historical action-time
+counts remain in the response for backward compatibility, but are not
+presented as the per-creator outcome report.
 """
 from __future__ import annotations
 
@@ -70,6 +71,7 @@ def summary(store, params, user, *, now=None):
     if actor['role']!='admin':
         raise tenders.ValidationError('Opportunity analytics is available to administrators only.',403)
     mode,start,end=_range(params,now)
+    today=now or datetime.now(SYDNEY).date()
     names={int(u['id']):u['name'] for u in users}
     events=[]
     # Use only active register records (exclude archived/deleted reset cohorts).
@@ -118,5 +120,49 @@ def summary(store, params, user, *, now=None):
         month=cursor.strftime('%Y-%m')
         months.append({'month':month,**month_counts[month]})
         cursor=date(cursor.year+1,1,1) if cursor.month==12 else date(cursor.year,cursor.month+1,1)
+    # Outcome reporting is a cohort view: who added opportunities in the chosen
+    # period and what their CURRENT outcome is. It must not credit the approver
+    # or quote recorder as the opportunity creator. This deliberately differs
+    # from the action-time activity counts retained above for compatibility.
+    outcome_keys=('added','approved','approvedNotQuoted','approvedQuoted',
+                  'rejected','expired','pending','review')
+    def zero_counts():return {key:0 for key in outcome_keys}
+    outcome_counts=zero_counts()
+    by_creator=defaultdict(zero_counts)
+    by_month=defaultdict(zero_counts)
+    for row in rows:
+        try:item=json.loads(row['body'])
+        except (TypeError,ValueError):continue
+        created=_stamp(item.get('createdAt'))
+        if created is None or not start<=created<end:continue
+        creator_id=item.get('createdBy',row['created_by'])
+        identifier=creator_id if isinstance(creator_id,int) and creator_id>0 else None
+        name=names.get(identifier) if identifier else None
+        if not name:name=item.get('createdByName') or ('Workbook import' if creator_id==0 else 'Unknown creator')
+        creator_key=(identifier,name)
+        counts=(outcome_counts,by_creator[creator_key],by_month[created.strftime('%Y-%m')])
+        status=item.get('status') or 'pending'
+        # Report deadline expiry without a potentially slow write/notification
+        # sweep on this read-only dashboard request.
+        if status in ('pending','review') and item.get('due'):
+            try:
+                if date.fromisoformat(item['due'])<today:status='expired'
+            except ValueError:
+                pass
+        if status not in ('approved','rejected','expired','pending','review'):
+            status='pending'
+        keys=['added',status]
+        if status=='approved':
+            quoted=(item.get('quoteStatus')=='quoted' or bool(item.get('submissionIds'))
+                    or bool(item.get('linkedAt')))
+            keys.append('approvedQuoted' if quoted else 'approvedNotQuoted')
+        for bucket in counts:
+            for key in keys:bucket[key]+=1
+    creators=[{'id':identifier,'name':name,**counts}
+              for (identifier,name),counts in sorted(by_creator.items(),
+                  key=lambda item:(-item[1]['added'],item[0][1].casefold()))]
+    monthly_outcomes=[{'month':row['month'],**by_month[row['month']]}
+                      for row in months]
     return {'mode':mode,'from':start.isoformat(),'to':(end-timedelta(days=1)).isoformat(),
-            'timezone':'Australia/Sydney','counts':totals,'contributors':contributors,'monthly':months}
+            'timezone':'Australia/Sydney','counts':totals,'contributors':contributors,'monthly':months,
+            'outcomes':outcome_counts,'creators':creators,'monthlyOutcomes':monthly_outcomes}
