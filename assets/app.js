@@ -477,9 +477,9 @@ function renderEstimateLine(line) {
       <td>—</td><td><button type="button" class="component-remove-live delete-line-component" data-line-id="${line.id}" data-component-id="${component.id}" aria-label="Remove component from this estimate" title="Remove from this estimate only">×</button></td>
     </tr>`).join("");
   return `
-    <tr class="assembly-row ${estimateLineHighlighted(line.id)?'catalog-highlighted':''}" data-line-id="${line.id}">
+    <tr class="assembly-row ${estimateLineHighlightLevel(line.id)===1?'catalog-highlight-yellow':estimateLineHighlightLevel(line.id)===2?'catalog-highlight-red':''}" data-line-id="${line.id}">
       <td class="assembly-cell"><div class="assembly-title">
-        <div class="catalog-row-controls"><button class="toggle-details" data-line-id="${line.id}" aria-label="Expand component details" aria-expanded="false">+</button><button type="button" class="catalog-highlight-toggle" data-line-id="${line.id}" aria-label="Highlight catalog item" aria-pressed="${estimateLineHighlighted(line.id)}" title="${estimateLineHighlighted(line.id)?'Remove highlight':'Highlight catalog item'}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 3 7 7-9 9-7-7zM5 12l-2 6 3 3 6-2M2 22h12"/></svg></button></div>
+        <div class="catalog-row-controls"><button class="toggle-details" data-line-id="${line.id}" aria-label="Expand component details" aria-expanded="false">+</button><button type="button" class="catalog-highlight-toggle" data-line-id="${line.id}" aria-label="${estimateHighlightTitle(estimateLineHighlightLevel(line.id))}" aria-pressed="${estimateLineHighlighted(line.id)}" data-highlight-level="${estimateLineHighlightLevel(line.id)}" title="${estimateHighlightTitle(estimateLineHighlightLevel(line.id))}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 3 7 7-9 9-7-7zM5 12l-2 6 3 3 6-2M2 22h12"/></svg></button></div>
         <div class="assembly-copy">
           <div class="line-heading-grid">
             <div class="line-name-field"><div class="assembly-name-row"><span class="drag-handle" draggable="true" data-drag-kind="line" data-line-id="${line.id}" title="Drag item within this category">⠿</span><textarea class="line-estimate-name" data-line-id="${line.id}" rows="1" maxlength="500" aria-label="Estimate item name">${escapeHtml(line.display_name || cleanEstimateTitle(line.name_snapshot))}</textarea></div>
@@ -1066,6 +1066,11 @@ async function saveManualItem(event) {
   } catch (_) { toast("Saved successfully. Refresh the page to reload the catalog."); }
 }
 
+function catalogTimestamp(value){
+  if(!value)return 'Not recorded';
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?String(value):date.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'});
+}
 let catalogSearchTimer, catalogSearchRequest=0;
 async function loadCatalog(query = null,more=false) {
   const offset=more?$("#catalog-results").querySelectorAll(".catalog-result").length:0;
@@ -1073,7 +1078,8 @@ async function loadCatalog(query = null,more=false) {
   const term = query ?? $("#catalog-search-input").value.trim();
   const category = $("#catalog-category")?.value || "";
   const includeIncomplete = "0";
-  const result = await api(`/api/catalog/search?q=${encodeURIComponent(term)}&category=${encodeURIComponent(category)}&include_incomplete=${includeIncomplete}&limit=60&offset=${offset}`);
+  const order=$("#catalog-sort")?.value||"recent";
+  const result = await api(`/api/catalog/search?sort=${encodeURIComponent(order)}&q=${encodeURIComponent(term)}&category=${encodeURIComponent(category)}&include_incomplete=${includeIncomplete}&limit=60&offset=${offset}`);
   if(request!==catalogSearchRequest)return;
   const box = $("#catalog-results");
   if (!result.results.length) {
@@ -1081,7 +1087,7 @@ async function loadCatalog(query = null,more=false) {
     box.innerHTML = `<div class="empty-state"><p>No catalog results found.</p></div>`;
     return;
   }
-  const html = result.results.map((item) => `<a href="#/catalog/${item.id}" class="catalog-result catalog-peek" data-id="${item.id}" data-catalog-preview="${item.id}"><span><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}<br>${variantText(item)} · ${Number(item.component_count || 0)} detail rows</small></span><span class="catalog-result-meta">${ratingStamp(item)}<em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></span></a>`).join("");
+  const html = result.results.map((item) => `<a href="#/catalog/${item.id}" class="catalog-result catalog-peek" data-id="${item.id}" data-catalog-preview="${item.id}"><span><strong>${catalogName(item)}</strong><small>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}<br>${variantText(item)} · ${Number(item.component_count || 0)} detail rows</small><small class="catalog-source-summary">${item.last_used_at?'Last used: '+escapeHtml(catalogTimestamp(item.last_used_at))+' · ':''}${item.last_uploaded_at?'Uploaded: '+escapeHtml(catalogTimestamp(item.last_uploaded_at)):'Manual catalog'}</small></span><span class="catalog-result-meta">${ratingStamp(item)}<em class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</em></span></a>`).join("");
   box.querySelector(".catalog-search-more")?.remove();if(more)box.insertAdjacentHTML("beforeend",html);else box.innerHTML=html;
   if(result.has_more)box.insertAdjacentHTML("beforeend",`<button type="button" class="button secondary catalog-search-more">Show more matches (${offset+result.results.length} of ${result.total})</button>`);
 }
@@ -1104,7 +1110,7 @@ async function showCatalogDetail(itemId) {
   state.currentCatalogItem = item;
   $$(".catalog-result").forEach((row) => row.classList.toggle("active", Number(row.dataset.id) === Number(itemId)));
   const componentRows = item.components.map((component) => `<tr><td>${componentLabel(component)}${component.fixed_quantity?'<small class="fixed-quantity-note">Fixed total quantity</small>':''}</td><td>${fmtNumber(component.quantity_per_unit, 4)}</td><td>${escapeHtml(component.uom || "")}</td><td>${fmtMoney(component.unit_material)}</td><td>${componentLaborLabel(component)}</td></tr>`).join("");
-  const sources = item.occurrences.length ? item.occurrences.map((source) => `<span class="source-chip">${escapeHtml(source.project_name || source.file_name)} · ${escapeHtml(source.sheet_name || "")} · row ${source.source_row || "—"}</span>`).join("") : `<span class="source-chip">Manual catalog</span>`;
+  const sources = item.occurrences.length ? `<div class="catalog-source-scroll"><table class="mini-table catalog-source-table"><thead><tr><th>Imported</th><th>Source workbook</th><th>Project / Sheet</th><th>Row</th></tr></thead><tbody>${item.occurrences.map(source=>`<tr><td>${escapeHtml(catalogTimestamp(source.imported_at))}</td><td>${escapeHtml(source.file_name||'—')}</td><td>${escapeHtml(source.project_name||'—')} · ${escapeHtml(source.sheet_name||'—')}</td><td>${escapeHtml(String(source.source_row??'—'))}</td></tr>`).join('')}</tbody></table></div>` : `<p class="catalog-source-empty">Manual catalog item · updated ${escapeHtml(catalogTimestamp(item.updated_at))}</p>`;
   const variants = (item.variants || []).map((variant) => `<a href="#/catalog/${variant.id}" class="variant-option${Number(variant.id) === Number(item.id) ? " active" : ""}" data-variant-id="${variant.id}"><span><strong>${escapeHtml(variant.specification || variant.name || "Saved option")}</strong><small>${escapeHtml(variant.source_file || "Manual catalog")} · ${variant.component_count} rows</small></span><span><b>${fmtMoney(variant.unit_material)}</b><small>${catalogLaborLabel(variant)}</small></span><em class="data-status ${escapeHtml(variant.data_status)}">${dataStatusLabel(variant.data_status)}</em></a>`).join("");
   $("#catalog-detail").classList.remove("empty-detail");
   $("#catalog-detail").innerHTML = `
@@ -1112,7 +1118,7 @@ async function showCatalogDetail(itemId) {
     <div class="detail-meta"><div><span>Base quantity</span><strong>${fmtNumber(item.base_quantity)} ${escapeHtml(item.base_uom || "")}</strong></div><div><span>Material / unit</span><strong>${fmtMoney(item.unit_material)}</strong></div><div><span>Labour / unit</span><strong>${catalogLaborLabel(item)}</strong></div></div>
     <div class="table-scroll"><table class="mini-table"><thead><tr><th>Component</th><th>Qty / 1</th><th>Unit</th><th>Material</th><th>Labour / unit</th></tr></thead><tbody>${componentRows}</tbody></table></div>
     ${(item.variants || []).length > 1 ? `<div class="variant-section"><div><h4>Other saved allowances</h4><p>These options have different components, specifications or prices.</p></div><div class="variant-list">${variants}</div></div>` : ""}
-    <button class="button secondary" data-price-history="${item.id}">Price history & source</button><button class="button secondary detail-delete" type="button">Delete catalog item</button><h4>Source history for this version</h4><div>${sources}</div>`;
+    <button class="button secondary" data-price-history="${item.id}">Price history & source</button><button class="button secondary detail-delete" type="button">Delete catalog item</button><h4>Source history for this version</h4><p class="catalog-source-context">${item.last_used_at?'Last used in an estimate: '+escapeHtml(catalogTimestamp(item.last_used_at))+' · ':''}${item.last_uploaded_at?'Latest upload: '+escapeHtml(catalogTimestamp(item.last_uploaded_at)):'Manual item'}</p>${sources}`;
   if(state.view==='catalog' && typeof rememberPage==='function')rememberPage('catalog',item.id);
   return item;
 }
@@ -1478,6 +1484,7 @@ function bindEvents() {
   $('#catalog-search-input').addEventListener('input',()=>{clearTimeout(catalogSearchTimer);catalogSearchRequest++;catalogSearchTimer=setTimeout(()=>loadCatalog().catch(error=>toast(error.message,true)),200);});
   $("#catalog-search-input").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); loadCatalog().catch((error) => toast(error.message, true)); } });
   $("#catalog-category").addEventListener("change", () => loadCatalog().catch((error) => toast(error.message, true)));
+  $("#catalog-sort").addEventListener("change", () => loadCatalog().catch((error) => toast(error.message, true)));
   $("#catalog-results").addEventListener("click", (event) => {
     const more=event.target.closest(".catalog-search-more");if(more){more.disabled=true;loadCatalog(null,true).catch(error=>{more.disabled=false;toast(error.message,true)});return;}
     const result = event.target.closest(".catalog-result");

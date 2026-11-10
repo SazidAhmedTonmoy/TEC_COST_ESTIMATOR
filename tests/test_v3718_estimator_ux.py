@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 class EstimatorUx3718Tests(unittest.TestCase):
     def test_version_and_no_schema_change(self):
         from conest_app import __version__
-        self.assertEqual(__version__, '3.7.20')
+        self.assertGreaterEqual(tuple(map(int, __version__.split('.'))), (3, 7, 20))
         package=json.loads((ROOT/'tenders_frontend/package.json').read_text())
         self.assertEqual(package['version'],__version__)
         self.assertNotIn('DROP TABLE', (ROOT/'assets/estimator_ux.js').read_text())

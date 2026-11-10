@@ -2,21 +2,38 @@
 const estimateViewState={collapsed:new Set(),expanded:new Set(),query:'',drag:null,busy:false};
 const estimateHighlightCache=new Map();
 function estimateHighlightKey(){return `tec-estimate-highlight:${state.user?.id||'guest'}:${state.projectId}`;}
+// 0 = clear, 1 = yellow for review, 2 = red for urgent correction.
+// Earlier releases stored string IDs in an array. Recover those as yellow.
 function estimateHighlights(){
   const key=estimateHighlightKey();
   if(!estimateHighlightCache.has(key)){
-    let saved=[];try{const parsed=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(parsed))saved=parsed.filter(id=>typeof id==='string');}catch{}
-    estimateHighlightCache.set(key,new Set(saved));
+    const marks=new Map();
+    try{
+      const saved=JSON.parse(localStorage.getItem(key)||'{}');
+      if(Array.isArray(saved)){
+        saved.filter(id=>typeof id==='string').forEach(id=>marks.set(id,1));
+      }else if(saved && typeof saved==='object'){
+        Object.entries(saved).forEach(([id,level])=>{if(level===1||level===2)marks.set(id,level);});
+      }
+    }catch{}
+    estimateHighlightCache.set(key,marks);
   }
   return estimateHighlightCache.get(key);
 }
-function estimateLineHighlighted(id){return estimateHighlights().has(String(id));}
+function estimateLineHighlightLevel(id){return estimateHighlights().get(String(id))||0;}
+function estimateLineHighlighted(id){return estimateLineHighlightLevel(id)>0;}
+function estimateHighlightTitle(level){return level===0?'Mark yellow (click 1 of 3)':level===1?'Marked yellow · click for red (2 of 3)':'Marked red · click to clear (3 of 3)';}
 function toggleEstimateHighlight(button){
-  const id=button.dataset.lineId,selected=estimateHighlights();
-  if(selected.has(id))selected.delete(id);else selected.add(id);
-  const on=selected.has(id);button.closest('.assembly-row')?.classList.toggle('catalog-highlighted',on);
-  button.setAttribute('aria-pressed',String(on));button.title=on?'Remove highlight':'Highlight catalog item';
-  try{localStorage.setItem(estimateHighlightKey(),JSON.stringify([...selected]));}catch{}
+  const id=String(button.dataset.lineId),marks=estimateHighlights();
+  const next=(marks.get(id)||0)+1;
+  if(next===3)marks.delete(id);else marks.set(id,next);
+  const level=next===3?0:next,row=button.closest('.assembly-row');
+  if(row){row.classList.toggle('catalog-highlight-yellow',level===1);row.classList.toggle('catalog-highlight-red',level===2);}
+  button.dataset.highlightLevel=String(level);
+  button.setAttribute('aria-pressed',String(level!==0));
+  button.setAttribute('aria-label',estimateHighlightTitle(level));
+  button.title=estimateHighlightTitle(level);
+  try{localStorage.setItem(estimateHighlightKey(),JSON.stringify(Object.fromEntries(marks)));}catch{}
 }
 function scopeKey(category){return `${state.projectId}:${category}`;}
 // The server key is authoritative; the fallback matches Python clean_text for old snapshots.

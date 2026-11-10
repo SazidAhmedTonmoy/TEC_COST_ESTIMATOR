@@ -432,6 +432,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                         include_incomplete=include_incomplete,
                         group_variants=group_variants,
                         recent_first=query.get("recent_first", ["0"])[0] == "1",
+                        sort_by=query.get("sort", ["legacy"])[0],
                         offset=int(query.get("offset",["0"])[0]),page_info=page_info,
                     )
                 self._send_json({"success": True, "query": term, "results": results, **page_info})

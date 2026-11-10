@@ -1,3 +1,23 @@
+# TEC ConEst v3.7.21 — Estimator markers, Catalog history, Connection resilience, Opportunity analytics
+
+**Base:** v3.7.20 polish · **Release:** 3.7.21 · **Database schema:** 34 (unchanged) · **Migration:** None
+
+## New in v3.7.21
+
+- **Estimate highlight (3-state):** Click the marker icon once for yellow (review), twice for reddish/red (priority), and again to clear. Markers remain available when reopening the estimate in the same browser/account; older on/off markers automatically become yellow. Markers are local browser preferences and do **not** change estimate prices or sync across browsers.
+- **Catalog history and sorting:** Catalog Explorer now shows source upload occurrences (workbook, imported date, project, sheet, row) and last-used/last-uploaded dates. The default search order prioritizes the latest estimate use, then latest source upload; optional sort modes prioritize newest uploaded or best text match. The normal catalog version/edit workflow is unchanged.
+- **Connection handling:** Tender read-only requests retry bounded transient network failures / temporary HTTP errors automatically; data stays visible when background refresh fails; background refreshing is less frequent and reconnect-aware. **Writes are not automatically retried** because a timeout cannot establish whether a save committed, and doing so could create duplicates. Persistent connection failures still require checking the server, host logs, reverse proxy, and network; this release cannot guarantee elimination of infrastructure outages.
+- **Opportunity analytics (admin only):** Under **Tenders → Opportunities → Analytics**, see opportunities added, approved, and quoted **by the person who performed each action**, with three pie/donut charts, contributor table, and monthly activity. The default period is the current Australia/Sydney month; choose a specific month, a calendar year with month-by-month breakdown, or a custom date range. Metrics use creation and audit-event timestamps, not submission deadlines. Historic unlogged actions are attributed from stored timestamps when present; imports without an approval action are not incorrectly attributed to a team member.
+- **No schema changes:** Uses existing project metadata, import occurrences, and opportunity audit activity. Data and existing permissions are preserved. Admin-only analytics access is checked by the API.
+
+## Deployment and build notes
+
+- Apply the Update Only ZIP over the existing **v3.7.20 polish** repository and commit to GitHub. Preserve `.git`, `.env`, user uploads, SQLite databases, and `data/`.
+- This release includes rebuilt Estimator browser assets. **Tender React sources require the GitHub Actions `npm ci && npm run build` step** to make the new analytics and retry behaviour live; the bundled old `tenders_web` prebuild is the earlier release until CI updates it.
+- Targeted regression checks: 89 Python and 42 JavaScript tests passed. The Tender production build was not independently verified here because the npm registry was inaccessible; monitor the GitHub Actions deployment and test the opportunities page in production.
+
+---
+
 # TEC ConEst v3.7.20 — UI polish (same version)
 
 **Apply over:** v3.7.20 · **Application/version remains:** 3.7.20 · **Schema remains:** 34 · **Database migration:** none

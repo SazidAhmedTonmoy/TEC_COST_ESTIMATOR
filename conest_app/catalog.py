@@ -28,7 +28,7 @@ def _unit_totals(conn: sqlite3.Connection, catalog_item_id: int) -> dict[str, fl
 
 def _source_summary(conn: sqlite3.Connection, catalog_item_id: int) -> dict[str, Any]:
     rows = conn.execute(
-        """SELECT s.file_name, s.sheet_name, s.project_name, so.source_row
+        """SELECT s.file_name, s.sheet_name, s.project_name, so.source_row, s.imported_at
            FROM source_occurrences so
            JOIN sources s ON s.id = so.source_id
            WHERE so.catalog_item_id = ?
@@ -41,6 +41,7 @@ def _source_summary(conn: sqlite3.Connection, catalog_item_id: int) -> dict[str,
         "source_sheet": rows[0]["sheet_name"] if rows else "",
         "source_project": rows[0]["project_name"] if rows else "",
         "source_row": rows[0]["source_row"] if rows else None,
+        "last_uploaded_at": rows[0]["imported_at"] if rows else "",
     }
 
 
@@ -175,6 +176,8 @@ def _search_rows(conn):
                   ci.base_quantity, ci.base_uom, ci.source_type, ci.search_text, ci.is_manual,
                   ci.usage_count, ci.catalog_key, ci.content_key, ci.category, ci.data_status, ci.is_preferred, ci.work_type, ci.manual_revision,
                   ci.updated_at, ci.importance_rating, COUNT(cc.id) AS component_count,
+                  (SELECT MAX(s.imported_at) FROM source_occurrences so JOIN sources s ON s.id=so.source_id
+                   WHERE so.catalog_item_id=ci.id) AS last_uploaded_at,
                   (SELECT COUNT(*) FROM source_occurrences so WHERE so.catalog_item_id=ci.id) AS occurrence_count,
                   COALESCE(SUM(cc.quantity_per_unit * cc.unit_material * cc.material_factor), 0) AS unit_material,
                   COALESCE(SUM(CASE WHEN cc.labor_pricing='hours' THEN cc.quantity_per_unit * cc.unit_hours * cc.labor_factor ELSE 0 END), 0) AS unit_hours,
@@ -196,6 +199,7 @@ def search_catalog(
     include_incomplete: bool = False,
     group_variants: bool = True,
     recent_first: bool = False,
+    sort_by: str = "legacy",
     offset: int = 0,
     page_info: dict | None = None,
 ) -> list[dict[str, Any]]:
@@ -204,6 +208,8 @@ def search_catalog(
     category = clean_text(category)
     limit = max(1, min(int(limit or 20), 100))
     offset = max(0, int(offset))
+    if sort_by not in ("legacy", "recent", "uploaded", "relevance"):
+        raise ValueError("Choose a valid catalog sort")
     rows = _search_rows(conn)
     recent = {int(row[0]): row[1] for row in conn.execute(
         "SELECT catalog_item_id, MAX(created_at) FROM project_lines WHERE catalog_item_id IS NOT NULL GROUP BY catalog_item_id"
@@ -231,6 +237,16 @@ def search_catalog(
             continue
         scored.append((score, _quality(row), row, best_alias))
 
+    def recency_rank(candidate):
+        row=candidate[2]
+        last_used=recent.get(int(row["id"]), "")
+        latest_source=row["last_uploaded_at"] or (row["updated_at"] if row["is_manual"] else "") or ""
+        if sort_by == "uploaded":return (latest_source,last_used,candidate[0],candidate[1],int(row["id"]))
+        if sort_by == "relevance":return (candidate[0],candidate[1],last_used,latest_source,int(row["id"]))
+        if sort_by == "recent" or recent_first:return (last_used,latest_source,candidate[0],candidate[1],int(row["id"]))
+        return (int(row["usage_count"] or 0),last_used,int(row["importance_rating"] or 0),
+                int(row["manual_revision"] or 0),candidate[0],candidate[1],int(row["id"]))
+
     if group_variants:
         # Only identical allowances collapse. A source code must never hide
         # a different size, price, work type or component build-up.
@@ -239,8 +255,8 @@ def search_catalog(
             row = candidate[2]
             key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"],normalize_text(display_title(row["name"])),row["category"],row["work_type"])
             current = best_by_content.get(key)
-            rank = (int(row["usage_count"]), recent.get(int(row["id"]), ""), row["importance_rating"], row["manual_revision"], candidate[0], candidate[1], int(row["id"]))
-            if current is None or rank > (int(current[2]["usage_count"]), recent.get(int(current[2]["id"]), ""), current[2]["importance_rating"], current[2]["manual_revision"], current[0], current[1], int(current[2]["id"])):
+            rank = recency_rank(candidate)
+            if current is None or rank > recency_rank(current):
                 best_by_content[key] = candidate
         scored = list(best_by_content.values())
 
@@ -249,12 +265,14 @@ def search_catalog(
     scored.sort(key=lambda item: int(item[2]['importance_rating'] or 0),reverse=True)
     scored.sort(key=lambda item: recent.get(int(item[2]['id']),''),reverse=True)
     scored.sort(key=lambda item: int(item[2]['usage_count'] or 0),reverse=True)
+    if sort_by != 'legacy' or recent_first:
+        scored.sort(key=recency_rank,reverse=True)
     results: list[dict[str, Any]] = []
     if page_info is not None:page_info.update(total=len(scored),offset=offset,has_more=offset+limit<len(scored))
     for score, quality, row, alias_source in scored[offset:offset+limit]:
         item = dict(row)
         item.pop("search_text", None)
-        if recent_first: item["last_used_at"] = recent.get(int(row["id"]), "")
+        item["last_used_at"] = recent.get(int(row["id"]), "")
         item["score"] = round(score, 2)
         item["quality_score"] = round(quality, 2)
         item["matched_by_learning"] = alias_source == "selection"
@@ -313,6 +331,9 @@ def get_catalog_item(conn: sqlite3.Connection, catalog_item_id: int) -> dict[str
         )
     ]
     item.update(_unit_totals(conn, catalog_item_id))
+    usage=conn.execute('SELECT MAX(created_at) FROM project_lines WHERE catalog_item_id=?', (catalog_item_id,)).fetchone()
+    item['last_used_at'] = usage[0] if usage and usage[0] else ''
+    item['last_uploaded_at'] = item['occurrences'][0]['imported_at'] if item['occurrences'] else ''
     family_key = item.get("catalog_key") or catalog_family_key(item.get("code"), item.get("name"))
     variant_rows = conn.execute(
         """SELECT ci.id, ci.assembly_size, ci.code, ci.name, ci.content_key, ci.category, ci.data_status, ci.is_preferred,

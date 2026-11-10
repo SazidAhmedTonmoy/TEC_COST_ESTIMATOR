@@ -2514,3 +2514,24 @@ input,select,textarea{min-height:42px;max-width:100%;line-height:1.5}
 .project-month-picker input:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 @media(max-width:740px){.project-tabs .project-month-picker{margin-left:0;width:100%}.project-month-picker input{width:100%;min-height:44px}}
 .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* v3.7.21: persistent per-estimate three-state review marker. */
+.catalog-highlight-toggle[data-highlight-level="1"]{background:#fff0b8;color:#755a13;border-color:#bd9d43}
+.catalog-highlight-toggle[data-highlight-level="2"]{background:#ffe1e1;color:#a42430;border-color:#d64d57}
+#estimate-lines .assembly-row.catalog-highlight-yellow>td{background:rgba(237,186,39,.15)!important}
+#estimate-lines .assembly-row.catalog-highlight-yellow>td:first-child{box-shadow:inset 3px 0 #e7b724}
+#estimate-lines .assembly-row.catalog-highlight-red>td{background:rgba(228,66,79,.17)!important}
+#estimate-lines .assembly-row.catalog-highlight-red>td:first-child{box-shadow:inset 3px 0 #ec4554}
+html[data-theme="dark"] .catalog-highlight-toggle[data-highlight-level="1"]{background:#514822;color:#ffe28a;border-color:#ad9246}
+html[data-theme="dark"] .catalog-highlight-toggle[data-highlight-level="2"]{background:#682d37;color:#ffc6cc;border-color:#bf4959}
+html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-yellow>td{background:rgba(237,186,39,.13)!important}
+html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-red>td{background:rgba(228,66,79,.18)!important}
+
+/* Catalog provenance and recency sort */
+.catalog-search-row{grid-template-columns:minmax(250px,1fr) minmax(150px,225px) minmax(160px,235px) auto}
+.catalog-source-summary{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+.catalog-source-scroll{max-width:100%;overflow-x:auto}
+.catalog-source-table{min-width:485px}
+.catalog-source-context,.catalog-source-empty{font-size:12px;color:var(--muted);margin:5px 0 12px}
+@media(max-width:960px){.catalog-search-row{grid-template-columns:repeat(2,minmax(0,1fr))}.catalog-search-row input{grid-column:1 / -1}}
+@media(max-width:560px){.catalog-search-row{grid-template-columns:minmax(0,1fr)}.catalog-search-row input{grid-column:auto}.catalog-search-row>*{width:100%;min-width:0}}
