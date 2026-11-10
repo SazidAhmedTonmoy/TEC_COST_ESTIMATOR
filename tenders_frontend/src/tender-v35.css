@@ -515,3 +515,10 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 @media(max-width:1220px){.op-analytics-pies{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:800px){.op-analytics-pies{grid-template-columns:1fr}}
 @media(max-width:480px){.op-analytics{padding:10px}.op-analytics-dates{width:100%}.op-analytics-dates label{flex:1}.op-analytics-dates input{width:100%;min-width:0}}
+
+/* v3.7.21 analytics reconciliation: explicit creation-date basis and readable scope. */
+.op-analytics-dates select{background:var(--panel-alt,#122b38);border:1px solid var(--border,#375465);color:inherit;border-radius:8px;padding:9px 10px;min-width:185px;height:39px}
+.op-analytics-dates label,.op-analytics-period{color:#b9d3e3}
+.op-analytics-period strong{color:#f3fafc}
+.op-analytics-date-note{margin:0;font-size:12px;color:#b9d3e3}
+@media(max-width:600px){.op-analytics-dates select{width:100%;min-width:0}.op-analytics-dates label{min-width:160px}.op-analytics-modes button{flex:1;min-width:76px}}
