@@ -5,14 +5,17 @@ from openpyxl import load_workbook
 import test_estimate_sections as helpers
 from conest_app import projects,estimate_tools,project_json,project_sharing,productivity
 from conest_app.database import connect
-from conest_app.estimate_areas import save_breakdown,COMMON,allocations
+from conest_app.estimate_areas import save_breakdown,set_breakdown_enabled,COMMON,allocations
 from conest_app.accounts import AccessError
 from conest_app.exporter import export_project
 
 class StructuredBreakdownTests(unittest.TestCase):
     setUp=helpers.EstimateSectionTests.setUp
     tearDown=helpers.EstimateSectionTests.tearDown
-    prepare=helpers.EstimateSectionTests.prepare
+    def prepare(self,conn):
+        pid,data=helpers.EstimateSectionTests.prepare(self,conn)
+        data=set_breakdown_enabled(conn,pid,self.data['owner'],{'enabled':True,'expected_revision':data['project']['revision']})
+        return pid,data
 
     def body(self,data,allocations_by_id,areas=None,qty_by_id=None):
         return dict(expected_revision=data['project']['revision'],areas=areas or ['Ground Floor','Level 1'],rows=[

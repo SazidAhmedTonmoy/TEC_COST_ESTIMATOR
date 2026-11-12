@@ -57,6 +57,8 @@ async function enterWorkspace(result) {
     setAccount(result.user, result.csrf_token);
     if (state.user.must_change_password) { setView('profile',false); return; }
     if(new URLSearchParams(location.search).get('return')==='tenders'){location.replace('/tenders/');return;}
+    // Apply the user's/team's starting workspace only at initial entry, not deep links.
+    if(state.user.homepage==='tenders'&&(!location.hash||location.hash==='#/home')&&!new URLSearchParams(location.search).has('workspace')){location.replace('/tenders/');return;}
     await Promise.all([loadSettings(false,result.settings),loadDashboard(false,result.dashboard)]);
     if(typeof restorePage==='function')await restorePage(); else setView('home',false);
   } finally {document.body.classList.remove('app-loading');window.dispatchEvent(new Event('conest:workspace-ready'));}
@@ -228,8 +230,40 @@ function renderGroupedEstimate(lines) {
     return header + renderEstimateLine(line);
   }).join('');
 }
+function projectProgressPicker(project){
+  if(!project.can_edit)return projectStatus(project);
+  return `<label class="estimate-progress-control">Progress <select id="estimate-project-progress" aria-label="Change project progress" data-project-progress="${project.id}">${Object.entries(statusNames).map(([key,label])=>`<option value="${key}" ${project.status===key?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select></label>`;
+}
+async function changeEstimateProgress(projectId,newStatus){
+  const p=state.projectData?.project;
+  if(!p||p.id!==projectId||!p.can_edit)return;
+  if(newStatus===p.status)return;
+  // Status changes must not discard estimate settings still waiting to be saved.
+  if(typeof hasUncommittedProjectSettings==='function'&&hasUncommittedProjectSettings()){
+    const control=$('#estimate-project-progress');if(control)control.value=p.status;
+    toast('Save or retry pending estimate changes before changing project progress.',true);return;
+  }
+  if(newStatus==='in_review'){
+    await openProjectBrief(projectId);
+    $('#brief-status').value='in_review';syncReviewDeadline(p.can_edit);
+    $('#brief-review-deadline').focus();return;
+  }
+  const sel=$('#estimate-project-progress');if(sel)sel.disabled=true;
+  try{
+    const result=await api(`/api/projects/${projectId}/workflow`,{method:'PATCH',body:{status:newStatus,expected_revision:p.revision}});
+    // Apply only the returned workflow fields. Re-rendering the entire Estimate
+    // would replace focused quantity inputs and could discard in-flight edits.
+    if(state.projectId===projectId&&result.project){
+      state.projectData.project={...state.projectData.project,...result.project};
+      renderEstimateBrief(state.projectData.project);
+    }
+    const listing=state.projects.find(row=>row.id===projectId);
+    if(listing&&result.project)Object.assign(listing,result.project);
+    toast('Project progress updated');
+  }catch(error){if(sel){sel.value=p.status;sel.disabled=false;}toast(error.message,true);}
+}
 function renderEstimateBrief(project) {
-  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div>${projectStatus(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-breakdown="${project.id}">Breakdown</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button></div>` : '';
+  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div>${projectProgressPicker(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-breakdown="${project.id}">Breakdown</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button></div>` : '';
 }
 async function reviewOpenedProject(project) {
   if (state.user.role==='admin' && project.needs_admin_review) {
@@ -252,13 +286,13 @@ async function loadUsers(render=true) {
   const [result]=await Promise.all([api('/api/users'),loadTeams()]);
   workspaceState.users=result.users;
   if(render) {
-    $('#user-rows').innerHTML=result.users.map(u=>`<tr><td><strong>${escapeHtml(u.name)}</strong><small class="line-unit">${escapeHtml(u.job_title)}</small></td><td>${escapeHtml(u.username)}</td><td>${u.role==='admin'?'Admin':'User'}</td><td>${escapeHtml(u.role==='admin'?'All projects':u.team_name||'No team')}</td><td>${u.is_active?'Active':'Inactive'}${u.must_change_password?' · Setup pending':''}</td><td><div class="user-action-buttons"><button class="button secondary small" type="button" data-performance="${u.id}">View Contribution</button><button class="button secondary small" type="button" data-edit-user="${u.id}">Edit user</button></div></td></tr>`).join('');
+    $('#user-rows').innerHTML=result.users.map(u=>`<tr><td><strong>${escapeHtml(u.name)}</strong><small class="line-unit">${escapeHtml(u.job_title)}</small></td><td>${escapeHtml(u.username)}</td><td>${u.role==='admin'?'Admin':'User'}</td><td>${escapeHtml(u.role==='admin'?'All projects':workspaceState.teams.filter(t=>(u.team_ids||[]).includes(t.id)).map(t=>t.name).join(', ')||'No team')}</td><td>${u.is_active?'Active':'Inactive'}${u.must_change_password?' · Setup pending':''}</td><td><div class="user-action-buttons"><button class="button secondary small" type="button" data-performance="${u.id}">View Contribution</button><button class="button secondary small" type="button" data-edit-user="${u.id}">Edit user</button></div></td></tr>`).join('');
     renderTeams();
   }
   return result.users;
 }
 function renderTeams() {
-  $('#team-cards').innerHTML=workspaceState.teams.map(t=>`<article class="team-card"><div><h3>${escapeHtml(t.name)}</h3><span>${t.members.filter(m=>m.is_active).length} active members · ${t.uses_estimator?'Uses Estimator':'Tenders only'}</span></div><p>${t.members.length?t.members.map(m=>escapeHtml(m.name)+(m.is_active?'':' (inactive)')).join(', '):'No members yet'}</p><button class="button secondary small" type="button" data-edit-team="${t.id}">Edit team & members</button><button class="button secondary small danger-text" type="button" data-delete-team="${t.id}">Delete team</button></article>`).join('');
+  $('#team-cards').innerHTML=workspaceState.teams.map(t=>`<article class="team-card"><div><h3>${escapeHtml(t.name)}</h3><span>${t.members.filter(m=>m.is_active).length} active members · ${t.uses_estimator?'Uses Estimator':'Tenders only'} · Opens ${t.default_homepage==='tenders'?'Tenders':'Estimator'}</span></div><p>${t.members.length?t.members.map(m=>escapeHtml(m.name)+(m.is_active?'':' (inactive)')).join(', '):'No members yet'}</p><button class="button secondary small" type="button" data-edit-team="${t.id}">Edit team & members</button><button class="button secondary small danger-text" type="button" data-delete-team="${t.id}">Delete team</button></article>`).join('');
 }
 async function openProjectBrief(id) {
   const request=++workspaceState.briefRequest;
@@ -384,6 +418,9 @@ function renderProfile() {
   if(typeof resetProfilePhoto==='function')resetProfilePhoto(u);
   $('#profile-email').value=u.email||'';$('#profile-name').value=u.name; $('#profile-username').value=u.username;
   $('#profile-title').value=u.job_title; $('#profile-role').value=u.role==='admin'?'Admin':'User';
+  $('#profile-homepage').value=u.role==='admin'?'estimator':u.preferred_homepage||'auto';
+  $('#profile-homepage').disabled=u.role==='admin'||!(u.team_ids||[]).length;
+  $('#profile-homepage-note').textContent=u.role==='admin'?'Administrators always open Estimator.':!(u.team_ids||[]).length?'Users without a team open Tenders.':`Current starting workspace: ${u.homepage==='estimator'?'Estimator':'Tenders'}.`;
   $('#password-setup-note').classList.toggle('hidden',!u.must_change_password);
   $('#profile-new-password').required=Boolean(u.must_change_password);
   $('#profile-current-password').required=Boolean(u.must_change_password);
@@ -393,7 +430,7 @@ async function saveProfile() {
   const password=$('#profile-new-password').value;
   if (password!==$('#profile-confirm-password').value) throw new Error('The new passwords do not match');
   if(profilePhotoState.reading)throw new Error('Please wait for the photo to finish loading, then save.');
-  const payload={email:$('#profile-email').value,contact_number:$('#profile-contact').value,name:$('#profile-name').value,username:$('#profile-username').value,job_title:$('#profile-title').value,password,current_password:$('#profile-current-password').value};
+  const payload={email:$('#profile-email').value,contact_number:$('#profile-contact').value,name:$('#profile-name').value,username:$('#profile-username').value,job_title:$('#profile-title').value,homepage:$('#profile-homepage').value,password,current_password:$('#profile-current-password').value};
   if(profilePhotoState.dataUrl)payload.photo_data_url=profilePhotoState.dataUrl;
   else if(profilePhotoState.remove)payload.remove_photo=true;
   const controls=$$('input,button', $('#profile-form')), previous=controls.map(el=>el.disabled);
@@ -420,7 +457,9 @@ function openUserEditor(id=null) {
   $('#user-contact').value=u?.contact_number||'';
   $('#user-title').value=u?.job_title||''; $('#user-role').value=u?.role||'user';
   $('#user-team').innerHTML='<option value="">No team</option>'+workspaceState.teams.map(t=>`<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
-  $('#user-team').value=u?.team_id||''; syncUserRole();
+  $('#user-team').value=u?.team_id||'';
+  $('#user-membership-options').innerHTML=workspaceState.teams.map(t=>`<label class="checkbox-label"><input type="checkbox" value="${t.id}" ${(u?.team_ids||[]).includes(t.id)?'checked':''}><span>${escapeHtml(t.name)}</span></label>`).join('')||'<p class="helper-text">Create a team first.</p>';
+  syncUserRole();
   $('#user-active').checked=u?Boolean(u.is_active):true;
   $('#user-active').disabled=!u;
   $('#user-password').required=!u;
@@ -430,6 +469,7 @@ function openUserEditor(id=null) {
 async function saveUser() {
   const id=workspaceState.userId;
   const payload={email:$('#user-email').value,contact_number:$('#user-contact').value,name:$('#user-name').value,username:$('#user-username').value,job_title:$('#user-title').value,role:$('#user-role').value,team_id:$('#user-role').value==='admin'?null:Number($('#user-team').value)||null};
+  payload.team_ids=payload.role==='admin'?[]:[...new Set([...$$('#user-membership-options input:checked').map(el=>Number(el.value)),...(payload.team_id?[payload.team_id]:[])])];
   if (id) payload.is_active=$('#user-active').checked;
   if ($('#user-password').value) payload.password=$('#user-password').value;
   await api(id?`/api/users/${id}`:'/api/users',{method:id?'PATCH':'POST',body:payload});
@@ -444,19 +484,21 @@ async function saveUser() {
 function syncUserRole() {
   const admin=$('#user-role').value==='admin';
   $('#user-team').disabled=admin;
+  $('#user-memberships-fieldset').disabled=admin;
   if(admin) $('#user-team').value='';
-  $('#user-team-note').textContent=admin?'Admins can manage every project and have no team.':'Members can work on every project shared with their team. No team gives access only to their own projects.';
+  $('#user-team-note').textContent=admin?'Admins can manage every project and have no team.':'A user can belong to multiple teams. The primary team is used for defaults; all memberships grant their team access.';
 }
 function openTeamEditor(id=null) {
   const team=workspaceState.teams.find(t=>t.id===Number(id)); workspaceState.teamId=team?.id||null;
   $('#team-form').reset(); $('#team-dialog-title').textContent=team?'Edit team':'Add team'; $('#team-name').value=team?.name||'';
   $('#team-uses-estimator').checked=team?.uses_estimator??true;
-  $('#team-member-options').innerHTML=workspaceState.users.filter(u=>u.role==='user').map(u=>`<label class="checkbox-label"><input type="checkbox" value="${u.id}" ${u.team_id===team?.id?'checked':''}><span>${escapeHtml(u.name)}<small>${escapeHtml(u.team_name||'No team')}${u.is_active?'':' · Inactive'}</small></span></label>`).join('')||'<p class="helper-text">Add a user first.</p>';
+  $('#team-default-homepage').value=team?.default_homepage||'estimator';
+  $('#team-member-options').innerHTML=workspaceState.users.filter(u=>u.role==='user').map(u=>`<label class="checkbox-label"><input type="checkbox" value="${u.id}" ${(u.team_ids||[]).includes(team?.id)?'checked':''}><span>${escapeHtml(u.name)}<small>${escapeHtml(u.team_name||'No team')}${u.is_active?'':' · Inactive'}</small></span></label>`).join('')||'<p class="helper-text">Add a user first.</p>';
   $('#team-dialog').showModal();
 }
 async function saveTeam() {
   const id=workspaceState.teamId;
-  await api(id?`/api/teams/${id}`:'/api/teams',{method:id?'PATCH':'POST',body:{name:$('#team-name').value,uses_estimator:$('#team-uses-estimator').checked,member_ids:$$('#team-member-options input:checked').map(i=>Number(i.value))}});
+  await api(id?`/api/teams/${id}`:'/api/teams',{method:id?'PATCH':'POST',body:{name:$('#team-name').value,uses_estimator:$('#team-uses-estimator').checked,default_homepage:$('#team-default-homepage').value,member_ids:$$('#team-member-options input:checked').map(i=>Number(i.value))}});
   $('#team-dialog').close(); await loadUsers(); await loadDashboard(false); workspaceState.teamSummaryFetched=0; await loadTeamSummary(true).catch(()=>{}); toast('Team settings saved');
 }
 async function refreshBoard() {
@@ -622,6 +664,7 @@ function bindWorkspaceEvents() {
   $('#assignment-user-search').addEventListener('keydown',event=>{if(event.key==='Enter')event.preventDefault();});
   $('#brief-edit-title').addEventListener('click',()=>{if(!workspaceState.briefProject?.can_manage)return;$('#brief-title').classList.add('hidden');$('#brief-name').classList.remove('hidden');$('#brief-name').focus();$('#brief-name').select();});
   $('#brief-status').addEventListener('change',()=>syncReviewDeadline());
+  document.addEventListener('change',event=>{const picker=event.target.closest('[data-project-progress]');if(picker)changeEstimateProgress(Number(picker.dataset.projectProgress),picker.value).catch(error=>toast(error.message,true));});
   $('#project-workflow-form').addEventListener('submit',event=>submitWithButton(event,saveProjectWorkflow));
   $('#team-form').addEventListener('submit',event=>submitWithButton(event,saveTeam));
   $('#add-team').addEventListener('click',()=>openTeamEditor());

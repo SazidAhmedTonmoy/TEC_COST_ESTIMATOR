@@ -1,3 +1,23 @@
+# TEC ConEst v3.7.22 — Breakdown usability and team homepage settings
+
+**Base:** v3.7.21 Date Reconciliation · **Release:** 3.7.22 · **Database schema:** 35 · **Migration:** automatic with protected pre-upgrade backup.
+
+## Changes in v3.7.22
+
+- Breakdown reference identifiers now appear in allocation rows and the structured area tree; lengthy references wrap instead of clipping.
+- Existing unallocated estimate rows show **Multiple Areas** as the initial allocation mode. Historical allocations remain intact.
+- Allocation/dialog scroll position and input focus are retained while editing. In-dialog changes auto-save after idle and retain Undo / Redo, with a visible save indicator and retry on failure.
+- Per-project **Breakdown Active / Inactive** switch; inactive by default, without deleting old saved allocations. When inactive, area sections do not appear in new Excel exports or public share views.
+- Project status dropdown in the Estimator project header. In Review opens the existing review-deadline form.
+- Team membership now permits one user in several teams. Admin can choose Estimator or Tenders as each team's homepage, and users with memberships can override it in Profile. Admin starts in Estimator; users with no teams start in Tenders.
+- Explicit Estimator workspace links override the default homepage so people can switch workspaces freely.
+
+### Deployment and backup
+
+Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve live `.env`, `data/` and all `.db` files. **The first application startup migrates schema 34 to 35**, creating `user_team_memberships` and `project_breakdown_preferences`; it automatically creates a protected database snapshot before changing a pre-existing database. Do not deploy older schema-34 application files against an upgraded schema-35 database. Deploy the Tender frontend through your existing CI build: the local environment cannot reliably install npm packages.
+
+---
+
 # TEC ConEst v3.7.21 — Estimator markers, Catalog history, Connection resilience, Opportunity analytics
 
 **Base:** v3.7.20 polish · **Release:** 3.7.21 · **Database schema:** 34 (unchanged) · **Migration:** None

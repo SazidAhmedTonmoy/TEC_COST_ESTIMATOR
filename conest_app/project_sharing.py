@@ -41,7 +41,7 @@ def shared_html(data):
             items.append('<details class="estimate-item'+(' section-excluded' if line.get('included_in_total') is False else '')+'"><summary><div class="item-title"><b>'+text(line.get('name_snapshot'))+'</b><small>'+number(line.get('quantity'))+' '+text(line.get('uom'))+'</small>'+item_label+'</div>'+totals(values)+'</summary><div class="item-detail">'+details+'</div></details>')
         categories.append('<details class="category'+(' section-excluded' if excluded else '')+'"><summary><div class="category-title"><h3>'+text(category)+'</h3><span>'+str(len(lines))+' items</span>'+section_label+'</div>'+totals(aggregate)+'</summary><div class="category-items">'+''.join(items)+'</div></details>')
     area_html='<section><h2>Breakdown by area / floor / space</h2>'
-    has_areas=bool(data.get('area_names')) or any(line.get('area_allocations','[]')!='[]' for line in data['lines'])
+    has_areas=bool(p.get('breakdown_enabled')) and (bool(data.get('area_names')) or any(line.get('area_allocations','[]')!='[]' for line in data['lines']))
     for area in data.get('area_summary',[]) if has_areas else []:
         included=area['included'];optional=area['optional']
         area_html+='<details class="category area-breakdown"><summary><div class="category-title"><h3>'+text(area['area'])+'</h3><span>'+str(area.get('item_count',len(area['items'])))+' items · '+number(area.get('quantity_total',0))+' allocated units</span></div>'+totals(included)+'</summary>'
@@ -50,7 +50,7 @@ def shared_html(data):
             for item in category['items']:
                 values={k:item[k] for k in ('material','hours','labor','quoted')}
                 flag='<span class="exclusion-label">Optional cost</span>' if item['optional'] else ''
-                area_html+='<details class="estimate-item"><summary><div class="item-title"><b>'+text(item['name'])+'</b><small>'+number(item['quantity'])+' '+text(item['uom'])+'</small>'+flag+'</div>'+totals(values)+'</summary></details>'
+                area_html+='<details class="estimate-item"><summary><div class="item-title"><b>'+text(item['name'])+'</b>'+('<small>Ref: '+text(item.get('reference'))+'</small>' if item.get('reference') else '')+'<small>'+number(item['quantity'])+' '+text(item['uom'])+'</small>'+flag+'</div>'+totals(values)+'</summary></details>'
             if category['optional']['quoted']:area_html+='<div class="breakdown-optional">Optional costs (separate): '+text(currency)+' '+number(category['optional']['quoted'])+'</div>'
             area_html+='</details>'
         if optional['quoted']:area_html+='<div class="breakdown-optional">Area optional quoted cost: '+text(currency)+' '+number(optional['quoted'])+'</div>'

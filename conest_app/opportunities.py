@@ -68,6 +68,7 @@ def directory():
         teams = [dict(r) for r in db.execute('SELECT id,name FROM teams ORDER BY name COLLATE NOCASE')]
         users = [dict(r) for r in db.execute('''SELECT id,name,team_id AS teamId,role
             FROM users WHERE is_active=1 ORDER BY name COLLATE NOCASE''')]
+        for u in users:u['teamIds']=[r[0] for r in db.execute('SELECT team_id FROM user_team_memberships WHERE user_id=?',(u['id'],))]
     return teams, users
 
 
@@ -75,21 +76,22 @@ def _actor(user, users):
     found = next((u for u in users if u['id'] == user.get('id')), None)
     if not found:
         raise tenders.ValidationError('Your account is no longer active. Sign in again.', 403)
-    return {**found, 'team_id': found['teamId']}
+    return {**found, 'team_id': found['teamId'], 'team_ids': found.get('teamIds',[])}
 
 
 def permissions(item, actor):
     # Team membership is checked against the live, active user directory, not
     # against fields submitted by the browser. This matches existing approval
     # eligibility, and now also grants detail edits and assignment rights.
-    team_member = actor.get('team_id') is not None
+    memberships=set(actor.get('team_ids') or ([actor['team_id']] if actor.get('team_id') else []))
+    team_member = bool(memberships)
     manage = actor['role'] == 'admin' or item.get('createdBy') == actor['id']
     edit = manage or team_member or actor['id'] in item.get('editorUserIds', []) or (
-        team_member and actor['team_id'] in item.get('editorTeamIds', []))
+        team_member and bool(memberships.intersection(item.get('editorTeamIds', []))))
     decision = bool(actor['role'] == 'admin' or team_member)
     can_create_estimate = (item.get('status') == 'approved' and not item.get('deletedAt')
         and not item.get('estimatorProjectId') and bool(item.get('assignedTeamIds'))
-        and (actor['role'] == 'admin' or actor.get('team_id') in item.get('assignedTeamIds', [])))
+        and (actor['role'] == 'admin' or bool(memberships.intersection(item.get('assignedTeamIds', [])))))
     return {'edit': bool(edit), 'assign': bool(manage or team_member),
             'manage': bool(manage), 'approve': decision, 'quote': decision,
             'createEstimate': bool(can_create_estimate)}
@@ -330,7 +332,7 @@ def _recipients(item, users, include_admin=True):
     individual = set(item.get('assignedUserIds', [])) | set(item.get('editorUserIds', []))
     individual.add(item.get('createdBy'))
     teams = set(item.get('assignedTeamIds', [])) | set(item.get('editorTeamIds', []))
-    return {u['id'] for u in users if u['id'] in individual or u['teamId'] in teams
+    return {u['id'] for u in users if u['id'] in individual or bool(set(u.get('teamIds') or ([u['teamId']] if u.get('teamId') else [])).intersection(teams))
             or (include_admin and u['role'] == 'admin')}
 
 
@@ -697,7 +699,7 @@ def _page(value, default, maximum):
     return max(1, min(maximum, value))
 
 
-def _query(filters, include_status=True, users=None):
+def _query(filters, include_status=True, users=None, actor=None):
     where = ['o.deleted_at IS NULL', active_sql('opportunity', 'o.id')]
     args = []
     status = filters.get('status', '')
@@ -739,7 +741,14 @@ def _query(filters, include_status=True, users=None):
         where.append('o.region=?')
         args.append(_region_code(region))
     team = filters.get('teamId', '')
-    if team == 'unassigned':
+    if team == 'mine':
+        if actor is None:raise tenders.ValidationError('You must be signed in to use My teams.', 403)
+        mine=[tid for tid in actor.get('team_ids',[]) if type(tid) is int]
+        if mine:
+            where.append("EXISTS(SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND p.kind='assignedTeamIds' AND p.person_id IN (" + ','.join('?' for _ in mine) + '))')
+            args.extend(mine)
+        else:where.append('1=0')
+    elif team == 'unassigned':
         where.append("NOT EXISTS(SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND p.kind='assignedTeamIds')")
     elif team and team != 'all':
         if not str(team).isdigit():
@@ -753,9 +762,12 @@ def _query(filters, include_status=True, users=None):
         if users is None:
             _, users = directory()
         selected = next((u for u in users if u['id'] == int(person)), None)
-        selected_team = selected['teamId'] if selected else None
-        where.append("EXISTS(SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND ((p.kind='assignedUserIds' AND p.person_id=?) OR (p.kind='assignedTeamIds' AND p.person_id=?)))")
-        args.extend([int(person), selected_team])
+        chosen_teams=(selected.get('teamIds') or ([selected['teamId']] if selected and selected.get('teamId') else [])) if selected else []
+        clause="(p.kind='assignedUserIds' AND p.person_id=?)"
+        if chosen_teams:
+            clause+=" OR (p.kind='assignedTeamIds' AND p.person_id IN ("+','.join('?' for _ in chosen_teams)+'))'
+        where.append('EXISTS(SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND ('+clause+'))')
+        args.extend([int(person), *chosen_teams])
     search = tenders.text(filters.get('q'), 'Search', limit=300)
     if search:
         # Parameterized LIKE with escaped wildcards: user input is plain text.
@@ -772,9 +784,9 @@ def list_opportunities(store, filters, user):
     actor = _actor(user, users)
     page = _page(filters.get('page'), 1, 100000)
     size = _page(filters.get('pageSize'), 18, 100)
-    where, args = _query(filters, users=users)
+    where, args = _query(filters, users=users, actor=actor)
     count_filters = {**filters, 'quoteFilter': ''}
-    count_where, count_args = _query(count_filters, include_status=False, users=users)
+    count_where, count_args = _query(count_filters, include_status=False, users=users, actor=actor)
     with store.connect() as db:
         db.execute('BEGIN')
         total = db.execute('SELECT COUNT(*) FROM opportunities o WHERE ' + where, args).fetchone()[0]
@@ -841,7 +853,7 @@ def list_opportunities(store, filters, user):
             'builders': sorted(builders.values(), key=str.casefold),
             'teamCounts': [{**team, 'count': assigned.get(team['id'], 0)} for team in teams],
             'unassignedCount': unassigned,
-            'canApprove': actor['role'] == 'admin' or actor.get('team_id') is not None}
+            'canApprove': actor['role'] == 'admin' or bool(actor.get('team_ids'))}
 
 
 

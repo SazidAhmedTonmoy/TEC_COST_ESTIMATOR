@@ -57,7 +57,7 @@ def permissions(conn, project, user):
     # from the browser or a stale session snapshot.
     actor = conn.execute('SELECT role,is_active FROM users WHERE id=?', (user['id'],)).fetchone()
     active = bool(actor and actor['is_active'])
-    assigned = active and bool(conn.execute('''SELECT 1 FROM project_teams p JOIN users u ON u.team_id=p.team_id
+    assigned = active and bool(conn.execute('''SELECT 1 FROM project_teams p JOIN user_team_memberships ut ON ut.team_id=p.team_id JOIN users u ON u.id=ut.user_id
         WHERE p.project_id=? AND u.id=? AND u.role='user' AND u.is_active=1''',
         (project['id'], user['id'])).fetchone())
     admin = active and actor['role'] == 'admin'
@@ -222,7 +222,7 @@ def project_access_options(conn, project_id, user):
     """A minimal, project-scoped assignment directory; not admin account access."""
     project = require_project(conn, project_id, user, 'manage')
     teams = [dict(r) for r in conn.execute("""SELECT t.id,t.name,COUNT(u.id) AS active_members
-        FROM teams t LEFT JOIN users u ON u.team_id=t.id AND u.is_active=1 AND u.role='user'
+        FROM teams t LEFT JOIN user_team_memberships ut ON ut.team_id=t.id LEFT JOIN users u ON u.id=ut.user_id AND u.is_active=1 AND u.role='user'
         GROUP BY t.id ORDER BY t.name COLLATE NOCASE""")]
     users = [dict(r) for r in conn.execute("""SELECT u.id,u.name,u.username,u.team_id,u.is_active,t.name AS team_name
         FROM users u LEFT JOIN teams t ON t.id=u.team_id
@@ -316,7 +316,8 @@ def update_workflow(conn, project_id, payload, user):
 
 
 def user_directory(conn):
-    return [public_user(row) for row in conn.execute('''SELECT u.*,t.name AS team_name FROM users u
+    from .accounts import enriched_user
+    return [enriched_user(conn,row) for row in conn.execute('''SELECT u.*,t.name AS team_name FROM users u
         LEFT JOIN teams t ON t.id=u.team_id ORDER BY u.is_active DESC,u.name COLLATE NOCASE''')]
 
 

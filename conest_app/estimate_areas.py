@@ -37,7 +37,7 @@ def summary(lines, area_names=None):
             values={k:line[f]*weight for k,f in FIELDS.items()}
             target=group['optional' if line.get('included_in_total') is False else 'included']
             for k in FIELDS:target[k]+=values[k]
-            group['items'].append({'id':line['id'],'name':line['name_snapshot'],'category':line['category_key'],'quantity':qty,'uom':line['uom'],'optional':line.get('included_in_total') is False,**values})
+            group['items'].append({'id':line['id'],'name':line['name_snapshot'],'reference':line.get('reference_name') or '', 'category':line['category_key'],'quantity':qty,'uom':line['uom'],'optional':line.get('included_in_total') is False,**values})
     for group in groups.values():
         categories={}
         for item in group['items']:
@@ -61,6 +61,33 @@ def initialize_breakdown_areas(conn):
         area TEXT NOT NULL COLLATE NOCASE,
         sort_order INTEGER NOT NULL,
         PRIMARY KEY(project_id,area))''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS project_breakdown_preferences(
+        project_id INTEGER PRIMARY KEY REFERENCES projects(id) ON DELETE CASCADE,
+        enabled INTEGER NOT NULL DEFAULT 0 CHECK(enabled IN (0,1)),
+        updated_at TEXT NOT NULL)''')
+
+
+def breakdown_enabled(conn,pid):
+    row=conn.execute('SELECT enabled FROM project_breakdown_preferences WHERE project_id=?',(pid,)).fetchone()
+    return bool(row and row['enabled'])
+
+
+def set_breakdown_enabled(conn,pid,user,payload):
+    from .workspace import require_project, check_revision, record_activity
+    from .projects import calculate_project
+    from .utils import utc_now
+    if type(payload.get('enabled')) is not bool:
+        raise ValueError('Choose Active or Inactive for the Breakdown')
+    project=require_project(conn,pid,user,'edit')
+    if 'expected_revision' not in payload:raise ValueError('Refresh the project before changing Breakdown status')
+    check_revision(project,payload)
+    if breakdown_enabled(conn,pid)!=payload['enabled']:
+        conn.execute('''INSERT INTO project_breakdown_preferences(project_id,enabled,updated_at) VALUES(?,?,?)
+            ON CONFLICT(project_id) DO UPDATE SET enabled=excluded.enabled,updated_at=excluded.updated_at''',
+            (pid,int(payload['enabled']),utc_now()))
+        record_activity(conn,pid,user,'Activated Breakdown' if payload['enabled'] else 'Deactivated Breakdown',touch=True)
+    return calculate_project(conn,pid)
+
 
 
 def names_for_project(conn,pid,lines=None):
@@ -95,6 +122,7 @@ def save_breakdown(conn,pid,user,payload):
     from .projects import calculate_project
     from .utils import utc_now
     project=require_project(conn,pid,user,'edit')
+    if not breakdown_enabled(conn,pid):raise ValueError('Activate Breakdown before editing area allocations')
     if 'expected_revision' not in payload:raise ValueError('Refresh the estimate before saving its breakdown')
     check_revision(project,payload)
     names=checked_names(payload.get('areas'))
@@ -167,8 +195,8 @@ def excel(wb,line_parent_rows,area_names=None):
         for name,qty,_ in entries:
             allocated=bool(allocations(line.get('area_allocations','[]')))
             row=ws.max_row+1;area_rows.setdefault(name.casefold(),(name,[]))[1].append(row)
-            ws.append([name,line['name_snapshot'],line['category_key'],qty,None,None,None,None,'Optional' if line.get('included_in_total') is False else 'Included'])
-            records.append((name,line['category_key'],line['name_snapshot'],line['uom'],row))
+            ws.append([name,(line['name_snapshot'] + (' | Ref: '+line['reference_name'] if line.get('reference_name') else '')),line['category_key'],qty,None,None,None,None,'Optional' if line.get('included_in_total') is False else 'Included'])
+            records.append((name,line['category_key'],line['name_snapshot'],line['uom'],row,line.get('reference_name') or ''))
             # When all allocations are zero, retain fixed costs in the first area.
             weight=f'IF(SUM($D${start}:$D${end})=0,{1 if row==start else 0},D{row}/SUM($D${start}:$D${end}))'
             for col,source in [(5,'G'),(6,'I'),(7,'J'),(8,'L')]:ws.cell(row,col,f"='CONNECTED COST DETAIL'!{source}{parent}*{weight}")
@@ -228,8 +256,8 @@ def structured_excel(wb,records,area_names):
     for col in 'DEFGHIJKL':ws.column_dimensions[col].width=20
     colors={'area':'173B55','category':'E5F4F0','item':'FFFFFF','total':'087F75'}
     grouped=OrderedDict((name,OrderedDict()) for name in area_names)
-    for name,cat,title,uom,source in records:
-        grouped.setdefault(name,OrderedDict()).setdefault(cat,[]).append((title,uom,source))
+    for name,cat,title,uom,source,reference in records:
+        grouped.setdefault(name,OrderedDict()).setdefault(cat,[]).append((title,uom,source,reference))
     first=ws.max_row+1;area_rows=[]
     for area,categories in grouped.items():
         area_row=ws.max_row+1;area_rows.append(area_row)
@@ -239,9 +267,9 @@ def structured_excel(wb,records,area_names):
             cat_row=ws.max_row+1;cat_rows.append(cat_row)
             ws.cell(cat_row,1,'    '+cat)
             item_rows=[]
-            for name,uom,source in items:
+            for name,uom,source,reference in items:
                 row=ws.max_row+1;item_rows.append(row)
-                ws.cell(row,1,'        '+name)
+                ws.cell(row,1,'        '+name+('  [Ref: '+reference+']' if reference else ''))
                 ws.cell(row,2,f"='AREA ALLOCATIONS'!D{source}")
                 ws.cell(row,3,uom)
                 ws.cell(row,9,f"='AREA ALLOCATIONS'!I{source}")

@@ -15,7 +15,7 @@ class TenderRecovery extends React.Component<{children:React.ReactNode},{failed:
  state={failed:false};
  static getDerivedStateFromError(){return {failed:true};}
  componentDidCatch(){window.dispatchEvent(new Event('conest:workspace-ready'));}
- render(){return this.state.failed?<><div dangerouslySetInnerHTML={{__html:startupSidebar}}/><main className="boot-loading"><div className="boot-message" role="alert"><h1>Tenders could not display this page</h1><p>Reload the page. If this continues, ask your administrator to check the current deployment.</p><div className="boot-actions"><button onClick={()=>location.reload()}>Reload page</button><a href="/">Open Estimator</a></div></div></main></>:this.props.children;}
+ render(){return this.state.failed?<><div dangerouslySetInnerHTML={{__html:startupSidebar}}/><main className="boot-loading"><div className="boot-message" role="alert"><h1>Tenders could not display this page</h1><p>Reload the page. If this continues, ask your administrator to check the current deployment.</p><div className="boot-actions"><button onClick={()=>location.reload()}>Reload page</button><a href="/?workspace=estimator">Open Estimator</a></div></div></main></>:this.props.children;}
 }
 let starting=false,hasStarted=false,reactRoot:Root|null=null;
 function statusHost(){return document.getElementById('boot-status')||document.getElementById('root')!}
@@ -39,7 +39,7 @@ function failed(problem:StartupProblem){
  }
  const actions=document.createElement('div');actions.className='boot-actions';
  const button=document.createElement('button');button.type='button';button.textContent=problem.action==='reload'?'Reload page':'Retry';button.onclick=problem.action==='reload'?()=>location.reload():()=>{void start()};
- const estimator=document.createElement('a');estimator.href='/';estimator.textContent='Open Estimator';actions.append(button,estimator);host.append(actions);
+ const estimator=document.createElement('a');estimator.href='/?workspace=estimator';estimator.textContent='Open Estimator';actions.append(button,estimator);host.append(actions);
  window.dispatchEvent(new Event('conest:workspace-ready'));
 }
 async function start(){

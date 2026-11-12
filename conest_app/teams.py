@@ -73,6 +73,50 @@ def initialize_teams(conn):
     conn.commit()
 
 
+def initialize_multi_team(conn):
+    conn.execute('''CREATE TABLE IF NOT EXISTS user_team_memberships(
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        PRIMARY KEY(user_id,team_id))''')
+    conn.execute('CREATE INDEX IF NOT EXISTS idx_multi_team ON user_team_memberships(team_id,user_id)')
+    conn.execute("INSERT OR IGNORE INTO user_team_memberships(user_id,team_id) SELECT id,team_id FROM users WHERE role='user' AND team_id IS NOT NULL")
+
+
+def user_team_ids(conn,user_id):
+    return [r[0] for r in conn.execute('SELECT team_id FROM user_team_memberships WHERE user_id=? ORDER BY team_id',(user_id,))]
+
+
+def set_user_teams(conn,user_id,team_ids,preferred=None):
+    if not isinstance(team_ids,list) or len(team_ids)>250 or any(type(x) is not int or x<=0 for x in team_ids):
+        raise ValueError('Choose valid teams')
+    ids=sorted(set(team_ids))
+    if ids:
+        found={r[0] for r in conn.execute('SELECT id FROM teams WHERE id IN ('+','.join('?' for _ in ids)+')',ids)}
+        if len(found)!=len(ids):raise ValueError('Choose an existing team')
+    conn.execute('DELETE FROM user_team_memberships WHERE user_id=?',(user_id,))
+    conn.executemany('INSERT INTO user_team_memberships(user_id,team_id) VALUES(?,?)',[(user_id,tid) for tid in ids])
+    old=conn.execute('SELECT team_id,role FROM users WHERE id=?',(user_id,)).fetchone()
+    primary=preferred if preferred in ids else old['team_id'] if old['team_id'] in ids else (ids[0] if ids else None)
+    if old['role']=='admin':primary=None
+    conn.execute('UPDATE users SET team_id=?,updated_at=? WHERE id=?',(primary,utc_now(),user_id))
+
+
+def team_default_homepage(conn,team_id,name):
+    row=conn.execute('SELECT value FROM settings WHERE key=?',(f'team_homepage:{team_id}',)).fetchone()
+    if row and row['value'] in ('estimator','tenders'):return row['value']
+    return 'estimator' if team_uses_estimator(conn,team_id,name) else 'tenders'
+
+
+def effective_homepage(conn,user_id,role,team_ids,primary_id=None):
+    if role=='admin':return 'estimator'
+    if not team_ids:return 'tenders'
+    row=conn.execute('SELECT value FROM settings WHERE key=?',(f'user_homepage:{user_id}',)).fetchone()
+    if row and row['value'] in ('estimator','tenders'):return row['value']
+    chosen=primary_id if primary_id in team_ids else team_ids[0]
+    team=conn.execute('SELECT name FROM teams WHERE id=?',(chosen,)).fetchone()
+    return team_default_homepage(conn,chosen,team['name']) if team else 'tenders'
+
+
 def team_uses_estimator(conn, team_id, name):
     """Preference for reporting only, stored in the existing settings table.
 
@@ -95,23 +139,27 @@ def validate_team(conn, role, team_id):
 
 
 def list_teams(conn, user):
-    where='' if user['role']=='admin' else ' WHERE id=?'
-    args=() if user['role']=='admin' else (user.get('team_id'),)
+    where='' if user['role']=='admin' else ' WHERE id IN (SELECT team_id FROM user_team_memberships WHERE user_id=?)'
+    args=() if user['role']=='admin' else (user['id'],)
     result=[]
     for row in conn.execute('SELECT * FROM teams'+where+' ORDER BY name COLLATE NOCASE',args):
         team=dict(row)
         team['uses_estimator']=team_uses_estimator(conn,team['id'],team['name'])
-        team['members']=[dict(u) for u in conn.execute('''SELECT id,name,username,is_active FROM users
-            WHERE team_id=? AND role='user' ORDER BY name COLLATE NOCASE''',(team['id'],))]
+        team['default_homepage']=team_default_homepage(conn,team['id'],team['name'])
+        team['members']=[dict(u) for u in conn.execute('''SELECT u.id,u.name,u.username,u.is_active FROM users u
+            JOIN user_team_memberships ut ON ut.user_id=u.id
+            WHERE ut.team_id=? AND u.role='user' ORDER BY u.name COLLATE NOCASE''',(team['id'],))]
         result.append(team)
     return result
 
 
 def save_team(conn, payload, actor, team_id=None):
     if actor['role']!='admin':raise AccessError(403,'Administrator access is required')
-    if set(payload)-{'name','member_ids','uses_estimator'}:raise ValueError('Unknown team field')
+    if set(payload)-{'name','member_ids','uses_estimator','default_homepage'}:raise ValueError('Unknown team field')
     if 'uses_estimator' in payload and type(payload['uses_estimator']) is not bool:
         raise ValueError('Choose whether the team uses Estimator')
+    if 'default_homepage' in payload and payload['default_homepage'] not in ('estimator','tenders'):
+        raise ValueError('Choose Estimator or Tenders as the team homepage')
     current=conn.execute('SELECT * FROM teams WHERE id=?',(team_id,)).fetchone() if team_id else None
     if team_id and not current:raise LookupError('Team not found')
     name=str(payload.get('name',current['name'] if current else '')).strip()
@@ -125,6 +173,10 @@ def save_team(conn, payload, actor, team_id=None):
         conn.execute('''INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at''',
             (f'team_uses_estimator:{team_id}', '1' if payload['uses_estimator'] else '0', now))
+    if 'default_homepage' in payload:
+        conn.execute('''INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)
+            ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at''',
+            (f'team_homepage:{team_id}',payload['default_homepage'],now))
     if 'member_ids' in payload:
         ids=payload['member_ids']
         if not isinstance(ids,list) or len(ids)>500 or any(type(i) is not int or i<=0 for i in ids):
@@ -132,8 +184,13 @@ def save_team(conn, payload, actor, team_id=None):
         for uid in ids:
             member=conn.execute('SELECT role FROM users WHERE id=?',(uid,)).fetchone()
             if not member or member['role']!='user':raise ValueError('Only users can be team members; admins manage all teams')
-        conn.execute('UPDATE users SET team_id=NULL,updated_at=? WHERE team_id=?',(now,team_id))
-        for uid in set(ids):conn.execute('UPDATE users SET team_id=?,updated_at=? WHERE id=?',(team_id,now,uid))
+        before={r[0] for r in conn.execute('SELECT user_id FROM user_team_memberships WHERE team_id=?',(team_id,))}
+        selected=set(ids)
+        for uid in before-selected:
+            rest=[tid for tid in user_team_ids(conn,uid) if tid!=team_id]
+            set_user_teams(conn,uid,rest)
+        for uid in selected-before:
+            set_user_teams(conn,uid,user_team_ids(conn,uid)+[team_id])
     return next(t for t in list_teams(conn,actor) if t['id']==team_id)
 
 
@@ -142,8 +199,9 @@ def delete_team(conn, team_id, actor):
     row=conn.execute('SELECT name FROM teams WHERE id=?',(team_id,)).fetchone()
     if not row:raise LookupError('Team not found')
     conn.execute('INSERT INTO tender_team_aliases VALUES(?,?) ON CONFLICT(name) DO UPDATE SET team_id=excluded.team_id',(row['name'],team_id))
-    conn.execute('UPDATE users SET team_id=NULL,updated_at=? WHERE team_id=?',(utc_now(),team_id))
+    for (uid,) in conn.execute('SELECT user_id FROM user_team_memberships WHERE team_id=?',(team_id,)).fetchall():
+        set_user_teams(conn,uid,[tid for tid in user_team_ids(conn,uid) if tid!=team_id])
     conn.execute('DELETE FROM project_teams WHERE team_id=?',(team_id,))
     conn.execute('DELETE FROM teams WHERE id=?',(team_id,))
-    conn.execute('DELETE FROM settings WHERE key=?',(f'team_uses_estimator:{team_id}',))
+    conn.execute('DELETE FROM settings WHERE key IN (?,?)',(f'team_uses_estimator:{team_id}',f'team_homepage:{team_id}'))
     return {'success':True}

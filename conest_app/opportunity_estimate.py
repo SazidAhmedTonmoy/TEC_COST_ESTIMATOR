@@ -57,7 +57,7 @@ def create_estimate(store, payload, user):
             active_teams = {row['id'] for row in db.execute('SELECT id FROM teams')}
             if any(type(tid) is not int or tid not in active_teams for tid in team_ids):
                 raise tenders.ValidationError('An assigned team no longer exists. Update the opportunity assignment first.', 409)
-            if actor['role'] != 'admin' and actor.get('team_id') not in team_ids:
+            if actor['role'] != 'admin' and not set(actor.get('team_ids') or []).intersection(team_ids):
                 raise tenders.ValidationError('Only the assigned approved team or an administrator can create this estimate.', 403)
             # Copy server-held opportunity values, not client-supplied editable
             # details. This also works for already-expired Approved deadlines.

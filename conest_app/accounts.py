@@ -52,6 +52,18 @@ def public_user(row):
     return result
 
 
+def enriched_user(conn,row):
+    if row is None:return None
+    from .teams import user_team_ids, effective_homepage
+    data=public_user(row)
+    tids=user_team_ids(conn,data['id'])
+    data['team_ids']=tids
+    current=conn.execute('SELECT value FROM settings WHERE key=?',(f'user_homepage:{data["id"]}',)).fetchone()
+    data['preferred_homepage']=current['value'] if current and current['value'] in ('estimator','tenders') else 'auto'
+    data['homepage']=effective_homepage(conn,data['id'],data['role'],tids,data.get('team_id'))
+    return data
+
+
 def initialize_accounts(conn):
     conn.executescript('''
         CREATE TABLE IF NOT EXISTS users (
@@ -127,7 +139,9 @@ def create_user(conn, payload):
     cursor = conn.execute('''INSERT INTO users(username,name,job_title,password_hash,role,created_at,updated_at)
                              VALUES (?,?,?,?,?,?,?)''', (username, name, job_title, encoded, role, now, now))
     conn.execute('UPDATE users SET team_id=?,contact_number=?,email=? WHERE id=?',(team_id,contact,email,cursor.lastrowid))
-    return public_user(conn.execute('SELECT * FROM users WHERE id=?', (cursor.lastrowid,)).fetchone())
+    from .teams import set_user_teams
+    set_user_teams(conn,cursor.lastrowid,[] if role=='admin' else payload.get('team_ids',[team_id] if team_id else []),team_id)
+    return enriched_user(conn,conn.execute('SELECT * FROM users WHERE id=?', (cursor.lastrowid,)).fetchone())
 
 
 def edit_user(conn, target_id, payload, actor, admin=False):
@@ -135,7 +149,7 @@ def edit_user(conn, target_id, payload, actor, admin=False):
     current = conn.execute('SELECT * FROM users WHERE id=?', (target_id,)).fetchone()
     if not current:
         raise LookupError('User not found')
-    if not admin and (target_id != actor['id'] or any(k in payload for k in ('role', 'is_active', 'must_change_password','team_id'))):
+    if not admin and (target_id != actor['id'] or any(k in payload for k in ('role', 'is_active', 'must_change_password','team_id','team_ids'))):
         raise AccessError(403, 'You can only edit your own profile')
     username, name, title = validate_identity(payload, current)
     email = validate_email(payload.get('email', current['email']))
@@ -161,6 +175,8 @@ def edit_user(conn, target_id, payload, actor, admin=False):
     if role not in ('admin', 'user') or active not in (0, 1, False, True):
         raise ValueError('Invalid role or account status')
     team_id=validate_team(conn,role,payload.get('team_id',current['team_id']))
+    if 'homepage' in payload and payload['homepage'] not in ('auto','estimator','tenders'):
+        raise ValueError('Choose a valid homepage')
     if current['role'] == 'admin' and current['is_active'] and (role != 'admin' or not active):
         if conn.execute("SELECT COUNT(*) FROM users WHERE role='admin' AND is_active=1").fetchone()[0] <= 1:
             raise ValueError('At least one active administrator must remain')
@@ -172,9 +188,19 @@ def edit_user(conn, target_id, payload, actor, admin=False):
     if password or role != current['role'] or active != current['is_active'] or username != current['username']:
         conn.execute('DELETE FROM sessions WHERE user_id=?', (target_id,))
     conn.execute('UPDATE users SET team_id=?,email=?,contact_number=? WHERE id=?',(team_id,email,contact,target_id))
+    from .teams import user_team_ids,set_user_teams
+    if admin or role!=current['role']:
+        memberships=[] if role=='admin' else payload.get('team_ids', [team_id] if 'team_id' in payload else user_team_ids(conn,target_id))
+        set_user_teams(conn,target_id,memberships,team_id)
+    if 'homepage' in payload:
+        if payload['homepage']=='auto':conn.execute('DELETE FROM settings WHERE key=?',(f'user_homepage:{target_id}',))
+        else:
+            conn.execute('''INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value,updated_at=excluded.updated_at''',
+                (f'user_homepage:{target_id}',payload['homepage'],utc_now()))
     if photo or payload.get('remove_photo'):
         _replace_profile_photo(conn, target_id, photo)
-    return public_user(conn.execute('SELECT * FROM users WHERE id=?', (target_id,)).fetchone())
+    return enriched_user(conn,conn.execute('SELECT * FROM users WHERE id=?', (target_id,)).fetchone())
 
 
 def _replace_profile_photo(conn, user_id, photo):
@@ -226,7 +252,7 @@ def session_user(conn, token):
                           LEFT JOIN teams t ON t.id=u.team_id
                           WHERE s.token_hash=? AND (s.expires_at=0 OR s.expires_at>?) AND u.is_active=1''',
                        (token_digest(token), int(time.time()))).fetchone()
-    return public_user(row) if row else None
+    return enriched_user(conn,row) if row else None
 
 
 def login(conn, payload, address):
@@ -249,4 +275,4 @@ def login(conn, payload, address):
     conn.execute('DELETE FROM login_attempts WHERE attempt_key=?', (keys[0],))
     conn.execute('UPDATE users SET last_login_at=? WHERE id=?', (utc_now(), row['id']))
     token = start_session(conn, row['id'])
-    return public_user(conn.execute('SELECT * FROM users WHERE id=?', (row['id'],)).fetchone()), token
+    return enriched_user(conn,conn.execute('SELECT * FROM users WHERE id=?', (row['id'],)).fetchone()), token

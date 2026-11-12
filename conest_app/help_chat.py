@@ -245,7 +245,7 @@ def prepare_context(conn, user, payload):
             selected = projects
             if 'my projects' in lower: selected = [p for p in selected if p['owner_id'] == user['id']]
             if 'team projects' in lower:
-                ids = {r[0] for r in conn.execute('SELECT t.project_id FROM project_teams t JOIN users u ON u.team_id=t.team_id WHERE u.id=?', (user['id'],))}
+                ids = {r[0] for r in conn.execute('SELECT t.project_id FROM project_teams t JOIN user_team_memberships ut ON ut.team_id=t.team_id JOIN users u ON u.id=ut.user_id WHERE u.id=?', (user['id'],))}
                 selected = [p for p in selected if p['id'] in ids]
             for word, field, value in [('won', 'award_status', 'won'), ('lost', 'award_status', 'lost'), ('completed', 'status', 'submitted'), ('in review', 'status', 'in_review'), ('submitted', 'status', 'submitted'), ('closed','status','closed')]:
                 if re.search(r'\b' + word + r'\b', lower): selected = [p for p in selected if p[field] == value]

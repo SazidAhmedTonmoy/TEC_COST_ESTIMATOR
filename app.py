@@ -522,6 +522,14 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     lambda conn: self._authorize_connection(conn, path))
                 self._send_json({'success': True, **result})
                 return
+            breakdown_toggle_match=re.fullmatch(r'/api/projects/(\d+)/breakdown/status',path)
+            if breakdown_toggle_match:
+                from conest_app.estimate_areas import set_breakdown_enabled
+                payload=self._json_body();pid=int(breakdown_toggle_match.group(1))
+                with self._write_connection() as conn:
+                    result=self._project_payload(conn,set_breakdown_enabled(conn,pid,self.user,payload))
+                    conn.commit()
+                self._send_json({'success':True,**result});return
             breakdown_match=re.fullmatch(r'/api/projects/(\d+)/breakdown',path)
             if breakdown_match:
                 from conest_app.estimate_areas import save_breakdown

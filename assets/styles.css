@@ -2535,3 +2535,22 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-red>td{b
 .catalog-source-context,.catalog-source-empty{font-size:12px;color:var(--muted);margin:5px 0 12px}
 @media(max-width:960px){.catalog-search-row{grid-template-columns:repeat(2,minmax(0,1fr))}.catalog-search-row input{grid-column:1 / -1}}
 @media(max-width:560px){.catalog-search-row{grid-template-columns:minmax(0,1fr)}.catalog-search-row input{grid-column:auto}.catalog-search-row>*{width:100%;min-width:0}}
+
+/* v3.7.22: active Breakdown, text references, reliable scroll, and project progress. */
+.breakdown-v3712 .breakdown-item-ref {display:block;font-size:12px;line-height:1.4;color:var(--muted,#a7c6d2);white-space:normal;overflow-wrap:anywhere;word-break:break-word;margin-top:4px;max-width:100%;font-weight:500}
+.breakdown-v3712 .breakdown-scroll tbody th[scope="row"]{min-width:235px;max-width:390px;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.breakdown-v3712 .breakdown-tree-item summary{min-width:0;white-space:normal;overflow-wrap:anywhere}
+.breakdown-v3712 .breakdown-pane {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+.breakdown-v3712 .breakdown-activation {display:flex;gap:9px;align-items:center;flex-wrap:wrap;border:1px solid var(--border,#365361);border-radius:10px;padding:9px 12px;margin:10px 0}
+.breakdown-v3712 .breakdown-activation strong{margin-right:10px}
+.breakdown-v3712 .breakdown-disabled{padding:22px 16px;max-width:620px;margin:14px auto;line-height:1.5}
+.breakdown-v3712 .breakdown-disabled p{color:var(--muted,#b2c7d0)}
+.breakdown-save-state {font-size:13px;font-weight:600;color:#75e1b2;white-space:nowrap}
+.breakdown-save-state[data-status="error"] {color:#ffb9b9}
+.breakdown-save-state[data-status="pending"] {color:#e9c47a}
+.estimate-progress-control {display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted,#b9cbdb);margin-right:5px}
+.estimate-progress-control select {width:auto;min-width:140px;height:38px;padding:6px 28px 6px 10px;font-size:13px;color:inherit;border:1px solid var(--border,#365361);border-radius:8px;background:var(--panel,#142a36);font-weight:600}
+#user-memberships-fieldset {min-width:0}
+#user-membership-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px}
+#user-membership-options .checkbox-label {margin:0}
+@media(max-width:800px){.estimate-progress-control {width:100%;justify-content:space-between}.breakdown-v3712 .breakdown-activation{margin:6px 0}.breakdown-v3712 .breakdown-scroll tbody th[scope="row"]{min-width:150px;max-width:260px}}

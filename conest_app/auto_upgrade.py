@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 34
-MIGRATION_KEY = 'v3.7.12-structured-breakdown'
+CURRENT_SCHEMA = 35
+MIGRATION_KEY = 'v3.7.22-multiteam-breakdown-homepage'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -100,6 +100,7 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
         if expected_version >= 28:required['project_lines'].update({'exclude_material_markup','exclude_hours_markup','exclude_final_markup'})
         if expected_version >= 33:required['project_lines'].add('area_allocations')
         if expected_version >= 34 and 'project_breakdown_areas' not in tables:return False,version
+        if expected_version >= 35 and not {'user_team_memberships','project_breakdown_preferences'} <= tables:return False,version
         if expected_version >= 29:required['catalog_items']={'importance_rating'}
         if expected_version >= 32:
             required['projects'].add('excluded_categories')
@@ -224,6 +225,8 @@ def ensure_database(path=None):
                             conn.execute("ALTER TABLE project_lines ADD COLUMN area_allocations TEXT NOT NULL DEFAULT '[]'")
                         from .estimate_areas import initialize_breakdown_areas
                         initialize_breakdown_areas(conn)
+                        from .teams import initialize_multi_team
+                        initialize_multi_team(conn)
                         conn.execute('INSERT OR IGNORE INTO app_migrations VALUES (?,?)',(MIGRATION_KEY,utc_now()))
                         conn.execute('UPDATE schema_version SET version=?',(CURRENT_SCHEMA,))
                     with _raw_connect(target) as conn:

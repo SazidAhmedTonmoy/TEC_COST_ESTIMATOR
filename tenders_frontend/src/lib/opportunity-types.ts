@@ -1,6 +1,6 @@
 export type OpportunityStatus = 'pending' | 'review' | 'approved' | 'rejected' | 'expired';
 export type OpportunityTeam = {id:number; name:string};
-export type OpportunityUser = {id:number; name:string; teamId?:number|null; role?:string};
+export type OpportunityUser = {id:number; name:string; teamId?:number|null; teamIds?:number[]; role?:string};
 export type OpportunityRegion = {code:string; origin:string; timezone?:string};
 export type Opportunity = {
   id:string; project:string; builders:string[]; region:string; location:string;

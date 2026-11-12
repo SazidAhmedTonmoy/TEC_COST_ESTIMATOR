@@ -66,7 +66,8 @@ class WorkloadHttpTests(unittest.TestCase):
         self.assertIn('retired',data['error'])
         self.assertNotIn('teams',data)
         status,health=self.request('GET','/api/health')
-        self.assertEqual((status,health['schema_version']),(200,34))
+        from conest_app.auto_upgrade import CURRENT_SCHEMA
+        self.assertEqual((status,health['schema_version']),(200,CURRENT_SCHEMA))
         from conest_app import __version__
         self.assertEqual(health['release'],__version__)
 

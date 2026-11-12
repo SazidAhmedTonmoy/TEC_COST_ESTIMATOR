@@ -38,6 +38,8 @@ class TeamSummaryEstimateTests(unittest.TestCase):
         stamp=tenders.timestamp()
         uid=db.execute('''INSERT INTO users(username,name,password_hash,role,team_id,is_active,must_change_password,created_at,updated_at)
             VALUES(?,?,?,'user',?,1,0,?,?)''',(name,name,'not-a-real-password',team_id,stamp,stamp)).lastrowid
+        if team_id is not None:
+            db.execute('INSERT INTO user_team_memberships(user_id,team_id) VALUES(?,?)',(uid,team_id))
         return {'id':uid,'name':name,'role':'user','team_id':team_id}
 
     def tearDown(self):
@@ -82,6 +84,24 @@ class TeamSummaryEstimateTests(unittest.TestCase):
         self.assertEqual(duplicate.exception.status,409)
         with connect() as db:
             self.assertEqual(db.execute('SELECT COUNT(*) FROM projects WHERE id=?',(pid,)).fetchone()[0],1)
+
+    def test_multi_team_membership_opportunity_filter_and_estimate_handoff(self):
+        # A single user in AU+BD should see both assigned teams and be
+        # permitted to create the Estimator project assigned to either team.
+        with connect() as db:
+            team_api.set_user_teams(db,self.member['id'],[self.team,self.other],self.team)
+        au=self.opp(project='AU assigned',location='NSW AU',assignedTeamIds=[self.team])
+        bd=self.opp(project='BD assigned',location='NSW BD',assignedTeamIds=[self.other])
+        mine=op.list_opportunities(self.store,{'teamId':'mine'},self.member)
+        self.assertEqual(mine['total'],2)
+        self.assertEqual({i['id'] for i in mine['items']},{au['id'],bd['id']})
+        by_person=op.list_opportunities(self.store,{'userId':str(self.member['id'])},self.admin)
+        self.assertEqual(by_person['total'],2)
+        self.assertTrue(op.detail(self.store,bd['id'],self.member)['opportunity']['permissions']['createEstimate'])
+        created=create_estimate(self.store,{'id':bd['id'],'revision':bd['revision']},self.member)
+        self.assertGreater(created['createdEstimatorProjectId'],0)
+        with connect() as db:
+            self.assertEqual({r[0] for r in db.execute('SELECT team_id FROM project_teams WHERE project_id=?',(created['createdEstimatorProjectId'],))},{self.other})
 
     def test_only_assigned_team_admin_and_approved_opportunity_can_create(self):
         item=self.opp()

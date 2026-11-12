@@ -12,7 +12,7 @@ document.addEventListener('DOMContentLoaded',()=>{
  tabs.className='workspace-tabs';
  tabs.setAttribute('aria-label','Switch workspace');
  for(const [name,url,active] of [
-   ['Estimator','/',!inTenders],['Tenders','/tenders/',inTenders]
+   ['Estimator','/?workspace=estimator',!inTenders],['Tenders','/tenders/',inTenders]
  ]){
    const tab=document.createElement('a');
    tab.className='workspace-tab'+(active?' is-active':' workspace-swap');
