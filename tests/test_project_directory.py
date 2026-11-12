@@ -3,7 +3,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 import test_http_v231 as helpers
 from fixtures_v232 import seed
-from conest_app import workspace, projects
+from conest_app import workspace, projects, teams
 from conest_app.utils import utc_now
 
 class ProjectDirectoryTests(unittest.TestCase):
@@ -33,7 +33,8 @@ class ProjectDirectoryTests(unittest.TestCase):
                 self.assertEqual(actual, expected)
                 self.assertLess(batch_count, individual_count * .5)
             # A list request must pick up both membership and name changes immediately.
-            conn.execute('UPDATE users SET team_id=NULL,name=? WHERE id=?', ('Updated editor', f['editor']['id']))
+            conn.execute('UPDATE users SET name=? WHERE id=?', ('Updated editor', f['editor']['id']))
+            teams.set_user_teams(conn,f['editor']['id'],[])
             rows = workspace.visible_projects(conn, f['editor'], include_totals=False)
             self.assertFalse(any(p['can_edit'] for p in rows))
             self.assertTrue(any(c['name'] == 'Updated editor' for p in rows for c in p['contributors']))

@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 from PIL import Image
 
-from conest_app import accounts, project_notes, productivity, workspace
+from conest_app import accounts, project_notes, productivity, workspace, teams
 from conest_app.database import connect
 from conest_app.help_chat import prepare_context, answer_context
 from conest_app.projects import calculate_project, create_project, update_project_line
@@ -46,11 +46,12 @@ class Patch232Tests(unittest.TestCase):
             p=workspace.get_project(c,self.data['project_id'])
             for who in ('owner','admin','editor'):
                 self.assertTrue(workspace.permissions(c,p,self.data[who])['can_edit'])
-            c.execute('UPDATE users SET team_id=? WHERE id=?',(self.data['teams'][0],self.data['viewer']['id']))
+            # Membership table is authoritative in the multi-team model.
+            teams.set_user_teams(c,self.data['viewer']['id'],[self.data['teams'][0]],self.data['teams'][0])
             self.assertTrue(workspace.permissions(c,p,self.data['viewer'])['can_edit'])
-            c.execute('UPDATE users SET team_id=NULL WHERE id=?',(self.data['viewer']['id'],))
+            teams.set_user_teams(c,self.data['viewer']['id'],[])
             self.assertFalse(workspace.permissions(c,p,self.data['viewer'])['can_edit'])
-            c.execute('UPDATE users SET team_id=NULL WHERE id=?',(self.data['owner']['id'],))
+            teams.set_user_teams(c,self.data['owner']['id'],[])
             self.assertTrue(workspace.permissions(c,p,self.data['owner'])['can_edit'])
 
     def test_inactive_accounts_cannot_view_or_use_help(self):
@@ -81,7 +82,7 @@ class Patch232Tests(unittest.TestCase):
 
     def test_revision_author_loses_delete_access_after_leaving_team(self):
         with connect() as c:
-            d=self.data;c.execute('UPDATE users SET team_id=? WHERE id=?',(d['teams'][1],d['editor']['id']))
+            d=self.data;teams.set_user_teams(c,d['editor']['id'],[d['teams'][1]],d['teams'][1])
             self.assertFalse(productivity.revisions(c,d['project_id'],d['editor'])[0]['can_delete'])
             with self.assertRaises(accounts.AccessError):productivity.delete_revision(c,d['project_id'],d['revision_id'],d['editor'])
 

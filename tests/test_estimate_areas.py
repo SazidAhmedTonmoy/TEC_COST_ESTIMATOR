@@ -1,7 +1,7 @@
 import unittest,json
 from pathlib import Path
 import test_estimate_sections as helpers
-from conest_app import projects,project_sharing,project_json,estimate_tools,productivity
+from conest_app import projects,project_sharing,project_json,estimate_tools,productivity,estimate_areas
 from conest_app.estimate_areas import allocations
 from conest_app.database import connect
 from conest_app.exporter import export_project
@@ -14,6 +14,9 @@ class AreaTests(unittest.TestCase):
     def test_allocation_totals_optional_fixed_and_roundtrip(self):
         with connect() as conn:
             pid,before=self.prepare(conn);lid=self.data['line_id']
+            # Breakdown is opt-in from v3.7.22; enable it for export/share checks.
+            estimate_areas.set_breakdown_enabled(conn,pid,self.data['owner'],
+                {'enabled':True,'expected_revision':before['project']['revision']})
             conn.execute('UPDATE project_line_components SET fixed_quantity=1 WHERE project_line_id=?',(lid,))
             data=projects.update_project_line(conn,pid,lid,{'area_allocations':[{'area':'Level 1','quantity':3},{'area':'Level 2','quantity':7}]})
             self.assertEqual(next(l for l in data['lines'] if l['id']==lid)['quantity'],10)

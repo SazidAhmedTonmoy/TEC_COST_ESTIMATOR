@@ -10,7 +10,7 @@ class WorkspaceTabs379Tests(unittest.TestCase):
         source=(ROOT/'assets/workspace_switch.js').read_text()
         self.assertIn("tabs.className='workspace-tabs'",source)
         self.assertIn("tabs.setAttribute('aria-label','Switch workspace')",source)
-        self.assertIn("['Estimator','/',!inTenders]",source)
+        self.assertIn("['Estimator','/?workspace=estimator',!inTenders]",source)
         self.assertIn("['Tenders','/tenders/',inTenders]",source)
         self.assertIn("tab.className='workspace-tab'+(active?' is-active':' workspace-swap')",source)
         self.assertNotIn('swap.innerHTML',source)

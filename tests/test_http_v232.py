@@ -1,7 +1,7 @@
 """Real local HTTP checks for company-wide read access and immutable viewing."""
 import unittest
 from conest_app.auto_upgrade import CURRENT_SCHEMA
-from conest_app import accounts, workspace, project_notes, productivity, __version__
+from conest_app import accounts, workspace, project_notes, productivity, teams, __version__
 from conest_app.database import connect
 from conest_app.projects import calculate_project
 import test_http_v231 as previous_http
@@ -65,7 +65,9 @@ class Http232Tests(unittest.TestCase):
 
     def test_live_team_change_revokes_http_edit_with_same_session(self):
         d=self.data;pid=d['project_id'];self.login_as('editor')
-        with connect() as c:c.execute('UPDATE users SET team_id=? WHERE id=?',(d['teams'][1],d['editor']['id']))
+        # Changing primary team alone must not silently remove multi-team access.
+        # Explicitly replace memberships to verify live HTTP revocation.
+        with connect() as c:teams.set_user_teams(c,d['editor']['id'],[d['teams'][1]],d['teams'][1])
         status,result=self.request('DELETE',f"/api/projects/{pid}/revisions/{d['revision_id']}",{})
         self.assertEqual(status,403,result)
         status,result=self.request('GET',f'/api/projects/{pid}/revisions')
