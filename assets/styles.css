@@ -2554,3 +2554,9 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-red>td{b
 #user-membership-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:7px}
 #user-membership-options .checkbox-label {margin:0}
 @media(max-width:800px){.estimate-progress-control {width:100%;justify-content:space-between}.breakdown-v3712 .breakdown-activation{margin:6px 0}.breakdown-v3712 .breakdown-scroll tbody th[scope="row"]{min-width:150px;max-width:260px}}
+
+/* Upper-right project progress, consistent at all screen widths. */
+.estimate-header-actions{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap}
+#estimate-header-progress:empty{display:none}
+#estimate-header-progress .estimate-progress-control{margin-right:0;white-space:nowrap}
+@media(max-width:620px){.estimate-header-actions{width:100%;justify-content:space-between}#estimate-header-progress .estimate-progress-control{width:auto}}

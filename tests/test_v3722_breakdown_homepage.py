@@ -72,7 +72,8 @@ class BreakdownAndHomepageTests(unittest.TestCase):
             updated=accounts.edit_user(conn,member['id'],{'homepage':'estimator'},member)
             self.assertEqual(updated['homepage'],'estimator')
             teams.set_user_teams(conn,member['id'],[])
-            self.assertEqual(accounts.enriched_user(conn,conn.execute('SELECT * FROM users WHERE id=?',(member['id'],)).fetchone())['homepage'],'tenders')
+            # Explicit personal preference remains valid even when all teams are removed.
+            self.assertEqual(accounts.enriched_user(conn,conn.execute('SELECT * FROM users WHERE id=?',(member['id'],)).fetchone())['homepage'],'estimator')
             self.assertEqual(teams.user_team_ids(conn,member['id']),[])
 
 if __name__=='__main__':unittest.main()

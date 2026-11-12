@@ -1,3 +1,21 @@
+# TEC ConEst v3.7.23 — Shared estimate highlights & personal homepage
+
+**Base:** v3.7.22 CI-fixed release · **Release:** 3.7.23 · **Estimator database schema:** 36 · **Migration:** automatic, with a protected pre-upgrade backup.
+
+## Changes in v3.7.23
+
+- **Progress placement:** Moved the Estimator project's Progress selector to the upper-right heading, next to Estimate Setup guide. The action buttons beneath the project title are unchanged.
+- **Shared item highlights:** Estimate markers now save a `highlight_level` (0 clear, 1 yellow, 2 red) in `project_lines`. All accounts viewing the same estimate see the same state; other open pages refresh just the marker colours about every 20 seconds, without reloading the estimate or losing input focus. Only users with project edit permission may change markers. Concurrent updates return a conflict instead of overwriting another user's marker. Markers do not affect pricing, quantities or revisions.
+- **Personal homepage for every user:** Profile → My homepage can be set to Estimator, Tenders, or Auto for administrators, assigned users and unassigned users. Auto still defaults to Estimator for administrators and Tenders for unassigned users; other users follow their team default. Explicit workspace links and deep links continue to work, and a prior `?return=tenders` sign-out URL no longer overrides an explicit personal choice.
+
+### Upgrade and compatibility
+
+Apply the update ZIP to the **v3.7.22 CI-fixed** source. Preserve the live `.env`, data directory, SQLite databases and uploads. Startup migrates the Estimator schema **35 → 36**, adding `project_lines.highlight_level` with default 0, and creates a protected database snapshot before changing an existing database. Existing estimates, totals, areas and team assignments remain intact. **Old browser-local highlights from v3.7.21/22 are not automatically transferred** because they were never stored on the server; re-mark any previously coloured items that matter. Once upgraded, do not redeploy older schema-35 code without restoring an appropriate database backup.
+
+The Estimator assets are rebuilt and included. The Tender app has no functional source changes beyond its package version, but your normal GitHub Actions `npm ci && npm run build` step still needs to run during deployment.
+
+---
+
 # TEC ConEst v3.7.22 — Breakdown usability and team homepage settings
 
 **Base:** v3.7.21 Date Reconciliation · **Release:** 3.7.22 · **Database schema:** 35 · **Migration:** automatic with protected pre-upgrade backup.

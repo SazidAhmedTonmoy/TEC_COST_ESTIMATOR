@@ -1,39 +1,71 @@
 /* Estimate navigation and editing. Saved data is always updated through guarded APIs. */
 const estimateViewState={collapsed:new Set(),expanded:new Set(),query:'',drag:null,busy:false};
-const estimateHighlightCache=new Map();
-function estimateHighlightKey(){return `tec-estimate-highlight:${state.user?.id||'guest'}:${state.projectId}`;}
 // 0 = clear, 1 = yellow for review, 2 = red for urgent correction.
-// Earlier releases stored string IDs in an array. Recover those as yellow.
-function estimateHighlights(){
-  const key=estimateHighlightKey();
-  if(!estimateHighlightCache.has(key)){
-    const marks=new Map();
-    try{
-      const saved=JSON.parse(localStorage.getItem(key)||'{}');
-      if(Array.isArray(saved)){
-        saved.filter(id=>typeof id==='string').forEach(id=>marks.set(id,1));
-      }else if(saved && typeof saved==='object'){
-        Object.entries(saved).forEach(([id,level])=>{if(level===1||level===2)marks.set(id,level);});
-      }
-    }catch{}
-    estimateHighlightCache.set(key,marks);
-  }
-  return estimateHighlightCache.get(key);
+// The database owns these flags, so the whole team sees the same review state.
+const estimateHighlightPending=new Set();
+function estimateLineHighlightLevel(id){
+  const line=state.projectData?.lines?.find(l=>l.id===Number(id));
+  const level=Number(line?.highlight_level||0);
+  return level===1||level===2?level:0;
 }
-function estimateLineHighlightLevel(id){return estimateHighlights().get(String(id))||0;}
 function estimateLineHighlighted(id){return estimateLineHighlightLevel(id)>0;}
 function estimateHighlightTitle(level){return level===0?'Mark yellow (click 1 of 3)':level===1?'Marked yellow · click for red (2 of 3)':'Marked red · click to clear (3 of 3)';}
-function toggleEstimateHighlight(button){
-  const id=String(button.dataset.lineId),marks=estimateHighlights();
-  const next=(marks.get(id)||0)+1;
-  if(next===3)marks.delete(id);else marks.set(id,next);
-  const level=next===3?0:next,row=button.closest('.assembly-row');
-  if(row){row.classList.toggle('catalog-highlight-yellow',level===1);row.classList.toggle('catalog-highlight-red',level===2);}
+function showEstimateHighlight(button,level){
+  const row=button.closest('.assembly-row');
+  row?.classList.toggle('catalog-highlight-yellow',level===1);
+  row?.classList.toggle('catalog-highlight-red',level===2);
   button.dataset.highlightLevel=String(level);
   button.setAttribute('aria-pressed',String(level!==0));
   button.setAttribute('aria-label',estimateHighlightTitle(level));
   button.title=estimateHighlightTitle(level);
-  try{localStorage.setItem(estimateHighlightKey(),JSON.stringify(Object.fromEntries(marks)));}catch{}
+}
+async function toggleEstimateHighlight(button){
+  const pid=state.projectId,id=Number(button.dataset.lineId);
+  if(!state.projectData?.project?.can_edit){toast('This estimate is read-only',true);return;}
+  if(estimateHighlightPending.has(id))return;
+  const line=state.projectData.lines.find(l=>l.id===id);
+  if(!line)return;
+  const before=estimateLineHighlightLevel(id),level=(before+1)%3;
+  estimateHighlightPending.add(id);
+  line.highlight_level=level;showEstimateHighlight(button,level);button.disabled=true;
+  let conflicted=false;
+  try{
+    const result=await api(`/api/projects/${pid}/lines/${id}/highlight`,{method:'PATCH',body:{level,expected_level:before}});
+    if(state.projectId===pid){
+      const current=state.projectData?.lines.find(l=>l.id===id);
+      if(current)current.highlight_level=result.level;
+      const live=$(`#estimate-lines .catalog-highlight-toggle[data-line-id="${id}"]`);
+      if(live)showEstimateHighlight(live,result.level);
+    }
+  }catch(error){
+    if(state.projectId===pid){
+      const current=state.projectData?.lines.find(l=>l.id===id);
+      if(current)current.highlight_level=before;
+      const live=$(`#estimate-lines .catalog-highlight-toggle[data-line-id="${id}"]`);
+      if(live)showEstimateHighlight(live,before);
+    }
+    toast(`Highlight was not saved: ${error.message}`,true);
+    conflicted=error.status===409;
+  }finally{
+    estimateHighlightPending.delete(id);
+    const live=$(`#estimate-lines .catalog-highlight-toggle[data-line-id="${id}"]`);
+    if(live)live.disabled=state.projectData?.project?.can_edit!==true;
+    if(conflicted)refreshEstimateHighlights().catch(()=>{});
+  }
+}
+async function refreshEstimateHighlights(){
+  const pid=state.projectId;
+  if(state.view!=='estimate'||!pid||!state.projectData||document.hidden)return;
+  const result=await api(`/api/projects/${pid}/highlights`);
+  if(state.projectId!==pid)return;
+  for(const mark of result.highlights||[]){
+    if(estimateHighlightPending.has(mark.id))continue;
+    const line=state.projectData?.lines.find(l=>l.id===mark.id);
+    if(!line||Number(line.highlight_level||0)===mark.level)continue;
+    line.highlight_level=mark.level;
+    const button=$(`#estimate-lines .catalog-highlight-toggle[data-line-id="${mark.id}"]`);
+    if(button)showEstimateHighlight(button,mark.level);
+  }
 }
 function scopeKey(category){return `${state.projectId}:${category}`;}
 // The server key is authoritative; the fallback matches Python clean_text for old snapshots.
@@ -72,7 +104,7 @@ function renderGroupedEstimate(lines){
   syncCategoryToggle();
   syncExpandEstimateAll();
   if(state.projectData?.project?.can_edit===false){
-    $$('#estimate-lines input, #estimate-lines textarea, #estimate-lines select, #estimate-lines button').forEach(field=>field.disabled=!field.matches('.toggle-details,.toggle-scope,.catalog-highlight-toggle'));
+    $$('#estimate-lines input, #estimate-lines textarea, #estimate-lines select, #estimate-lines button').forEach(field=>field.disabled=!field.matches('.toggle-details,.toggle-scope'));
   }
   $('#estimate-line-count').textContent=query?`${matches.length} of ${lines.length} items`:`${lines.length} items`;
   $('#floating-bottom-button').classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
@@ -125,6 +157,8 @@ async function moveScope(source,target,after){
 function clearDropHint(){$$('.drop-before,.drop-after').forEach(row=>row.classList.remove('drop-before','drop-after'));}
 
 document.addEventListener('DOMContentLoaded',()=>{
+  // Lightweight marker refresh; never rebuild or scroll the estimate.
+  setInterval(()=>refreshEstimateHighlights().catch(()=>{}),20000);
   new MutationObserver(fitEstimateText).observe($('#estimate-view'),{attributes:true,attributeFilter:['class']});
   if(typeof window!=='undefined')window.addEventListener('resize',fitEstimateText);
   $('#floating-bottom-button').addEventListener('click',()=>$('#estimate-lines').closest('section').scrollIntoView({behavior:'smooth',block:'end'}));
@@ -139,7 +173,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   $('#estimate-lines').addEventListener('input',event=>{if(event.target.matches('textarea')){event.target.style.height='auto';event.target.style.height=`${event.target.scrollHeight+2}px`;}});
   $('#estimate-lines').addEventListener('click',event=>{
     const highlight=event.target.closest('.catalog-highlight-toggle');
-    if(highlight){toggleEstimateHighlight(highlight);return;}
+    if(highlight){toggleEstimateHighlight(highlight).catch(error=>toast(error.message,true));return;}
     const inclusion=event.target.closest('.scope-inclusion');
     if(inclusion){
       const category=inclusion.dataset.scope,included=inclusion.getAttribute('aria-checked')!=='true';

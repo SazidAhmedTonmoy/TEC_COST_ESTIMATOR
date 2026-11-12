@@ -15,8 +15,8 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
-CURRENT_SCHEMA = 35
-MIGRATION_KEY = 'v3.7.22-multiteam-breakdown-homepage'
+CURRENT_SCHEMA = 36
+MIGRATION_KEY = 'v3.7.23-shared-estimate-highlights'
 _local = threading.local()
 _ready = {}
 log = logging.getLogger(__name__)
@@ -99,6 +99,7 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
         if expected_version >= 27:required['projects'].update({'review_deadline', 'review_cycle'})
         if expected_version >= 28:required['project_lines'].update({'exclude_material_markup','exclude_hours_markup','exclude_final_markup'})
         if expected_version >= 33:required['project_lines'].add('area_allocations')
+        if expected_version >= 36:required['project_lines'].add('highlight_level')
         if expected_version >= 34 and 'project_breakdown_areas' not in tables:return False,version
         if expected_version >= 35 and not {'user_team_memberships','project_breakdown_preferences'} <= tables:return False,version
         if expected_version >= 29:required['catalog_items']={'importance_rating'}
@@ -177,7 +178,7 @@ def ensure_database(path=None):
                     log.warning('Upgrading TEC ConEst database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
-                    if previous in (32,33,34):
+                    if previous in (32,33,34,35):
                         pass  # Repair the current marker/column only; never replay historical data backfills.
                     elif previous == 31 and _status(target,31,'v3.3-workspace-memory')[0]:
                         pass  # Add the team alias table without replaying historical migrations.
@@ -227,6 +228,9 @@ def ensure_database(path=None):
                         initialize_breakdown_areas(conn)
                         from .teams import initialize_multi_team
                         initialize_multi_team(conn)
+                        # Review highlights are project-wide, not browser-local.
+                        if 'highlight_level' not in {r[1] for r in conn.execute('PRAGMA table_info(project_lines)')}:
+                            conn.execute('ALTER TABLE project_lines ADD COLUMN highlight_level INTEGER NOT NULL DEFAULT 0 CHECK(highlight_level IN (0,1,2))')
                         conn.execute('INSERT OR IGNORE INTO app_migrations VALUES (?,?)',(MIGRATION_KEY,utc_now()))
                         conn.execute('UPDATE schema_version SET version=?',(CURRENT_SCHEMA,))
                     with _raw_connect(target) as conn:

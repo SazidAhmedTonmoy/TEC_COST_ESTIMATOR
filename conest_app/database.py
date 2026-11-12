@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS project_lines (
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_manual INTEGER NOT NULL DEFAULT 0,
     notes TEXT,
+    highlight_level INTEGER NOT NULL DEFAULT 0 CHECK(highlight_level IN (0,1,2)),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );

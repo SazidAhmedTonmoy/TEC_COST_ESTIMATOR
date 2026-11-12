@@ -56,7 +56,6 @@ async function enterWorkspace(result) {
   try {
     setAccount(result.user, result.csrf_token);
     if (state.user.must_change_password) { setView('profile',false); return; }
-    if(new URLSearchParams(location.search).get('return')==='tenders'){location.replace('/tenders/');return;}
     // Apply the user's/team's starting workspace only at initial entry, not deep links.
     if(state.user.homepage==='tenders'&&(!location.hash||location.hash==='#/home')&&!new URLSearchParams(location.search).has('workspace')){location.replace('/tenders/');return;}
     await Promise.all([loadSettings(false,result.settings),loadDashboard(false,result.dashboard)]);
@@ -263,7 +262,8 @@ async function changeEstimateProgress(projectId,newStatus){
   }catch(error){if(sel){sel.value=p.status;sel.disabled=false;}toast(error.message,true);}
 }
 function renderEstimateBrief(project) {
-  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div>${projectProgressPicker(project)}<button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-breakdown="${project.id}">Breakdown</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button></div>` : '';
+  $('#estimate-header-progress').innerHTML = project.id ? projectProgressPicker(project) : '';
+  $('#estimate-project-brief').innerHTML = project.id ? `<div><h2>${escapeHtml(project.name)}</h2><p>${dateLabel(project.submission_deadline)} · ${escapeHtml(teamNames(project))}${project.can_edit?'':' · Read-only &middot; no edit access assigned'}</p></div><div><button class="button secondary" type="button" data-project-brief="${project.id}">${project.can_edit?'Manage project & activity':'View project & activity'}</button><button type="button" data-project-notes="${project.id}" class="button secondary note-button" aria-label="Add Note${workspaceState.noteCounts[project.id]?' — unread notes':''}">${project.can_edit?'Add Note':'View notes'}<span class="note-unread-dot ${workspaceState.noteCounts[project.id]?'':'hidden'}" aria-hidden="true"></span></button><button class="button secondary" type="button" data-revisions="${project.id}">Revisions</button><button class="button secondary" type="button" data-breakdown="${project.id}">Breakdown</button><button class="button secondary" type="button" data-copy-project="${project.id}">Copy project</button></div>` : '';
 }
 async function reviewOpenedProject(project) {
   if (state.user.role==='admin' && project.needs_admin_review) {
@@ -418,9 +418,10 @@ function renderProfile() {
   if(typeof resetProfilePhoto==='function')resetProfilePhoto(u);
   $('#profile-email').value=u.email||'';$('#profile-name').value=u.name; $('#profile-username').value=u.username;
   $('#profile-title').value=u.job_title; $('#profile-role').value=u.role==='admin'?'Admin':'User';
-  $('#profile-homepage').value=u.role==='admin'?'estimator':u.preferred_homepage||'auto';
-  $('#profile-homepage').disabled=u.role==='admin'||!(u.team_ids||[]).length;
-  $('#profile-homepage-note').textContent=u.role==='admin'?'Administrators always open Estimator.':!(u.team_ids||[]).length?'Users without a team open Tenders.':`Current starting workspace: ${u.homepage==='estimator'?'Estimator':'Tenders'}.`;
+  $('#profile-homepage').value=u.preferred_homepage||'auto';
+  $('#profile-homepage').disabled=false;
+  const defaultName=u.role==='admin'?'Estimator':!(u.team_ids||[]).length?'Tenders':'your team default';
+  $('#profile-homepage-note').textContent=`Auto uses ${defaultName}. Current starting workspace: ${u.homepage==='estimator'?'Estimator':'Tenders'}.`; 
   $('#password-setup-note').classList.toggle('hidden',!u.must_change_password);
   $('#profile-new-password').required=Boolean(u.must_change_password);
   $('#profile-current-password').required=Boolean(u.must_change_password);

@@ -163,7 +163,7 @@ async function apiRequest(path, options = {}) {
       if(record && state.projectId===Number(match[1])) config.body={...config.body,expected_revision:record.revision};
     }
     const estimatePath=path.match(/^\/api\/projects\/(\d+)(?:\/|$)/);
-    if(estimatePath && Number(estimatePath[1])===state.projectId && estimateBase?.lines && /^\/api\/projects\/\d+(?:$|\/(?:reorder|manual-items|lines)(?:\/|$))/.test(path)) {
+    if(estimatePath && Number(estimatePath[1])===state.projectId && estimateBase?.lines && !/\/highlights?$/.test(path) && !/\/lines\/\d+\/highlight$/.test(path) && /^\/api\/projects\/\d+(?:$|\/(?:reorder|manual-items|lines)(?:\/|$))/.test(path)) {
       config.body={...config.body,_known_lines:Object.fromEntries(estimateBase.lines.map(l=>[l.id,l.revision||0])),_known_pricing:['material_markup','labor_rate','labor_hours_markup','overhead_markup','crew_size','hours_per_day','excluded_categories'].map(k=>estimateBase.project[k]??0)};
       state.projectLoadRequest=(state.projectLoadRequest||0)+1;
     }
@@ -372,7 +372,7 @@ function renderProject() {
   if(project.id) refreshNoteBadge(project.id).catch(()=>{});
   if(available && !project.can_edit) {
     $$('#estimate-view input, #estimate-view textarea, #estimate-view select, #estimate-view button').forEach(field=>field.disabled=true);
-    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .catalog-highlight-toggle, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings, #estimate-setup-guide-open').forEach(field=>field.disabled=false);
+    $$('#estimate-view [data-revisions], #estimate-view [data-project-brief], #estimate-view [data-project-notes], #estimate-view [data-refresh-estimate], #estimate-view .toggle-details, #estimate-view .toggle-scope, #toggle-all-categories, #find-estimate-button, #estimate-find-input, #estimate-view [data-copy-project], #toggle-project-settings, #estimate-setup-guide-open').forEach(field=>field.disabled=false);
     $('#floating-search-button').disabled=true;
   }
 }

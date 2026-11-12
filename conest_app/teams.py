@@ -108,10 +108,10 @@ def team_default_homepage(conn,team_id,name):
 
 
 def effective_homepage(conn,user_id,role,team_ids,primary_id=None):
-    if role=='admin':return 'estimator'
-    if not team_ids:return 'tenders'
     row=conn.execute('SELECT value FROM settings WHERE key=?',(f'user_homepage:{user_id}',)).fetchone()
     if row and row['value'] in ('estimator','tenders'):return row['value']
+    if role=='admin':return 'estimator'
+    if not team_ids:return 'tenders'
     chosen=primary_id if primary_id in team_ids else team_ids[0]
     team=conn.execute('SELECT name FROM teams WHERE id=?',(chosen,)).fetchone()
     return team_default_homepage(conn,chosen,team['name']) if team else 'tenders'

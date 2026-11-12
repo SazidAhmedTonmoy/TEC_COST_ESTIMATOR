@@ -450,6 +450,16 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     projects = visible_projects(conn, self.user)
                 self._send_json({"success": True, "projects": projects})
                 return
+            match = re.fullmatch(r"/api/projects/(\d+)/highlights", path)
+            if match:
+                # Light-weight viewer-safe poll. It returns no estimate pricing
+                # and never reloads the active editor or replaces draft inputs.
+                with self._read_connection() as conn:
+                    marks=[{'id':row['id'],'level':row['highlight_level']}
+                           for row in conn.execute('SELECT id,highlight_level FROM project_lines WHERE project_id=?',
+                                                   (int(match[1]),))]
+                self._send_json({'success':True,'highlights':marks})
+                return
             match = re.fullmatch(r"/api/projects/(\d+)", path)
             if match:
                 with self._read_connection() as conn:
@@ -714,6 +724,21 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 with self._write_connection() as conn:
                     item=light_prices.update(conn,int(light_match[1]),payload,self.user)
                 self._send_json({'success':True,'item':item})
+                return
+            match = re.fullmatch(r"/api/projects/(\d+)/lines/(\d+)/highlight", path)
+            if match:
+                if set(payload) != {'level','expected_level'} or type(payload['level']) is not int or payload['level'] not in (0,1,2) or type(payload['expected_level']) is not int or payload['expected_level'] not in (0,1,2):
+                    raise ValueError('Choose a valid highlight level (clear, yellow or red)')
+                pid,lid=int(match[1]),int(match[2])
+                with self._write_connection() as conn:
+                    row=conn.execute('SELECT highlight_level FROM project_lines WHERE project_id=? AND id=?',(pid,lid)).fetchone()
+                    if row is None:raise LookupError('Estimate item not found')
+                    if row['highlight_level'] != payload['expected_level']:
+                        raise ApiError(409,'Another user changed this highlight. The latest marker will be shown.')
+                    conn.execute('UPDATE project_lines SET highlight_level=? WHERE project_id=? AND id=?',
+                                 (payload['level'],pid,lid))
+                    conn.commit()
+                self._send_json({'success':True,'id':lid,'level':payload['level']})
                 return
             match = re.fullmatch(r"/api/projects/(\d+)", path)
             if match:
