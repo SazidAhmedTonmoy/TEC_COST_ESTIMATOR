@@ -36,16 +36,24 @@ class V3721Features(OpportunityTests):
         self.assertEqual(year['monthly'][10]['added'],1)
         self.assertEqual(year['monthly'][10]['quoted'],1)
 
-    def test_analytics_requires_real_admin_and_checks_ranges(self):
-        self.assert_denied(lambda:summary(self.store,{'mode':'month','month':'2026-11'},self.member))
-        self.assert_denied(lambda:summary(self.store,{'mode':'month','month':'2026-11'},
-                                 {**self.member,'role':'admin'}))
+    def test_analytics_available_to_all_active_users_and_checks_ranges(self):
+        # Read-only analytics must be available to normal team members and
+        # unassigned users as well as administrators.
+        self.create(project='Visible to every active account')
+        for actor in (self.admin, self.creator, self.member, self.no_team):
+            with self.subTest(actor=actor['name']):
+                result = summary(self.store, {'mode': 'all'}, actor)
+                self.assertEqual(result['outcomes']['added'], 1)
+                self.assertEqual(result['creators'][0]['id'], self.creator['id'])
+        # Never accept the caller's claimed role or an unknown account ID.
+        self.assert_denied(lambda:summary(self.store, {'mode': 'all'},
+                            {'id': 9999999, 'role': 'admin'}))
         for arguments in ({'mode':'custom','from':'2026-11-10','to':'2026-11-09'},
                           {'mode':'month','month':'2026-13'},
                           {'mode':'year','year':'twenty'}):
             with self.subTest(arguments=arguments):
                 with self.assertRaises(tenders.ValidationError):
-                    summary(self.store,arguments,self.admin)
+                    summary(self.store,arguments,self.member)
 
     def test_imported_opportunities_count_once_and_explicit_approval(self):
         with patch.object(tenders,'timestamp',return_value='2026-11-05T10:00:00Z'):

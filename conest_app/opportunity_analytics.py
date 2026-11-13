@@ -1,4 +1,4 @@
-"""Read-only, admin-only opportunity outcome analytics.
+"""Read-only opportunity outcome analytics for authenticated users.
 
 All displayed outcomes use the SAME active opportunity cohort and current
 status rules. Filtering may use the original Added date (if supplied by an
@@ -103,9 +103,9 @@ def _zero_counts():
 def summary(store, params, user, *, now=None):
     op.initialize(store)
     _, users = op.directory()
-    actor = op._actor(user, users)
-    if actor['role'] != 'admin':
-        raise tenders.ValidationError('Opportunity analytics is available to administrators only.', 403)
+    # Analytics is read-only and available to every active, authenticated user.
+    # Resolve the account from the live directory rather than trusting a posted role.
+    op._actor(user, users)
     mode, start, end = _range(params, now)
     date_basis = params.get('dateBasis', 'added') or 'added'
     if date_basis not in ('added', 'uploaded'):
