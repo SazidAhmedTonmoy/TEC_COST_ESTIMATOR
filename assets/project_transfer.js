@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   projectJSONDraft=null;$('#project-json-import').disabled=true;$('#project-json-preview').textContent='';$('#project-json-status').textContent='';const file=e.target.files[0];if(!file)return;
   try{
    if(file.size>10*1024*1024)throw new Error('Choose a JSON file smaller than 10 MB.');
-   const data=JSON.parse(await file.text());if(data?.format!=='tec-conest-project'||data.version!==1||!data.project?.name||!Array.isArray(data.lines))throw new Error('Choose a TEC ConEst project JSON file. Download the example for its format.');
+   const data=JSON.parse(await file.text());if(data?.format!=='tec-conest-project'||data.version!==1||!data.project?.name||!Array.isArray(data.lines))throw new Error('Choose a TEC EstiDoc project JSON file. Download the example for its format.');
    if(e.target.files[0]!==file)return;
    projectJSONDraft=data;$('#project-json-preview').textContent=`${data.project.name} · ${data.lines.length} estimate items. A new project will be created.`;$('#project-json-import').disabled=false;
   }catch(error){$('#project-json-status').textContent=error.message;}

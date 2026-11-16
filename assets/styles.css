@@ -527,7 +527,7 @@ dialog::backdrop { background: rgba(10, 27, 42, .6); backdrop-filter: blur(2px);
   .suggestion-meta { grid-column: 2; justify-items: start; }
 }
 
-/* TEC ConEst: clear hierarchy, readable specifications and full category text. */
+/* TEC EstiDoc: clear hierarchy, readable specifications and full category text. */
 body { line-height: 1.5; }
 main { padding-bottom: 84px; }
 .brand { margin-bottom: 32px; }
@@ -787,7 +787,7 @@ a.button { display:inline-flex; align-items:center; justify-content:center; text
 @media(max-width:700px){.scope-heading-row{gap:7px;flex-wrap:wrap}.scope-heading-row .scope-quoted{min-width:130px}.floating-estimate-total{font-size:13px;min-width:210px;right:12px}.profile-security{padding:12px}}
 
 /* workspace.css */
-/* TEC ConEst team workspace — navy navigation, clear teal actions. */
+/* TEC EstiDoc team workspace — navy navigation, clear teal actions. */
 body { font-size: 16px; }
 label, .helper-text, .button.small, .text-button, .nav-button { font-size: 14px; }
 .eyebrow { font-size: 12px; }
@@ -2631,3 +2631,13 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-red>td{b
 .revision-settings summary{cursor:pointer;font-weight:600}
 @media(max-width:900px){.revision-workspace{grid-template-columns:minmax(0,1fr)}#revision-list,#revision-comparison{max-height:none}#revision-dialog{padding:16px}.revision-entry-actions .button{flex:1 1 auto}}
 @media(max-width:450px){.revision-metric-grid{grid-template-columns:1fr}.revision-change-quick{white-space:normal}}
+
+/* v3.7.25: a compact, shared Breakdown search in the availability header. */
+.breakdown-v3712 .breakdown-search-controls{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex:1 1 260px}
+.breakdown-v3712 .breakdown-search-controls .breakdown-search-button{white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.breakdown-v3712 .breakdown-search-button span[aria-hidden]{font-size:20px;line-height:1}
+.breakdown-v3712 .breakdown-search-label{flex:1 1 235px;max-width:360px;min-width:120px;margin:0}
+.breakdown-v3712 .breakdown-search-label input{width:100%;height:36px;min-width:0;margin:0;border-radius:8px;padding:7px 11px;font-size:13px}
+@media(max-width:600px){.breakdown-v3712 .breakdown-search-controls{flex:1 1 100%;justify-content:stretch}.breakdown-v3712 .breakdown-search-label{flex:1 1 auto;max-width:none}}
+
+.breakdown-v3712 [data-breakdown-retry][hidden]{display:none!important}

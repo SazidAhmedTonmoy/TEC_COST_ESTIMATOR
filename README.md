@@ -1,4 +1,16 @@
-# TEC ConEst v3.7.24 — Project search, Breakdown remarks and revision clarity
+# TEC EstiDoc v3.7.25 — Breakdown Search, Persistent Activation & Rebranding
+
+**Base:** v3.7.24 · **Estimator database schema:** 36 (unchanged) · **Migration:** none.
+
+- Added a Search button in the Breakdown activation row. The search field expands in place, searches Allocation and Structured View across items, category, reference, remarks, and area names, and retains its query when switching tabs. Search never changes allocations or estimate totals.
+- Reopening Breakdown now checks the saved Active/Inactive status directly with the server, so an out-of-date browser snapshot cannot reset the displayed state. The setting is already persisted per project in `project_breakdown_preferences` and remains active until explicitly switched off. Existing project allocations are untouched.
+- Renamed user-facing branding throughout both workspaces, login, public share views, exports, PDFs/Excel headings, help text, documentation, and frontend bundles to **TEC EstiDoc**.
+- Kept legacy SQLite filenames (`conest_catalog.db`), database environment variable (`CONEST_DB_PATH`), API header (`X-ConEst-Request`), deployment paths, and `tec-conest-project` JSON format for compatibility with current installations and previous exports. No data is renamed or migrated.
+- Rebuild Estimator assets with `python tools/build_frontend.py`. GitHub Actions rebuilds the Tender React frontend with `cd tenders_frontend && npm ci && npm run build` before deployment.
+
+---
+
+# TEC EstiDoc v3.7.24 — Project search, Breakdown remarks and revision clarity
 
 **Base:** v3.7.23 Profile & Analytics Fix · **Application version:** 3.7.24 · **Estimator database schema:** 36 (unchanged) · **Migration:** none.
 
@@ -17,7 +29,7 @@
 
 ---
 
-# TEC ConEst v3.7.23 — Tender Profile and Analytics hotfix (same version)
+# TEC EstiDoc v3.7.23 — Tender Profile and Analytics hotfix (same version)
 
 **Apply over:** v3.7.23 · **Application version:** 3.7.23 (unchanged) · **Estimator schema:** 36 (unchanged) · **Additional migration:** none.
 
@@ -27,7 +39,7 @@
 
 ---
 
-# TEC ConEst v3.7.23 — Shared estimate highlights & personal homepage
+# TEC EstiDoc v3.7.23 — Shared estimate highlights & personal homepage
 
 **Base:** v3.7.22 CI-fixed release · **Release:** 3.7.23 · **Estimator database schema:** 36 · **Migration:** automatic, with a protected pre-upgrade backup.
 
@@ -45,7 +57,7 @@ The Estimator assets are rebuilt and included. The Tender app has no functional 
 
 ---
 
-# TEC ConEst v3.7.22 — Breakdown usability and team homepage settings
+# TEC EstiDoc v3.7.22 — Breakdown usability and team homepage settings
 
 **Base:** v3.7.21 Date Reconciliation · **Release:** 3.7.22 · **Database schema:** 35 · **Migration:** automatic with protected pre-upgrade backup.
 
@@ -65,14 +77,14 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.21 — Estimator markers, Catalog history, Connection resilience, Opportunity analytics
+# TEC EstiDoc v3.7.21 — Estimator markers, Catalog history, Connection resilience, Opportunity analytics
 
 **Base:** v3.7.20 polish · **Release:** 3.7.21 · **Database schema:** 34 (unchanged) · **Migration:** None
 
 ## v3.7.21 — Opportunity Analytics date reconciliation (same release number)
 
 - **Consistent scopes:** The top opportunity status cards are *all-time register counts* and are hidden while viewing the date-filtered Analytics tab. **All time** in Analytics returns the same active register cohort and current status/quotation breakdown, including pending, in review, approved, rejected and expired. Approved not quoted is a subset of Approved.
-- **Date selection:** Analytics still defaults to the current Sydney calendar month. The **Date based on** selector defaults to **Original added date**, taken from the opportunity form or source Excel workbook when provided; otherwise it uses the original TEC ConEst creation/import timestamp. Choose **Upload / creation date** to group all imported and manually created opportunities by the date they entered TEC ConEst (independent of workbook Added dates).
+- **Date selection:** Analytics still defaults to the current Sydney calendar month. The **Date based on** selector defaults to **Original added date**, taken from the opportunity form or source Excel workbook when provided; otherwise it uses the original TEC EstiDoc creation/import timestamp. Choose **Upload / creation date** to group all imported and manually created opportunities by the date they entered TEC EstiDoc (independent of workbook Added dates).
 - **No deadline misclassification:** The closing deadline is never used as the creation or upload date. Edited/updated timestamps do not move older opportunities to a new month. Legacy records without `createdAt` use their earliest Create/Import audit record when available; truly undated records remain included in **All time**, with an on-screen notice, but are not assigned an invented month.
 - **Current outcomes:** Each active opportunity is counted *once* in Added and in exactly one outcome; Approved = Quoted + Not quoted. The contributor table attributes the current result to the person who originally added it. The monthly totals always use the same selected date source and period as the charts. Results are current statuses, not a historic snapshot as of the selected date.
 - **Safety:** No database schema changes (still schema 34), no re-import, no date overwrites, no background repairs, and no effect on existing tender/edit permissions. Tender production assets must be built in GitHub Actions to deploy the updated React view.
@@ -94,7 +106,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.20 — UI polish (same version)
+# TEC EstiDoc v3.7.20 — UI polish (same version)
 
 **Apply over:** v3.7.20 · **Application/version remains:** 3.7.20 · **Schema remains:** 34 · **Database migration:** none
 
@@ -107,7 +119,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.20 — Team Activity, Month Filters & Approved Opportunity → Estimate
+# TEC EstiDoc v3.7.20 — Team Activity, Month Filters & Approved Opportunity → Estimate
 
 **Base:** v3.7.19 · **Application:** v3.7.20 · **Database schema:** 34 (unchanged) · **Migration:** none
 
@@ -154,7 +166,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ## Previous release — v3.7.19 (historical notes)
 
-# TEC ConEst v3.7.19 — Save Reliability, Mobile Usability & Team Workload
+# TEC EstiDoc v3.7.19 — Save Reliability, Mobile Usability & Team Workload
 
 **Base:** v3.7.18 · **Application version:** 3.7.19 · **Database schema:** 34 (unchanged) · **Migration:** none
 
@@ -205,7 +217,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ## Previous release — v3.7.18
 
-# TEC ConEst v3.7.18 - Estimator Usability & Breakdown Refinements
+# TEC EstiDoc v3.7.18 - Estimator Usability & Breakdown Refinements
 
 **Base release:** v3.7.17  |  **Application version:** 3.7.18  |  **Database schema:** 34 (unchanged)  |  **Migration:** none
 
@@ -239,7 +251,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.17 — Project Journey & Opportunity Form Cleanup
+# TEC EstiDoc v3.7.17 — Project Journey & Opportunity Form Cleanup
 
 **Baseline:** v3.7.16o · **Executable version:** 3.7.17 · **Database schema:** 34 (unchanged) · **Migration:** none
 
@@ -266,7 +278,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.16o — Tender Deadline Display and Calendar Today Highlight
+# TEC EstiDoc v3.7.16o — Tender Deadline Display and Calendar Today Highlight
 
 **UI-only patch:** apply over v3.7.16 · **Executable release:** 3.7.16 · **Schema:** 34 · **Database migration:** none
 
@@ -277,7 +289,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.16 — Opportunity Form & Review Workflow
+# TEC EstiDoc v3.7.16 — Opportunity Form & Review Workflow
 
 **Application release:** 3.7.16 · **Database schema:** 34 (unchanged) · **Base:** v3.7.15o CI fix · **Migration:** none
 
@@ -304,7 +316,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.15 — Tender navigation, Agenda, Chase-up usability
+# TEC EstiDoc v3.7.15 — Tender navigation, Agenda, Chase-up usability
 
 **Application release:** 3.7.15 · **Database schema:** 34 (unchanged) · **Base release:** 3.7.14 · **Data migration:** none
 
@@ -338,7 +350,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 ---
 
-# TEC ConEst v3.7.14 — Opportunity Calendar & Sorting
+# TEC EstiDoc v3.7.14 — Opportunity Calendar & Sorting
 
 ## v3.7.14 — Team-coloured Approved calendar and Recently added sorting
 
@@ -365,7 +377,7 @@ Use the update ZIP on the current v3.7.21 Date Reconciliation release. Preserve 
 
 > **Release:** 3.7.13 · **Database schema:** 34 (unchanged) · **Upgrade:** non-destructive · **Scope:** Tender calendar, opportunity workflow, Chase-up accessibility, and structured Breakdown totals.
 
-TEC ConEst provides electrical estimating, catalogue-based line items, tenders, opportunities, team approvals, Chase-up, supplier prices and workflow reporting in one application. The application also includes a Breakdown redesigned around the way estimators work: **Area / Floor / Space → Category → Estimate Item**.
+TEC EstiDoc provides electrical estimating, catalogue-based line items, tenders, opportunities, team approvals, Chase-up, supplier prices and workflow reporting in one application. The application also includes a Breakdown redesigned around the way estimators work: **Area / Floor / Space → Category → Estimate Item**.
 
 ## Breakdown — what's new
 
@@ -422,7 +434,7 @@ Revocable public estimate links now show collapsible **Area → Category → Ite
 
 ---
 
-# TEC ConEst v3.7.9 — Clear workspace navigation & reliable CI
+# TEC EstiDoc v3.7.9 — Clear workspace navigation & reliable CI
 
 **What changed:** Estimator and Tenders each show clearly named **Estimator | Tenders** tabs directly beneath the logo (desktop, mobile header and navigation drawer). The current workspace is highlighted in teal or yellow, with keyboard-focus and screen-reader labels. The previous circular-arrow workspace switch is removed. The existing same-site transition and login session are retained.
 
@@ -437,7 +449,7 @@ Revocable public estimate links now show collapsible **Area → Category → Ite
 
 ---
 
-# TEC ConEst v3.7.8 — Interface spacing and Opportunities pagination
+# TEC EstiDoc v3.7.8 — Interface spacing and Opportunities pagination
 
 ## Release highlights
 
@@ -484,9 +496,9 @@ The historical v3.7.7 release updated the **Tender / Opportunities** workspace o
 
 ---
 
-# TEC ConEst v3.7.6 — Team editing and document availability
+# TEC EstiDoc v3.7.6 — Team editing and document availability
 
-TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. Version **3.7.6** builds on the full **v3.7.5** application with two focused workflow improvements, without changing estimation calculations or tender project links.
+TEC EstiDoc combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. Version **3.7.6** builds on the full **v3.7.5** application with two focused workflow improvements, without changing estimation calculations or tender project links.
 
 ## What's new
 
@@ -529,9 +541,9 @@ A developer-facing API route was added: authenticated `POST /api/tenders/opportu
 
 ---
 
-# TEC ConEst v3.7.5 — Opportunity quote outcomes and deadline sorting
+# TEC EstiDoc v3.7.5 — Opportunity quote outcomes and deadline sorting
 
-TEC ConEst combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. This is a focused update to the Opportunities workflow based on v3.7.4 R2; existing project links, quotes, users, estimates, and UI themes are preserved.
+TEC EstiDoc combines the **Electrical Estimator** and **Tender / Opportunities** workspaces. This is a focused update to the Opportunities workflow based on v3.7.4 R2; existing project links, quotes, users, estimates, and UI themes are preserved.
 
 ## What's new in v3.7.5
 
@@ -568,7 +580,7 @@ Both date sorts execute on the **server** before pagination, so all pages use th
 
 ## Previous release notes
 
-# TEC ConEst v3.7.4 R2 — Change existing project links
+# TEC EstiDoc v3.7.4 R2 — Change existing project links
 
 Approved opportunities now show **Change linked project** when connected. Select a different project, or select a project currently connected to another opportunity. Review the old connections, then click **Move link**. The transfer removes the previous connection and attaches all current builder submissions to the selected opportunity in one transaction. Existing tender prices, deadlines and chase-up records remain. Link summaries are cleared on the former opportunity, which stays Approved. Changes are recorded in opportunity activity, contribution history and notifications. Original quote attribution remains in tender records and historical audit entries.
 
@@ -578,7 +590,7 @@ Validation: five focused backend tests, TypeScript, production build and desktop
 
 ---
 
-# TEC ConEst v3.7.4
+# TEC EstiDoc v3.7.4
 
 ## Opportunities: consistent categories, duplicate review and existing-project links
 
@@ -596,13 +608,13 @@ Extract the changed-files ZIP into the current application root, or use the full
 
 ---
 
-# TEC ConEst v3.7.3
+# TEC EstiDoc v3.7.3
 
 Release correction: the previous delivery labelled V3.5.2 was v3.7.2.
 
 v3.7.3 fixes the Project Chase-up table layout: all nine columns now have explicit widths, compact row spacing, wrapped note previews, right-aligned values and readable date/action columns. Narrow screens retain horizontal table scrolling. All v3.7.2 features remain included.
 
-# TEC ConEst v3.7.1
+# TEC EstiDoc v3.7.1
 
 Breakdown is now beside Revisions in the selected estimate only. It lists every estimate item in a quantity matrix with named breakdown columns, main-estimate quantity, a Shared tick and remaining quantity. Add breakdowns and name them. Shared divides the item quantity equally; manual edits switch it to an uneven split. Each row must reconcile to the main quantity before saving. Zero-quantity items remain unallocated. Changes save item by item; a conflict stops further saves and reports how many items saved. Reopen the dialog to review before retrying.
 
@@ -612,7 +624,7 @@ Deploy as a code overlay; keep existing databases. This release retains schema 3
 
 ---
 
-# TEC ConEst v3.7 — Area-based estimates
+# TEC EstiDoc v3.7 — Area-based estimates
 
 Built from the supplied `TEC_ConEst_v3.6_CI_FIX_FULL.zip`. Application release 3.7; main database schema 33.
 
@@ -667,7 +679,7 @@ Validation: allocation validation and reconciliation, proportional fixed costs, 
 
 <div align="center">
 
-# ⚡ TEC ConEst
+# ⚡ TEC EstiDoc
 
 **Electrical estimating · Tender intelligence · Team collaboration**
 
@@ -770,7 +782,7 @@ Start with the appropriate supported option for your hosting environment. The fu
 
 ### Navigation
 
-The landing page is the **shared TEC ConEst login**. After signing in, switch between **Estimator** and **Tenders** using the app's workspace control; account/profile permissions carry across. Estimator is at `/`, Tenders is at `/tenders/`.
+The landing page is the **shared TEC EstiDoc login**. After signing in, switch between **Estimator** and **Tenders** using the app's workspace control; account/profile permissions carry across. Estimator is at `/`, Tenders is at `/tenders/`.
 
 ## Daily workflows
 
@@ -1053,7 +1065,7 @@ Production health only confirms application readiness; it is not a guarantee tha
 
 ---
 
-<sub>TEC ConEst is a private operational application. This repository's code and documentation do not include production passwords or databases. Keep releases and user access within authorised company systems.</sub>
+<sub>TEC EstiDoc is a private operational application. This repository's code and documentation do not include production passwords or databases. Keep releases and user access within authorised company systems.</sub>
 
 
 ### v3.7.7 — Opportunity cards and deployment validation

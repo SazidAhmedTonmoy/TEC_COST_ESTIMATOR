@@ -22,7 +22,7 @@ class QuietHandler(ConEstHandler):
 class MobileReleaseTests(unittest.TestCase):
     def test_login_three_local_slides_and_shared_wording(self):
         html=(ROOT/'assets/index.html').read_text()
-        self.assertIn('TEC ConEst · Tenders &amp; Estimating',html)
+        self.assertIn('TEC EstiDoc · Tenders &amp; Estimating',html)
         self.assertEqual(len(re.findall(r'<div class="login-slide(?: |")',html)),3)
         self.assertNotIn('<span>ESTIMATOR</span>',html)
         self.assertIn('tenders and estimating workspace',html)

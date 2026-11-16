@@ -5,7 +5,7 @@
  const money=(n,c='AUD')=>`${c} ${Number(n||0).toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2})}`;
  const qnum=v=>Number.isFinite(Number(v))?Math.max(0,Number(v)):0;
  const safe=v=>escapeHtml(String(v??''));
- document.addEventListener('click',ev=>{
+ document.addEventListener('click',async ev=>{
   if(!ev.target.closest('[data-breakdown]'))return;
   let project=state.projectData;
   if(!project||!project.lines)return;
@@ -13,7 +13,19 @@
    if(typeof toast==='function')toast('Finish saving the project details before editing the breakdown.',true);
    return;
   }
-  const pid=state.projectId,lines=project.lines,currency=project.project.currency||'AUD';
+  const pid=state.projectId;
+  // Do not trust the last browser snapshot: another account may have activated it.
+  // The server state persists until an authorised person explicitly selects Inactive.
+  try{
+   const status=await api(`/api/projects/${pid}/breakdown/status`);
+   if(state.projectId!==pid)return;
+   project.project.breakdown_enabled=Boolean(status.enabled);
+  }catch(error){
+   if(typeof toast==='function')toast(`Unable to load Breakdown status: ${error.message}`,true);
+   return;
+  }
+  if(document.querySelector('.area-dialog.breakdown-matrix'))return;
+  const lines=project.lines,currency=project.project.currency||'AUD';
   let active=Boolean(project.project.breakdown_enabled);
   let names=[...(project.area_names||[])];
   for(const line of lines)for(const a of JSON.parse(line.area_allocations||'[]')){
@@ -31,7 +43,7 @@
     original:allocations,edited:false};
   });
   const d=document.createElement('dialog');d.className='area-dialog breakdown-matrix breakdown-v3712';d.setAttribute('aria-label','Project breakdown');document.body.append(d);
-  let tab='allocate',query='',treeState='collapsed',busy=false,unallocatedOnly=false,saveTimer=null,saveError='';
+  let tab='allocate',query='',searchVisible=false,treeState='collapsed',busy=false,unallocatedOnly=false,saveTimer=null,saveError='';
   const preferenceKey=`conest.breakdown.expanded.${state.user?.id||'guest'}.${pid}`;
   let openNodes=new Set();
   try{const saved=JSON.parse(localStorage.getItem(preferenceKey)||'[]');if(Array.isArray(saved))openNodes=new Set(saved.filter(x=>typeof x==='string').slice(0,1500));}catch(_){}
@@ -128,11 +140,15 @@
     body+='</details>';
    }
    if(!body)body='<p class="helper-text">No matching areas, categories or items.</p>';
-   return `<div class="breakdown-tree-toolbar"><label>Search breakdown<input type="search" data-tree-search placeholder="Find area, item, reference or remarks" value="${safe(query)}"></label><button type="button" class="button secondary small" data-expand-all>Expand all</button><button type="button" class="button secondary small" data-collapse-all>Collapse all</button></div><div class="breakdown-tree">${body}</div><div class="breakdown-tree-totals"><b>Included quoted total: ${money(total,currency)} (all areas)</b><span>Optional costs excluded: ${money(optional,currency)}</span></div><p class="helper-text">Common items appear only once in totals. Filtering never changes costs; unallocated items remain separate.</p>`;
+   return `<div class="breakdown-tree-toolbar"><button type="button" class="button secondary small" data-expand-all>Expand all</button><button type="button" class="button secondary small" data-collapse-all>Collapse all</button></div><div class="breakdown-tree">${body}</div><div class="breakdown-tree-totals"><b>Included quoted total: ${money(total,currency)} (all areas)</b><span>Optional costs excluded: ${money(optional,currency)}</span></div><p class="helper-text">Common items appear only once in totals. Filtering never changes costs; unallocated items remain separate.</p>`;
   };
   const areaControls=()=>names.map((name,i)=>`<div class="breakdown-name-row"><label>Area / floor / space ${i+1}<input data-name="${i}" maxlength="120" value="${safe(name)}" aria-label="Area ${i+1} name" required></label><div class="breakdown-area-actions"><button type="button" class="button secondary small" data-up="${i}" ${i===0?'disabled':''} title="Move area up" aria-label="Move ${safe(name)} up">↑</button><button type="button" class="button secondary small" data-down="${i}" ${i===names.length-1?'disabled':''} title="Move area down" aria-label="Move ${safe(name)} down">↓</button><button type="button" class="button secondary small" data-remove="${i}" title="Remove empty area" aria-label="Remove ${safe(name)}">×</button></div></div>`).join('');
   const editor=()=>{
-   const groups=new Map();entries.forEach((e,i)=>{if(unallocatedOnly&&!unallocatedEntry(e))return;let cat=e.line.category_key||e.line.category_snapshot||'Other';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push([e,i])});
+   const filter=query.trim().toLocaleLowerCase();
+   const matches=e=>!filter||[e.line.name_snapshot,e.line.reference_name,e.line.notes,e.line.category_key,e.line.category_snapshot,
+    ...names.filter(name=>e.mode==='single'?e.target===name:e.mode==='multiple'&&qnum(e.values[name])>0)]
+    .some(value=>String(value||'').toLocaleLowerCase().includes(filter));
+   const groups=new Map();entries.forEach((e,i)=>{if(unallocatedOnly&&!unallocatedEntry(e)||!matches(e))return;let cat=e.line.category_key||e.line.category_snapshot||'Other';if(!groups.has(cat))groups.set(cat,[]);groups.get(cat).push([e,i])});
    let trs='';
    for(const [cat,rows] of groups){
     trs+=`<tr class="breakdown-category-row"><th colspan="${5+names.length}">${safe(cat)} · ${rows.length} items</th></tr>`;
@@ -141,7 +157,7 @@
      trs+=`<tr><th scope="row"><strong>${safe(e.line.name_snapshot)}</strong>${e.line.reference_name?`<span class="breakdown-item-ref" title="${safe(e.line.reference_name)}">Ref: ${safe(e.line.reference_name)}</span>`:''}${e.line.notes?`<span class="breakdown-item-remarks" title="${safe(e.line.notes)}">Remarks: ${safe(e.line.notes)}</span>`:''}<small>${safe(e.line.uom)} · ${safe(e.line.category_key)}</small></th><td><input data-total="${i}" type="number" min="0" max="1000000000" step="any" value="${e.quantity}" aria-label="Main quantity for ${safe(e.line.name_snapshot)}"></td><td><select data-mode="${i}" aria-label="Allocation mode for ${safe(e.line.name_snapshot)}">${[['unallocated','Unallocated'],['single','Single area'],['multiple','Multiple areas'],['common','Common to all areas']].map(([value,label])=>`<option value="${value}" ${e.mode===value?'selected':''}>${label}</option>`).join('')}</select>${e.mode==='single'?`<select data-target="${i}" aria-label="Select area for ${safe(e.line.name_snapshot)}">${names.map(n=>`<option value="${safe(n)}" ${n===e.target?'selected':''}>${safe(n)}</option>`).join('')}</select>`:''}${e.mode==='multiple'?`<button type="button" class="text-button" data-equal="${i}">Distribute equally</button>`:''}</td>${names.map((n,j)=>`<td><input type="number" min="0" step="any" data-item="${i}" data-area="${j}" value="${e.mode==='single'?(e.target===n?e.quantity:0):e.mode==='multiple'?qnum(e.values[n]):0}" ${e.mode==='multiple'?'':'disabled'} aria-label="${safe(e.line.name_snapshot+' / '+n)}"></td>`).join('')}<td><span data-remaining="${i}" class="${Math.abs(remain)>1e-6?'area-unreconciled':'area-reconciled'}">${e.mode==='unallocated'||e.mode==='multiple'&&!allocFor(e).length?'Unallocated':fmt(remain)}</span></td></tr>`;
     }
    }
-   if(!trs)trs='<tr><td colspan="5">No unallocated items. All quantities are assigned.</td></tr>';
+   if(!trs)trs=`<tr><td colspan="${5+names.length}">${filter?'No matching estimate items.':unallocatedOnly?'No unallocated items. All quantities are assigned.':'No estimate items.'}</td></tr>`;
    return `<p class="helper-text">Assign each quantity to one area, several areas, or a single common allowance for all areas. Unallocated items are shown separately, without changing the project total.</p><div class="breakdown-names">${areaControls()}<button type="button" class="button secondary" data-add-breakdown>+ Add area / floor / space</button></div><div class="breakdown-scroll" role="region" aria-label="Allocation matrix" tabindex="0"><table><thead><tr><th>Estimate item</th><th>Main quantity</th><th>Allocation type</th>${names.map(n=>`<th>${safe(n)}</th>`).join('')}<th>Remaining</th></tr></thead><tbody>${trs}</tbody></table></div><p class="helper-text">All manually assigned quantities must reconcile to the main quantity before saving. Use Unallocated for items not yet assigned.</p>`;
   };
   const saveMessage=()=>saveError?'Save failed':busy?'Saving…':dirtyBreakdown()?'Unsaved changes':'Saved';
@@ -150,13 +166,17 @@
    const scroll=d.querySelector('.dialog-card');const matrix=d.querySelector('.breakdown-scroll');const pane=d.querySelector('.breakdown-pane');
    const position={dialog:d.scrollTop,card:scroll?.scrollTop||0,pane:pane?.scrollTop||0,matrix:matrix?.scrollTop||0,left:matrix?.scrollLeft||0};
    const focus=document.activeElement;
-   const focusData=focus&&d.contains(focus)?Object.entries(focus.dataset||{}).filter(([key])=>['item','area','total','mode','target','name','treeSearch'].includes(key)):[];
+   const focusData=focus&&d.contains(focus)?Object.entries(focus.dataset||{}).filter(([key])=>['item','area','total','mode','target','name','breakdownSearchInput'].includes(key)):[];
    const caret=focus&&typeof focus.selectionStart==='number'?focus.selectionStart:null;
-   const toggle=`<div class="breakdown-activation" role="group" aria-label="Breakdown availability"><strong>Breakdown</strong><button type="button" data-breakdown-active="true" class="button ${active?'primary':'secondary'} small" aria-pressed="${active}">Active</button><button type="button" data-breakdown-active="false" class="button ${!active?'primary':'secondary'} small" aria-pressed="${!active}">Inactive</button></div>`;
+   const toggle=`<div class="breakdown-activation" role="group" aria-label="Breakdown availability"><strong>Breakdown</strong><button type="button" data-breakdown-active="true" class="button ${active?'primary':'secondary'} small" aria-pressed="${active}">Active</button><button type="button" data-breakdown-active="false" class="button ${!active?'primary':'secondary'} small" aria-pressed="${!active}">Inactive</button>${active?`<div class="breakdown-search-controls"><button type="button" class="button secondary small breakdown-search-button" data-breakdown-search-toggle aria-expanded="${searchVisible}" aria-controls="breakdown-search-box"><span aria-hidden="true">⌕</span> Search</button>${searchVisible?`<label class="breakdown-search-label" for="breakdown-search-box"><span class="sr-only">Search estimate items, categories, references, remarks or areas</span><input type="search" id="breakdown-search-box" data-breakdown-search-input placeholder="Item, ref, remarks or area…" value="${safe(query)}" autocomplete="off"></label><button type="button" class="button secondary small" data-breakdown-search-clear title="Clear and close search" aria-label="Clear breakdown search">×</button>`:''}</div>`:''}</div>`;
    d.innerHTML=`<form class="dialog-card" novalidate><div class="breakdown-heading"><div><h2>Breakdown — ${safe(project.project.name)}</h2></div><button type="button" class="button secondary" data-cancel aria-label="Close breakdown">×</button></div>${toggle}${active?`<div class="breakdown-tabs" role="tablist" aria-label="Breakdown view"><button type="button" role="tab" aria-selected="${tab==='allocate'}" class="${tab==='allocate'?'active':''}" data-tab="allocate">Allocation</button><button type="button" role="tab" aria-selected="${tab==='tree'}" class="${tab==='tree'?'active':''}" data-tab="tree">Structured View</button></div><div class="breakdown-utility-row"><label class="breakdown-unallocated-filter"><input type="checkbox" data-only-unallocated ${unallocatedOnly?'checked':''}> Show unallocated only <span class="breakdown-unallocated-count">${unallocatedCount()}</span></label><span class="breakdown-utility-actions"><button type="button" class="button secondary small" data-undo ${undoStack.length?'':'disabled'}>Undo</button><button type="button" class="button secondary small" data-redo ${redoStack.length?'':'disabled'}>Redo</button></span></div><section class="breakdown-pane" role="tabpanel">${tab==='allocate'?editor():renderTree()}</section><p role="alert" class="area-error"></p><div class="area-actions"><span class="breakdown-save-note">${entries.length} items · ${names.length} areas</span><span data-breakdown-save-state class="breakdown-save-state" role="status" aria-live="polite">${saveMessage()}</span><button type="button" class="button secondary small" data-breakdown-retry ${saveError?'':'hidden'}>Retry save</button><button type="button" class="button secondary" data-cancel>Close</button></div>`:`<div class="breakdown-disabled"><h3>Breakdown is inactive</h3><p>Activate it to assign estimate quantities to areas, floors or spaces. Inactive breakdown information is excluded from Excel exports and public share links. Existing allocations are retained if you reactivate it later.</p></div><div class="area-actions"><button type="button" class="button secondary" data-cancel>Close</button></div>`}</form>`;
    d.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=requestClose);
    d.querySelectorAll('[data-breakdown-active]').forEach(b=>b.onclick=()=>toggleBreakdown(b.dataset.breakdownActive==='true'));
    if(active){
+    d.querySelector('[data-breakdown-search-toggle]').onclick=()=>{searchVisible=!searchVisible;if(!searchVisible)query='';render();if(searchVisible)d.querySelector('[data-breakdown-search-input]')?.focus({preventScroll:true});};
+    const searchInput=d.querySelector('[data-breakdown-search-input]');
+    if(searchInput)searchInput.oninput=()=>{query=searchInput.value;render();};
+    d.querySelector('[data-breakdown-search-clear]')?.addEventListener('click',()=>{query='';searchVisible=false;render();});
     d.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;render()});
     d.querySelector('[data-only-unallocated]').onchange=e=>{unallocatedOnly=e.target.checked;render()};
     d.querySelector('[data-undo]').onclick=()=>historyAction('undo');
@@ -168,7 +188,10 @@
    d.scrollTop=position.dialog;d.querySelector('.dialog-card').scrollTop=position.card;
    const nextPane=d.querySelector('.breakdown-pane');if(nextPane)nextPane.scrollTop=position.pane;
    const nextMatrix=d.querySelector('.breakdown-scroll');if(nextMatrix){nextMatrix.scrollTop=position.matrix;nextMatrix.scrollLeft=position.left;}
-   if(focusData.length){const next=[...d.querySelectorAll('input,select,textarea,button')].find(el=>focusData.every(([k,v])=>el.dataset[k]===v));if(next){next.focus({preventScroll:true});if(caret!==null&&typeof next.setSelectionRange==='function'&&next.type!=='number'){try{next.setSelectionRange(caret,caret)}catch(_){}}}}
+   if(focusData.length||focus?.hasAttribute('data-breakdown-search-input')){
+    const next=focus?.hasAttribute('data-breakdown-search-input')?d.querySelector('[data-breakdown-search-input]'):[...d.querySelectorAll('input,select,textarea,button')].find(el=>focusData.every(([k,v])=>el.dataset[k]===v));
+    if(next){next.focus({preventScroll:true});if(caret!==null&&typeof next.setSelectionRange==='function'&&next.type!=='number'){try{next.setSelectionRange(caret,caret)}catch(_){}}}
+   }
    if(active&&!busy&&dirtyBreakdown()&&!saveError)scheduleAutoSave();
   }
   async function toggleBreakdown(enabled){
@@ -209,7 +232,6 @@
    d.querySelectorAll('[data-equal]').forEach(b=>b.onclick=()=>{const e=entries[Number(b.dataset.equal)];pushHistory();let remaining=e.quantity;names.forEach((n,i)=>{const q=i===names.length-1?remaining:e.quantity/names.length;e.values[n]=q;remaining-=q});e.edited=true;render()});
   }
   function bindTree(){
-   const search=d.querySelector('[data-tree-search]');search.oninput=()=>{query=search.value;const caret=search.selectionStart;render();const next=d.querySelector('[data-tree-search]');next.focus();next.setSelectionRange(caret,caret)};
    d.querySelectorAll('[data-tree-node]').forEach(node=>node.addEventListener('toggle',()=>{
     if(query||node.dataset.treeNode===undefined)return;
     if(node.open)openNodes.add(node.dataset.treeNode);else openNodes.delete(node.dataset.treeNode);

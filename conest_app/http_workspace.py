@@ -83,7 +83,14 @@ class WorkspaceHTTP:
     def _project_payload(self, conn, payload):
         result = dict(payload)
         if 'project' in result:
-            result['project'] = workspace.decorate_project(conn, workspace.get_project(conn, result['project']['id']), self.user)
+            # Decoration must not discard computed fields from calculate_project.
+            # Breakdown activation is a per-project persisted preference, not a
+            # projects-table column; losing it made the UI appear inactive.
+            calculated=result['project']
+            decorated=workspace.decorate_project(conn, workspace.get_project(conn, calculated['id']), self.user)
+            if 'breakdown_enabled' in calculated:
+                decorated['breakdown_enabled']=bool(calculated['breakdown_enabled'])
+            result['project']=decorated
         if 'projects' in result:
             result['projects'] = workspace.visible_projects(conn, self.user)
         return result
@@ -246,6 +253,8 @@ class WorkspaceHTTP:
             pid=int(match[1])
             with self._read_connection() as conn:
                 project=workspace.decorate_project(conn,workspace.require_project(conn,pid,self.user,'view'),self.user)
+                from .estimate_areas import breakdown_enabled
+                project['breakdown_enabled']=breakdown_enabled(conn,pid)
                 access=workspace.project_access_options(conn,pid,self.user) if project['can_manage'] else {'teams':[],'users':[]}
                 activity=workspace.project_activity(conn,pid,self.user)
                 total=conn.execute('SELECT COUNT(*) FROM project_activity WHERE project_id=?',(pid,)).fetchone()[0]

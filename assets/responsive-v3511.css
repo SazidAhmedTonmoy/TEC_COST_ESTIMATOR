@@ -1,4 +1,4 @@
-/* TEC ConEst 3.5.11: shared login and mobile usability layer.
+/* TEC EstiDoc 3.5.11: shared login and mobile usability layer.
    The legacy theme stays intact; only shared layout and touch behaviours are refined. */
 :root { --conest-tender-gold:#ffd33d; --conest-estimate-teal:#53dcd0; }
 *, *::before, *::after {box-sizing:border-box}

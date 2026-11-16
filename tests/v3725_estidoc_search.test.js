@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.join(__dirname,'..');
+const get=(name)=>fs.readFileSync(path.join(root,name),'utf8');
+const script=get('assets/estimate_areas.js');
+const estimator=get('assets/index.html');
+const tenders=get('tenders_frontend/src/components/tender-app.tsx');
+// A single search control is available to both Breakdown tabs; it never writes to the API.
+assert.match(script,/data-breakdown-search-toggle/);
+assert.match(script,/data-breakdown-search-input/);
+assert.match(script,/const filter=query\.trim\(\)\.toLocaleLowerCase\(\)/);
+assert.match(script,/e\.line\.reference_name,e\.line\.notes/);
+assert.match(script,/const groups=allGroups\.filter/);
+assert.match(script,/await api\(`\/api\/projects\/\$\{pid\}\/breakdown\/status`\)/);
+assert.doesNotMatch(script,/data-tree-search/);
+assert.match(estimator,/TEC EstiDoc/);
+assert.match(tenders,/TEC EstiDoc/);
+assert.doesNotMatch(estimator,/TEC ConEst/);
+assert.doesNotMatch(tenders,/TEC ConEst/);
+console.log('v3.7.25 EstiDoc identity, unified Breakdown search and persistent activation checks passed.');

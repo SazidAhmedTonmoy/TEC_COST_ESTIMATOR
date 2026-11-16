@@ -1,4 +1,4 @@
-/* TEC ConEst 3.5.12: consistent Tender / Estimator phone layouts.
+/* TEC EstiDoc 3.5.12: consistent Tender / Estimator phone layouts.
    Overrides the older horizontally-scrolling Tender KPI rule. */
 html,body,#root,.main-shell,.page-content {max-width:100%;min-width:0}
 @media(max-width:767px) {

@@ -24,7 +24,7 @@ def dashboard_parts(tenders,metrics,generated,description,tr):
     def merged(r,c1,c2,value,style):
         merges.append(f'{col(c1)}{r}:{col(c2)}{r}')
         for c in range(c1,c2+1):put(r,c,value if c==c1 else None,style)
-    merged(1,1,12,'TEC ConEst | Tender overview',1)
+    merged(1,1,12,'TEC EstiDoc | Tender overview',1)
     merged(2,1,12,generated,2);merged(3,1,12,description or 'All submissions',2)
     # Existing metric formulas remain the authoritative links to detail tabs.
     for index,metric in enumerate([metrics[0],metrics[1],metrics[2],metrics[4],metrics[3],metrics[5]]):

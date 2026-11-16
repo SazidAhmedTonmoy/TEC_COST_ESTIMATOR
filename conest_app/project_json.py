@@ -43,7 +43,7 @@ def insert(conn,table,values):
  return conn.execute('INSERT INTO '+table+' ('+','.join(values)+') VALUES ('+','.join('?' for _ in values)+')',tuple(values.values())).lastrowid
 
 def import_json(conn,raw,user):
- if not isinstance(raw,dict) or raw.get('format')!='tec-conest-project' or type(raw.get('version')) is not int or raw['version']!=1:raise ValueError('Use a TEC ConEst project JSON file, version 1')
+ if not isinstance(raw,dict) or raw.get('format')!='tec-conest-project' or type(raw.get('version')) is not int or raw['version']!=1:raise ValueError('Use a TEC EstiDoc project JSON file, version 1')
  p=checked(raw.get('project'),PROJECT,'Project')
  if not p.get('name','').strip() or len(p['name'])>500:raise ValueError('Project name must be 1–500 characters')
  status=p.get('status','draft')

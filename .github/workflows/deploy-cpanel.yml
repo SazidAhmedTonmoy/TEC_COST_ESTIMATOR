@@ -1,4 +1,4 @@
-name: Deploy TEC ConEst to cPanel
+name: Deploy TEC EstiDoc to cPanel
 
 on:
   push:

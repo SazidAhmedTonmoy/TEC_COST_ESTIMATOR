@@ -111,7 +111,7 @@ export default function OpportunityAnalytics(){
   {error&&<div className="op-refresh-warning" role="alert">{visibleData?'Showing the last loaded analytics. ':''}{error}<button onClick={()=>setRefresh(n=>n+1)}>Retry</button></div>}
   {!visibleData&&loading&&<div className="op-loading" role="status"><RefreshCw size={19} className="op-spin"/>Loading analytics…</div>}
   {visibleData&&outcome&&<>
-   <div className="op-analytics-period"><CalendarDays size={16}/><strong>{mode==='all'?'All time':`${visibleData.from} — ${visibleData.to}`}</strong><span>{dateBasis==='added'?'Original added date (upload date if missing)':'TEC ConEst upload / creation date'} · {mode==='all'?`All ${visibleData.activeTotal} opportunities`:`${outcome.added} of ${visibleData.activeTotal} opportunities in this period`}{loading?' · Refreshing…':''}</span></div>
+   <div className="op-analytics-period"><CalendarDays size={16}/><strong>{mode==='all'?'All time':`${visibleData.from} — ${visibleData.to}`}</strong><span>{dateBasis==='added'?'Original added date (upload date if missing)':'TEC EstiDoc upload / creation date'} · {mode==='all'?`All ${visibleData.activeTotal} opportunities`:`${outcome.added} of ${visibleData.activeTotal} opportunities in this period`}{loading?' · Refreshing…':''}</span></div>
    {visibleData.missingDates>0&&<p className="op-analytics-date-note">{visibleData.missingDates} older opportunit{visibleData.missingDates===1?'y has':'ies have'} no known creation or added date. {mode==='all'?'Included in all-time totals.':'Included in All time but not in date-filtered totals.'}</p>}
    <div className="op-analytics-pies">
     <Donut title="Opportunities added" total={outcome.added} centerLabel="added" slices={addedSlices}/>

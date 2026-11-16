@@ -26,7 +26,7 @@ def startup_failure(exc, code):
     except Exception:
         pass  # Diagnostics must never replace the original startup response.
     try:
-        log.error('TEC ConEst startup error %s; reference: %s', code, reference,
+        log.error('TEC EstiDoc startup error %s; reference: %s', code, reference,
                   exc_info=(type(exc), exc, exc.__traceback__))
     except Exception:
         pass  # Some hosting/custom logging handlers can themselves raise.
@@ -43,7 +43,7 @@ def startup_failure(exc, code):
 def check_sqlite_runtime():
     """Check features in the actual Python-linked SQLite, not a shell sqlite CLI."""
     if sys.version_info < (3, 10):
-        raise RuntimeError('TEC ConEst requires Python 3.10 or newer.')
+        raise RuntimeError('TEC EstiDoc requires Python 3.10 or newer.')
     if sqlite3.sqlite_version_info < (3, 24, 0):
         raise RuntimeError('The production Python needs SQLite 3.24 or newer for UPSERT support.')
     with closing(sqlite3.connect(':memory:')) as db:

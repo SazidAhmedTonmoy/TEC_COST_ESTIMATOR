@@ -6,9 +6,9 @@
   <script src="/assets/estimator_boot.js?v=3.0-r1" defer></script>
   <script src="/assets/login-carousel.js?v=3.5.11" defer></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TEC ConEst · Tenders &amp; Estimating</title>
+  <title>TEC EstiDoc · Tenders &amp; Estimating</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.3e918c85a095.css">
+  <link rel="stylesheet" href="/assets/styles.3494dcee3a22.css">
   <link rel="stylesheet" href="/assets/responsive-v3511.css?v=3.5.11">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.4-r1">
   <link rel="stylesheet" href="/assets/mobile-v3512.css?v=3.7.9">
@@ -17,12 +17,12 @@
 </head>
 <body class="app-loading">
   <div id="startup-screen" role="status" aria-live="polite"><div><div class="loader" aria-hidden="true"></div><p id="startup-message">Loading your workspace…</p><button class="button primary hidden" id="startup-retry" type="button">Try again</button></div></div>
-  <section id="login-screen" class="login-screen" aria-label="Sign in to TEC ConEst">
+  <section id="login-screen" class="login-screen" aria-label="Sign in to TEC EstiDoc">
     <div class="login-layout">
-      <div class="login-blueprint-panel" aria-label="TEC ConEst features">
+      <div class="login-blueprint-panel" aria-label="TEC EstiDoc features">
         <div class="login-slide is-active" data-slide="0" aria-hidden="false">
           <img class="login-blueprint-art" src="/assets/login-blueprint.svg" alt="" width="900" height="900" aria-hidden="true" fetchpriority="high">
-          <div class="login-blueprint-copy"><p class="login-slide-kicker">TEC CONEST · ALL-IN-ONE WORKSPACE</p><h2>From <span class="login-gold">tender</span><br>to <span>estimate.</span></h2><div class="login-accent-line"></div><p class="login-slide-description">Track opportunities, prepare quotes and turn tenders into projects.</p></div>
+          <div class="login-blueprint-copy"><p class="login-slide-kicker">TEC ESTIDOC · ALL-IN-ONE WORKSPACE</p><h2>From <span class="login-gold">tender</span><br>to <span>estimate.</span></h2><div class="login-accent-line"></div><p class="login-slide-description">Track opportunities, prepare quotes and turn tenders into projects.</p></div>
         </div>
         <div class="login-slide" data-slide="1" aria-hidden="true">
           <img class="login-blueprint-art" src="/assets/login-blueprint-switchboard.svg" alt="" width="900" height="900" aria-hidden="true">
@@ -40,7 +40,7 @@
       </div>
       <div class="login-form-panel">
         <form id="login-form" class="login-card">
-          <div class="login-brand"><img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC"><div><strong>TEC ConEst</strong></div></div>
+          <div class="login-brand"><img src="/assets/tec-mark.svg?v=2.4-r3" width="64" height="64" alt="TEC"><div><strong>TEC EstiDoc</strong></div></div>
           <div class="login-heading"><h1>Welcome back</h1><p>Sign in to your tenders and estimating workspace.</p></div>
           <label class="login-field"><span>Username</span><div class="login-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3Z"/></svg><input id="login-username" autocomplete="username" required maxlength="64" autofocus placeholder="Enter your username" autocapitalize="none" spellcheck="false"></div></label>
           <label class="login-field"><span>Password</span><span class="password-field login-input-wrap"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></svg><input id="login-password" type="password" autocomplete="current-password" required maxlength="256" placeholder="Enter your password"><button type="button" class="key-toggle login-eye" data-password-target="login-password" aria-pressed="false" aria-label="Show password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg></button></span></label>
@@ -53,9 +53,9 @@
   </section>
   <div class="app-shell hidden" id="authenticated-app">
     <aside class="sidebar">
-      <a class="brand brand-home" href="#/home" aria-label="TEC ConEst home">
+      <a class="brand brand-home" href="#/home" aria-label="TEC EstiDoc home">
         <div class="brand-mark" aria-hidden="true">TEC</div>
-        <div><strong>TEC ConEst</strong></div>
+        <div><strong>TEC EstiDoc</strong></div>
       </a>
       <button class="mobile-menu-button" id="mobile-menu-button" type="button" aria-expanded="false" aria-controls="main-navigation account-controls">☰ <span>Menu</span></button>
       <nav id="main-navigation" aria-label="Main navigation">
@@ -289,7 +289,7 @@
       <section id="imports-view" class="view">
         <div class="imports-toolbar"><p class="helper-text">Upload catalogue workbooks and supplier quotations.</p><button id="import-history-button" type="button" class="button secondary" aria-haspopup="dialog" aria-controls="import-history-dialog" title="See uploaded catalogue and lighting files"><span class="info-circle" aria-hidden="true">i</span> Upload history</button></div>
         <section class="panel import-upload" aria-labelledby="workbook-upload-title">
-          <div><p class="eyebrow">Database growth</p><h2 id="workbook-upload-title">Import future ConEst workbooks</h2><p class="helper-text">Choose a workbook, review matching ConEst sheets, then confirm the items to save.</p></div>
+          <div><p class="eyebrow">Database growth</p><h2 id="workbook-upload-title">Import future EstiDoc workbooks</h2><p class="helper-text">Choose a workbook, review matching EstiDoc sheets, then confirm the items to save.</p></div>
           <form id="import-form">
             <label class="workbook-upload-file" id="drop-zone"><strong>Drop a workbook here or click to choose</strong><input id="import-file" type="file" accept=".xlsx,.xlsm" required><small>XLSX or XLSM &middot; up to 80 MB</small></label>
             <button class="button primary" type="submit">Preview workbook</button>
@@ -482,7 +482,7 @@
   
   <button id="help-chat-button" class="help-chat-launch hidden" type="button" aria-haspopup="dialog">? <span>Help</span></button>
   <dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title">
-    <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC ConEst help</h2><p>Ask about projects, catalogue components and saved lighting quotations</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
+    <div class="help-chat-heading"><div><h2 id="help-chat-title">TEC EstiDoc help</h2><p>Ask about projects, catalogue components and saved lighting quotations</p></div><button id="close-help-chat" class="button secondary small" type="button">Close</button></div>
     <p class="help-chat-notice">Live project, catalogue and lighting-price lookups need no AI key. Optional how-to guidance sends your question to Gemini using the saved setting; no retrieved library records are sent. Read-only; answers never change your work.</p>
     <label class="help-search-scope" for="help-chat-scope">Look in <select id="help-chat-scope"><option value="auto">Auto / current page</option><option value="project">Projects</option><option value="catalog">Catalogue</option><option value="light">Light prices</option><option value="guide">How to use the app</option></select></label>
     <p id="help-chat-context" class="helper-text"></p>
@@ -490,6 +490,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.ff7fa537d314.js" defer></script>
+  <script src="/assets/app.11f7cf86cc79.js" defer></script>
 </body>
 </html>

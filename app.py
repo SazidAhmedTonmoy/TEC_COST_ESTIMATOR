@@ -107,7 +107,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = f"TECConEst/{__version__}"
+    server_version = f"TECEstiDoc/{__version__}"
 
     def setup(self):
         super().setup()
@@ -250,7 +250,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             self._send_json({"success": False, "error": str(exc)}, 503)
             return
         reference = uuid.uuid4().hex[:12]
-        print(f"TEC ConEst server error reference: {reference}", flush=True)
+        print(f"TEC EstiDoc server error reference: {reference}", flush=True)
         traceback.print_exc()
         self._send_json({"success": False, "error": f"The server could not complete this request. Error reference: {reference}. Ask your administrator to check the server log.", "error_reference": reference}, 500)
 
@@ -449,6 +449,16 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 with self._read_connection() as conn:
                     projects = visible_projects(conn, self.user)
                 self._send_json({"success": True, "projects": projects})
+                return
+            breakdown_status_match = re.fullmatch(r"/api/projects/(\d+)/breakdown/status", path)
+            if breakdown_status_match:
+                from conest_app.estimate_areas import breakdown_enabled
+                from conest_app.workspace import require_project
+                pid = int(breakdown_status_match.group(1))
+                with self._read_connection() as conn:
+                    require_project(conn, pid, self.user, 'view')
+                    enabled = breakdown_enabled(conn, pid)
+                self._send_json({'success': True, 'enabled': enabled})
                 return
             match = re.fullmatch(r"/api/projects/(\d+)/highlights", path)
             if match:
@@ -931,7 +941,7 @@ class ConEstServer(ThreadingHTTPServer):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the TEC ConEst web application.")
+    parser = argparse.ArgumentParser(description="Run the TEC EstiDoc web application.")
     parser.add_argument("--host", default=os.environ.get("CONEST_HOST", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("CONEST_PORT", "8080")))
     parser.add_argument("--no-browser", action="store_true")
@@ -942,7 +952,7 @@ def main() -> None:
     server = ConEstServer((args.host, args.port), ConEstHandler)
     display_host = "127.0.0.1" if args.host in {"0.0.0.0", "::"} else args.host
     url = f"http://{display_host}:{args.port}"
-    print("\nTEC ConEst is ready")
+    print("\nTEC EstiDoc is ready")
     print(f"  Open:     {url}")
     if args.host == "0.0.0.0":
         try:
@@ -959,7 +969,7 @@ def main() -> None:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopping TEC ConEst...")
+        print("\nStopping TEC EstiDoc...")
     finally:
         server.server_close()
 

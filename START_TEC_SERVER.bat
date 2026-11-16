@@ -30,7 +30,7 @@ if errorlevel 1 (
     if errorlevel 1 goto :failed
 )
 
-echo Starting TEC ConEst...
+echo Starting TEC EstiDoc...
 ".venv\Scripts\python.exe" app.py %*
 if errorlevel 1 goto :failed
 exit /b 0
