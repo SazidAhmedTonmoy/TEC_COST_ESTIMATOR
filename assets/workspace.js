@@ -195,8 +195,11 @@ function renderProjectBoard() {
   if(monthButton){monthButton.textContent=boardMonth===sydneyMonth()?'This month':'Selected month';monthButton.title='Submission deadlines in '+boardMonth;}
   const board=$('#project-board');board.dataset.view=workspaceState.boardView;$('#project-view-style').value=workspaceState.boardView;
   $$('#project-tabs button').forEach(b=>{b.classList.toggle('active',b.dataset.filter===filter);b.setAttribute('aria-pressed',String(b.dataset.filter===filter));});
+  $('#project-search-scope')?.classList.toggle('hidden',!term);
   const projects = state.projects.filter(p=>{
     if (!(p.name+' '+builderText(p)+' '+(p.created_by_name||'')+' '+teamNames(p)+' '+(p.contributors||[]).map(c=>c.name).join(' ')).toLowerCase().includes(term)) return false;
+    // A search always covers every accessible project, regardless of active board filters.
+    if (term) return true;
     if (filter==='month') return (p.submission_deadline||'').slice(0,7)===boardMonth;
     if (filter==='team') return p.is_assigned;
     if (statusNames[filter]) return p.status===filter;
@@ -672,7 +675,19 @@ function bindWorkspaceEvents() {
   $('#user-role').addEventListener('change',syncUserRole);
   $('#brief-delete').addEventListener('click',()=>deleteManagedProject().catch(error=>toast(error.message,true)));
   $('#add-user').addEventListener('click',()=>openUserEditor());
-  $('#project-search').addEventListener('input',renderProjectBoard);
+  $('#project-search').addEventListener('input',event=>{
+    const searching=Boolean(event.target.value.trim());
+    if(searching && !workspaceState.searchAllActive){
+      workspaceState.filterBeforeSearch=workspaceState.filter;
+      workspaceState.searchAllActive=true;
+      workspaceState.filter='all';
+    }else if(!searching && workspaceState.searchAllActive){
+      workspaceState.filter=workspaceState.filterBeforeSearch||'month';
+      workspaceState.searchAllActive=false;
+      workspaceState.filterBeforeSearch=null;
+    }
+    renderProjectBoard();
+  });
   $('#workload-refresh').addEventListener('click',()=>loadTeamSummary(true).catch(()=>{}));
   $('#team-summary-mode').addEventListener('change',event=>{
     workspaceState.summaryMode=event.target.value==='week'?'week':'month';
@@ -684,7 +699,9 @@ function bindWorkspaceEvents() {
   });
   $('#project-board-month').addEventListener('change',event=>{
     if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(event.target.value))return;
-    workspaceState.boardMonth=event.target.value;workspaceState.filter='month';renderProjectBoard();
+    workspaceState.boardMonth=event.target.value;workspaceState.filter='month';
+    $('#project-search').value='';workspaceState.searchAllActive=false;workspaceState.filterBeforeSearch=null;
+    renderProjectBoard();
   });
   $('#project-sort').addEventListener('change',event=>{
     const value=event.target.value;if(!['recent','name','name-desc','deadline','deadline-desc','newest','cost-high','cost-low'].includes(value))return;
@@ -727,6 +744,8 @@ function bindWorkspaceEvents() {
     const refresh=event.target.closest('[data-refresh-estimate]');
     if(refresh) loadProject(Number(refresh.dataset.refreshEstimate),{force:true}).catch(error=>toast(error.message,true));
     const filter=event.target.closest('[data-filter]');
-    if(filter) { workspaceState.filter=filter.dataset.filter; renderProjectBoard(); }
+    if(filter) { workspaceState.filter=filter.dataset.filter;
+      $('#project-search').value='';workspaceState.searchAllActive=false;workspaceState.filterBeforeSearch=null;
+      renderProjectBoard(); }
   });
 }

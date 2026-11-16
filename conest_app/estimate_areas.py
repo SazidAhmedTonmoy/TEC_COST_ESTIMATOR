@@ -37,7 +37,7 @@ def summary(lines, area_names=None):
             values={k:line[f]*weight for k,f in FIELDS.items()}
             target=group['optional' if line.get('included_in_total') is False else 'included']
             for k in FIELDS:target[k]+=values[k]
-            group['items'].append({'id':line['id'],'name':line['name_snapshot'],'reference':line.get('reference_name') or '', 'category':line['category_key'],'quantity':qty,'uom':line['uom'],'optional':line.get('included_in_total') is False,**values})
+            group['items'].append({'id':line['id'],'name':line['name_snapshot'],'reference':line.get('reference_name') or '', 'remarks':line.get('notes') or '', 'category':line['category_key'],'quantity':qty,'uom':line['uom'],'optional':line.get('included_in_total') is False,**values})
     for group in groups.values():
         categories={}
         for item in group['items']:

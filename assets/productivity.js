@@ -55,45 +55,96 @@ async function loadBackups(){
 async function openRevisions(pid){
   productivityState.revisionProject=Number(pid);
   productivityState.revisionVersion=state.projectData?.project.id===Number(pid)?state.projectData.project.revision:null;
-  $('#revision-label').value='';$('#revision-comparison').innerHTML='';
+  productivityState.revisionRows=[];productivityState.revisionSelectedId=null;productivityState.revisionRequest=(productivityState.revisionRequest||0)+1;
+  $('#revision-label').value='';$('#revision-comparison').innerHTML='<div class="revision-empty"><h3>Choose a saved revision</h3><p>Select <strong>View</strong> to inspect a saved estimate, or <strong>Compare</strong> to see what changed. Viewing and comparing do not modify your current estimate.</p></div>';
   $('#revision-form').classList.toggle('hidden',!state.projectData?.project.can_edit);
   $('#revision-list').textContent='Loading…';$('#revision-dialog').showModal();
   const result=await api(`/api/projects/${pid}/revisions`);
   if(productivityState.revisionProject===Number(pid))renderRevisions(result.revisions);
 }
+function revisionRow(id){return (productivityState.revisionRows||[]).find(row=>Number(row.id)===Number(id));}
+function markSelectedRevision(id,mode){
+ productivityState.revisionSelectedId=Number(id);
+ $$('#revision-list .revision-entry').forEach(entry=>{
+  const selected=Number(entry.dataset.revisionId)===Number(id);
+  entry.classList.toggle('selected',selected);
+  entry.querySelectorAll('[data-view-revision],[data-compare-revision]').forEach(button=>button.setAttribute('aria-pressed',String(selected && (mode==='view'?button.hasAttribute('data-view-revision'):button.hasAttribute('data-compare-revision')))));
+ });
+}
 function renderRevisions(rows){
-  $('#revision-list').innerHTML=rows.length?`<label>Compare selected revision against<select id="revision-compare-target"><option value="current">Current working estimate</option>${rows.map(r=>`<option value="${r.id}">${escapeHtml(r.label)}</option>`).join('')}</select></label>`+rows.map(r=>`<article class="tool-row"><div><strong>${escapeHtml(r.label)}</strong><small>${escapeHtml(r.author||'Unknown')} · ${escapeHtml(new Date(r.created_at).toLocaleString('en-AU'))} · ${escapeHtml(r.currency)} ${fmtMoney(r.quoted,r.currency)}</small></div><div class="revision-actions"><button class="button secondary small" data-compare-revision="${r.id}">View & compare</button><a class="button secondary small" href="/api/projects/${productivityState.revisionProject}/revisions/${r.id}/export">Excel</a>${r.can_redeploy?`<button class="button secondary small" data-redeploy-revision="${r.id}" data-revision-label="${escapeHtml(r.label)}">Redeploy</button>`:''}${r.can_delete?`<button class="button secondary small danger-text" data-delete-revision="${r.id}" data-revision-label="${escapeHtml(r.label)}">Delete</button>`:''}</div></article>`).join(''):'<p>No saved revisions. Save Original before making your next changes.</p>';
+ rows=rows||[];
+ productivityState.revisionRows=rows;
+ const selected=productivityState.revisionSelectedId;
+ if(selected&&!revisionRow(selected)){
+  productivityState.revisionSelectedId=null;
+  $('#revision-comparison').innerHTML='<div class="revision-empty"><h3>Choose a saved revision</h3><p>Select View to inspect the estimate, or Compare to review changes.</p></div>';
+ }
+ $('#revision-list').innerHTML=rows.length?`<div class="revision-list-heading"><h3>Saved revisions</h3><span class="pill">${rows.length}</span></div>`+rows.map(r=>`<article class="revision-entry${Number(r.id)===Number(productivityState.revisionSelectedId)?' selected':''}" data-revision-id="${Number(r.id)}"><div class="revision-entry-heading"><strong>${escapeHtml(r.label)}</strong><small>${escapeHtml(r.author||'Unknown')} · ${escapeHtml(new Date(r.created_at).toLocaleString('en-AU'))}</small><b>${escapeHtml(r.currency)} ${fmtMoney(r.quoted,r.currency)}</b></div><div class="revision-entry-actions"><button type="button" class="button secondary small" data-view-revision="${Number(r.id)}">View</button><button type="button" class="button secondary small" data-compare-revision="${Number(r.id)}">Compare</button><a class="button secondary small" href="/api/projects/${productivityState.revisionProject}/revisions/${Number(r.id)}/export">Excel</a></div>${r.can_redeploy||r.can_delete?`<details class="revision-more"><summary>More actions</summary><div class="revision-actions">${r.can_redeploy?`<button type="button" class="button secondary small" data-redeploy-revision="${Number(r.id)}" data-revision-label="${escapeHtml(r.label)}">Restore to working estimate</button>`:''}${r.can_delete?`<button type="button" class="button secondary small danger-text" data-delete-revision="${Number(r.id)}" data-revision-label="${escapeHtml(r.label)}">Delete revision</button>`:''}</div></details>`:''}</article>`).join(''):'<p class="helper-text">No saved revisions yet. Save an Original estimate to start your revision history.</p>';
+}
+function focusRevisionPanelOnNarrowScreens(){
+ // The preview appears below the revision list on phones and tablets.
+ if(typeof window!=='undefined'&&window.matchMedia?.('(max-width:900px)').matches){
+  $('#revision-comparison')?.scrollIntoView?.({behavior:'smooth',block:'start'});
+ }
+}
+function revisionTotals(totals,currency){
+ const metrics=[['material','Materials',false],['hours','Labour hours',true],['labor','Labour cost',false],['quoted','Quoted total',false]];
+ return `<div class="revision-metric-grid">${metrics.map(([key,label,hours])=>`<div><small>${label}</small><strong>${hours?fmtNumber(totals?.[key]||0)+' hrs':fmtMoney(totals?.[key]||0,currency)}</strong></div>`).join('')}</div>`;
+}
+async function viewRevision(rid){
+ const pid=productivityState.revisionProject,row=revisionRow(rid);
+ if(!row)return;
+ const request=++productivityState.revisionRequest;
+ markSelectedRevision(rid,'view');
+ $('#revision-comparison').innerHTML='<p class="helper-text">Loading saved revision…</p>';
+ focusRevisionPanelOnNarrowScreens();
+ const result=await api(`/api/projects/${pid}/revisions/${rid}?view=1`);
+ if(productivityState.revisionProject!==pid||request!==productivityState.revisionRequest)return;
+ const snapshot=result.snapshot||{},saved=snapshot.project||{},lines=snapshot.lines||[];
+ const currency=saved.currency||row.currency||'AUD';
+ $('#revision-comparison').innerHTML=`<div class="revision-detail-heading"><div><p class="eyebrow">Read-only saved snapshot</p><h3>${escapeHtml(row.label)}</h3><p class="helper-text">Saved by ${escapeHtml(row.author||'Unknown')} · ${escapeHtml(new Date(row.created_at).toLocaleString('en-AU'))}</p></div><span class="revision-readonly">View only</span></div>${revisionTotals(snapshot.totals||{},currency)}<div class="revision-snapshot-heading"><h4>Saved estimate items</h4><span class="pill">${lines.length} items</span></div><div class="table-scroll"><table class="mini-table revision-snapshot-table"><thead><tr><th>Item / reference</th><th>Category</th><th>Quantity</th><th>Quoted</th></tr></thead><tbody>${lines.map(line=>`<tr><td><strong>${escapeHtml(line.name_snapshot||'Item')}</strong>${line.reference_name?`<small>Ref: ${escapeHtml(line.reference_name)}</small>`:''}${line.notes?`<small class="revision-line-notes">Remarks: ${escapeHtml(line.notes)}</small>`:''}</td><td>${escapeHtml(line.category_snapshot||'Other')}</td><td>${fmtNumber(line.quantity||0)} ${escapeHtml(line.uom||'')}</td><td>${fmtMoney(line.quoted_total||0,currency)}</td></tr>`).join('')}</tbody></table></div><p class="revision-readonly-note">This is an archived version. Viewing it does not change your current estimate. Use Compare to check differences or More actions to restore it.</p>`;
+}
+function showRevisionComparePicker(rid){
+ const row=revisionRow(rid);if(!row)return;
+ productivityState.revisionRequest=(productivityState.revisionRequest||0)+1;
+ markSelectedRevision(rid,'compare');
+ const other=(productivityState.revisionRows||[]).filter(r=>Number(r.id)!==Number(rid));
+ $('#revision-comparison').innerHTML=`<div class="revision-detail-heading"><div><p class="eyebrow">Revision comparison</p><h3>${escapeHtml(row.label)}</h3><p class="helper-text">Compare this saved revision against another version. No estimate data is changed.</p></div></div><div class="revision-compare-setup"><label>Compare with<select id="revision-compare-target"><option value="current">Current working estimate</option>${other.map(r=>`<option value="${Number(r.id)}">${escapeHtml(r.label)} · ${escapeHtml(new Date(r.created_at).toLocaleDateString('en-AU'))}</option>`).join('')}</select></label><button type="button" class="button primary" data-run-revision-compare="${Number(rid)}">Show differences</button></div><div id="revision-diff-results" class="revision-diff-results"><p class="helper-text">Choose a version and select Show differences. Only changed items and settings will be listed.</p></div>`;
+ focusRevisionPanelOnNarrowScreens();
 }
 async function compareRevision(rid){
-  const pid=productivityState.revisionProject,target=$('#revision-compare-target').value;
-  const result=await api(`/api/projects/${pid}/revisions/${rid}?compare=${target}`);
-  if(pid!==productivityState.revisionProject)return;
-  const c=result.comparison;
-  function val(v){
-    if(Array.isArray(v))return '<div class="table-scroll"><table class="mini-table"><thead><tr><th>Component</th><th>Qty/unit</th><th>Material</th><th>Labour</th></tr></thead><tbody>'+v.map(x=>`<tr><td>${escapeHtml(x.description)}</td><td>${fmtNumber(x.quantity_per_unit)} ${escapeHtml(x.uom)}</td><td>${fmtMoney(x.unit_material)} × ${fmtNumber(x.material_factor)}</td><td>${x.labor_pricing==='fixed'?fmtMoney(x.unit_labor_price):fmtNumber(x.unit_hours)+' hrs'} × ${fmtNumber(x.labor_factor)}</td></tr>`).join('')+'</tbody></table></div>';
-    return escapeHtml(String(v??'—'));
-  }
-  // Summary is intentionally read-only: revision comparisons never redeploy changes.
-  const moneyBefore=n=>fmtMoney(Number(n||0),c.before_currency);
-  const moneyAfter=n=>fmtMoney(Number(n||0),c.after_currency);
-  const deltaMoney=(a,b)=>c.before_currency===c.after_currency?fmtMoney(Number(b||0)-Number(a||0),c.after_currency):'Different currencies';
-  const metricNames=[['material','Material'],['hours','Labour hours'],['labor','Labour cost'],['quoted','Quoted total']];
-  const revisionSummary=`<div class="revision-side-by-side"><h4>Estimate totals compared</h4><div class="table-scroll"><table class="mini-table"><thead><tr><th>Metric</th><th>Saved revision</th><th>Compared estimate</th><th>Difference</th></tr></thead><tbody>${metricNames.map(([key,label])=>`<tr><th scope="row">${label}</th><td>${key==='hours'?fmtNumber(c.before_totals[key]||0)+' hrs':moneyBefore(c.before_totals[key])}</td><td>${key==='hours'?fmtNumber(c.after_totals[key]||0)+' hrs':moneyAfter(c.after_totals[key])}</td><td>${key==='hours'?fmtNumber(Number(c.after_totals[key]||0)-Number(c.before_totals[key]||0))+' hrs':deltaMoney(c.before_totals[key],c.after_totals[key])}</td></tr>`).join('')}</tbody></table></div></div>`;
-  const changedField=(row,key,which)=>row.fields[key]?.[which];
-  const lineValue=(row,key,which)=>{
-    const value=changedField(row,key,which);
-    return value===undefined?'No change':value===null?'Not present':key==='quantity'?fmtNumber(value):fmtMoney(value,c[which==='before'?'before_currency':'after_currency']);
-  };
-  const componentRate=(row,which)=>{
-    const components=changedField(row,'components',which);
-    if(components===undefined)return row.fields.supply_unit_cost_override
-      ?lineValue(row,'supply_unit_cost_override',which):'No rate change';
-    if(!Array.isArray(components))return 'Not present';
-    if(!components.length)return 'No components';
-    return components.slice(0,2).map(x=>`${fmtMoney(x.unit_material||0,c[which==='before'?'before_currency':'after_currency'])} material / ${x.labor_pricing==='fixed'?fmtMoney(x.unit_labor_price||0):fmtNumber(x.unit_hours||0)+' hrs'} labour`).join('; ')+(components.length>2?` (+${components.length-2} more)`:'');
-  };
-  const revisionLines=`<div class="revision-side-by-side"><h4>Item-level differences (${c.changes.length})</h4>${c.changes.length?`<div class="table-scroll"><table class="mini-table revision-diff-table"><thead><tr><th>Item / change</th><th>Quantity (saved / compared)</th><th>Rates (saved / compared)</th><th>Quoted (saved / compared)</th></tr></thead><tbody>${c.changes.map(row=>`<tr><th scope="row">${escapeHtml(row.name)}<small>${escapeHtml(row.kind)}</small></th><td>${lineValue(row,'quantity','before')} / ${lineValue(row,'quantity','after')}</td><td>${escapeHtml(componentRate(row,'before'))}<hr>${escapeHtml(componentRate(row,'after'))}</td><td>${lineValue(row,'quoted_total','before')} / ${lineValue(row,'quoted_total','after')}</td></tr>`).join('')}</tbody></table></div>`:'<p class="helper-text">No line changes between these revisions.</p>'}</div>`;
-  $('#revision-comparison').innerHTML=`<h3>Comparison</h3>${revisionSummary}${revisionLines}<p>Saved: ${escapeHtml(c.before_currency)} ${fmtMoney(c.before_totals.quoted,c.before_currency)} → ${target==='current'?'Current':'Compared revision'}: ${escapeHtml(c.after_currency)} ${fmtMoney(c.after_totals.quoted,c.after_currency)}</p>${Object.entries(c.settings).map(([k,v])=>`<p><strong>${escapeHtml(k==='client'?'Builders':k.replaceAll('_',' '))}:</strong> ${val(v.before)} → ${val(v.after)}</p>`).join('')}${c.changes.length?c.changes.map(row=>`<details class="revision-change"><summary>${escapeHtml(row.kind)} · ${escapeHtml(row.name)}</summary>${Object.entries(row.fields).map(([k,v])=>`<div class="revision-field"><strong>${escapeHtml(k==='client'?'Builders':k.replaceAll('_',' '))}</strong><div class="revision-values"><section><small>Saved revision</small>${val(v.before)}</section><section><small>Compared estimate</small>${val(v.after)}</section></div></div>`).join('')}</details>`).join(''):'<p>No estimate line changes.</p>'}<details><summary>View saved estimate (${result.snapshot.lines.length} items)</summary><div class="table-scroll"><table class="mini-table"><thead><tr><th>Item</th><th>Category</th><th>Quantity</th><th>Total</th></tr></thead><tbody>${result.snapshot.lines.map(l=>`<tr><td>${escapeHtml(l.name_snapshot)}</td><td>${escapeHtml(l.category_snapshot)}</td><td>${fmtNumber(l.quantity)} ${escapeHtml(l.uom)}</td><td>${fmtMoney(l.quoted_total,c.before_currency)}</td></tr>`).join('')}</tbody></table></div></details>`;
+ const pid=productivityState.revisionProject,base=revisionRow(rid),select=$('#revision-compare-target');
+ if(!base||!select)return;
+ const target=select.value,other=target==='current'?null:revisionRow(target);
+ if(target!=='current'&&!other)return;
+ const request=++productivityState.revisionRequest;
+ const slot=$('#revision-diff-results');slot.innerHTML='<p class="helper-text">Comparing saved estimates…</p>';
+ const result=await api(`/api/projects/${pid}/revisions/${rid}?compare=${encodeURIComponent(target)}`);
+ if(pid!==productivityState.revisionProject||request!==productivityState.revisionRequest)return;
+ const c=result.comparison;const sameCurrency=c.before_currency===c.after_currency;
+ const money=(n,currency)=>fmtMoney(Number(n||0),currency);
+ const cellValue=(row,key,side)=>{
+  const field=row.fields?.[key];if(!field)return '—';
+  const value=field[side];
+  if(value===null||value===undefined)return 'Not present';
+  return key==='quantity'?fmtNumber(Number(value)) : key==='quoted_total'?money(value,side==='before'?c.before_currency:c.after_currency):escapeHtml(String(value));
+ };
+ const prettyField=key=>({reference_name:'Reference',name_snapshot:'Name',category_snapshot:'Category',quantity:'Quantity',quoted_total:'Quoted total',components:'Material / labour components',notes:'Remarks',area_allocations:'Area allocations',supply_unit_cost_override:'Supply allowance',supply_quantity_override:'Supply quantity'}[key]||key.replaceAll('_',' '));
+ const val=v=>{
+  if(v===null||v===undefined)return '—';
+  if(Array.isArray(v))return v.length&&v.every(x=>x&&typeof x==='object'&&!Array.isArray(x))?`<div class="table-scroll"><table class="mini-table revision-component-table"><thead><tr><th>Component</th><th>Qty / item</th><th>Material / unit</th><th>Labour / unit</th></tr></thead><tbody>${v.map(x=>`<tr><td>${escapeHtml(x.description||'Component')}</td><td>${fmtNumber(x.quantity_per_unit||0)} ${escapeHtml(x.uom||'')}</td><td>${fmtMoney(x.unit_material||0)}</td><td>${x.labor_pricing==='fixed'?fmtMoney(x.unit_labor_price||0):fmtNumber(x.unit_hours||0)+' hrs'}</td></tr>`).join('')}</tbody></table></div>`:v.map(x=>escapeHtml(String(x))).join('; ')||'None';
+  if(typeof v==='object')return escapeHtml(JSON.stringify(v));
+  return escapeHtml(String(v));
+ };
+ const metricNames=[['material','Material cost'],['hours','Labour hours'],['labor','Labour cost'],['quoted','Quoted total']];
+ const metrics=`<div class="table-scroll"><table class="mini-table revision-comparison-table"><thead><tr><th>Metric</th><th>Saved: ${escapeHtml(base.label)}</th><th>${target==='current'?'Current estimate':escapeHtml(other.label)}</th><th>Change</th></tr></thead><tbody>${metricNames.map(([key,label])=>{
+   const left=Number(c.before_totals?.[key]||0),right=Number(c.after_totals?.[key]||0),delta=right-left;
+   return `<tr><th scope="row">${label}</th><td>${key==='hours'?fmtNumber(left)+' hrs':money(left,c.before_currency)}</td><td>${key==='hours'?fmtNumber(right)+' hrs':money(right,c.after_currency)}</td><td class="revision-delta">${key==='hours'?(delta>0?'+':'')+fmtNumber(delta)+' hrs':sameCurrency?(delta>0?'+':'')+money(delta,c.after_currency):'Different currencies'}</td></tr>`;
+  }).join('')}</tbody></table></div>`;
+ const changes=c.changes||[],settings=Object.entries(c.settings||{});
+ const changeList=changes.length?changes.map(row=>`<details class="revision-diff-item"><summary><span><strong>${escapeHtml(row.name||'Item')}</strong><small>${escapeHtml(row.kind)} · ${Object.keys(row.fields||{}).map(prettyField).join(', ')}</small></span><span class="revision-change-quick">${row.fields?.quantity?`${cellValue(row,'quantity','before')} → ${cellValue(row,'quantity','after')}`:''}</span></summary><div class="table-scroll"><table class="mini-table revision-fields-table"><thead><tr><th>Changed field</th><th>Saved revision</th><th>Compared version</th></tr></thead><tbody>${Object.entries(row.fields||{}).map(([field,v])=>`<tr><th scope="row">${escapeHtml(prettyField(field))}</th><td>${field==='quoted_total'?cellValue(row,field,'before'):val(v.before)}</td><td>${field==='quoted_total'?cellValue(row,field,'after'):val(v.after)}</td></tr>`).join('')}</tbody></table></div></details>`).join(''):'<p class="revision-no-changes">No item changes between these versions.</p>';
+ const settingsList=settings.length?`<details class="revision-settings"><summary>${settings.length} project setting${settings.length===1?'':'s'} changed</summary><div class="table-scroll"><table class="mini-table"><thead><tr><th>Setting</th><th>Saved revision</th><th>Compared version</th></tr></thead><tbody>${settings.map(([key,v])=>`<tr><th scope="row">${escapeHtml(prettyField(key))}</th><td>${val(v.before)}</td><td>${val(v.after)}</td></tr>`).join('')}</tbody></table></div></details>`:'';
+ slot.innerHTML=`<div class="revision-compare-result-title"><h4>Differences</h4><span class="pill">${changes.length} item${changes.length===1?'':'s'} changed</span></div>${!sameCurrency?'<p class="helper-text">These versions use different currencies. Monetary changes are not converted.</p>':''}${metrics}<div class="revision-changes-heading"><h4>Changed estimate items</h4><small>Select an item to see its before-and-after values</small></div>${changeList}${settingsList}`;
 }
 function renderImportPreview(preview){
   productivityState.preview=preview;
@@ -111,6 +162,9 @@ function renderPriceHistory(result){
 function bindProductivityEvents(){
   $('#refresh-backups').addEventListener('click',()=>loadBackups().catch(e=>toast(e.message,true)));
   $('#create-backup').addEventListener('click',async event=>{event.target.disabled=true;try{await api('/api/backups',{method:'POST',body:{}});await loadBackups();toast('Database backup saved');}catch(e){toast(e.message,true);}finally{event.target.disabled=false;}});
+  $('#revision-dialog').addEventListener('change',event=>{
+    if(event.target.id==='revision-compare-target')$('#revision-diff-results').innerHTML='<p class="helper-text">Comparison target changed. Select Show differences to update the report.</p>';
+  });
   $('#revision-form').addEventListener('submit',event=>submitWithButton(event,async()=>{const pid=productivityState.revisionProject;const result=await api(`/api/projects/${pid}/revisions`,{method:'POST',body:{label:$('#revision-label').value,expected_revision:productivityState.revisionVersion}});renderRevisions(result.revisions);$('#revision-label').value='';toast('Tender revision saved');}));
   $('#price-source-form').addEventListener('submit',event=>submitWithButton(event,async()=>{const result=await api(`/api/catalog/${productivityState.priceItem}/price-history`,{method:'POST',body:{supplier:$('#price-supplier').value,quote_date:$('#price-date').value,source:$('#price-source').value}});renderPriceHistory(result);toast('Price source recorded');}));
   document.addEventListener('click',async event=>{
@@ -118,7 +172,9 @@ function bindProductivityEvents(){
     try{
       if(target.dataset.close)$('#'+target.dataset.close).close();
       if(target.dataset.revisions)await openRevisions(target.dataset.revisions);
-      if(target.dataset.compareRevision)await compareRevision(target.dataset.compareRevision);
+      if(target.dataset.viewRevision)await viewRevision(target.dataset.viewRevision);
+      if(target.dataset.compareRevision)showRevisionComparePicker(target.dataset.compareRevision);
+      if(target.dataset.runRevisionCompare)await compareRevision(target.dataset.runRevisionCompare);
       if(target.dataset.redeployRevision){
         if(projectSettingsBusy||projectSettingsQueued){toast('Wait for your current changes to finish saving, then reopen revisions.',true);return;}
         if(!confirm(`Redeploy “${target.dataset.revisionLabel}” as the working estimate? A safety revision of the current estimate will be saved first. Project access, deadlines and progress will stay unchanged.`))return;
@@ -134,7 +190,7 @@ function bindProductivityEvents(){
         target.disabled=true;
         const pid=productivityState.revisionProject;
         const result=await api(`/api/projects/${pid}/revisions/${target.dataset.deleteRevision}`,{method:'DELETE',body:{}});
-        if(pid===productivityState.revisionProject){renderRevisions(result.revisions);$('#revision-comparison').innerHTML='';}
+        if(pid===productivityState.revisionProject)renderRevisions(result.revisions);
         toast('Revision deleted');
       }
       if(target.dataset.priceHistory)await openPriceHistory(target.dataset.priceHistory);

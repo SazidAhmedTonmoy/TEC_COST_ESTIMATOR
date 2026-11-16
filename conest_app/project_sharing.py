@@ -50,7 +50,7 @@ def shared_html(data):
             for item in category['items']:
                 values={k:item[k] for k in ('material','hours','labor','quoted')}
                 flag='<span class="exclusion-label">Optional cost</span>' if item['optional'] else ''
-                area_html+='<details class="estimate-item"><summary><div class="item-title"><b>'+text(item['name'])+'</b>'+('<small>Ref: '+text(item.get('reference'))+'</small>' if item.get('reference') else '')+'<small>'+number(item['quantity'])+' '+text(item['uom'])+'</small>'+flag+'</div>'+totals(values)+'</summary></details>'
+                area_html+='<details class="estimate-item"><summary><div class="item-title"><b>'+text(item['name'])+'</b>'+('<small>Ref: '+text(item.get('reference'))+'</small>' if item.get('reference') else '')+('<small>Remarks: '+text(item.get('remarks'))+'</small>' if item.get('remarks') else '')+'<small>'+number(item['quantity'])+' '+text(item['uom'])+'</small>'+flag+'</div>'+totals(values)+'</summary></details>'
             if category['optional']['quoted']:area_html+='<div class="breakdown-optional">Optional costs (separate): '+text(currency)+' '+number(category['optional']['quoted'])+'</div>'
             area_html+='</details>'
         if optional['quoted']:area_html+='<div class="breakdown-optional">Area optional quoted cost: '+text(currency)+' '+number(optional['quoted'])+'</div>'

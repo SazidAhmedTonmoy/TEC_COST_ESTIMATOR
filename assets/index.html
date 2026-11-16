@@ -8,7 +8,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TEC ConEst · Tenders &amp; Estimating</title>
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=2.4-r3">
-  <link rel="stylesheet" href="/assets/styles.93ecd07beb4e.css">
+  <link rel="stylesheet" href="/assets/styles.3e918c85a095.css">
   <link rel="stylesheet" href="/assets/responsive-v3511.css?v=3.5.11">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.4-r1">
   <link rel="stylesheet" href="/assets/mobile-v3512.css?v=3.7.9">
@@ -99,7 +99,7 @@
       <div id="action-error-banner" class="action-error-banner hidden" role="alert"><span id="action-error-text"></span><button type="button" class="button secondary small" id="action-error-dismiss" aria-label="Dismiss error">Dismiss</button></div>
 
       <section id="home-view" class="view active">
-        <div class="workspace-welcome"><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div><div class="home-project-actions"><button type="button" id="home-new-project-button" class="button primary"><span aria-hidden="true">+</span> New Project</button><button type="button" id="project-json-open" class="button secondary">↥↧ Project JSON</button></div></div>
+        <div class="workspace-welcome"><div><h2 id="welcome-name">Projects at a glance</h2><p id="welcome-date"></p></div><div class="home-project-actions"><label class="home-project-search"><span class="sr-only">Search all accessible projects</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><input id="project-search" type="search" autocomplete="off" placeholder="Search all projects…" aria-label="Search all projects" title="Search all accessible projects regardless of month or status"></label><button type="button" id="home-new-project-button" class="button primary"><span aria-hidden="true">+</span> New Project</button><button type="button" id="project-json-open" class="button secondary">↥↧ Project JSON</button></div></div>
         <div id="home-metrics" class="metric-grid home-metrics"></div>
         <section class="panel team-workload-panel admin-only" aria-labelledby="team-summary-title">
           <div class="panel-heading"><div><p class="eyebrow">Admin overview</p><h2 id="team-summary-title">Team activity</h2></div>
@@ -113,7 +113,7 @@
         </section>
         <div class="home-grid">
           <section class="panel portfolio-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Project Board</h2></div><div class="project-board-tools"><input id="project-search" type="search" placeholder="Search projects, builders or people" aria-label="Search projects"><label class="project-sort-label" title="Sort projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><select id="project-sort" aria-label="Sort projects"><option value="newest" selected>Newest created</option><option value="recent">Latest updated</option><option value="name">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="deadline">Deadline ascending</option><option value="deadline-desc">Deadline descending</option><option value="cost-high">Total cost: High to low</option><option value="cost-low">Total cost: Low to high</option></select></label><label class="project-view-label" title="Project view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg><select id="project-view-style" aria-label="Project view style"><option value="cards">Cards</option><option value="list">List</option></select></label></div></div>
+            <div class="panel-heading"><div><p class="eyebrow">Project overview</p><h2>Project Board</h2></div><div class="project-board-tools"><label class="project-sort-label" title="Sort projects"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 20V4m-4 4 4-4 4 4m6-4v16m-4-4 4 4 4-4"/></svg><select id="project-sort" aria-label="Sort projects"><option value="newest" selected>Newest created</option><option value="recent">Latest updated</option><option value="name">Name A–Z</option><option value="name-desc">Name Z–A</option><option value="deadline">Deadline ascending</option><option value="deadline-desc">Deadline descending</option><option value="cost-high">Total cost: High to low</option><option value="cost-low">Total cost: Low to high</option></select></label><label class="project-view-label" title="Project view"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg><select id="project-view-style" aria-label="Project view style"><option value="cards">Cards</option><option value="list">List</option></select></label></div></div>
             <div class="project-tabs" id="project-tabs" role="group" aria-label="Filter projects">
               <button type="button" data-filter="all">All projects</button>
               <button type="button" data-filter="month" class="active" title="Submission deadlines this month (Sydney)">This month</button>
@@ -124,6 +124,7 @@
               <button type="button" class="user-only" data-filter="team">My team</button>
               <label for="project-board-month" class="project-month-picker"><span class="sr-only">Choose submission deadline month</span><input id="project-board-month" type="month" aria-label="Choose Project Board month" title="Filter by submission deadline month"></label>
             </div>
+            <p id="project-search-scope" class="project-search-scope hidden" role="status">Searching across all accessible projects, regardless of month or status.</p>
             <div id="project-board" class="project-board"></div>
             <div id="portfolio-value" class="portfolio-value"></div>
           </section>
@@ -242,7 +243,7 @@
           <p class="estimate-help">Edit a name, category or quantity directly. Use <b>+</b> for components. Drag <b>⠿</b> to reorder items or whole categories.</p>
           <div class="table-scroll">
             <table class="estimate-table">
-              <thead><tr><th>Item / component</th><th>Qty</th><th>Supply / unit</th><th>Install material / unit</th><th>Total material</th><th>Labour / unit</th><th>Total hrs</th><th>Total labour</th><th>Direct cost</th><th>Quoted</th><th></th></tr></thead>
+              <thead id="estimate-columns-heading"><tr><th>Item / component</th><th>Qty</th><th>Supply / unit</th><th>Install material / unit</th><th>Total material</th><th>Labour / unit</th><th>Total hrs</th><th>Total labour</th><th>Direct cost</th><th>Quoted</th><th></th></tr></thead>
               <tbody id="estimate-lines"></tbody>
             </table>
           </div>
@@ -472,9 +473,9 @@
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <dialog id="project-share-dialog"><div class="dialog-heading"><h2>Share project</h2><button class="button secondary" data-close="project-share-dialog">Close</button></div><p>Anyone with this link can view this project’s details, prices and components without signing in. They cannot edit or access other projects.</p><p>Creating a new link replaces any previous link. Revoke access whenever needed.</p><label>Read-only link<input id="project-share-url" readonly placeholder="Create a link to share"></label><div class="form-actions"><button class="button primary" id="create-project-share">Create link</button><button class="button secondary" id="copy-project-share" disabled>Copy link</button><button class="button secondary" id="revoke-project-share">Revoke link</button></div><p id="project-share-status" role="status"></p></dialog>
   <dialog id="revision-dialog" class="productivity-dialog"><div class="dialog-heading"><h2>Tender revisions</h2><button class="button secondary" data-close="revision-dialog">Close</button></div>
-<p class="helper-text">Save a named copy of the current quotation. Use View &amp; compare for a side-by-side quantity, rate and quoted-total difference report.</p>
+<p class="helper-text">Save a named copy before making changes. <strong>View</strong> shows a saved snapshot; <strong>Compare</strong> shows differences. Neither action changes the working estimate.</p>
 <form id="revision-form" class="inline-form"><label>Revision name<input id="revision-label" maxlength="100" required placeholder="Original / Revision 1 / Final Submission"></label><button class="button primary">Save current estimate</button></form>
-<div id="revision-list"></div><div id="revision-comparison"></div></dialog>
+<div class="revision-workspace"><section id="revision-list" aria-label="Saved revisions"></section><section id="revision-comparison" role="region" aria-label="Revision details"></section></div></dialog>
 <dialog id="estimate-setup-guide" class="estimate-setup-guide" aria-labelledby="estimate-guide-title"><div class="dialog-heading"><div><p class="eyebrow">Guided estimating</p><h2 id="estimate-guide-title">Estimate Setup</h2></div><button type="button" class="button secondary small" data-guide-close>Close</button></div><div id="estimate-guide-progress" class="estimate-guide-progress" aria-label="Setup progress"></div><div id="estimate-guide-body" class="estimate-guide-body"></div><div class="estimate-guide-actions"><button type="button" class="button secondary" id="estimate-guide-back">Back</button><button type="button" class="button secondary" id="estimate-guide-next">Next</button><button type="button" class="button primary" id="estimate-guide-action">Open this step</button></div></dialog>
 <dialog id="price-dialog" class="productivity-dialog"><div class="dialog-heading"><h2>Price history & source</h2><button class="button secondary" data-close="price-dialog">Close</button></div>
 <form id="price-source-form" class="inline-form"><label>Supplier<input id="price-supplier" maxlength="1000"></label><label>Quote date<input id="price-date" type="date"></label><label>Source / reference<input id="price-source" maxlength="1000" required></label><button class="button primary">Record current price source</button></form><div id="price-history-list"></div></dialog>
@@ -489,6 +490,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.7f02674c6f17.js" defer></script>
+  <script src="/assets/app.ff7fa537d314.js" defer></script>
 </body>
 </html>

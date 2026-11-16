@@ -112,9 +112,13 @@ class ProductivityHTTP:
                                 export_project(isolated,pid,target);self._send_file(target,target.name)
                         return True
                     query=parse_qs(urlparse(self.path).query)
-                    other=query.get('compare',['current'])[0]
-                    after=calculate_project(conn,pid) if other=='current' else p.revision_snapshot(conn,pid,int(other),self.user)
-                    result={'snapshot':snapshot,'comparison':p.compare_snapshots(snapshot,after)}
+                    if query.get('view',['0'])[0]=='1':
+                        # A snapshot preview needs no live estimate recalculation or diff.
+                        result={'snapshot':snapshot}
+                    else:
+                        other=query.get('compare',['current'])[0]
+                        after=calculate_project(conn,pid) if other=='current' else p.revision_snapshot(conn,pid,int(other),self.user)
+                        result={'snapshot':snapshot,'comparison':p.compare_snapshots(snapshot,after)}
             else:raise AccessError(404,'Route not found')
         self._send_json({'success':True,**result})
         return True

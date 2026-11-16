@@ -1,3 +1,32 @@
+# TEC ConEst v3.7.24 — Project search, Breakdown remarks and revision clarity
+
+**Base:** v3.7.23 Profile & Analytics Fix · **Application version:** 3.7.24 · **Estimator database schema:** 36 (unchanged) · **Migration:** none.
+
+## Changes in v3.7.24
+
+1. **Global Home search:** moved to the top beside New Project. Typed queries cover every project the signed-in user is permitted to see, regardless of selected month or status; clearing the search restores the previous filter. Filter changes clear the search rather than returning a contradictory list.
+2. **Collapsed estimate:** when Shrink All collapses all scope categories, the item-level column header is hidden. It returns when categories are expanded.
+3. **Breakdown remarks:** estimate item remarks are visible and searchable in Allocation and Structured View. Existing notes are used (no new database column); remarks also flow through the Breakdown area summary and read-only public breakdown when active.
+4. **Revision UX:** separate View (read-only snapshot) and Compare (explicit target selection followed by a differences report). Keep Excel download and advanced restore/delete controls. Comparison displays totals and only changed items/settings, with detailed component rates available on expansion. Comparing never redeploys changes.
+
+### Deployment
+
+- No SQLite migration or live-data changes. Preserve `.env`, `data/` and all databases.
+- Rebuilt fingerprinted Estimator JavaScript/CSS. Existing Tender frontend source is unchanged apart from version metadata; build via GitHub Actions if your CI requires it.
+- The `UPDATE_ONLY` package contains changed files relative to the latest v3.7.23 Profile & Analytics Fix release.
+
+---
+
+# TEC ConEst v3.7.23 — Tender Profile and Analytics hotfix (same version)
+
+**Apply over:** v3.7.23 · **Application version:** 3.7.23 (unchanged) · **Estimator schema:** 36 (unchanged) · **Additional migration:** none.
+
+- **Tender-native Profile:** Clicking the account panel in Tenders now opens `/tenders/profile` within the Tender React workspace. The yellow Tenders tab and the full navigation—including Opportunities—remain visible. Account details, profile photo, password, and personal homepage are editable using the existing `/api/auth/profile` endpoint. Saving updates the rotated session/CSRF token without reloading or switching workspace. Unsaved edits warn before navigation.
+- **Analytics for every active user:** Tenders → Opportunities → Analytics is now visible to administrators, team members, and unassigned users. The read-only server endpoint checks that the request belongs to an active signed-in account but no longer requires admin role. Existing date filters, report counts, and write/approval permissions are unchanged.
+- **Deployment:** Push the update to your GitHub repository so GitHub Actions runs `npm ci && npm run build` for Tenders. The bundled `tenders_web` assets in a full-source ZIP remain from the base release until that build runs. Keep existing databases, `.env`, `data/`, uploads and Git metadata. No database update is required for this hotfix.
+
+---
+
 # TEC ConEst v3.7.23 — Shared estimate highlights & personal homepage
 
 **Base:** v3.7.22 CI-fixed release · **Release:** 3.7.23 · **Estimator database schema:** 36 · **Migration:** automatic, with a protected pre-upgrade backup.

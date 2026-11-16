@@ -38,8 +38,10 @@ class EstimatorUx3718Tests(unittest.TestCase):
         productivity=(ROOT/'assets/productivity.js').read_text()
         self.assertIn('data-quick-add',app)
         self.assertIn('addCatalogItem(item.id',app)
-        self.assertIn('revision-side-by-side',productivity)
-        self.assertIn('Item-level differences',productivity)
+        self.assertIn('data-view-revision',productivity)
+        self.assertIn('data-compare-revision',productivity)
+        self.assertIn('data-run-revision-compare',productivity)
+        self.assertIn('Changed estimate items',productivity)
         self.assertIn('labour hours',productivity.lower())
 
     def test_compiled_files_referenced_and_have_features(self):
@@ -49,7 +51,7 @@ class EstimatorUx3718Tests(unittest.TestCase):
         for name in assets:
             self.assertTrue((ROOT/'assets'/name).exists(),name)
         js=(ROOT/'assets'/next(n for n in assets if n.endswith('.js'))).read_text()
-        for feature in ('Show unallocated only','estimate-setup-guide','Item-level differences','suggestion-quick-add'):
+        for feature in ('Show unallocated only','estimate-setup-guide','Changed estimate items','suggestion-quick-add'):
             self.assertIn(feature,js)
 
 if __name__=='__main__':
