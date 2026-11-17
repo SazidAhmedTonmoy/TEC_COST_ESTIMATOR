@@ -553,3 +553,51 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 .dashboard-filters>.tender-multi-field{flex:1 1 180px;min-width:160px}
 .filter-sections>.tender-multi-field{width:100%}
 @media(max-width:480px){.dashboard-filters>.tender-multi-field{min-width:0}}
+
+/* v3.7.26 layout polish: prevent generic filter-label grid rules from stacking a checkbox over its text. */
+.tender-multi-choices > label.tender-multi-choice,
+.dashboard-filters .tender-multi-choices > label.tender-multi-choice,
+.filter-sections .tender-multi-choices > label.tender-multi-choice {
+  display:grid !important;
+  grid-template-columns:18px minmax(0,1fr) !important;
+  align-items:center !important;
+  justify-items:start !important;
+  justify-content:start !important;
+  text-align:left !important;
+  gap:0 10px !important;
+  width:100%;
+  min-height:40px;
+  padding:8px 10px;
+}
+.tender-multi-choices > label.tender-multi-choice > input[type=checkbox]{
+  display:block !important;
+  inline-size:18px !important;
+  block-size:18px !important;
+  min-width:18px !important;
+  min-height:18px !important;
+  max-height:18px !important;
+  margin:0 !important;
+  padding:0 !important;
+  justify-self:start !important;
+  align-self:center !important;
+  accent-color:var(--primary);
+}
+.tender-multi-choices > label.tender-multi-choice > span{
+  display:block;
+  min-width:0;
+  text-align:left !important;
+  overflow-wrap:anywhere;
+}
+/* All three Tender dashboard filters share one row when there is adequate width. */
+.dashboard-filters{
+  display:grid !important;
+  grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+  gap:10px 12px;
+  width:100%;
+  align-items:end;
+}
+.dashboard-filters > .tender-multi-field{width:100%;min-width:0;max-width:none;flex:none}
+@media(max-width:520px){.dashboard-filters{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
+@media(max-width:420px){.dashboard-filters{grid-template-columns:minmax(0,1fr) !important}}
+/* Keep the rightmost popup within the filter grid on medium screens. */
+.dashboard-filters > .tender-multi-field:last-child .tender-multi-menu{left:auto;right:0}

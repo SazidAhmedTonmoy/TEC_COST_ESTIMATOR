@@ -2642,10 +2642,10 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-red>td{b
 
 .breakdown-v3712 [data-breakdown-retry][hidden]{display:none!important}
 
-/* Search above New Project and Project JSON; actions remain level on desktop/mobile. */
-#home-view .home-project-actions{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;flex:0 1 390px;width:min(100%,390px);min-width:0}
+/* v3.7.26 layout polish: search width equals the total width of the two aligned project buttons. */
+#home-view .home-project-actions{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;flex:0 0 auto;width:max-content;max-width:100%;min-width:0}
 #home-view .home-project-actions .home-project-search{display:flex;flex:none;width:100%;min-width:0;max-width:none;margin:0}
-#home-view .home-project-button-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:nowrap;min-width:0}
-#home-view .home-project-button-row .button{min-height:42px;white-space:nowrap;flex:0 1 auto}
-@media(max-width:950px){#home-view .home-project-actions{flex:1 1 100%;width:100%;max-width:460px}}
-@media(max-width:600px){#home-view .home-project-actions{max-width:100%}#home-view .home-project-button-row .button{flex:1 1 0;min-width:0;padding-inline:8px}}
+#home-view .home-project-button-row{display:flex;align-items:center;justify-content:stretch;gap:10px;flex-wrap:nowrap;width:max-content;max-width:100%;min-width:0}
+#home-view .home-project-button-row .button{min-height:42px;white-space:nowrap;flex:0 0 auto}
+@media(max-width:950px){#home-view .home-project-actions{flex:0 0 auto;width:max-content;max-width:100%}}
+@media(max-width:600px){#home-view .home-project-actions{width:100%;max-width:100%}#home-view .home-project-button-row{width:100%}#home-view .home-project-button-row .button{flex:1 1 0;min-width:0;padding-inline:8px}}
