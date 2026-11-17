@@ -89,7 +89,7 @@ def route(h,path):
             send(h,import_workbook(store,tenders.text(body.get('filename'),'Filename',required=True,limit=255),content,h.user,expected));return
         if path=='/api/tenders/submissions' and h.command=='DELETE':
             send(h,store.delete_submission(body,h.user));return
-        routes={'submissions':store.save_submission,'submissions/batch':store.save_submissions,'chases':store.add_chase,'chases/edit':store.edit_chase,'reminders':store.save_reminder}
+        routes={'open-awarded/contact':store.save_awarded_contact,'submissions':store.save_submission,'submissions/batch':store.save_submissions,'chases':store.add_chase,'chases/edit':store.edit_chase,'reminders':store.save_reminder}
         kind=path.removeprefix('/api/tenders/')
         if kind not in routes or h.command!='POST':raise tenders.ValidationError('Not found',404)
         body['author']=h.user['name'];body['_actor_id']=h.user['id']
@@ -102,7 +102,7 @@ def route(h,path):
             # a reminder; polling still uses the normal throttled sweep.
             from .opportunities import process_due
             process_due(store,force=True)
-        if kind in ('submissions','submissions/batch'):sid=result['id']
+        if kind in ('submissions','submissions/batch','open-awarded/contact'):sid=result['id']
         send(h,tenders.live_teams(store.delta(sid)))
     except tenders.ValidationError as e:
         h._send_json({'error':str(e)},e.status)

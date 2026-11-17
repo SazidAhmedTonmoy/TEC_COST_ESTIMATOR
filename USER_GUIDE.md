@@ -1,6 +1,6 @@
 # TEC EstiDoc User Guide
 
-Version 3.7.27 · Estimator and Tenders
+Version 3.7.28 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -196,6 +196,16 @@ Open **? Help → User Guide** inside the website to search these instructions.
 4. Clear a field or use Clear filters to start over.
 
 **Tip:** Filters should stay in place when opening a tender and returning to the register.
+
+### Open-Awarded builder projects
+
+1. Open **Tenders → Open-Awarded**. The page shows builder submissions where the TEC quotation is **Open** and the builder outcome is **Awarded**.
+2. Cards show the project name, builder name, awarded date, submitted value, and most recent recorded chase-up. Projects sort by actual awarded date, newest first. Missing award dates sort last.
+3. Choose **Add contact** (or **Edit**) on a card to record the separate awarded-project contact person's name, email, phone number and the date the builder was awarded. Partial contacts can be saved and missing details remain highlighted.
+4. Select a contact phone number to open your device's dialler, or the email address to compose a message in Outlook on the web (a signed-in Microsoft 365 account may be required).
+5. Click a project card to open full tender details, original contact details, saved awarded-project details, chase-up history and reminders. Use Project Chase-up to record a new update.
+
+**Tip:** Original tender contact details are not overwritten. Award dates cannot be reconstructed reliably from submission deadlines or chase-up dates.
 
 ### Project Chase-up and follow-up history
 

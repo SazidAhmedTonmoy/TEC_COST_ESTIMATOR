@@ -5,6 +5,7 @@ import os
 import threading
 from .database import database_path
 import math
+import re
 import mimetypes
 import sqlite3
 import uuid
@@ -16,7 +17,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, unquote
 
 ROOT = Path(__file__).resolve().parents[1]
-VIEWS = {'/', '/dashboard', '/chase-up', '/search', '/projects', '/builders', '/calendar', '/reminders', '/settings'}
+VIEWS = {'/', '/dashboard', '/chase-up', '/search', '/open-awarded', '/projects', '/builders', '/calendar', '/reminders', '/settings'}
 TEXT_FIELDS = ('project','builder','status','builderStatus','location','region','contact','email','month','due','statusUpdated','pricing','remarks','quoteNo')
 
 class ValidationError(Exception):
@@ -417,6 +418,42 @@ class Store:
                 db.execute('INSERT INTO submissions VALUES(?,?,?)', (identifier,json.dumps(item,ensure_ascii=False),revision))
             self.sync_project(db,item,b.get('_actor_id'),b.get('author',''))
         return {'ok':True,'id':identifier}
+
+    def save_awarded_contact(self, b):
+        """Save builder-award follow-up details independently of original tender contact.
+
+        The record remains the same submission and requires a fresh revision so
+        simultaneous Tender editors never silently overwrite one another.
+        """
+        identifier = text(b.get('id'), 'Submission ID', True, 100)
+        awarded_date = date_value(b.get('awardedDate'))
+        contact_name = text(b.get('awardContactName'), 'Awarded-project contact name', limit=200)
+        contact_email = text(b.get('awardContactEmail'), 'Awarded-project contact email', limit=254)
+        contact_phone = text(b.get('awardContactPhone'), 'Awarded-project contact phone', limit=45)
+        if contact_email and not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", contact_email):
+            raise ValidationError('Enter a valid contact email address.')
+        if contact_phone and not re.fullmatch(r'[+0-9(). /-]{5,45}', contact_phone):
+            raise ValidationError('Enter a valid phone number, using digits and phone punctuation.')
+        fields = {'awardedDate': awarded_date, 'awardContactName': contact_name,
+                  'awardContactEmail': contact_email, 'awardContactPhone': contact_phone}
+        with self.connect(write=True) as db:
+            old = self.find(db, 'submissions', identifier)
+            item = json.loads(old['body'])
+            if item.get('status') != 'Open' or item.get('builderStatus') != 'Awarded':
+                raise ValidationError('This project is no longer Open with a builder Awarded outcome.', 409)
+            if type(b.get('revision')) is not int or b['revision'] != old['revision']:
+                raise ValidationError('This tender changed in another window. Refresh it before saving.', 409)
+            if all((item.get(k) or '') == value for k, value in fields.items()):
+                return {'ok': True, 'id': identifier}
+            changes = [key for key, value in fields.items() if (item.get(key) or '') != value]
+            item.update(fields, revision=old['revision'] + 1,
+                        updatedBy=b.get('_actor_id'), updatedByName=b.get('author', ''),
+                        updatedAt=timestamp())
+            db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?',
+                       (json.dumps(item, ensure_ascii=False), old['revision'] + 1, identifier))
+            self.activity(db, b.get('_actor_id'), b.get('author', ''),
+                          'Updated awarded-project follow-up details', item, {'fields': changes})
+        return {'ok': True, 'id': identifier}
 
     def save_submissions(self, b):
         builders=b.get('builders')

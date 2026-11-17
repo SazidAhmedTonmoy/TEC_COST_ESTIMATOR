@@ -1,3 +1,27 @@
+# TEC EstiDoc v3.7.28 — Open-Awarded builder follow-up
+
+**Base:** v3.7.27. **Estimator database schema:** 36 (unchanged). **Tender schema:** unchanged (additional fields stored inside existing submission JSON body). **Migration:** none.
+
+## New Tender page
+
+- **Tenders → Open-Awarded**, available to all active signed-in users.
+- Displays one card per builder submission where TEC status is **Open** and Builder outcome is **Awarded**.
+- Cards show project, builder, awarded date, submitted value, most recent chase-up, and a separate awarded-project contact.
+- **Edit awarded contact** saves contact name/email/phone and awarded date with optimistic revision checks and an audit entry. Fields belong to the builder submission, not the shared project or original tender contact. Existing records remain unchanged.
+- Missing contacts and missing award dates are indicated. Sorting is **newest recorded award date first**; undated records are displayed last, never guessed from deadline/chase dates.
+- Phone link uses `tel:` for the device dialler. Email links to Microsoft 365 Outlook web compose; a signed-in Outlook account is required.
+- Selecting a card opens the existing full Tender details drawer, including activity/chase-ups. Details drawer also displays the separate award contact.
+- Search by project, builder, team or contact; optional missing-contact filter. Responsive to desktop and mobile.
+
+## Compatibility / deployment
+
+- No SQLite DDL changes or data migration; original tenders and contacts preserved.
+- Full source and overlay package provided. Apply update to v3.7.27, preserving `.env`, `data/`, SQLite database files, imports and uploads.
+- The Tender frontend **must** be rebuilt (`cd tenders_frontend && npm ci && npm run build`) by GitHub Actions. If dependencies are unavailable locally, bundled assets may show the old UI until that build succeeds.
+- Contact modifications require an authenticated session, CSRF token, a current record revision, and the record to remain Open+Awarded; all writes are audited.
+
+---
+
 # TEC EstiDoc v3.7.27 — Help, usability and assistant update
 
 **Base:** v3.7.26 Layout Fix · **Estimator SQLite schema:** 36 (unchanged) · **Migration:** none.

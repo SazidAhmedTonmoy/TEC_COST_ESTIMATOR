@@ -131,6 +131,13 @@ SECTIONS = [
             'Values within one field use OR; different fields combine using AND.',
             'Clear a field or use Clear filters to start over.',
         ], 'Filters should stay in place when opening a tender and returning to the register.'),
+        ('open-awarded', 'Open-Awarded builder project follow-up', [
+            'Open Tenders → Open-Awarded to see TEC Open quotations for projects marked Builder Awarded.',
+            'Cards show project, builder, awarded date, submitted value and most recent chase-up. Newest recorded awards appear first.',
+            'Select Add contact or Edit to save a separate awarded-project contact person, email, phone and award date.',
+            'Select the phone number to start a call through the device dialler or the email to compose in Outlook on the web.',
+            'Select any project card to view its original tender details, history, related project and reminders.',
+        ], 'Historical awards without recorded award dates display a warning until someone enters the actual date; statusUpdated or due dates are not substituted.'),
         ('chase-up', 'Project Chase-up and follow-up history', [
             'Open Project Chase-up and find a submission by project or builder.',
             'Record contacts, follow-up notes, dates and any promised next action.',
@@ -199,7 +206,7 @@ SECTIONS = [
 
 
 def guide_payload():
-    return {'version': '3.7.27', 'sections': [
+    return {'version': '3.7.28', 'sections': [
         {'id': group, 'title': label, 'articles': [
             {'id': slug, 'title': title, 'steps': steps, 'note': note}
             for slug, title, steps, note in articles
