@@ -2641,3 +2641,11 @@ html[data-theme="dark"] #estimate-lines .assembly-row.catalog-highlight-red>td{b
 @media(max-width:600px){.breakdown-v3712 .breakdown-search-controls{flex:1 1 100%;justify-content:stretch}.breakdown-v3712 .breakdown-search-label{flex:1 1 auto;max-width:none}}
 
 .breakdown-v3712 [data-breakdown-retry][hidden]{display:none!important}
+
+/* Search above New Project and Project JSON; actions remain level on desktop/mobile. */
+#home-view .home-project-actions{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:10px;flex:0 1 390px;width:min(100%,390px);min-width:0}
+#home-view .home-project-actions .home-project-search{display:flex;flex:none;width:100%;min-width:0;max-width:none;margin:0}
+#home-view .home-project-button-row{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:nowrap;min-width:0}
+#home-view .home-project-button-row .button{min-height:42px;white-space:nowrap;flex:0 1 auto}
+@media(max-width:950px){#home-view .home-project-actions{flex:1 1 100%;width:100%;max-width:460px}}
+@media(max-width:600px){#home-view .home-project-actions{max-width:100%}#home-view .home-project-button-row .button{flex:1 1 0;min-width:0;padding-inline:8px}}

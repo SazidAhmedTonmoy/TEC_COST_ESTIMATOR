@@ -522,3 +522,34 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 .op-analytics-period strong{color:#f3fafc}
 .op-analytics-date-note{margin:0;font-size:12px;color:#b9d3e3}
 @media(max-width:600px){.op-analytics-dates select{width:100%;min-width:0}.op-analytics-dates label{min-width:160px}.op-analytics-modes button{flex:1;min-width:76px}}
+
+/* TEC EstiDoc: selectable multiple values per Tender filter. */
+.tender-multi-field{min-width:0;position:relative;display:grid;align-content:start;gap:6px;color:var(--muted-foreground);font-size:12px;font-weight:600}
+.tender-multi-picker{position:relative;min-width:0;font-weight:500}
+.tender-multi-picker>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:39px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--foreground);font-size:13px}
+.tender-multi-picker>summary::-webkit-details-marker{display:none}
+.tender-multi-picker>summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.tender-multi-picker[open]>summary{border-color:var(--primary)}
+.tender-multi-label{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;text-align:left}
+.tender-multi-count{background:var(--muted);padding:1px 6px;border-radius:9px;font-size:11px;flex-shrink:0}
+.tender-multi-picker[open]>summary>svg{transform:rotate(180deg)}
+.tender-multi-picker .tender-multi-menu{position:absolute;left:0;top:calc(100% + 5px);width:max(100%,240px);max-width:min(390px,calc(100vw - 32px));padding:8px;background:var(--card);color:var(--foreground);border:1px solid var(--border);border-radius:10px;box-shadow:0 16px 35px #0006;z-index:70}
+.tender-multi-picker .tender-multi-menu-head,.tender-multi-picker .tender-multi-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 7px;font-size:12px}
+.tender-multi-picker .tender-multi-menu-head button,.tender-multi-picker .tender-multi-footer button{color:var(--primary);font-weight:700;border-radius:5px;padding:5px 7px}
+.tender-multi-picker .tender-multi-menu-head button:disabled{opacity:.45}
+.tender-multi-picker .tender-multi-menu-head button:hover:not(:disabled),.tender-multi-picker .tender-multi-footer button:hover{background:var(--muted)}
+.tender-multi-picker .tender-multi-menu>input{width:100%;min-height:36px;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--background);font-size:13px;margin:5px 0}
+.tender-multi-choices{max-height:238px;overflow:auto;padding:3px 0;overscroll-behavior:contain}
+.tender-multi-choice{display:flex!important;align-items:center!important;grid-template-columns:none!important;gap:10px!important;padding:9px 8px;min-height:36px;border-radius:6px;color:var(--foreground)!important;font-size:13px!important;font-weight:500!important;cursor:pointer}
+.tender-multi-choice:hover{background:var(--muted)}
+.tender-multi-choice input{width:16px;height:16px;min-width:16px;accent-color:var(--primary);cursor:pointer;box-shadow:none!important}
+.tender-multi-choice span{overflow-wrap:anywhere}
+.tender-multi-none{padding:8px;color:var(--muted-foreground);font-size:12px}
+.tender-multi-footer{border-top:1px solid var(--border);margin-top:5px;color:var(--muted-foreground)}
+.panel:has(.tender-multi-picker[open]){overflow:visible}
+.chase-calendar-layout>.filter-sections{overflow:visible}
+@media(max-width:767px){.tender-multi-picker>summary{min-height:44px}.tender-multi-choice{min-height:43px}}
+
+.dashboard-filters>.tender-multi-field{flex:1 1 180px;min-width:160px}
+.filter-sections>.tender-multi-field{width:100%}
+@media(max-width:480px){.dashboard-filters>.tender-multi-field{min-width:0}}

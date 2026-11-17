@@ -1,3 +1,14 @@
+# TEC EstiDoc v3.7.26 — Multi-Select Tender Filters and Home Actions
+
+This update keeps **SQLite schema 36** (no migration).
+
+- Tender filters in Project Chase-up, Projects, Builders, Dashboard, and Chase-up Calendar now accept multiple checkbox selections in each field. Within a field, values combine with **OR**; across fields, filters combine with **AND**. An empty selection means **All**. All applied filters continue to work with search, result totals and Excel export.
+- The Estimator Home search now occupies its own row **above** the New Project and Project JSON buttons; the two buttons align side by side.
+- No database fields, estimate calculations, saved pricing, or permissions are changed.
+- Tender frontend source needs recompiling with `cd tenders_frontend && npm ci && npm run build` during GitHub Actions deployment.
+
+---
+
 # TEC EstiDoc v3.7.25 — Breakdown Search, Persistent Activation & Rebranding
 
 **Base:** v3.7.24 · **Estimator database schema:** 36 (unchanged) · **Migration:** none.
