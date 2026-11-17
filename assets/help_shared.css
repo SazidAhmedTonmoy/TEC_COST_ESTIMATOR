@@ -17,3 +17,39 @@ html[data-workspace=tenders] .help-chat-launch{background:#f4cf38;border-color:#
 html[data-workspace=tenders] .help-chat-launch:hover{background:#ffe170}
 html[data-workspace=tenders] .help-chat-dialog .primary{background:#f4cf38;border-color:#d1a900;color:#172b3a}
 html[data-workspace=tenders] .help-compose-options{color:#8da6b4}
+/* v3.7.27 Help: compact header, searchable guide and explicit action previews. */
+#help-chat-dialog .help-header-actions{display:flex;gap:8px;flex:0 0 auto;align-items:center}
+#help-chat-dialog .help-header-actions button{width:auto;min-width:80px;height:40px;min-height:40px;padding:0 15px}
+#help-chat-dialog .help-tabs{display:flex;gap:8px;padding:10px 24px;border-bottom:1px solid #355363;flex-shrink:0}
+#help-chat-dialog .help-tab{border-radius:9px;border:1px solid transparent;background:transparent;color:inherit;min-height:40px;padding:9px 15px;cursor:pointer;font-weight:650}
+#help-chat-dialog .help-tab.selected{background:#0b8780;color:#fff;border-color:#24a49c}
+#help-chat-dialog .help-guide[hidden],#help-chat-dialog .help-chat-messages[hidden],#help-chat-dialog #help-chat-form[hidden]{display:none!important}
+#help-chat-dialog .help-guide{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:0 20px 20px}
+#help-chat-dialog .help-guide-search{display:grid;gap:6px;flex-shrink:0;margin:15px 0 12px;font-size:12px;font-weight:650}
+#help-chat-dialog .help-guide-search input{width:100%;min-height:42px;border:1px solid #567383;border-radius:10px;padding:10px;background:transparent;color:inherit;font:inherit}
+#help-chat-dialog .help-guide-layout{display:grid;grid-template-columns:minmax(185px,35%) minmax(0,1fr);gap:12px;min-height:0;flex:1}
+#help-chat-dialog .help-guide-topics,#help-chat-dialog .help-guide-content{overflow:auto;min-height:0;border:1px solid #3c5864;border-radius:12px;padding:12px}
+#help-chat-dialog .help-topic{display:block;border:0;border-radius:8px;width:100%;background:transparent;color:inherit;text-align:left;font-size:13px;padding:10px 11px;cursor:pointer;min-height:40px}
+#help-chat-dialog .help-topic:hover,#help-chat-dialog .help-topic.selected{background:#0b817924}
+#help-chat-dialog .help-topic.selected{box-shadow:inset 3px 0 #13a99e}
+#help-chat-dialog .help-topic-group{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:#7ccabe;padding:14px 8px 4px}
+#help-chat-dialog .help-guide-content h3{font-size:20px;line-height:1.25;margin-bottom:5px}
+#help-chat-dialog .help-topic-category{color:#95b0bc;font-size:12px;margin-bottom:15px}
+#help-chat-dialog .help-guide-content ol{margin:0 0 16px 21px;padding:0;line-height:1.7}
+#help-chat-dialog .help-guide-content li{margin:10px 0}
+#help-chat-dialog .help-guide-tip{padding:12px;margin:14px 0;border:1px solid #456874;border-radius:9px;color:inherit;background:#063b3b16}
+#help-chat-dialog .help-guide-content>.button{margin:12px 0}
+#help-chat-dialog .help-settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+#help-chat-dialog .help-attachment-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+#help-chat-dialog .help-compose-selectors{display:flex;gap:12px;flex-wrap:wrap}
+#help-chat-dialog .help-compose-selectors label{display:flex;gap:6px;align-items:center}
+#help-chat-dialog .help-compose-selectors select{min-width:120px}
+#help-chat-dialog .help-starter-questions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-top:7px}
+#help-chat-dialog .help-starter-questions button{border:1px solid #57717b;border-radius:9px;background:transparent;color:inherit;font-size:11px;padding:7px 9px;cursor:pointer}
+#help-chat-dialog .help-starter-questions button:hover{border-color:#0b8780}
+#help-chat-dialog .help-action-preview{border:1px solid #19a198;border-radius:12px;padding:16px;margin-top:12px;white-space:pre-wrap}
+#help-chat-dialog .help-action-preview p{margin:9px 0 14px;line-height:1.6}
+#help-chat-dialog .help-action-controls{display:flex;gap:8px;flex-wrap:wrap}
+#help-chat-dialog :is(button,select,input,textarea):focus-visible{outline:2px solid #18bdb1;outline-offset:2px}
+html[data-workspace=tenders] #help-chat-dialog .help-tab.selected{background:#f4cf38;color:#172b3a;border-color:#d1a900}
+@media(max-width:650px){#help-chat-dialog .help-tabs{padding:8px 12px}#help-chat-dialog .help-guide{padding:0 10px 10px}#help-chat-dialog .help-guide-layout{grid-template-columns:1fr;grid-template-rows:minmax(96px,32%) minmax(0,1fr)}#help-chat-dialog .help-guide-search{margin-top:10px}#help-chat-dialog .help-header-actions{flex-wrap:wrap}#help-chat-dialog .help-starter-questions{display:none}#help-chat-dialog .help-compose-selectors{gap:4px}}

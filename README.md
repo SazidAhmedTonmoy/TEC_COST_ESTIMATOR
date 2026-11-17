@@ -1,3 +1,19 @@
+# TEC EstiDoc v3.7.27 — Help, usability and assistant update
+
+**Base:** v3.7.26 Layout Fix · **Estimator SQLite schema:** 36 (unchanged) · **Migration:** none.
+
+- Removed the permanent Region / Submission Team / Builder Outcome controls from the Tender dashboard heading. Advanced filters remain available via the Filter control and in Tender registers. Dashboard primary actions stay aligned on the right.
+- Improved Tender workspace navigation so returning to a previous register restores that tab's search, selected filters, sorting, pagination and page scroll while the application stays open. Estimator category expansion and search also persist per user/project within the browser session. This does not alter the shared data or authorization model.
+- Replaced the ambiguous Help header's Project/Normal button and blank spacing with clear **AI Assistant / User Guide** tabs, separate Settings and Close actions, and model/mode selection in the assistant composer.
+- Added a searchable **34-topic in-product User Guide** for Estimator, Breakdown, revision history, Catalog, Light Price, Imports, Opportunities, Tenders, reports, teams, account settings, security and more. Also included `USER_GUIDE.md` for offline use.
+- Enhanced the assistant with page-aware context, explicit consent for configured Gemini, a capability overview, and **preview / confirm / cancel** for supported actions on the currently open estimate: add a project note, update progress (In review requires a date), set its submission deadline, record a Won/Lost outcome, or rename it. Manager-only changes still require the project owner/admin. Every write is checked against live server permissions; stale progress previews are rejected and confirmed actions cannot be replayed.
+- AI does **not** have unrestricted access to the application, third-party accounts or arbitrary code execution. Most natural-language requests remain informational unless an approved workflow tool supports them. Sensitive data and file excerpts are sent to the configured Gemini provider only when the user opts in.
+- Tests cover guide access, action permissions, CSRF, stale revisions, cancellation, idempotence, Tender navigation and Help interface. The production Tender React frontend needs `npm ci && npm run build` during GitHub Actions deployment.
+
+**Deployment:** preserve `.env`, `data/`, SQLite databases, uploads and existing hosting configuration. No schema migration is required.
+
+---
+
 # TEC EstiDoc v3.7.26 — Multi-Select Tender Filters and Home Actions
 
 This update keeps **SQLite schema 36** (no migration).

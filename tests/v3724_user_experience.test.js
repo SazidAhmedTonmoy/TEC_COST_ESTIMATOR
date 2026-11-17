@@ -32,7 +32,8 @@ const estimateCtx={console,Date,Map,Set,document:{addEventListener(){}},$:(s)=>e
  estimateViewState:{collapsed:new Set(),expanded:new Set(),query:'',bulkCollapsed:true},
  scopeKey:c=>`3:${c}`,estimateSectionName:l=>l.category_key||l.category_snapshot||'Other',escapeHtml:esc,
  fmtMoney:n=>String(n||0),fmtNumber:n=>String(n||0),renderEstimateLine:()=>'<tr><td>Assembly</td></tr>',
- scopeNames:()=>[],fitEstimateText:()=>{},syncCategoryToggle:()=>{},syncExpandEstimateAll:()=>{}};
+ scopeNames:()=>[],fitEstimateText:()=>{},syncCategoryToggle:()=>{},syncExpandEstimateAll:()=>{},
+ restoreEstimateViewPreferences:()=>{},saveEstimateViewPreferences:()=>{}};
 const lines=[{id:11,category_key:'Lighting',total_material:100,quoted_total:150},{id:12,category_key:'Power',total_material:50,quoted_total:80}];
 estimateCtx.state.projectData.lines=lines;
 vm.createContext(estimateCtx);

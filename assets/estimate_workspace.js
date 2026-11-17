@@ -1,5 +1,31 @@
 /* Estimate navigation and editing. Saved data is always updated through guarded APIs. */
 const estimateViewState={collapsed:new Set(),expanded:new Set(),query:'',drag:null,busy:false};
+// Keep each user's expanded/collapsed categories and search across navigation/reload.
+// These are UI preferences, never pricing or shared project data.
+function estimateViewPreferenceKey(){
+  const uid=Number(state.user?.id)||0,pid=Number(state.projectId)||0;
+  return uid&&pid?`estidoc:estimate-view:${uid}:${pid}`:null;
+}
+function restoreEstimateViewPreferences(){
+  const key=estimateViewPreferenceKey();
+  if(!key||estimateViewState.preferenceKey===key)return;
+  estimateViewState.preferenceKey=key;
+  estimateViewState.collapsed=new Set();estimateViewState.expanded=new Set();
+  estimateViewState.query='';estimateViewState.bulkCollapsed=false;
+  try{
+    const saved=JSON.parse(sessionStorage.getItem(key)||'{}');
+    if(Array.isArray(saved.collapsed))estimateViewState.collapsed=new Set(saved.collapsed.filter(value=>typeof value==='string').slice(0,150));
+    if(Array.isArray(saved.expanded))estimateViewState.expanded=new Set(saved.expanded.filter(Number.isSafeInteger).slice(0,400));
+    if(typeof saved.query==='string')estimateViewState.query=saved.query.slice(0,160);
+    estimateViewState.bulkCollapsed=saved.bulkCollapsed===true;
+  }catch(_){/* Invalid local preferences must never block an estimate. */}
+  const input=document.getElementById('estimate-find-input');if(input)input.value=estimateViewState.query;
+}
+function saveEstimateViewPreferences(){
+  const key=estimateViewPreferenceKey();if(!key)return;
+  try{sessionStorage.setItem(key,JSON.stringify({collapsed:[...estimateViewState.collapsed].slice(0,150),
+   expanded:[...estimateViewState.expanded].slice(0,400),query:estimateViewState.query,bulkCollapsed:estimateViewState.bulkCollapsed===true}));}catch(_){}
+}
 // 0 = clear, 1 = yellow for review, 2 = red for urgent correction.
 // The database owns these flags, so the whole team sees the same review state.
 const estimateHighlightPending=new Set();
@@ -78,6 +104,7 @@ function fitEstimateText(){
   fields.forEach((field,i)=>field.style.height=`${heights[i]}px`);
 }
 function renderGroupedEstimate(lines){
+  restoreEstimateViewPreferences();
   const groups=new Map();
   const query=estimateViewState.query.normalize('NFKC').trim().toLowerCase();
   const matches=lines.filter(l=>!query||[l.display_name,l.name_snapshot,l.reference_name,l.notes,l.size_snapshot,l.category_snapshot,estimateSectionName(l),...(l.components||[]).map(c=>`${c.description} ${c.size}`)].join(' ').normalize('NFKC').toLowerCase().includes(query));
@@ -111,6 +138,7 @@ function renderGroupedEstimate(lines){
   }
   $('#estimate-line-count').textContent=query?`${matches.length} of ${lines.length} items`:`${lines.length} items`;
   $('#floating-bottom-button').classList.toggle('hidden',state.view!=='estimate'||!state.projectId);
+  saveEstimateViewPreferences();
 }
 async function estimateOperation(path,payload,record){
   if(estimateViewState.busy){toast('Please wait for the current change to finish.');return;}

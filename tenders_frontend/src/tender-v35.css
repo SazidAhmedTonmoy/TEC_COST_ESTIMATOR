@@ -601,3 +601,7 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 @media(max-width:420px){.dashboard-filters{grid-template-columns:minmax(0,1fr) !important}}
 /* Keep the rightmost popup within the filter grid on medium screens. */
 .dashboard-filters > .tender-multi-field:last-child .tender-multi-menu{left:auto;right:0}
+
+/* v3.7.27: summary actions no longer compete with three permanent filters. */
+.page-heading.dashboard-quick-actions{display:flex;justify-content:flex-end;margin:0 0 20px;min-height:42px}.dashboard-quick-actions>.heading-actions{margin-left:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.dashboard-quick-actions .primary-btn{min-height:42px}
+@media(max-width:650px){.dashboard-quick-actions>.heading-actions{width:100%;justify-content:flex-end}.dashboard-quick-actions .today-label{flex-basis:100%;justify-content:flex-start}}
