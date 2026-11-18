@@ -331,7 +331,10 @@ class Store:
     def all_data(self):
         with self._cache_lock:
             with self.connect() as db:
-                generation=db.execute('SELECT value FROM tender_generation').fetchone()[0]
+                # The Open-Awarded project link may change in Opportunities
+                # without a Tender edit; include both generations in the cache.
+                generation=(db.execute('SELECT value FROM tender_generation').fetchone()[0],
+                            db.execute('SELECT value FROM opportunity_generation').fetchone()[0])
             if self._cache and self._cache[0]==generation:return self._cache[1]
             data=self._read_all_data()
             self._cache=(generation,data)
@@ -340,10 +343,43 @@ class Store:
     def _read_all_data(self):
         with self.connect() as db:
             db.execute('BEGIN')
+            # Follow explicit opportunity links, never a project-name guess.
+            # Resolve on read so an opportunity URL edit immediately appears
+            # on Open-Awarded without rewriting submission/contact records.
+            opportunity_by_id = {}
+            opportunity_by_submission = {}
+            # A unique exact project + builder + region match is a display-only
+            # URL suggestion; it never establishes or modifies a record link.
+            url_candidates = {}
+            for source in db.execute('SELECT id,body FROM opportunities WHERE deleted_at IS NULL'):
+                opportunity = json.loads(source['body'])
+                opportunity_by_id[source['id']] = opportunity
+                for sid in opportunity.get('submissionIds') or []:
+                    if isinstance(sid, str) and sid:
+                        opportunity_by_submission[sid] = source['id']
+                if opportunity.get('link') and opportunity.get('project') and opportunity.get('region'):
+                    for builder in opportunity.get('builders') or []:
+                        key = (project_key(opportunity['project']), builder_key(builder),
+                               str(opportunity['region']).strip().upper())
+                        url_candidates.setdefault(key, []).append(opportunity)
             submissions = []
             for row in db.execute('SELECT * FROM submissions'):
                 item = json.loads(row['body'])
                 item['revision'] = row['revision']
+                # A submission linked to an Opportunity gets its CURRENT URL;
+                # manual overrides stay separate inside the submission JSON.
+                linked_id = item.get('opportunityId') or opportunity_by_submission.get(row['id'])
+                if linked_id:
+                    linked = opportunity_by_id.get(linked_id)
+                    item['opportunityLink'] = (linked.get('link') or '') if linked else ''
+                    item['opportunityLinkSource'] = 'linked' if linked and item['opportunityLink'] else ''
+                else:
+                    key = (project_key(item.get('project')), builder_key(item.get('builder')),
+                           str(item.get('region') or '').strip().upper())
+                    candidates = url_candidates.get(key, []) if all(key) else []
+                    # Never choose between ambiguous similarly named projects.
+                    item['opportunityLink'] = candidates[0]['link'] if len(candidates) == 1 else ''
+                    item['opportunityLinkSource'] = 'exact-match' if len(candidates) == 1 else ''
                 submissions.append(item)
             pref = db.execute("SELECT body FROM settings WHERE id='preferences'").fetchone()
             return {
@@ -420,22 +456,13 @@ class Store:
         return {'ok':True,'id':identifier}
 
     def save_awarded_contact(self, b):
-        """Save builder-award follow-up details independently of original tender contact.
+        """Save Open-Awarded dates, manual project link and contact details.
 
-        The record remains the same submission and requires a fresh revision so
-        simultaneous Tender editors never silently overwrite one another.
+        Builder-specific fields are stored inside the existing Tender submission
+        JSON. Absent fields from older clients are preserved (not silently
+        erased). The linked Opportunity URL stays a read-only derived value.
         """
         identifier = text(b.get('id'), 'Submission ID', True, 100)
-        awarded_date = date_value(b.get('awardedDate'))
-        contact_name = text(b.get('awardContactName'), 'Awarded-project contact name', limit=200)
-        contact_email = text(b.get('awardContactEmail'), 'Awarded-project contact email', limit=254)
-        contact_phone = text(b.get('awardContactPhone'), 'Awarded-project contact phone', limit=45)
-        if contact_email and not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", contact_email):
-            raise ValidationError('Enter a valid contact email address.')
-        if contact_phone and not re.fullmatch(r'[+0-9(). /-]{5,45}', contact_phone):
-            raise ValidationError('Enter a valid phone number, using digits and phone punctuation.')
-        fields = {'awardedDate': awarded_date, 'awardContactName': contact_name,
-                  'awardContactEmail': contact_email, 'awardContactPhone': contact_phone}
         with self.connect(write=True) as db:
             old = self.find(db, 'submissions', identifier)
             item = json.loads(old['body'])
@@ -443,7 +470,20 @@ class Store:
                 raise ValidationError('This project is no longer Open with a builder Awarded outcome.', 409)
             if type(b.get('revision')) is not int or b['revision'] != old['revision']:
                 raise ValidationError('This tender changed in another window. Refresh it before saving.', 409)
-            if all((item.get(k) or '') == value for k, value in fields.items()):
+            from .opportunities import normalise_link
+            fields = {
+                'awardedDate': date_value(b.get('awardedDate', item.get('awardedDate'))),
+                'estStartDate': date_value(b.get('estStartDate', item.get('estStartDate'))),
+                'awardProjectLink': normalise_link(b.get('awardProjectLink', item.get('awardProjectLink'))),
+                'awardContactName': text(b.get('awardContactName', item.get('awardContactName')), 'Awarded-project contact name', limit=200),
+                'awardContactEmail': text(b.get('awardContactEmail', item.get('awardContactEmail')), 'Awarded-project contact email', limit=254),
+                'awardContactPhone': text(b.get('awardContactPhone', item.get('awardContactPhone')), 'Awarded-project contact phone', limit=45),
+            }
+            if fields['awardContactEmail'] and not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", fields['awardContactEmail']):
+                raise ValidationError('Enter a valid contact email address.')
+            if fields['awardContactPhone'] and not re.fullmatch(r'[+0-9(). /-]{5,45}', fields['awardContactPhone']):
+                raise ValidationError('Enter a valid phone number, using digits and phone punctuation.')
+            if all((item.get(key) or '') == value for key, value in fields.items()):
                 return {'ok': True, 'id': identifier}
             changes = [key for key, value in fields.items() if (item.get(key) or '') != value]
             item.update(fields, revision=old['revision'] + 1,

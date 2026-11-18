@@ -1,3 +1,18 @@
+# TEC EstiDoc v3.7.29 — Open-Awarded dates, links and calendar
+
+**Base:** v3.7.28. **Estimator database schema:** 36 (unchanged). **Tender database schema:** unchanged. **Migration:** none.
+
+- Open-Awarded Cards now show **Est. Start Date** and **Project Link**, alongside awarded date, value, last chase-up and awarded-project contacts.
+- **Card / Calendar** toggle, month navigation, distinct amber Awarded and teal Estimated Start events. Click a date to list all events; click an event to open its Tender details. Dates are never invented.
+- Linked Opportunity URLs are resolved from the latest current Opportunity record at read time. For submissions that are not formally linked, a unique exact Project + Builder + Region match can provide a display-only URL suggestion; ambiguous matches are ignored. Manually saved project URLs override the suggested link without editing the Opportunity.
+- New fields are stored on the existing submission JSON with CSRF, current-revision conflict checks, audit trail and URL/date validation. Existing contacts, quotes, submission history and permissions are unchanged.
+- Refresh of the Open-Awarded page after saving retrieves authoritative opportunity URLs. No new SQLite tables or migration.
+- User Guide updated for Cards, Calendar, URL precedence and editing.
+- **Build:** GitHub Actions must run `npm ci && npm run build` inside `tenders_frontend/` to compile Tender changes. Existing prebuilt Tender bundles are older until rebuilt.
+- **Deployment:** Preserve `.env`, `data/`, uploaded files and SQLite database files. The update-only package contains only changed code and documentation.
+
+---
+
 # TEC EstiDoc v3.7.28 — Open-Awarded builder follow-up
 
 **Base:** v3.7.27. **Estimator database schema:** 36 (unchanged). **Tender schema:** unchanged (additional fields stored inside existing submission JSON body). **Migration:** none.
