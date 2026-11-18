@@ -31,18 +31,20 @@ test('Tender navigation, direct route and detail drawer connect new page',()=>{
  assert.match(app,/\['open-awarded','Open-Awarded',Award\]/);
  assert.match(app,/onOpen=\{s=>open\(s,'history'\)\}/);
  assert.match(app,/post\('open-awarded\/contact'/);
- assert.match(app,/chosen\.awardContactPhone/);
+ assert.match(app,/AwardContactList submission=\{chosen\}/);
  assert.match(app,/\'open-awarded\'\]\.includes\(initialView\)/);
  assert.match(main,/location\.pathname\.split\('\/'\)\[2\]/);
  assert.match(html,/href="\/tenders\/open-awarded"/);
 });
 test('contacts are separate, cards warn for missing fields, phone and Outlook links are direct',()=>{
- assert.match(cards,/awardContactName/);
- assert.match(cards,/awardContactEmail/);
- assert.match(cards,/awardContactPhone/);
- assert.match(cards,/oa-contact-warning/);
+ assert.match(cards,/awardContacts/);
+ assert.match(cards,/AwardContactList submission=\{s\}/);
+ const shared=fs.readFileSync(path.join(root,'tenders_frontend/src/components/award-contact-list.tsx'),'utf8');
+ assert.match(shared,/person\.phones\.map/);
+ assert.match(shared,/person\.emails\.map/);
+ assert.match(shared,/oa-contact-warning/);
  assert.match(cards,/oa-date-warning/);
- assert.match(cards,/tel:/);
- assert.match(cards,/outlook\.office\.com\/mail\/deeplink\/compose\?to=/);
+ assert.match(shared,/phoneHref/);
+ assert.match(shared,/outlookHref/);
  assert.match(cards,/window\.confirm\('Discard unsaved awarded-project/);
 });

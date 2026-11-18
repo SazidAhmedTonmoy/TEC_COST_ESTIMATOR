@@ -101,6 +101,65 @@ def normalize_fields(item):
 def timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='microseconds')
 
+
+def awarded_contacts_from(item):
+    """Read a builder submission's contacts, including pre-v3.7.30 single contacts.
+
+    The legacy fields remain available for older clients; the new list is the
+    authoritative representation once it exists. Do not mutate stored records.
+    """
+    saved = item.get('awardContacts')
+    if isinstance(saved, list):
+        return saved
+    name = item.get('awardContactName') or ''
+    email = item.get('awardContactEmail') or ''
+    phone = item.get('awardContactPhone') or ''
+    # Two spaces or a semicolon separate old combined numbers (e.g. office/mobile).
+    emails = [v.strip() for v in re.split(r'[,;\n]+', email) if v.strip()]
+    phones = [v.strip() for v in re.split(r'(?:\s{2,}|[;\n]+)', phone) if v.strip()]
+    return [{'name': name, 'emails': emails, 'phones': phones}] if name or email or phone else []
+
+
+def validate_awarded_contacts(raw):
+    """Validate a bounded number of contacts/addresses; never accept free-form HTML."""
+    if not isinstance(raw, list) or len(raw) > 20:
+        raise ValidationError('Choose up to 20 awarded-project contacts.')
+    people = []
+    for index, person in enumerate(raw, 1):
+        if not isinstance(person, dict):
+            raise ValidationError(f'Contact {index} is invalid.')
+        name = text(person.get('name'), f'Contact {index} name', limit=200)
+        detail = {'name': name}
+        for field, singular, limit in (('emails', 'email', 254), ('phones', 'phone', 45)):
+            values = person.get(field, [])
+            if not isinstance(values, list) or len(values) > 12:
+                raise ValidationError(f'Contact {index}: choose up to 12 {field}.')
+            cleaned, seen = [], set()
+            for value in values:
+                v = text(value, f'Contact {index} {singular}', limit=limit)
+                if not v:
+                    continue
+                if field == 'emails' and not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", v):
+                    raise ValidationError(f'Contact {index}: enter a valid email address.')
+                if field == 'phones' and not re.fullmatch(r'[+0-9(). /-]{5,45}', v):
+                    raise ValidationError(f'Contact {index}: enter a valid phone number.')
+                key = v.casefold() if field == 'emails' else re.sub(r'[^0-9]', '', v)
+                if key in seen:
+                    raise ValidationError(f'Contact {index}: remove the duplicate {singular}.')
+                cleaned.append(v)
+                seen.add(key)
+            detail[field] = cleaned
+        if name or detail['emails'] or detail['phones']:
+            people.append(detail)
+    return people
+
+
+def awarded_legacy_fields(people):
+    first = people[0] if people else {}
+    return {'awardContactName': first.get('name', ''),
+            'awardContactEmail': next(iter(first.get('emails', [])), ''),
+            'awardContactPhone': next(iter(first.get('phones', [])), '')}
+
 class Store:
     def __init__(self, path=None):
         self.path = Path(path or os.environ.get('CONEST_TENDERS_DB_PATH') or database_path().parent / 'tec_tenders.db').resolve()
@@ -366,6 +425,7 @@ class Store:
             for row in db.execute('SELECT * FROM submissions'):
                 item = json.loads(row['body'])
                 item['revision'] = row['revision']
+                item['awardContacts'] = awarded_contacts_from(item)
                 # A submission linked to an Opportunity gets its CURRENT URL;
                 # manual overrides stay separate inside the submission JSON.
                 linked_id = item.get('opportunityId') or opportunity_by_submission.get(row['id'])
@@ -471,21 +531,35 @@ class Store:
             if type(b.get('revision')) is not int or b['revision'] != old['revision']:
                 raise ValidationError('This tender changed in another window. Refresh it before saving.', 409)
             from .opportunities import normalise_link
+            # New clients send the whole contact list; older clients may still
+            # update one legacy field. In that case, update only the first person
+            # and never erase additional people, phone numbers or email addresses.
+            if 'awardContacts' in b:
+                people = validate_awarded_contacts(b['awardContacts'])
+            else:
+                people = validate_awarded_contacts(awarded_contacts_from(item))
+                legacy_keys = ('awardContactName', 'awardContactEmail', 'awardContactPhone')
+                if any(k in b for k in legacy_keys):
+                    primary = dict(people[0]) if people else {'name': '', 'emails': [], 'phones': []}
+                    if 'awardContactName' in b:
+                        primary['name'] = text(b['awardContactName'], 'Awarded-project contact name', limit=200)
+                    if 'awardContactEmail' in b:
+                        value = text(b['awardContactEmail'], 'Awarded-project contact email', limit=254)
+                        primary['emails'] = ([v.strip() for v in re.split(r'[,;\n]+', value) if v.strip()] if value else []) + primary['emails'][1:]
+                    if 'awardContactPhone' in b:
+                        value = text(b['awardContactPhone'], 'Awarded-project contact phone', limit=45)
+                        primary['phones'] = ([v.strip() for v in re.split(r'(?:\s{2,}|[;\n]+)', value) if v.strip()] if value else []) + primary['phones'][1:]
+                    people = validate_awarded_contacts([primary] + people[1:])
             fields = {
                 'awardedDate': date_value(b.get('awardedDate', item.get('awardedDate'))),
                 'estStartDate': date_value(b.get('estStartDate', item.get('estStartDate'))),
                 'awardProjectLink': normalise_link(b.get('awardProjectLink', item.get('awardProjectLink'))),
-                'awardContactName': text(b.get('awardContactName', item.get('awardContactName')), 'Awarded-project contact name', limit=200),
-                'awardContactEmail': text(b.get('awardContactEmail', item.get('awardContactEmail')), 'Awarded-project contact email', limit=254),
-                'awardContactPhone': text(b.get('awardContactPhone', item.get('awardContactPhone')), 'Awarded-project contact phone', limit=45),
+                'awardContacts': people,
+                **awarded_legacy_fields(people),
             }
-            if fields['awardContactEmail'] and not re.fullmatch(r"[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+", fields['awardContactEmail']):
-                raise ValidationError('Enter a valid contact email address.')
-            if fields['awardContactPhone'] and not re.fullmatch(r'[+0-9(). /-]{5,45}', fields['awardContactPhone']):
-                raise ValidationError('Enter a valid phone number, using digits and phone punctuation.')
-            if all((item.get(key) or '') == value for key, value in fields.items()):
+            if all((item.get(key) if key == 'awardContacts' and 'awardContacts' in item else (item.get(key) or ([] if key == 'awardContacts' else ''))) == value for key, value in fields.items()):
                 return {'ok': True, 'id': identifier}
-            changes = [key for key, value in fields.items() if (item.get(key) or '') != value]
+            changes = [key for key, value in fields.items() if (item.get(key) if key == 'awardContacts' and 'awardContacts' in item else (item.get(key) or ([] if key == 'awardContacts' else ''))) != value]
             item.update(fields, revision=old['revision'] + 1,
                         updatedBy=b.get('_actor_id'), updatedByName=b.get('author', ''),
                         updatedAt=timestamp())

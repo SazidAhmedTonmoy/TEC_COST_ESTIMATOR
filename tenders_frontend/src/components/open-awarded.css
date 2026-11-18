@@ -155,3 +155,35 @@ html[data-theme="light"] .oa-event-start{color:#075e57}
 .oa-selected-event-actions button:hover{border-color:var(--primary)}
 .oa-selected-event-actions .oa-selected-edit{color:var(--accent-foreground)}
 @media(max-width:750px){.oa-selected-events{grid-template-columns:1fr}.oa-selected-event{padding:12px}}
+
+/* v3.7.30: repeatable builder contacts and individually actionable links. */
+.oa-contact-people{display:grid;gap:10px;min-width:0}
+.oa-contact-person{display:grid;gap:7px;min-width:0;padding:9px 0;border-top:1px solid color-mix(in srgb,var(--border) 70%,transparent)}
+.oa-contact-person:first-child{border-top:0;padding-top:0}
+.oa-contact-person .oa-person{display:flex;align-items:center;gap:7px;font-size:12px;overflow-wrap:anywhere}
+.oa-contact-person .oa-contact-links{display:flex;align-items:flex-start;flex-wrap:wrap;gap:7px 17px;min-width:0}
+.oa-contact-person .oa-contact-links a{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:28px;overflow-wrap:anywhere;word-break:break-word;color:var(--accent-foreground);text-decoration:none;font-size:11px}
+.oa-contact-person .oa-contact-links a:hover{text-decoration:underline}
+.oa-contact-person .oa-contact-links a svg{flex:none}
+.oa-contact-person .oa-contact-warning{margin:0}
+.oa-contact-people.is-compact .oa-contact-person{padding:6px 0}
+.oa-contact-editor{display:grid;gap:12px;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;min-width:0}
+.oa-contact-editor-heading,.oa-edit-person-heading,.oa-contact-entry-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.oa-contact-editor-heading h3{font-size:15px;letter-spacing:0;margin:0}
+.oa-edit-person{display:grid;gap:12px;background:var(--card);border:1px solid var(--border);border-radius:11px;padding:14px;min-width:0}
+.oa-edit-person-heading strong{font-size:13px}
+.oa-edit-person>label{display:grid;gap:6px;min-width:0}
+.oa-contact-entry-list{display:grid;gap:7px}
+.oa-contact-entry-heading strong{font-size:12px;color:var(--foreground)}
+.oa-add-control,.oa-remove-control{display:inline-flex;align-items:center;gap:5px;min-height:33px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--background);color:var(--accent-foreground);font-size:11px;font-weight:700;cursor:pointer}
+.oa-remove-control{color:#e99a9a}
+.oa-add-control:disabled{opacity:.45;cursor:not-allowed}
+.oa-contact-entry{display:flex;align-items:center;gap:7px;min-width:0}
+.oa-contact-entry input{flex:1;min-width:0;min-height:39px}
+.oa-contact-entry>button{display:flex;justify-content:center;align-items:center;flex:none;min-height:39px;width:39px;background:var(--background);border:1px solid var(--border);color:var(--muted-foreground);border-radius:8px;cursor:pointer}
+.oa-contact-entry>button:hover,.oa-remove-control:hover{border-color:#e99a9a}
+.oa-contact-no-people{font-size:12px;color:var(--muted-foreground)}
+.oa-sheet-people{display:grid;gap:8px;margin-top:8px;min-width:0}
+.oa-sheet-people h4{font-size:12px;margin:0}
+.oa-contact-editor button:focus-visible,.oa-contact-person a:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+@media(max-width:570px){.oa-edit-person{padding:10px}.oa-contact-editor-heading h3{font-size:14px}.oa-contact-person .oa-contact-links{flex-direction:column;gap:3px}}

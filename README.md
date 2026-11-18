@@ -1,3 +1,15 @@
+# TEC EstiDoc v3.7.30 — Multiple awarded-project contacts
+
+**Base:** v3.7.29 Calendar Contact Fix. **Estimator database schema:** 36 (unchanged). **Tender schema:** unchanged. **Migration:** none.
+
+- Open–Awarded supports multiple people per builder project, each with multiple individual emails and phones.
+- The Card, Calendar contact details and Tender drawer all show the contacts; search and missing-contact warnings cover everyone.
+- Existing single-contact records continue to work. The original Tender contact remains separate.
+- Backend validates addresses/numbers, enforces version conflicts and preserves all other Tender data.
+- See `V3730_RELEASE_NOTES.md` for features and deployment.
+
+---
+
 # TEC EstiDoc v3.7.29 — Open-Awarded dates, links and calendar
 
 **Base:** v3.7.28. **Estimator database schema:** 36 (unchanged). **Tender database schema:** unchanged. **Migration:** none.
