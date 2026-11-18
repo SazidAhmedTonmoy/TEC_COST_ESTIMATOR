@@ -6,7 +6,7 @@ const ts=require('../tenders_frontend/node_modules/typescript');
 const source=fs.readFileSync(new URL('../tenders_frontend/src/components/open-awarded.tsx',`file://${__filename}`),'utf8');
 const filename='open-awarded.tsx';
 const tree=ts.createSourceFile(filename,source,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
-const wanted=new Set(['isoDate','awardCalendarEvents','awardMonthCells']);
+const wanted=new Set(['isoDate','awardCalendarEvents','awardMonthCells','sydneyCalendarDate']);
 const parts=tree.statements.filter(node=>{
  if(ts.isFunctionDeclaration(node))return wanted.has(node.name?.text);
  if(ts.isVariableStatement(node))return node.declarationList.declarations.some(dec=>wanted.has(dec.name.getText(tree)));
@@ -38,4 +38,10 @@ test('monthly calendar starts Monday, includes month end and pads leading/traili
  assert.equal(calendar.awardMonthCells('2026-13').length,0);
  const leap=calendar.awardMonthCells('2028-02');
  assert.ok(leap.includes('2028-02-29'));
+});
+
+test('today date follows Sydney calendar day at UTC day boundary',()=>{
+ assert.equal(calendar.sydneyCalendarDate(new Date('2026-11-17T14:00:00Z')),'2026-11-18');
+ assert.equal(calendar.sydneyCalendarDate(new Date('2026-11-17T11:00:00Z')),'2026-11-17');
+ assert.equal(calendar.sydneyCalendarDate(new Date('2026-07-31T14:30:00Z')),'2026-08-01');
 });

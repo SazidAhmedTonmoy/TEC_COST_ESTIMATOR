@@ -15,7 +15,8 @@ test('Open-Awarded has switchable Cards and Calendar views and separate event co
  assert.match(ui,/oa-event-start/);
  assert.match(css,/oa-legend-award/);
  assert.match(css,/oa-legend-start/);
- assert.match(ui,/onOpen\(event.submission\)/);
+ assert.match(ui,/revealCalendarEvent\(date,event\)/);
+ assert.match(ui,/onClick=\{\(\)=>onOpen\(s\)\}/);
 });
 
 test('Awarded cards, detail and edit dialog support start dates and safe project links',()=>{
@@ -30,4 +31,39 @@ test('Awarded cards, detail and edit dialog support start dates and safe project
  assert.match(sheet,/Est\. start date/);
  assert.match(sheet,/oa-sheet-project-link/);
  assert.match(sheet,/safeOpportunityLink/);
+});
+
+test('today is visibly marked independently of selected day; Refresh header removed',()=>{
+ const ui=src('tenders_frontend/src/components/open-awarded.tsx');
+ const css=src('tenders_frontend/src/components/open-awarded.css');
+ const app=src('tenders_frontend/src/components/tender-app.tsx');
+ assert.match(ui,/sydneyCalendarDate/);
+ assert.match(ui,/today===date\?' is-today'/);
+ assert.match(ui,/aria-current=\{today===date\?'date'/);
+ assert.match(ui,/oa-today-label/);
+ assert.match(ui,/setSelectedDay\(date\)/);
+ assert.match(css,/\.oa-calendar-day\.is-today/);
+ assert.match(css,/\.oa-calendar-day\.is-active:not\(\.is-today\)/);
+ assert.doesNotMatch(ui,/>Refresh<|onRefresh|RefreshCw/);
+ assert.doesNotMatch(app,/onRefresh=\{refresh\}/);
+});
+
+
+test('calendar event preview includes builder contact with direct actions and a missing-details path',()=>{
+ const ui=src('tenders_frontend/src/components/open-awarded.tsx');
+ const css=src('tenders_frontend/src/components/open-awarded.css');
+ const footer=ui.slice(ui.indexOf('className="oa-calendar-footer"'));
+ assert.match(footer,/oa-selected-event-contact/);
+ assert.match(footer,/Contact person/);
+ assert.match(footer,/s\.awardContactName/);
+ assert.match(footer,/s\.awardContactPhone/);
+ assert.match(footer,/s\.awardContactEmail/);
+ assert.match(footer,/href=\{phoneHref\(s\.awardContactPhone\)\}/);
+ assert.match(footer,/href=\{outlookHref\(s\.awardContactEmail\)\}/);
+ assert.match(footer,/onClick=\{\(\)=>edit\(s\)\}/);
+ assert.match(footer,/Missing contact details/);
+ assert.match(footer,/View project/);
+ assert.match(ui,/selectedEventsRef\.current\?\.scrollIntoView/);
+ assert.match(css,/\.oa-selected-event-contact/);
+ assert.match(css,/\.oa-selected-event\.is-focused/);
 });

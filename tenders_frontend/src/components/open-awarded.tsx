@@ -1,13 +1,13 @@
 'use client';
-import {useEffect,useMemo,useState,type FormEvent} from 'react';
-import {Award,CalendarDays,Check,ChevronLeft,ChevronRight,Clock,ExternalLink,Mail,Phone,Search,UserRound,AlertTriangle,Pencil,RefreshCw,LayoutGrid,Link2} from 'lucide-react';
+import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
+import {Award,CalendarDays,Check,ChevronLeft,ChevronRight,Clock,ExternalLink,Mail,Phone,Search,UserRound,AlertTriangle,Pencil,LayoutGrid,Link2} from 'lucide-react';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {safeOpportunityLink} from '@/lib/opportunity-display';
 import type {Chase,Submission} from '@/lib/types';
 import './open-awarded.css';
 
 type AwardContactFields={awardedDate:string;estStartDate:string;awardProjectLink:string;awardContactName:string;awardContactEmail:string;awardContactPhone:string};
-type Props={submissions:Submission[];chases:Chase[];saving:boolean;onOpen:(s:Submission)=>void;onSave:(s:Submission,fields:AwardContactFields)=>Promise<boolean>;onRefresh:()=>Promise<unknown>};
+type Props={submissions:Submission[];chases:Chase[];saving:boolean;onOpen:(s:Submission)=>void;onSave:(s:Submission,fields:AwardContactFields)=>Promise<boolean>};
 export type AwardCalendarEvent={date:string;kind:'awarded'|'start';submission:Submission};
 const fieldsFrom=(s:Submission):AwardContactFields=>({awardedDate:s.awardedDate||'',estStartDate:s.estStartDate||'',awardProjectLink:s.awardProjectLink||'',awardContactName:s.awardContactName||'',awardContactEmail:s.awardContactEmail||'',awardContactPhone:s.awardContactPhone||''});
 const toDate=(s:string)=>s?new Date(s+'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'Not recorded';
@@ -18,10 +18,13 @@ const isOpportunityLink=(s:Submission)=>!s.awardProjectLink&&Boolean(s.opportuni
 const savedDisplay=(): 'cards'|'calendar'=>{try{return sessionStorage.getItem('tec-open-awarded-view')==='calendar'?'calendar':'cards'}catch{return 'cards'}};
 const savedMonth=()=>{try{const value=sessionStorage.getItem('tec-open-awarded-month')||'';return /^\d{4}-(0[1-9]|1[0-2])$/.test(value)?value:currentMonth()}catch{return currentMonth()}};
 const isoDate=(s:string)=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return false;const d=new Date(s+'T12:00:00Z');return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===s;};
-const currentMonth=()=>{
- const parts=new Intl.DateTimeFormat('en-AU',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit'}).formatToParts(new Date());
- const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));return `${values.year}-${values.month}`;
-};
+/** Date-only value in the same Sydney timezone used by Tender due dates. */
+export function sydneyCalendarDate(instant:Date=new Date()):string{
+ const parts=new Intl.DateTimeFormat('en-AU',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(instant);
+ const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+ return `${values.year}-${values.month}-${values.day}`;
+}
+const currentMonth=()=>sydneyCalendarDate().slice(0,7);
 const shiftMonth=(month:string,change:number)=>{
  const [year,number]=month.split('-').map(Number);
  return new Date(Date.UTC(year,number-1+change,1)).toISOString().slice(0,7);
@@ -51,16 +54,20 @@ export function selectOpenAwarded(rows:Submission[]){
  return rows.filter(s=>s.status==='Open'&&s.builderStatus==='Awarded').sort((a,b)=>
    (b.awardedDate||'').localeCompare(a.awardedDate||'')||a.project.localeCompare(b.project)||a.builder.localeCompare(b.builder));
 }
-export function OpenAwarded({submissions,chases,saving,onOpen,onSave,onRefresh}:Props){
+export function OpenAwarded({submissions,chases,saving,onOpen,onSave}:Props){
  const [query,setQuery]=useState('');
  const [onlyMissing,setOnlyMissing]=useState(false);
  const [view,setView]=useState<'cards'|'calendar'>(savedDisplay);
  const [month,setMonth]=useState(savedMonth);
  const [selectedDay,setSelectedDay]=useState('');
+ const [focusedEvent,setFocusedEvent]=useState('');
+ const selectedEventsRef=useRef<HTMLDivElement>(null);
  const [editing,setEditing]=useState<Submission|null>(null);
  const [draft,setDraft]=useState<AwardContactFields>({awardedDate:'',estStartDate:'',awardProjectLink:'',awardContactName:'',awardContactEmail:'',awardContactPhone:''});
- const [refreshing,setRefreshing]=useState(false);
+ const [today,setToday]=useState(sydneyCalendarDate);
  useEffect(()=>{try{sessionStorage.setItem('tec-open-awarded-view',view);sessionStorage.setItem('tec-open-awarded-month',month)}catch{/* Private-mode storage may be unavailable. */}},[view,month]);
+ // Keep today's marker current if the page remains open across midnight in Sydney.
+ useEffect(()=>{const update=()=>setToday(sydneyCalendarDate());const timer=window.setInterval(update,60_000);document.addEventListener('visibilitychange',update);return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',update)};},[]);
  const latest=useMemo(()=>{
   const map=new Map<string,Chase>();
   for(const chase of chases){const prior=map.get(chase.submissionId);if(!prior||chase.date>prior.date||(chase.date===prior.date&&chase.createdAt>prior.createdAt))map.set(chase.submissionId,chase)}
@@ -85,10 +92,15 @@ export function OpenAwarded({submissions,chases,saving,onOpen,onSave,onRefresh}:
  function cancelEdit(){if(saving)return;if(hasUnsavedDraft()&&!window.confirm('Discard unsaved awarded-project details?'))return;setEditing(null);}
  function edit(s:Submission){setEditing(s);setDraft(fieldsFrom(s));}
  async function save(e:FormEvent){e.preventDefault();if(!editing)return;if(await onSave(editing,draft))setEditing(null);}
- async function reload(){if(refreshing)return;setRefreshing(true);try{await onRefresh()}finally{setRefreshing(false)}}
- function goMonth(delta:number){setMonth(previous=>shiftMonth(previous,delta));setSelectedDay('');}
+ function goMonth(delta:number){setMonth(previous=>shiftMonth(previous,delta));setSelectedDay('');setFocusedEvent('');}
+ // Reveal the contact preview without leaving Calendar or losing the user's month.
+ function revealCalendarEvent(date:string,event?:AwardCalendarEvent){
+  setSelectedDay(date);
+  setFocusedEvent(event?`${event.submission.id}:${event.kind}`:'');
+  window.requestAnimationFrame(()=>selectedEventsRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));
+ }
  return <section className="oa-workspace">
-   <div className="oa-heading"><div><span className="oa-eyebrow"><Award size={15}/> TENDER FOLLOW-UP</span><h2>Open-Awarded</h2><p>Builder-awarded projects with TEC quotations still marked Open. Keep the award, start date, project link and follow-up contact in one place.</p></div><button type="button" className="secondary-btn" disabled={refreshing} onClick={()=>void reload()}><RefreshCw size={16} className={refreshing?'oa-spin':''}/>Refresh</button></div>
+   <div className="oa-heading"><div><span className="oa-eyebrow"><Award size={15}/> TENDER FOLLOW-UP</span><h2>Open-Awarded</h2><p>Builder-awarded projects with TEC quotations still marked Open. Keep the award, start date, project link and follow-up contact in one place.</p></div></div>
    <div className="oa-toolbar"><div className="oa-search"><Search size={17}/><input type="search" aria-label="Search Open-Awarded projects" placeholder="Search project, builder, contact or chase-up…" value={query} onChange={e=>setQuery(e.target.value)}/></div><label className="oa-missing-only"><input type="checkbox" checked={onlyMissing} onChange={e=>setOnlyMissing(e.target.checked)}/> Missing contacts only</label><span className="oa-count">{visible.length} of {all.length} projects</span><div className="oa-view-switch" role="group" aria-label="Open-Awarded display"><button type="button" className={view==='cards'?'is-selected':''} aria-pressed={view==='cards'} onClick={()=>setView('cards')}><LayoutGrid size={15}/> Cards</button><button type="button" className={view==='calendar'?'is-selected':''} aria-pressed={view==='calendar'} onClick={()=>setView('calendar')}><CalendarDays size={15}/> Calendar</button></div></div>
    {visible.length===0?<div className="oa-empty"><Award size={26}/><h3>{all.length?'No matching projects':'No Open-Awarded projects yet'}</h3><p>{all.length?'Try clearing the search or the missing-contacts filter.':'Projects appear here when TEC status is Open and the builder outcome is Awarded.'}</p>{all.length>0&&<button type="button" className="secondary-btn" onClick={()=>{setQuery('');setOnlyMissing(false)}}>Clear filters</button>}</div>:
    view==='cards'?<>
@@ -110,10 +122,39 @@ export function OpenAwarded({submissions,chases,saving,onOpen,onSave,onRefresh}:
        <button type="button" className="oa-view-details" onClick={()=>onOpen(s)}>View project, contacts and chase history <ExternalLink size={14}/></button>
       </article>})}</div>
     </>:<div className="oa-calendar" aria-label="Open-Awarded monthly calendar">
-      <div className="oa-calendar-toolbar"><div className="oa-calendar-nav"><button type="button" aria-label="Previous month" onClick={()=>goMonth(-1)}><ChevronLeft size={19}/></button><label className="oa-month-field"><span className="sr-only">Calendar month</span><input type="month" aria-label="Calendar month" value={month} onChange={e=>{if(e.target.value){setMonth(e.target.value);setSelectedDay('')}}}/></label><button type="button" aria-label="Next month" onClick={()=>goMonth(1)}><ChevronRight size={19}/></button><button type="button" className="oa-today" onClick={()=>{setMonth(currentMonth());setSelectedDay('')}}>Today</button></div><strong className="oa-calendar-title">{monthTitle(month)}</strong><div className="oa-calendar-legend"><span><i className="oa-legend-award"/> Awarded</span><span><i className="oa-legend-start"/> Estimated start</span></div></div>
+      <div className="oa-calendar-toolbar"><div className="oa-calendar-nav"><button type="button" aria-label="Previous month" onClick={()=>goMonth(-1)}><ChevronLeft size={19}/></button><label className="oa-month-field"><span className="sr-only">Calendar month</span><input type="month" aria-label="Calendar month" value={month} onChange={e=>{if(e.target.value){setMonth(e.target.value);setSelectedDay('');setFocusedEvent('')}}}/></label><button type="button" aria-label="Next month" onClick={()=>goMonth(1)}><ChevronRight size={19}/></button><button type="button" className="oa-today" onClick={()=>{const date=sydneyCalendarDate();setToday(date);setMonth(date.slice(0,7));setSelectedDay(date);setFocusedEvent('')}}>Today</button></div><strong className="oa-calendar-title">{monthTitle(month)}</strong><div className="oa-calendar-legend"><span><i className="oa-legend-award"/> Awarded</span><span><i className="oa-legend-start"/> Estimated start</span></div></div>
       <div className="oa-calendar-weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><span key={day}>{day}</span>)}</div>
-      <div className="oa-calendar-grid">{days.map((date,i)=>date?<div key={date} className={'oa-calendar-day'+(selectedDay===date?' is-active':'')}><button type="button" className="oa-calendar-date" onClick={()=>setSelectedDay(date)} aria-label={'Show events on '+toDate(date)} aria-pressed={selectedDay===date}>{Number(date.slice(-2))}</button>{(eventsByDay.get(date)||[]).slice(0,3).map((event,index)=><button key={event.submission.id+event.kind+index} type="button" className={'oa-calendar-event '+(event.kind==='awarded'?'oa-event-award':'oa-event-start')} title={`${event.kind==='awarded'?'Awarded':'Estimated start'}: ${event.submission.project} — ${event.submission.builder}`} aria-label={`${event.kind==='awarded'?'Awarded':'Estimated start'}: ${event.submission.project}, ${event.submission.builder}. Open details`} onClick={()=>onOpen(event.submission)}><span>{event.kind==='awarded'?'Awarded':'Start'}</span> {event.submission.project}</button>)}{(eventsByDay.get(date)||[]).length>3&&<button type="button" className="oa-calendar-more" onClick={()=>setSelectedDay(date)}>+{(eventsByDay.get(date)||[]).length-3} more</button>}</div>:<div key={'pad-'+i} className="oa-calendar-day oa-calendar-pad" aria-hidden="true"/>)}</div>
-      <div className="oa-calendar-footer"><div><strong>{selectedDay?`Events on ${toDate(selectedDay)}`:'Select a day to see all events'}</strong><p>Awarded dates and estimated starts are shown separately. Dates not recorded are not added to the calendar.</p></div>{selectedDay&&<div className="oa-selected-events">{dayEvents.length?dayEvents.map((event,i)=><button key={event.submission.id+event.kind+i} type="button" onClick={()=>onOpen(event.submission)}><span className={event.kind==='awarded'?'oa-event-award':'oa-event-start'}>{event.kind==='awarded'?'Awarded':'Est. start'}</span><strong>{event.submission.project}</strong><small>{event.submission.builder}</small><ExternalLink size={13}/></button>):<p>No events recorded on this date.</p>}</div>}<p className="oa-calendar-missing">{visible.filter(s=>!s.awardedDate).length} missing award date · {visible.filter(s=>!s.estStartDate).length} missing estimated start date</p></div>
+      <div className="oa-calendar-grid">{days.map((date,i)=>date?<div key={date} className={'oa-calendar-day'+(selectedDay===date?' is-active':'')+(today===date?' is-today':'')}><button type="button" className="oa-calendar-date" onClick={()=>revealCalendarEvent(date)} aria-label={'Show events on '+toDate(date)+(today===date?' (today)':'')} aria-current={today===date?'date':undefined} aria-pressed={selectedDay===date}>{Number(date.slice(-2))}</button>{today===date&&<span className="oa-today-label" aria-hidden="true">Today</span>}{(eventsByDay.get(date)||[]).slice(0,3).map((event,index)=><button key={event.submission.id+event.kind+index} type="button" className={'oa-calendar-event '+(event.kind==='awarded'?'oa-event-award':'oa-event-start')} title={`${event.kind==='awarded'?'Awarded':'Estimated start'}: ${event.submission.project} — ${event.submission.builder}\nContact: ${event.submission.awardContactName||'Not recorded'}\nPhone: ${event.submission.awardContactPhone||'Not recorded'}\nEmail: ${event.submission.awardContactEmail||'Not recorded'}`} aria-label={`${event.kind==='awarded'?'Awarded':'Estimated start'}: ${event.submission.project}, ${event.submission.builder}. Show contact details`} onClick={()=>revealCalendarEvent(date,event)}><span>{event.kind==='awarded'?'Awarded':'Start'}</span> {event.submission.project}</button>)}{(eventsByDay.get(date)||[]).length>3&&<button type="button" className="oa-calendar-more" onClick={()=>revealCalendarEvent(date)}>+{(eventsByDay.get(date)||[]).length-3} more</button>}</div>:<div key={'pad-'+i} className="oa-calendar-day oa-calendar-pad" aria-hidden="true"/>)}</div>
+      <div className="oa-calendar-footer" ref={selectedEventsRef}>
+       <div className="oa-calendar-footer-intro">
+        <strong>{selectedDay?`Events on ${toDate(selectedDay)}`:'Select a date or project to see contact details'}</strong>
+        <p>{selectedDay?'Contact details for each awarded builder are shown below. Call or email directly, or open the project.':'Choose any Awarded or Estimated Start event to see the builder contact, phone number and email without leaving Calendar.'}</p>
+       </div>
+       {selectedDay&&<div className="oa-selected-events" aria-live="polite">{dayEvents.length?dayEvents.map((event,i)=>{
+        const s=event.submission;
+        const contactMissing=missing(s);
+        return <article key={s.id+event.kind+i} className={'oa-selected-event'+(focusedEvent===`${s.id}:${event.kind}`?' is-focused':'')}>
+         <div className="oa-selected-event-heading">
+          <span className={'oa-selected-event-kind '+(event.kind==='awarded'?'oa-event-award':'oa-event-start')}>{event.kind==='awarded'?'Awarded':'Estimated start'}</span>
+          <div className="oa-selected-event-project"><strong>{s.project}</strong><small>{s.builder}</small></div>
+         </div>
+         <div className="oa-selected-event-contact">
+          <div className="oa-selected-event-contact-title"><UserRound size={15}/><span>Contact person</span></div>
+          <strong className={s.awardContactName?'':'oa-contact-unrecorded'}>{s.awardContactName||'Not recorded'}</strong>
+          <div className="oa-selected-event-links">
+           {s.awardContactPhone?<a href={phoneHref(s.awardContactPhone)} aria-label={`Call ${s.awardContactName||'awarded-project contact'} on ${s.awardContactPhone}`}><Phone size={15}/><span>{s.awardContactPhone}</span></a>:<span className="oa-contact-unrecorded"><Phone size={15}/> Phone not recorded</span>}
+           {s.awardContactEmail?<a href={outlookHref(s.awardContactEmail)} target="_blank" rel="noopener noreferrer" aria-label={'Compose Outlook email to '+s.awardContactEmail}><Mail size={15}/><span>{s.awardContactEmail}</span><ExternalLink size={12}/></a>:<span className="oa-contact-unrecorded"><Mail size={15}/> Email not recorded</span>}
+          </div>
+          {contactMissing&&<p className="oa-contact-warning" role="note"><AlertTriangle size={14}/> Missing contact details — add them to contact this builder.</p>}
+         </div>
+         <div className="oa-selected-event-actions">
+          <button type="button" className="oa-selected-edit" onClick={()=>edit(s)}><Pencil size={14}/>{contactMissing?'Add contact':'Edit contact'}</button>
+          <button type="button" className="oa-selected-open" onClick={()=>onOpen(s)}>View project <ExternalLink size={13}/></button>
+         </div>
+        </article>
+       }):<p>No events recorded on this date.</p>}</div>}
+       <p className="oa-calendar-missing">{visible.filter(s=>!s.awardedDate).length} missing award date · {visible.filter(s=>!s.estStartDate).length} missing estimated start date</p>
+      </div>
     </div>}
    <Dialog open={Boolean(editing)} onOpenChange={v=>{if(!v)cancelEdit()}}><DialogContent className="tender-dialog oa-dialog"><DialogHeader><DialogTitle>Awarded project details</DialogTitle><DialogDescription>{editing?.project} — {editing?.builder}. Dates, project link and contact are saved for this builder submission.</DialogDescription></DialogHeader>
    {editing&&<form onSubmit={e=>void save(e)} className="oa-edit-form"><div className="oa-date-fields"><label>Awarded date<input type="date" value={draft.awardedDate} onChange={e=>setDraft({...draft,awardedDate:e.target.value})}/></label><label>Estimated start date<input type="date" value={draft.estStartDate} onChange={e=>setDraft({...draft,estStartDate:e.target.value})}/></label></div><label>Project link<input type="url" inputMode="url" maxLength={2048} placeholder={editing.opportunityLink||'https://example.com/project'} value={draft.awardProjectLink} onChange={e=>setDraft({...draft,awardProjectLink:e.target.value})}/></label>{safeOpportunityLink(editing.opportunityLink)&&<p className="oa-linked-hint"><Link2 size={14}/> {draft.awardProjectLink?'Manual link overrides the linked Opportunity URL.':'The Opportunity URL will be used automatically.'} <a href={safeOpportunityLink(editing.opportunityLink)} target="_blank" rel="noopener noreferrer">View Opportunity link <ExternalLink size={12}/></a>{draft.awardProjectLink&&<button type="button" onClick={()=>setDraft({...draft,awardProjectLink:''})}>Use Opportunity link</button>}</p>}<label>Contact person name<input type="text" maxLength={200} placeholder="Name of the person handling the award" value={draft.awardContactName} onChange={e=>setDraft({...draft,awardContactName:e.target.value})}/></label><label>Contact email<input type="email" maxLength={254} placeholder="person@builder.com.au" value={draft.awardContactEmail} onChange={e=>setDraft({...draft,awardContactEmail:e.target.value})}/></label><label>Contact phone number<input type="tel" maxLength={45} placeholder="+61 …" value={draft.awardContactPhone} onChange={e=>setDraft({...draft,awardContactPhone:e.target.value})}/></label><p className="form-hint">Dates are optional. Leave Project link blank to use the linked Opportunity URL where available. Missing fields remain visible on the card; phone links use your dialler and email uses Outlook on the web.</p><div className="dialog-actions"><button type="button" className="secondary-btn" disabled={saving} onClick={cancelEdit}>Cancel</button><button type="submit" className="primary-btn" disabled={saving}>{saving?'Saving…':'Save details'}</button></div></form>}</DialogContent></Dialog>
