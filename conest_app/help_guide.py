@@ -4,6 +4,8 @@ Each article is ordinary application documentation, never an instruction to an L
 The same records supply the Help panel and grounded AI how-to context.
 """
 
+from . import __version__
+
 SECTIONS = [
     ('start', 'Getting started', [
         ('first-login', 'Sign in and choose a homepage', [
@@ -131,13 +133,15 @@ SECTIONS = [
             'Values within one field use OR; different fields combine using AND.',
             'Clear a field or use Clear filters to start over.',
         ], 'Filters should stay in place when opening a tender and returning to the register.'),
-        ('open-awarded', 'Open-Awarded builder project follow-up', [
-            'Open Tenders → Open-Awarded to see TEC Open quotations for projects marked Builder Awarded.',
-            'Cards show project, builder, awarded date, submitted value and most recent chase-up. Newest recorded awards appear first.',
-            'Select Add contact or Edit to save a separate awarded-project contact person, email, phone and award date.',
-            'Select the phone number to start a call through the device dialler or the email to compose in Outlook on the web.',
-            'Select any project card to view its original tender details, history, related project and reminders.',
-        ], 'Historical awards without recorded award dates display a warning until someone enters the actual date; statusUpdated or due dates are not substituted.'),
+        ('open-awarded', 'Open-Awarded: awarded builder projects', [
+            'Open Tenders → Open-Awarded. This view includes builder submissions where TEC status is Open and Builder outcome is Awarded; it is available to signed-in users.',
+            'Use Cards to see the project and builder, submitted amount, awarded date, estimated start date, latest chase-up, project URL and awarded-project contacts. Dated awards sort newest first; missing dates sort last.',
+            'Select Edit or Add contact. Record the actual award/start dates, optional manual project URL, and add up to 20 contact people; each person can have multiple phone numbers and email addresses.',
+            'Use Add contact person, Add phone and Add email; confirm with Save details. Original Tender contacts remain separate.',
+            'Choose Calendar for amber Awarded events and teal Estimated Start events. Today is marked in blue using the Sydney date. Select an event to see contact details in a panel below the calendar.',
+            'Click a phone number to open your dialler or an email to open Outlook web compose. Use View project to open full Tender Details and chase-up history.',
+            'If a Tender is linked to an Opportunity, its current project URL is displayed automatically; manually entered URLs override it. Unmatched or ambiguous records are not guessed.',
+        ], 'Missing dates and contacts are displayed as missing, never inferred. Calendar events show only recorded dates; updates are checked against your access and the current record revision.'),
         ('chase-up', 'Project Chase-up and follow-up history', [
             'Open Project Chase-up and find a submission by project or builder.',
             'Record contacts, follow-up notes, dates and any promised next action.',
@@ -206,7 +210,7 @@ SECTIONS = [
 
 
 def guide_payload():
-    return {'version': '3.7.28', 'sections': [
+    return {'version': __version__, 'sections': [
         {'id': group, 'title': label, 'articles': [
             {'id': slug, 'title': title, 'steps': steps, 'note': note}
             for slug, title, steps, note in articles

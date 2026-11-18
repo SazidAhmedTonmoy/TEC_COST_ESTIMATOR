@@ -1,6 +1,6 @@
 # TEC EstiDoc User Guide
 
-Version 3.7.30 · Estimator and Tenders
+Version 3.8.0 (v3.8) · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -197,18 +197,21 @@ Open **? Help → User Guide** inside the website to search these instructions.
 
 **Tip:** Filters should stay in place when opening a tender and returning to the register.
 
-### Open-Awarded builder projects
+### Open–Awarded builder project follow-up (v3.8)
 
-- Each awarded builder can have **multiple contact people**, and each person can have **multiple phone numbers and email addresses**. Use **Edit** on the awarded card, then **Add contact person**, **Add phone** or **Add email**. Remove entries before saving as needed. The Card, Calendar contact panel and Tender Details view show the saved contacts. Every number opens the device dialler and each email opens Outlook web compose. Existing single contacts are retained.
+1. Open **Tenders → Open–Awarded**. Only builder submissions with TEC quotation **Open** and Builder outcome **Awarded** appear. All active signed-in users can view this register.
+2. In **Cards** view, inspect project and builder, awarded date, estimated start date, submitted value, current project link, last chase-up, and awarded-project contact people. Cards sort by recorded awarded date (newest first; missing dates last).
+3. Search by project, builder, contact or chase-up; enable **Missing contacts only** to find incomplete contact records.
+4. Select **Edit / Add contact** to record an actual awarded date or estimated start date; neither is inferred from quotation deadlines. Enter a manual Project Link if you need to override the URL inherited from a linked Opportunity.
+5. Use **Add contact person** to enter multiple people. Each person may have multiple separate phone numbers (**Add phone**) and email addresses (**Add email**). Remove individual entries or people as needed, then select **Save details**. The limits are 20 people and 12 emails / 12 phones per person.
+6. Click a phone number to open the device dialler or an email to compose in Outlook on the web. Contact details appear on Cards, in the Calendar selected-day panel, and in the complete Tender Details drawer.
+7. Switch to **Calendar** to see Awarded events in **amber** and Estimated Start events in **teal**. **Today** has a separate **blue** highlight in Sydney time. Navigate with arrows or the month picker.
+8. Select an event to show its builder's contacts in the panel **beneath the calendar**. Use **View project** to open full Tender Details, or **Edit contact** to change fields. Dates that were not recorded are not shown as calendar events.
+9. Select a Card or **View project** to open the existing Tender details and chase history. Changes to the awarded-project contacts do not overwrite the original Tender contact.
 
-1. Open **Tenders → Open-Awarded**. The page shows builder submissions where the TEC quotation is **Open** and the builder outcome is **Awarded**.
-2. In **Cards** view, each project shows the builder, awarded date, **estimated start date**, submitted value, project link (when available), last chase-up and awarded-project contact. Projects are sorted by the recorded award date, newest first; missing award dates appear last.
-3. Switch to **Calendar** view to see **Awarded** dates in amber and **Est. start** dates in teal. Navigate months with the arrows or month picker. Select a date or calendar event to show its project, builder and contact information in a panel below the calendar. Phone numbers call through your dialler; email opens Outlook. Use **View project** for the complete history. Undated events are never guessed or shown on the calendar.
-4. Choose **Add contact** (or **Edit**) on the card or calendar event panel to record dates, the optional project URL and multiple contacts. For each person, use **Add phone** or **Add email** to record more than one. Partial records can be saved, with missing details clearly marked.
-5. **Project link** is filled automatically from a linked Opportunity. Where there is no formal link, an exact unique Project + Builder + Region match can suggest the Opportunity's URL. Ambiguous matches are never selected automatically. To use a different URL, enter a manual override; clear it to use the Opportunity URL again.
-6. Select a phone number to open your device dialler or an email to compose in Outlook on the web (a signed-in Microsoft 365 account may be required). Click a card, or **View project** in the calendar event details, to open full Tender details and chase-up history.
+**Project link:** Linked Opportunities provide their current URL automatically. A unique exact project+builder+region match may provide a display-only suggestion, but ambiguous matches are never linked automatically. Clearing a manual URL restores the Opportunity URL when available.
 
-**Tip:** Original tender contacts and underlying opportunity links are not overwritten by Open-Awarded edits. Dates are entered by your team, not inferred from deadlines or chase-ups.
+**Tip:** The Calendar keeps the selected-day contact panel below the month grid. Contact details do not appear permanently inside date cells.
 
 ### Project Chase-up and follow-up history
 

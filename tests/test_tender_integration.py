@@ -4,7 +4,7 @@ import unittest
 import sqlite3
 from pathlib import Path
 from conest_app import tenders
-import test_http_v231 as http_helpers
+import support_http as http_helpers
 
 class TenderIntegrationTests(unittest.TestCase):
     request=http_helpers.HttpPatchTests.request

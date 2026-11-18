@@ -1,5 +1,5 @@
 import unittest
-import test_http_v232 as previous
+import support_http_access as previous
 from conest_app.database import connect
 class DeleteSectionTests(unittest.TestCase):
     setUp=previous.Http232Tests.setUp

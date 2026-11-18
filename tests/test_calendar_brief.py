@@ -1,8 +1,8 @@
 """Calendar details must not calculate or transfer estimate lines."""
 import unittest
 from unittest.mock import patch
-import test_http_v231 as helpers
-from fixtures_v232 import seed
+import support_http as helpers
+from support_estimate_data import seed
 
 class CalendarBriefTests(unittest.TestCase):
     request=helpers.HttpPatchTests.request

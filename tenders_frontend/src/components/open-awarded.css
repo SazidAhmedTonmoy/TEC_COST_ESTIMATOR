@@ -62,7 +62,7 @@
 .oa-sheet-facts>span{display:grid;gap:4px;font-size:11px;color:var(--muted-foreground)}
 .oa-sheet-facts strong{font-size:12px;color:var(--foreground);overflow-wrap:anywhere}
 @media(max-width:480px){.oa-sheet-facts{grid-template-columns:1fr}}
-/* v3.7.29: Open-Awarded cards/calendar, matching Tender colours and density. */
+/* v3.8: Open-Awarded cards/calendar, matching Tender colours and density. */
 .oa-view-switch{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--border);border-radius:10px;background:var(--background)}
 .oa-view-switch button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:7px;background:transparent;color:var(--muted-foreground);padding:9px 11px;min-height:36px;font-size:12px;font-weight:700;cursor:pointer}
 .oa-view-switch button.is-selected{background:var(--primary);color:var(--primary-foreground)}
@@ -129,7 +129,7 @@ html[data-theme="light"] .oa-event-start{color:#075e57}
 
 @media(max-width:750px){.oa-today-label{display:none}}
 
-/* v3.7.29 Calendar contact preview: keep phone and Outlook actions within Calendar view. */
+/* v3.8: calendar contact preview and Outlook/phone actions. */
 .oa-calendar-footer{scroll-margin-top:24px}
 .oa-calendar-footer-intro{display:grid;gap:2px}
 .oa-selected-events{grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:12px}
@@ -156,7 +156,7 @@ html[data-theme="light"] .oa-event-start{color:#075e57}
 .oa-selected-event-actions .oa-selected-edit{color:var(--accent-foreground)}
 @media(max-width:750px){.oa-selected-events{grid-template-columns:1fr}.oa-selected-event{padding:12px}}
 
-/* v3.7.30: repeatable builder contacts and individually actionable links. */
+/* v3.8: repeatable builder contacts and individually actionable links. */
 .oa-contact-people{display:grid;gap:10px;min-width:0}
 .oa-contact-person{display:grid;gap:7px;min-width:0;padding:9px 0;border-top:1px solid color-mix(in srgb,var(--border) 70%,transparent)}
 .oa-contact-person:first-child{border-top:0;padding-top:0}

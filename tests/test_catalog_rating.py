@@ -1,12 +1,12 @@
 """Optional shared stars: save/clear, search visibility, validation and migration."""
 import unittest
-import test_http_v231 as helpers
+import support_http as helpers
 from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app.database import connect,database_path
 from conest_app import projects,auto_upgrade
 from conest_app.catalog import create_manual_catalog_item,search_catalog,get_catalog_item
 from conest_app.release_v31_rating import set_rating
-from fixtures_v232 import seed
+from support_estimate_data import seed
 from legacy_schema_fixture import drop_fixture_columns
 
 class CatalogRatingTests(unittest.TestCase):

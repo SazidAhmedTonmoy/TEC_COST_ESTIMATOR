@@ -103,7 +103,7 @@ def timestamp():
 
 
 def awarded_contacts_from(item):
-    """Read a builder submission's contacts, including pre-v3.7.30 single contacts.
+    """Read a builder submission's contacts, including legacy single-contact records.
 
     The legacy fields remain available for older clients; the new list is the
     authoritative representation once it exists. Do not mutate stored records.
