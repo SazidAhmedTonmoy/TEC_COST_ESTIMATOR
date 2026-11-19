@@ -175,7 +175,7 @@ def ensure_database(path=None):
                 paths = getattr(_local, 'paths', set())
                 _local.paths = paths | {key}
                 try:
-                    log.warning('Upgrading TEC EstiDoc database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
+                    log.warning('Upgrading TEC Flow database to schema %s (safety backup: %s)', CURRENT_SCHEMA, backup)
                     # A complete schema-24 installation needs only the new
                     # access table, not another run of historical backfills.
                     if previous in (32,33,34,35):
@@ -239,7 +239,7 @@ def ensure_database(path=None):
                     if not _status(target)[0]:
                         raise UpgradeError('Database upgrade did not finish. The pre-upgrade backup was retained.')
                 except Exception as exc:
-                    log.exception('Automatic TEC EstiDoc database upgrade failed')
+                    log.exception('Automatic TEC Flow database upgrade failed')
                     if isinstance(exc, UpgradeError):
                         raise
                     raise UpgradeError('Automatic database upgrade failed. Your administrator should check server permissions, free disk space and the server error log. The existing database has not been replaced.') from exc

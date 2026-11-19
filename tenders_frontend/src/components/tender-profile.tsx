@@ -110,7 +110,7 @@ export default function TenderProfile({user,onUpdated,onDirtyChange}:{
      <label>Email <span>(optional)</span><input type="email" maxLength={254} autoComplete="email" value={form.email} onChange={e=>change('email',e.target.value)}/></label>
      <label>Contact no. <span>(optional)</span><input type="tel" maxLength={50} autoComplete="tel" value={form.contact_number} onChange={e=>change('contact_number',e.target.value)}/></label>
      <label>Role<input readOnly disabled value={user.role==='admin'?'Admin':'User'}/></label>
-     <label>My homepage<select value={form.homepage} onChange={e=>change('homepage',e.target.value)}><option value="auto">Use role / team default</option><option value="estimator">Estimator</option><option value="tenders">Tenders</option></select><span className="tender-profile-hint">Auto currently opens {user.homepage==='tenders'?'Tenders':'Estimator'}. Your selection applies the next time you open TEC EstiDoc.</span></label>
+     <label>My homepage<select value={form.homepage} onChange={e=>change('homepage',e.target.value)}><option value="auto">Use role / team default</option><option value="estimator">Estimator</option><option value="tenders">Tenders</option></select><span className="tender-profile-hint">Auto currently opens {user.homepage==='tenders'?'Tenders':'Estimator'}. Your selection applies the next time you open TEC Flow.</span></label>
     </div>
     <fieldset className="tender-profile-password"><legend>Password &amp; Security</legend>
      <div className="tender-profile-grid">

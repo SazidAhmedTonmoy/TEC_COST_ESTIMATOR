@@ -1,6 +1,8 @@
-# TEC EstiDoc User Guide
+# TEC Flow User Guide
 
-Version 3.8.1 (v3.8) · Estimator and Tenders
+**Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
+
+Version 3.8.2 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 

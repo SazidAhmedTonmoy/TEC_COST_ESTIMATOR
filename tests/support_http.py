@@ -185,7 +185,9 @@ class HttpPatchTests(unittest.TestCase):
 
     def test_titles_and_assets_have_no_visible_version(self):
         status,html=self.request('GET','/');self.assertEqual(status,200)
-        self.assertIn(b'<title>TEC EstiDoc \xc2\xb7 Tenders &amp; Estimating</title>',html)
+        self.assertIn(b'<title>TEC Flow',html)
+        self.assertIn(b'Electrical Estimating &amp; Tender Management',html)
+        self.assertIn(b'From Opportunity to Award',html)
         self.assertIn(b'id="profile-contact"',html)
         self.assertNotIn(b'ESTIMATOR V2.3',html.upper())
         for filename in ('styles.css','profile.js','quotation_import.js'):

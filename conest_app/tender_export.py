@@ -55,7 +55,7 @@ def sheet_xml(name,headers,rows,widths,generated,description,note='',money_cols=
                 if summary and j==2 and i<=11:st=12 if i==10 else 16
             cells.append(cell(f'{col(j)}{i}',v,st))
         return f'<row r="{i}" ht="{height}" customHeight="1">'+''.join(cells)+'</row>'
-    content=row_xml(1,[f'TEC Tenders — {name}']+[None]*(n-1),1,36)
+    content=row_xml(1,[f'TEC Flow Tenders — {name}']+[None]*(n-1),1,36)
     content+=row_xml(2,[generated]+[None]*(n-1),2,24)
     content+=row_xml(3,[description]+[None]*(n-1),2,30)
     content+=row_xml(4,[note]+[None]*(n-1),2,32)
@@ -80,7 +80,7 @@ def sheet_xml(name,headers,rows,widths,generated,description,note='',money_cols=
     heading_end='H' if name in ('Tenders','Follow-ups','Scheduled') else end
     merges=''.join(f'<mergeCell ref="{start}{i}:{heading_end}{i}"/>' for i in range(1,5))
     bars=f'<conditionalFormatting sqref="C6:C{last}"><cfRule type="dataBar" priority="1"><dataBar><cfvo type="min"/><cfvo type="max"/><color rgb="FFAFCDD8"/></dataBar></cfRule></conditionalFormatting>' if name in ('Projects','Builders') and rows else ''
-    return f'''<worksheet xmlns="{NS}"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:{end}{last}"/><sheetViews><sheetView showGridLines="0" workbookViewId="0">{freeze}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>{columns}</cols><sheetData>{content}</sheetData>{filtering}<mergeCells count="4">{merges}</mergeCells>{bars}{hl}<printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="{2 if n>14 else 1}" fitToHeight="0"/><headerFooter><oddFooter>&amp;LTEC Tenders&amp;C{name}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>'''
+    return f'''<worksheet xmlns="{NS}"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:{end}{last}"/><sheetViews><sheetView showGridLines="0" workbookViewId="0">{freeze}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="24"/><cols>{columns}</cols><sheetData>{content}</sheetData>{filtering}<mergeCells count="4">{merges}</mergeCells>{bars}{hl}<printOptions horizontalCentered="1"/><pageMargins left="0.25" right="0.25" top="0.4" bottom="0.4" header="0.2" footer="0.2"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="{2 if n>14 else 1}" fitToHeight="0"/><headerFooter><oddFooter>&amp;LTEC Flow Tenders&amp;C{name}&amp;RPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>'''
 
 def export_workbook(data,ids,description='All submissions'):
     wanted=set(ids)
@@ -98,7 +98,7 @@ def export_workbook(data,ids,description='All submissions'):
     for i,s in enumerate(tenders,6):
         cc=sum(c['submissionId']==s['id'] for c in chases);rr=sum(r['submissionId']==s['id'] and not r['done'] for r in reminders)
         trows.append([s['id'],s['project'],s['builder'],s['status'],s.get('builderStatus',''),s.get('pricing',''),s.get('value'),serial(s.get('due')),s.get('region',''),s.get('location',''),s.get('contact',''),s.get('email',''),s.get('month',''),s.get('statusUpdated','') if '1900' not in s.get('statusUpdated','') else '',s.get('latest',''),s.get('remarks',''),formula(f'COUNTIF(\'Follow-ups\'!$B$6:$B${clast},A{i})',cc),formula(f'COUNTIFS(\'Scheduled\'!$B$6:$B${rlast},A{i},\'Scheduled\'!$G$6:$G${rlast},"Pending")',rr),s.get('sourceRow','Manual'),s.get('quoteNo',''),s.get('submittedByTeam','')])
-    xml['Tenders']=sheet_xml('Tenders',['Submission ID','Project','Builder','TEC status','Builder outcome','Pricing feedback','Quote value (AUD)','Submission deadline','Region','Location','Contact','Email','Submission month','Status updated','Latest update','Remarks','Recorded follow-ups','Pending follow-ups','Source row','Quote No.','Submitted by team'],trows,[18,42,30,15,21,19,22,21,12,30,23,30,18,18,65,55,18,18,14,22,24],generated,description,'Source: current TEC Tenders database. Follow-up counts are linked by submission ID. Click the export timestamp to return to Summary.',money_cols=(7,),date_cols=(8,))
+    xml['Tenders']=sheet_xml('Tenders',['Submission ID','Project','Builder','TEC status','Builder outcome','Pricing feedback','Quote value (AUD)','Submission deadline','Region','Location','Contact','Email','Submission month','Status updated','Latest update','Remarks','Recorded follow-ups','Pending follow-ups','Source row','Quote No.','Submitted by team'],trows,[18,42,30,15,21,19,22,21,12,30,23,30,18,18,65,55,18,18,14,22,24],generated,description,'Source: current TEC Flow Tenders database. Follow-up counts are linked by submission ID. Click the export timestamp to return to Summary.',money_cols=(7,),date_cols=(8,))
     for name,items in [('Follow-ups',chases),('Scheduled',reminders)]:
         rows=[];links={}
         for i,item in enumerate(items,6):

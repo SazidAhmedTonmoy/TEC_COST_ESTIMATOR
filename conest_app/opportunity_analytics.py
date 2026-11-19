@@ -3,7 +3,7 @@
 All displayed outcomes use the SAME active opportunity cohort and current
 status rules. Filtering may use the original Added date (if supplied by an
 Excel workbook) or the first time an opportunity was uploaded/created in
-TEC EstiDoc. A closing deadline is never treated as an added date.
+TEC Flow. A closing deadline is never treated as an added date.
 
 Legacy action-time metrics are retained for API compatibility; the visible
 charts and contributor totals are all based on the selected creation cohort.

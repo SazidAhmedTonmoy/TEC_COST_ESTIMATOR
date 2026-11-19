@@ -15,7 +15,7 @@ def main():
     print('Version:', sys.version.split()[0])
     if sys.version_info < (3, 10):
         raise SystemExit(
-            'TEC EstiDoc requires Python 3.10 or newer; the selected interpreter '
+            'TEC Flow requires Python 3.10 or newer; the selected interpreter '
             'is {}. Configure the application to use Python 3.11 or another '
             'supported version in cPanel/Passenger, then install requirements '
             'with that same interpreter. Installing packages into a different '

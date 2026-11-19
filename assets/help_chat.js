@@ -1,4 +1,4 @@
-/* TEC EstiDoc v3.7.27: searchable in-product guide + context-aware assistant.
+/* TEC Flow v3.7.27: searchable in-product guide + context-aware assistant.
  * Only explicit, server-authorized actions can change records, after confirmation.
  */
 (function(){
@@ -52,7 +52,7 @@
   const group=document.createElement('p');group.className='help-topic-category';group.textContent=item.category;details.append(group);
   const ol=document.createElement('ol');for(const text of item.steps){const li=document.createElement('li');li.textContent=text;ol.append(li);}details.append(ol);
   if(item.note){const tip=document.createElement('p');tip.className='help-guide-tip';tip.textContent=item.note;details.append(tip);}
-  const ask=document.createElement('button');ask.type='button';ask.className='button primary';ask.textContent='Ask AI about this topic';ask.onclick=()=>{el('help-chat-question').value='Explain how to '+item.title.toLocaleLowerCase()+' in TEC EstiDoc.';setPanel('assistant');};details.append(ask);
+  const ask=document.createElement('button');ask.type='button';ask.className='button primary';ask.textContent='Ask AI about this topic';ask.onclick=()=>{el('help-chat-question').value='Explain how to '+item.title.toLocaleLowerCase()+' in TEC Flow.';setPanel('assistant');};details.append(ask);
  }
  function renderGuideData(data){guideSections=data.sections||[];articles=[];for(const group of guideSections)for(const item of group.articles||[])articles.push({...item,category:group.title});renderGuide();}
  async function open(){
@@ -81,7 +81,7 @@
   el('help-chat-dialog')?.remove();el('help-chat-button')?.remove();
   const host=document.createElement('div');host.innerHTML=`<button id="help-chat-button" class="help-chat-launch" type="button">? <span>Help</span></button>
 <dialog id="help-chat-dialog" class="help-chat-dialog" aria-labelledby="help-chat-title">
-<header class="help-chat-heading"><div><h2 id="help-chat-title">TEC EstiDoc Help</h2><p>User Guide · AI Assistant · Documents</p></div><nav class="help-header-actions" aria-label="Help options"><button id="help-settings-button" type="button" class="button secondary small" aria-expanded="false" aria-controls="help-settings">Settings</button><button id="close-help-chat" class="button secondary small" type="button">Close</button></nav></header>
+<header class="help-chat-heading"><div><h2 id="help-chat-title">TEC Flow Help</h2><p>User Guide · AI Assistant · Documents</p></div><nav class="help-header-actions" aria-label="Help options"><button id="help-settings-button" type="button" class="button secondary small" aria-expanded="false" aria-controls="help-settings">Settings</button><button id="close-help-chat" class="button secondary small" type="button">Close</button></nav></header>
 <div class="help-tabs" role="tablist" aria-label="Help view"><button id="help-tab-assistant" role="tab" aria-controls="help-chat-messages" class="help-tab selected" type="button">AI Assistant</button><button id="help-tab-guide" role="tab" aria-controls="help-guide" class="help-tab" type="button">User Guide</button></div>
 <section id="help-settings" class="help-memory" hidden><h3>Assistant settings</h3><label class="help-ai-choice"><input type="checkbox" id="help-use-ai">Use configured Gemini for AI-assisted answers. This sends your question and relevant records, memory and document excerpts to the configured provider.</label><label>My assistant context<textarea id="help-memory-note" maxlength="2000" rows="2" placeholder="Optional work context or preferred response style"></textarea></label><button id="help-save-memory" type="button" class="button secondary small">Save context</button><h4>Attachments</h4><div id="help-documents"></div><small>Up to three files, 10 MB each: text PDF, XLSX, DOCX, TXT, CSV, JSON, MD. Scanned PDF images need OCR.</small><div class="help-settings-actions"><button id="help-clear-memory" type="button" class="button secondary small">Clear conversation</button><button id="help-reset-memory" type="button" class="button secondary small">Reset chat, context and attachments</button></div></section>
 <section id="help-guide" class="help-guide" hidden aria-label="User Guide"><label class="help-guide-search"><span>Search the user guide</span><input type="search" id="help-guide-search" placeholder="Search a function, e.g. Breakdown, quote, import…" autocomplete="off" /></label><div class="help-guide-layout"><nav id="help-guide-topics" class="help-guide-topics" aria-label="User Guide topics"></nav><article id="help-guide-content" class="help-guide-content"></article></div></section>

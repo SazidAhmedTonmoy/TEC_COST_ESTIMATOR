@@ -32,6 +32,6 @@ def main():
     # Make failing assertions visible at the bottom of GitHub Actions logs.
     for name,output in failure_outputs:
         print(f'\n::group::Failure details: {name}\n{output}\n::endgroup::',flush=True)
-        print(f'::error title=TEC EstiDoc tests::{name} failed; expand failure details above',flush=True)
+        print(f'::error title=TEC Flow tests::{name} failed; expand failure details above',flush=True)
     return bool(failed)
 if __name__=='__main__':sys.exit(main())

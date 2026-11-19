@@ -1,3 +1,3 @@
-"""TEC EstiDoc Estimator application package."""
+"""TEC Flow Estimator application package."""
 
-__version__ = "3.8.1"
+__version__ = "3.8.2"

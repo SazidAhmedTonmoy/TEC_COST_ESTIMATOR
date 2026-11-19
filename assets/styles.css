@@ -527,7 +527,7 @@ dialog::backdrop { background: rgba(10, 27, 42, .6); backdrop-filter: blur(2px);
   .suggestion-meta { grid-column: 2; justify-items: start; }
 }
 
-/* TEC EstiDoc: clear hierarchy, readable specifications and full category text. */
+/* TEC Flow: clear hierarchy, readable specifications and full category text. */
 body { line-height: 1.5; }
 main { padding-bottom: 84px; }
 .brand { margin-bottom: 32px; }
@@ -787,7 +787,7 @@ a.button { display:inline-flex; align-items:center; justify-content:center; text
 @media(max-width:700px){.scope-heading-row{gap:7px;flex-wrap:wrap}.scope-heading-row .scope-quoted{min-width:130px}.floating-estimate-total{font-size:13px;min-width:210px;right:12px}.profile-security{padding:12px}}
 
 /* workspace.css */
-/* TEC EstiDoc team workspace — navy navigation, clear teal actions. */
+/* TEC Flow team workspace — navy navigation, clear teal actions. */
 body { font-size: 16px; }
 label, .helper-text, .button.small, .text-button, .nav-button { font-size: 14px; }
 .eyebrow { font-size: 12px; }
@@ -2151,6 +2151,8 @@ html[data-theme="dark"] #project-json-dialog{background:#142a35}html[data-theme=
 .login-form-panel{display:grid;place-items:center;padding:54px clamp(26px,4vw,72px);background:radial-gradient(ellipse at 45% 30%,#0b2738,#061825 80%)}
 #login-screen .login-card{display:flex;flex-direction:column;gap:22px;width:100%;max-width:405px;padding:0;background:transparent;border:0;box-shadow:none;border-radius:0;color:#edf8ff}
 .login-brand{display:flex;align-items:center;gap:16px;margin-bottom:30px}.login-brand img{width:62px;height:62px;border-radius:15px}.login-brand strong{display:block;font-size:28px;letter-spacing:-.035em;line-height:1.25}.login-brand span{display:block;letter-spacing:.34em;color:#a7c2d1;font-size:12px;margin-top:5px}
+.login-brand .login-brand-subtitle{max-width:305px;letter-spacing:.01em;font-size:11px;line-height:1.45;color:#aecbd8}
+#login-screen .login-heading .login-tagline{color:#6de6df;font-weight:650;letter-spacing:.045em;margin-top:8px}
 #login-screen .login-heading h1{font-size:29px;font-weight:650;letter-spacing:-.025em}#login-screen .login-heading p{font-size:13px;color:#a5c0cf;margin:9px 0 2px}
 #login-screen .login-field{display:grid;gap:8px;color:#b5ccda;font-size:12px;font-weight:500}#login-screen .login-input-wrap{position:relative;display:flex;align-items:center;width:100%}
 #login-screen .login-input-wrap>svg{position:absolute;left:17px;width:20px;height:20px;fill:none;stroke:#a9c9d9;stroke-width:1.5;pointer-events:none}

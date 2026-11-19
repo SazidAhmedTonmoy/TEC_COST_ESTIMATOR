@@ -620,7 +620,7 @@ def export_workbook(store, ids=None, template=False):
     last = max(6, 5 + len(rows))
     content = []
     notes = [
-        'TEC Tenders — Opportunities' + (' import template' if template else ''),
+        'TEC Flow Tenders — Opportunities' + (' import template' if template else ''),
         'Exported ' + datetime.now(timezone.utc).strftime('%d %b %Y %H:%M UTC') + ' · Values in AUD; distances in km',
         'Add missing projects in this table, save as .xlsx, then import under Opportunities. Existing IDs/projects are skipped.',
         'Use Excel dates or YYYY-MM-DD; builders on separate lines. Link: paste a web address or use Insert > Link. Manage approval/assignment in the app.',

@@ -1,4 +1,4 @@
-"""Versioned, searchable in-product documentation for TEC EstiDoc.
+"""Versioned, searchable in-product documentation for TEC Flow.
 
 Each article is ordinary application documentation, never an instruction to an LLM.
 The same records supply the Help panel and grounded AI how-to context.

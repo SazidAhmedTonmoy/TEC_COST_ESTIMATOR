@@ -107,7 +107,7 @@ class ApiError(Exception):
 
 
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
-    server_version = f"TECEstiDoc/{__version__}"
+    server_version = f"TECFlow/{__version__}"
 
     def setup(self):
         super().setup()
@@ -250,7 +250,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
             self._send_json({"success": False, "error": str(exc)}, 503)
             return
         reference = uuid.uuid4().hex[:12]
-        print(f"TEC EstiDoc server error reference: {reference}", flush=True)
+        print(f"TEC Flow server error reference: {reference}", flush=True)
         traceback.print_exc()
         self._send_json({"success": False, "error": f"The server could not complete this request. Error reference: {reference}. Ask your administrator to check the server log.", "error_reference": reference}, 500)
 
@@ -942,7 +942,7 @@ class ConEstServer(ThreadingHTTPServer):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the TEC EstiDoc web application.")
+    parser = argparse.ArgumentParser(description="Run the TEC Flow web application.")
     parser.add_argument("--host", default=os.environ.get("CONEST_HOST", "0.0.0.0"))
     parser.add_argument("--port", type=int, default=int(os.environ.get("CONEST_PORT", "8080")))
     parser.add_argument("--no-browser", action="store_true")
@@ -953,7 +953,7 @@ def main() -> None:
     server = ConEstServer((args.host, args.port), ConEstHandler)
     display_host = "127.0.0.1" if args.host in {"0.0.0.0", "::"} else args.host
     url = f"http://{display_host}:{args.port}"
-    print("\nTEC EstiDoc is ready")
+    print("\nTEC Flow is ready")
     print(f"  Open:     {url}")
     if args.host == "0.0.0.0":
         try:
@@ -970,7 +970,7 @@ def main() -> None:
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nStopping TEC EstiDoc...")
+        print("\nStopping TEC Flow...")
     finally:
         server.server_close()
 

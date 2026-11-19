@@ -1,4 +1,4 @@
-"""TEC EstiDoc v3.8: awarded-project start dates, links and permissions."""
+"""TEC Flow v3.8: awarded-project start dates, links and permissions."""
 import json
 import unittest
 from conest_app import tenders, opportunities

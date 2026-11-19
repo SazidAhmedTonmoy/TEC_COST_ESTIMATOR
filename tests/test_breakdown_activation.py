@@ -1,4 +1,4 @@
-"""v3.7.25: Breakdown activation is persistent and all workspaces use TEC EstiDoc."""
+"""v3.7.25: Breakdown activation is persistent and all workspaces use TEC Flow."""
 from pathlib import Path
 import unittest
 
@@ -55,7 +55,7 @@ class BreakdownPersistenceHttpTests(unittest.TestCase):
         self.assertFalse(body['enabled'])
 
 
-class EstiDocBrandAndSearchTests(unittest.TestCase):
+class TECFlowBrandAndSearchTests(unittest.TestCase):
     def test_breakdown_search_present_in_both_views_and_does_not_change_allocations(self):
         src=(ROOT/'assets/estimate_areas.js').read_text()
         self.assertIn('data-breakdown-search-toggle',src)
@@ -67,12 +67,16 @@ class EstiDocBrandAndSearchTests(unittest.TestCase):
         self.assertNotIn('data-tree-search',src)
 
     def test_rebrand_without_changing_legacy_data_identifiers(self):
-        for file in ('assets/index.html','tenders_web/index.html','assets/app.js',
+        for file in ('assets/index.html','tenders_frontend/index.html','assets/app.js',
                      'tenders_frontend/src/components/tender-app.tsx','conest_app/exporter.py',
                      'conest_app/project_sharing.py'):
             text=(ROOT/file).read_text()
             self.assertNotIn('TEC ConEst',text,file)
-            self.assertIn('TEC EstiDoc',text,file)
+            self.assertIn('TEC Flow',text,file)
+        # CI builds the React frontend before running tests; source-only ZIPs do not bundle it.
+        built = ROOT/'tenders_web/index.html'
+        if built.exists():
+            self.assertIn('TEC Flow',built.read_text(encoding='utf-8'))
         # Existing exported projects and live database paths must continue to work.
         self.assertIn('tec-conest-project',(ROOT/'conest_app/project_json.py').read_text())
         self.assertIn('conest_catalog.db',(ROOT/'conest_app/database.py').read_text())

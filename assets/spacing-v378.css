@@ -1,4 +1,4 @@
-/* TEC EstiDoc 3.7.8: shared 4/8/12/16/24px spacing rhythm.
+/* TEC Flow 3.7.8: shared 4/8/12/16/24px spacing rhythm.
    Scoped to authenticated screens; login artwork and sizing stay unchanged. */
 .app-shell:not(.hidden){--tec-space-1:4px;--tec-space-2:8px;--tec-space-3:12px;--tec-space-4:16px;--tec-space-6:24px}
 .app-shell:not(.hidden) .topbar{gap:16px}

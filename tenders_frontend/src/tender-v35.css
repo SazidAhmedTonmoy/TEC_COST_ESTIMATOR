@@ -523,7 +523,7 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 .op-analytics-date-note{margin:0;font-size:12px;color:#b9d3e3}
 @media(max-width:600px){.op-analytics-dates select{width:100%;min-width:0}.op-analytics-dates label{min-width:160px}.op-analytics-modes button{flex:1;min-width:76px}}
 
-/* TEC EstiDoc: selectable multiple values per Tender filter. */
+/* TEC Flow: selectable multiple values per Tender filter. */
 .tender-multi-field{min-width:0;position:relative;display:grid;align-content:start;gap:6px;color:var(--muted-foreground);font-size:12px;font-weight:600}
 .tender-multi-picker{position:relative;min-width:0;font-weight:500}
 .tender-multi-picker>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;min-width:0;min-height:39px;padding:9px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--foreground);font-size:13px}

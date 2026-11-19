@@ -1,4 +1,4 @@
-/* TEC EstiDoc 3.5.12 — dependable mobile drawer and overlay visibility.
+/* TEC Flow 3.5.12 — dependable mobile drawer and overlay visibility.
    Loaded after the legacy Estimator theme and responsive rules. */
 /* The login is shared by Estimator and Tenders. No estimate-only floating UI
    should appear during sign-in, loading or other non-estimate pages. */

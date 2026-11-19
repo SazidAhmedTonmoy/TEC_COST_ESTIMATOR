@@ -1,4 +1,4 @@
-"""TEC Tenders local web app. Python 3.10+; standard library only."""
+"""TEC Flow Tenders local web app. Python 3.10+; standard library only."""
 from __future__ import annotations
 import json
 import os

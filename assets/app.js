@@ -243,7 +243,7 @@ function setView(name, load = true, remember = true) {
   $$(".nav-button").forEach((button) => button.classList.toggle("active", button.dataset.view === name));
   $$(".view").forEach((view) => view.classList.toggle("active", view.id === `${name}-view`));
   const titles = { 'light-prices':'Light Price', home: 'Home', calendar: 'Deadline Calendar', users: 'Manage Users', profile: 'My Profile', estimate: "Build Estimate", catalog: "Catalog Explorer", imports: "Import Files", settings: "Application Settings" };
-  $("#view-title").textContent = titles[name] || "TEC EstiDoc";
+  $("#view-title").textContent = titles[name] || "TEC Flow";
   $("#export-button").classList.toggle("hidden", name !== "estimate");
   $("#share-project-button").classList.toggle("hidden", name !== "estimate");
   $("#floating-search-button").classList.toggle("hidden", name !== "estimate");
