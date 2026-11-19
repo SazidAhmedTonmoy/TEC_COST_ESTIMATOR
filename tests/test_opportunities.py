@@ -326,21 +326,56 @@ class OpportunityTests(unittest.TestCase):
         self.assert_denied(lambda: op.regions(self.store, self.creator, {'code': 'QLD', 'origin': 'Changed'}))
 
     def test_reminder_notifications_do_not_complete_reminders(self):
-        submission = self.store.all_data()['submissions'][0]
+        # The bundled seed's first quotation is Lost. Since v3.8.1, only
+        # active quotations can produce follow-up notifications.
+        submission_id = self.store.save_submission({
+            'project': 'Active reminder notification fixture',
+            'builder': 'Notification fixture builder',
+            'status': 'Open', 'builderStatus': 'In Progress',
+            'region': 'NSW', 'due': '2026-10-30',
+        })['id']
         with self.store.connect(write=True) as db:
-            self.store.insert_reminder(db, submission['id'], '2026-10-21T10:00', 'Call the builder')
+            reminder = self.store.insert_reminder(
+                db, submission_id, '2026-10-21T10:00', 'Call the builder')
         moment = datetime(2026, 10, 21, 0, 0, tzinfo=timezone.utc)
         op.process_due(self.store, force=True, now=moment)
         first = op.notifications(self.store, {'pageSize': 100}, self.member)
-        reminders = [r for r in first['items'] if r['kind'] == 'reminder']
+        reminders = [r for r in first['items']
+                     if r['kind'] == 'reminder' and r['submissionId'] == submission_id]
         self.assertTrue(reminders)
         op.mark_read(self.store, {'ids': [r['id'] for r in reminders]}, self.member)
         op.process_due(self.store, force=True, now=moment)
         with self.store.connect() as db:
-            self.assertFalse(json.loads(db.execute('SELECT body FROM reminders ORDER BY id DESC LIMIT 1').fetchone()[0])['done'])
-            counts = db.execute('''SELECT user_id,event_key,COUNT(*) n FROM tender_notifications
-                WHERE kind='reminder' GROUP BY user_id,event_key HAVING COUNT(*)>1''').fetchall()
+            self.assertFalse(json.loads(db.execute(
+                'SELECT body FROM reminders WHERE id=?', (reminder['id'],)
+            ).fetchone()[0])['done'])
+            counts = db.execute(
+                "SELECT user_id,event_key,COUNT(*) n FROM tender_notifications "
+                "WHERE kind='reminder' GROUP BY user_id,event_key HAVING COUNT(*)>1"
+            ).fetchall()
             self.assertEqual(counts, [])
+
+    def test_closed_lost_and_unsuccessful_quotations_do_not_notify(self):
+        # Simulate legacy reminder rows that predate the new cancellation rule.
+        targets = []
+        for idx, (status, outcome) in enumerate((
+            ('Lost', 'Awarded'), ('Close', 'In Progress'), ('Open', 'Unsuccessful')
+        )):
+            submission_id = self.store.save_submission({
+                'project': f'Inactive reminder fixture {idx}',
+                'builder': f'Inactive notification builder {idx}',
+                'status': status, 'builderStatus': outcome,
+                'region': 'NSW', 'due': '2026-10-30',
+            })['id']
+            targets.append(submission_id)
+            with self.store.connect(write=True) as db:
+                self.store.insert_reminder(db, submission_id,
+                                           '2026-10-21T10:00', 'Legacy follow-up')
+        op.process_due(self.store, force=True,
+                       now=datetime(2026, 10, 21, 0, 0, tzinfo=timezone.utc))
+        notifications = op.notifications(self.store, {'pageSize': 100}, self.member)
+        self.assertFalse([r for r in notifications['items']
+                          if r['kind'] == 'reminder' and r['submissionId'] in targets])
 
     def test_import_generation_is_atomic_and_seed_approvers_unknown(self):
         generation = op.generation(self.store)
