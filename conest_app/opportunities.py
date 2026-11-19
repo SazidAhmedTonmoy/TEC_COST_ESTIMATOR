@@ -964,7 +964,7 @@ def process_due(store, force=False, now=None):
             # never mark the underlying reminder as completed.
             for row in db.execute('SELECT body FROM reminders').fetchall():
                 reminder = json.loads(row[0])
-                if reminder.get('done') or not reminder.get('due'):
+                if reminder.get('done') or reminder.get('cancelled') or not reminder.get('due'):
                     continue
                 due = datetime.fromisoformat(reminder['due']).replace(tzinfo=ZoneInfo('Australia/Sydney'))
                 remaining = (due - instant).total_seconds()
@@ -974,6 +974,8 @@ def process_due(store, force=False, now=None):
                 if not submission_row:
                     continue
                 submission = json.loads(submission_row[0])
+                if tenders.closed_for_chase(submission):
+                    continue  # Never notify about a Closed/Lost builder quotation.
                 stage = 'overdue' if remaining < 0 else 'upcoming'
                 key = f'reminder:{reminder["id"]}:{reminder["due"]}:{stage}'
                 # Reminders are shared in the existing Tender workspace; use

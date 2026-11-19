@@ -11,7 +11,7 @@ export function GroupDetail({group,visible,onClose,onBack,submissions,chases,rem
  const rows=useMemo(()=>group?submissions.filter(s=>group.kind==='project'?projectKey(s.project)===projectKey(group.name):s.builder===group.name).sort((a,b)=>(b.value||0)-(a.value||0)):[],[group,submissions]);
  const byId=useMemo(()=>new Map(rows.map(s=>[s.id,s])),[rows]);
  const history=useMemo(()=>chases.filter(c=>byId.has(c.submissionId)).sort((a,b)=>b.date.localeCompare(a.date)),[chases,byId]);
- const pending=useMemo(()=>reminders.filter(r=>byId.has(r.submissionId)&&!r.done).sort((a,b)=>a.due.localeCompare(b.due)),[reminders,byId]);
+ const pending=useMemo(()=>reminders.filter(r=>{const s=byId.get(r.submissionId);return s&&!r.done&&!r.cancelled&&!['Close','Closed','Lost'].includes(s.status)&&s.builderStatus!=='Unsuccessful'}).sort((a,b)=>a.due.localeCompare(b.due)),[reminders,byId]);
  const pricing=Object.entries(rows.reduce((out,s)=>{const key=feedbackLabel(s.pricing);out[key]=(out[key]||0)+1;return out},{} as Record<string,number>));
  const counts=Object.entries(colors).map(([status,color])=>({status,color,count:rows.filter(s=>s.status===status).length}));
  const values=new Map<string,number>();for(const row of rows){const key=projectKey(row.project);values.set(key,Math.max(values.get(key)||0,row.value||0))}

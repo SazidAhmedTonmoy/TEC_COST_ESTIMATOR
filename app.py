@@ -926,6 +926,7 @@ class ConEstServer(ThreadingHTTPServer):
                     from conest_app import tenders, opportunities
                     if backups.tender_path().is_file():
                         opportunities.process_due(tenders.get_store())
+                        tenders.get_store().ensure_followups()
                 except Exception as exc:print('Opportunity deadline check failed:',exc)
             self._backup_thread=threading.Thread(target=run_backup,daemon=True)
             self._backup_thread.start()

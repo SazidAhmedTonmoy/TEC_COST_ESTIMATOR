@@ -11,10 +11,11 @@ import sqlite3
 import uuid
 import weakref
 from contextlib import closing, contextmanager
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit, unquote
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 VIEWS = {'/', '/dashboard', '/chase-up', '/search', '/open-awarded', '/projects', '/builders', '/calendar', '/reminders', '/settings'}
@@ -102,6 +103,31 @@ def timestamp():
     return datetime.now(timezone.utc).isoformat(timespec='microseconds')
 
 
+def sydney_today():
+    """Use the tender team's calendar date, including Australian DST."""
+    return datetime.now(ZoneInfo('Australia/Sydney')).date()
+
+
+def first_chase_wednesday(submitted):
+    """First Wednesday strictly after the 14 complete days after submission."""
+    start = date.fromisoformat(submitted) + timedelta(days=14)
+    offset = (2 - start.weekday()) % 7 or 7
+    return (start + timedelta(days=offset)).isoformat() + 'T09:00'
+
+
+def next_recurring_due(due, today):
+    """Keep the original Sydney local time; advance only by whole 14-day cycles."""
+    previous = date.fromisoformat(due[:10])
+    if previous >= today:
+        return due
+    cycles = ((today - previous).days + 13) // 14
+    return (previous + timedelta(days=14 * cycles)).isoformat() + due[10:]
+
+
+def closed_for_chase(item):
+    return item.get('status') in ('Close', 'Closed', 'Lost') or str(item.get('builderStatus') or '').strip().casefold() == 'unsuccessful'
+
+
 def awarded_contacts_from(item):
     """Read a builder submission's contacts, including legacy single-contact records.
 
@@ -169,6 +195,8 @@ class Store:
         self._keeper_lock = threading.Lock()
         self._database_keeper = None
         self._keeper_finalizer = None
+        self._followup_lock = threading.Lock()
+        self._followup_sweep_date = None
         legacy = self.path.with_suffix('.sqlite3')
         if not self.path.exists() and legacy.is_file():
             with closing(sqlite3.connect(f'{legacy.as_uri()}?mode=ro',uri=True)) as source, closing(sqlite3.connect(self.path)) as target:
@@ -351,6 +379,116 @@ class Store:
         db.execute('INSERT INTO tender_activity(actor_id,actor_name,submission_id,project,action,details,created_at) VALUES(?,?,?,?,?,?,?)',
                    (actor_id,actor_name or '',submission.get('id'),submission.get('project',''),action,json.dumps(details or {}),timestamp()))
 
+    @staticmethod
+    def _cancel_pending_reminders(db, sid, reason='Quotation closed'):
+        """Retain the historical record while removing all actionable schedules."""
+        changed = 0
+        for row in db.execute('SELECT id,body FROM reminders WHERE submission_id=?',(sid,)).fetchall():
+            reminder = json.loads(row['body'])
+            if reminder.get('done') or reminder.get('cancelled'):
+                continue
+            reminder.update(done=True, cancelled=True, cancelledReason=reason,
+                            cancelledAt=timestamp(), revision=reminder.get('revision',0)+1)
+            db.execute('UPDATE reminders SET body=? WHERE id=?',
+                       (json.dumps(reminder,ensure_ascii=False),row['id']))
+            changed += 1
+        return changed
+
+    @staticmethod
+    def _new_reminder(db, sid, due, note, *, actor_id=None, author='', recurring=False, automatic=False):
+        reminder = {
+            'id':str(uuid.uuid4()), 'submissionId':sid, 'due':due, 'firstDue':due,
+            'note':note, 'done':False, 'repeatEvery14Days':bool(recurring),
+            'automatic':bool(automatic), 'createdBy':actor_id,
+            'createdByName':author, 'createdAt':timestamp(), 'revision':0,
+        }
+        db.execute('INSERT INTO reminders VALUES(?,?,?)',
+                   (reminder['id'],sid,json.dumps(reminder,ensure_ascii=False)))
+        return reminder
+
+    def _reconcile_one_followup(self, db, item, today):
+        """Idempotent per-submission reconciliation, within the caller's transaction."""
+        sid = item['id']
+        changed = 0
+        if str(item.get('builderStatus') or '').strip().casefold() == 'unsuccessful' and item.get('status') != 'Close':
+            item.update(status='Close',revision=item.get('revision',0)+1,
+                        statusClosedReason='Builder unsuccessful')
+            db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',
+                       (json.dumps(item,ensure_ascii=False),sid))
+            changed += 1
+        if closed_for_chase(item):
+            changed += self._cancel_pending_reminders(db,sid,
+                      'Builder unsuccessful' if item.get('builderStatus') == 'Unsuccessful' else 'TEC quotation closed or lost')
+            return changed
+        reminders = [json.loads(r[0]) for r in db.execute('SELECT body FROM reminders WHERE submission_id=?',(sid,))]
+        for reminder in reminders:
+            if reminder.get('done') or reminder.get('cancelled') or not reminder.get('repeatEvery14Days'):
+                continue
+            try: rolled = next_recurring_due(reminder['due'], today)
+            except (ValueError,KeyError): continue  # preserve malformed historical data for manual correction
+            if rolled != reminder['due']:
+                reminder.update(due=rolled,revision=reminder.get('revision',0)+1)
+                db.execute('UPDATE reminders SET body=? WHERE id=?',
+                           (json.dumps(reminder,ensure_ascii=False),reminder['id']))
+                changed += 1
+        submitted = item.get('submittedDate') or ''
+        if (item.get('status') != 'Open' or item.get('autoFirstChaseCancelled') or
+                not submitted or any(not r.get('cancelled') for r in reminders) or
+                db.execute('SELECT 1 FROM chases WHERE submission_id=? LIMIT 1',(sid,)).fetchone()):
+            return changed
+        try: submitted_day = date.fromisoformat(submitted)
+        except ValueError: return changed
+        # Keep newly quoted submissions in their 14-day Recently Submitted
+        # window without creating a chase-up prematurely. The daily sweep
+        # creates the recurring first-Wednesday series on day 14 or later.
+        if (today - submitted_day).days < 14:
+            return changed
+        first_due = first_chase_wednesday(submitted)
+        self._new_reminder(db,sid,next_recurring_due(first_due,today),
+                           'First chase-up: request tender progress and pricing feedback',
+                           actor_id=item.get('createdBy') or item.get('importedBy'),
+                           author=item.get('createdByName') or item.get('importedByName') or 'Automatic',
+                           recurring=True,automatic=True)
+        return changed + 1
+
+    def ensure_followups(self, force=False, today=None):
+        """Daily sweep makes recurrence automatic, without a client/browser timer.
+
+        No SQLite schema changes. An unchanged sweep does not bump the data
+        generation; the entire sweep is atomic across server workers.
+        """
+        today = today or sydney_today()
+        with self._followup_lock:
+            if not force and self._followup_sweep_date == today:
+                return
+            with self.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                changed = 0
+                for row in db.execute('SELECT id,body,revision FROM submissions').fetchall():
+                    item = json.loads(row['body'])
+                    item['revision'] = row['revision']
+                    changed += self._reconcile_one_followup(db,item,today)
+                if changed:
+                    db.execute('UPDATE tender_generation SET value=value+1')
+            self._followup_sweep_date = today
+
+    @staticmethod
+    def _complete_reminder(db, reminder):
+        """Completing a recurring occurrence schedules the following cycle."""
+        if reminder.get('cancelled'):
+            raise ValidationError('This schedule was cancelled.',409)
+        if reminder.get('repeatEvery14Days'):
+            previous = date.fromisoformat(reminder['due'][:10])
+            following = (previous + timedelta(days=14)).isoformat() + reminder['due'][10:]
+            reminder.update(due=next_recurring_due(following,sydney_today()),
+                            done=False,lastCompletedAt=timestamp(),
+                            completedCount=reminder.get('completedCount',0)+1)
+        else:
+            reminder['done'] = True
+        reminder['revision'] = reminder.get('revision',0)+1
+        db.execute('UPDATE reminders SET body=? WHERE id=?',
+                   (json.dumps(reminder,ensure_ascii=False),reminder['id']))
+
     def edit_chase(self, b):
         identifier=text(b.get('id'),'Chase ID',True,100)
         sid=text(b.get('submissionId'),'Submission ID',True,100)
@@ -388,6 +526,7 @@ class Store:
         return row
 
     def all_data(self):
+        self.ensure_followups()
         with self._cache_lock:
             with self.connect() as db:
                 # The Open-Awarded project link may change in Opportunities
@@ -456,9 +595,14 @@ class Store:
         fields = {k: text(b.get(k), k, k in ('project','builder')) for k in TEXT_FIELDS}
         if fields['pricing'] in ('4', '4.0'):
             fields['pricing'] = 'High'
+        if fields['status'] == 'Closed':
+            fields['status'] = 'Close'  # legacy internal value; display remains "Closed"
         if fields['status'] not in ('Open','Won','Lost','Close','Hold'):
             raise ValidationError('Choose a valid TEC status.')
+        if fields['builderStatus'].casefold() == 'unsuccessful':
+            fields['status'] = 'Close'
         fields['due'] = date_value(fields['due'])
+        submitted_date = date_value(b.get('submittedDate')) if 'submittedDate' in b else None
         normalize_fields(fields)
         value = b.get('value')
         if value is not None and (type(value) not in (int,float) or not math.isfinite(value) or value < 0):
@@ -480,6 +624,8 @@ class Store:
             else:
                 item, revision = {'latest':'','chaseNumber':''}, 0
             if 'quoteNo' not in b:fields['quoteNo']=item.get('quoteNo','')
+            if submitted_date is not None:
+                item['submittedDate'] = submitted_date
             if team and team not in submission_teams():
                 if team==item.get('submittedByTeam'):team=''
                 else:raise ValidationError('Choose an existing submission team.')
@@ -512,6 +658,11 @@ class Store:
                 db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?', (json.dumps(item,ensure_ascii=False),revision,identifier))
             else:
                 db.execute('INSERT INTO submissions VALUES(?,?,?)', (identifier,json.dumps(item,ensure_ascii=False),revision))
+            if closed_for_chase(item):
+                self._cancel_pending_reminders(db,identifier,
+                         'Builder unsuccessful' if fields['builderStatus'].casefold() == 'unsuccessful' else 'TEC quotation closed or lost')
+            else:
+                self._reconcile_one_followup(db,item,sydney_today())
             self.sync_project(db,item,b.get('_actor_id'),b.get('author',''))
         return {'ok':True,'id':identifier}
 
@@ -623,13 +774,14 @@ class Store:
         complete = text(b.get('completeReminder'), 'Reminder ID', limit=100)
         with self.connect(write=True) as db:
             old = self.find(db, 'submissions', sid)
+            if closed_for_chase(json.loads(old['body'])):
+                raise ValidationError('Chase-ups are stopped for Closed or Lost quotations.',409)
             if complete:
                 reminder = self.find(db, 'reminders', complete)
                 if reminder['submission_id'] != sid:
                     raise ValidationError('Reminder belongs to a different tender.')
                 r = json.loads(reminder['body'])
-                r['done'] = True
-                db.execute('UPDATE reminders SET body=? WHERE id=?',(json.dumps(r),complete))
+                self._complete_reminder(db,r)
             c = {'id':str(uuid.uuid4()),'submissionId':sid,'date':chase_date,'note':note,'method':method,'author':author,'authorId':b.get('_actor_id'),'createdAt':timestamp(),'revision':0}
             db.execute('INSERT INTO chases VALUES(?,?,?)',(c['id'],sid,json.dumps(c,ensure_ascii=False)))
             item = json.loads(old['body'])
@@ -643,8 +795,9 @@ class Store:
 
     @staticmethod
     def insert_reminder(db, sid, due, note):
-        r = {'id':str(uuid.uuid4()),'submissionId':sid,'due':due,'note':note,'done':False,'createdAt':timestamp()}
-        db.execute('INSERT INTO reminders VALUES(?,?,?)',(r['id'],sid,json.dumps(r,ensure_ascii=False)))
+        # Legacy callers may still use this helper; new schedules use
+        # _new_reminder() so ownership and recurrence are recorded.
+        return Store._new_reminder(db,sid,due,note)
 
     def save_reminder(self, b):
         identifier = text(b.get('id'), 'Reminder ID', limit=100)
@@ -652,23 +805,82 @@ class Store:
             if identifier:
                 row = self.find(db, 'reminders', identifier)
                 item = json.loads(row['body'])
+                submission = json.loads(self.find(db,'submissions',row['submission_id'])['body'])
+                if closed_for_chase(submission):
+                    raise ValidationError('Chase-ups are stopped for Closed or Lost quotations.',409)
+                if item.get('cancelled'):
+                    raise ValidationError('This schedule is cancelled.',409)
                 if 'done' in b:
                     if type(b['done']) is not bool:
                         raise ValidationError('Invalid reminder state.')
-                    item['done'] = b['done']
+                    if b['done']:
+                        self._complete_reminder(db,item)
+                    else:
+                        item['done'] = False
                 if b.get('due'):
                     item['due'] = date_value(b['due'], timed=True, required=True)
+                    if item.get('repeatEvery14Days'):
+                        item['firstDue'] = item['due']
+                if 'repeatEvery14Days' in b:
+                    if type(b['repeatEvery14Days']) is not bool:
+                        raise ValidationError('Invalid 14-day recurrence option.')
+                    item['repeatEvery14Days'] = b['repeatEvery14Days']
+                    if b['repeatEvery14Days']:
+                        item['firstDue'] = item['due']
+                if not b.get('done'):
+                    item['revision'] = item.get('revision',0)+1
                 db.execute('UPDATE reminders SET body=? WHERE id=?',(json.dumps(item,ensure_ascii=False),identifier))
             else:
                 sid = text(b.get('submissionId'), 'Submission ID', True, 100)
-                self.find(db,'submissions',sid)
+                submission = json.loads(self.find(db,'submissions',sid)['body'])
+                if closed_for_chase(submission):
+                    raise ValidationError('Cannot schedule follow-ups for Closed or Lost quotations.',409)
                 due = date_value(b.get('due'),timed=True,required=True)
                 note = text(b.get('note') or 'Follow up', 'Reminder note', limit=2000)
-                self.insert_reminder(db,sid,due,note)
+                recurring = b.get('repeatEvery14Days',False)
+                if type(recurring) is not bool:
+                    raise ValidationError('Invalid 14-day recurrence option.')
+                # A manually chosen date replaces any pending system-generated
+                # first-chase series, preventing duplicate chase-up schedules.
+                for row in db.execute('SELECT id,body FROM reminders WHERE submission_id=?',(sid,)).fetchall():
+                    previous = json.loads(row['body'])
+                    if not previous.get('automatic') or previous.get('done') or previous.get('cancelled'):
+                        continue
+                    previous.update(done=True,cancelled=True,cancelledReason='Replaced by manual schedule',
+                                    cancelledAt=timestamp(),revision=previous.get('revision',0)+1)
+                    db.execute('UPDATE reminders SET body=? WHERE id=?',
+                               (json.dumps(previous,ensure_ascii=False),row['id']))
+                self._new_reminder(db,sid,next_recurring_due(due,sydney_today()) if recurring else due,note,actor_id=b.get('_actor_id'),
+                                   author=b.get('author',''),recurring=recurring)
             sid=item['submissionId'] if identifier else sid
             submission=json.loads(self.find(db,'submissions',sid)['body'])
             self.activity(db,b.get('_actor_id'),b.get('author'),'Updated reminder' if identifier else 'Scheduled follow-up',submission)
         return {'ok':True}
+
+    def delete_reminder(self, b, user):
+        identifier = text(b.get('id'),'Reminder ID',True,100)
+        with self.connect(write=True) as db:
+            row = self.find(db,'reminders',identifier)
+            item = json.loads(row['body'])
+            if user['role'] != 'admin' and item.get('createdBy') != user['id']:
+                raise ValidationError('Only the schedule author or an administrator can delete it.',403)
+            if type(b.get('revision')) is not int or b['revision'] != item.get('revision',0):
+                raise ValidationError('This schedule changed. Refresh before deleting.',409)
+            sid = row['submission_id']
+            submission_row = self.find(db,'submissions',sid)
+            submission = json.loads(submission_row['body'])
+            db.execute('DELETE FROM reminders WHERE id=?',(identifier,))
+            if item.get('automatic'):
+                # Otherwise the daily first-chase sweep would re-create the
+                # mistakenly deleted schedule on the next page load.
+                submission['autoFirstChaseCancelled'] = True
+                submission['revision'] = submission_row['revision']+1
+                db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',
+                           (json.dumps(submission,ensure_ascii=False),sid))
+            self.activity(db,user['id'],user['name'],'Deleted chase-up schedule',submission,
+                          {'reminderId':identifier,'due':item.get('due'),
+                           'recurring14':bool(item.get('repeatEvery14Days'))})
+        return self.delta(sid)
 
     def save_settings(self, b):
         author = text(b.get('author'), 'Recorded by', True, 100)
@@ -689,6 +901,7 @@ class Store:
 
 
     def delta(self, sid):
+        self.ensure_followups()
         with self.connect() as db:
             db.execute('BEGIN')
             row=db.execute('SELECT * FROM submissions WHERE id=?',(sid,)).fetchone()

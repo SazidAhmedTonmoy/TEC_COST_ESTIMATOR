@@ -1,6 +1,6 @@
 # TEC EstiDoc User Guide
 
-Version 3.8.0 (v3.8) · Estimator and Tenders
+Version 3.8.1 (v3.8) · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -215,9 +215,12 @@ Open **? Help → User Guide** inside the website to search these instructions.
 
 ### Project Chase-up and follow-up history
 
-1. Open Project Chase-up and find a submission by project or builder.
-2. Record contacts, follow-up notes, dates and any promised next action.
-3. Schedule the next chase-up and review reminders when due.
+1. For a newly submitted builder quote, enter the **Actual submission date** separately from the tender submission deadline. For the first 14 days, **Latest chase-up** shows **Recently Submitted**. After 14 days with no recorded chase-up, it shows **Ready for First Chase-Up**.
+2. The first automatic chase-up is set for **9:00 am Sydney time on the first Wednesday after the 14-day period**, with **Repeat every 14 days** enabled. This only applies to quotes with a recorded actual submission date; older quotes without one are unchanged.
+3. In **Schedule a chase-up**, choose the next date and time and optionally tick **Repeat automatically every 14 days until Closed or Lost**. Scheduled series advance automatically each fortnight until stopped or deleted.
+4. If builder outcome becomes **Unsuccessful**, TEC quote status automatically changes to **Closed**, and all pending follow-ups are cancelled. **Closed** and **Lost** quotes cannot be chased or scheduled; other builders on the same project are unaffected.
+5. In the **Reminders** or quotation schedule list, the **schedule author or admin** can select Delete and confirm. Removing an automatic first-chase series prevents it from being recreated automatically.
+6. In the **Chase-up Calendar**, select any date to view that day's agenda in the panel beneath the calendar, including when there are no events.
 
 **Tip:** Chase-up history retains its author; do not overwrite a colleague’s record to add a new contact.
 

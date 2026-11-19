@@ -605,3 +605,10 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 /* v3.7.27: summary actions no longer compete with three permanent filters. */
 .page-heading.dashboard-quick-actions{display:flex;justify-content:flex-end;margin:0 0 20px;min-height:42px}.dashboard-quick-actions>.heading-actions{margin-left:auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center}.dashboard-quick-actions .primary-btn{min-height:42px}
 @media(max-width:650px){.dashboard-quick-actions>.heading-actions{width:100%;justify-content:flex-end}.dashboard-quick-actions .today-label{flex-basis:100%;justify-content:flex-start}}
+
+/* v3.8.1: recurring chase-up control and selected-day agenda */
+.recurring-check{display:flex!important;align-items:center;gap:9px;font-weight:500;cursor:pointer}
+.recurring-check input{width:17px;height:17px;flex-shrink:0;accent-color:var(--primary,#2164bb)}
+.chase-calendar-layout .panel.agenda{scroll-margin-top:24px}
+.calendar-day:not(.outside){cursor:pointer}
+.calendar-day.is-selected{outline:2px solid var(--primary,#2164bb);outline-offset:-2px}

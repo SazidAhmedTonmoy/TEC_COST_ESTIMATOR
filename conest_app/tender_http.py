@@ -86,9 +86,13 @@ def route(h,path):
             if mode=='apply':
                 from .backups import create_tender_backup
                 create_tender_backup('before-import',h.user['id'])
-            send(h,import_workbook(store,tenders.text(body.get('filename'),'Filename',required=True,limit=255),content,h.user,expected));return
+            result=import_workbook(store,tenders.text(body.get('filename'),'Filename',required=True,limit=255),content,h.user,expected)
+            if mode=='apply':store.ensure_followups(force=True)
+            send(h,result);return
         if path=='/api/tenders/submissions' and h.command=='DELETE':
             send(h,store.delete_submission(body,h.user));return
+        if path=='/api/tenders/reminders' and h.command=='DELETE':
+            send(h,tenders.live_teams(store.delete_reminder(body,h.user)));return
         routes={'open-awarded/contact':store.save_awarded_contact,'submissions':store.save_submission,'submissions/batch':store.save_submissions,'chases':store.add_chase,'chases/edit':store.edit_chase,'reminders':store.save_reminder}
         kind=path.removeprefix('/api/tenders/')
         if kind not in routes or h.command!='POST':raise tenders.ValidationError('Not found',404)
@@ -97,6 +101,8 @@ def route(h,path):
         if kind=='reminders' and body.get('id'):
             with store.connect() as db:sid=store.find(db,'reminders',body['id'])['submission_id']
         result=routes[kind](body)
+        if kind in ('submissions','submissions/batch'):
+            store.ensure_followups(force=True)
         if kind=='reminders':
             # Refresh the combined inbox immediately after scheduling/changing
             # a reminder; polling still uses the normal throttled sweep.

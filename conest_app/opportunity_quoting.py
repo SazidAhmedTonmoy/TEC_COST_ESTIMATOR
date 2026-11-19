@@ -100,6 +100,7 @@ def quote(store, payload, user):
                 'region': item['region'], 'due': item.get('due', ''),
                 'contact': '', 'email': '', 'pricing': '', 'remarks': fields['note'],
                 'quoteNo': fields['quoteNo'], 'submittedByTeam': team_name,
+                'submittedDate': fields['submittedDate'],
                 '_actor_id': actor['id'], 'author': actor['name'],
             }, _db=db)
             sid = result['id']
