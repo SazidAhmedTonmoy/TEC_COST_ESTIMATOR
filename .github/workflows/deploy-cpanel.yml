@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DEPLOY_PATH: /home/ampecportal/tec-const.ampecportal.com
-      SITE_URL: https://tec-const.ampecportal.com
+      DEPLOY_PATH: /home/ampecportal/tec-flow.ampecportal.com
+      SITE_URL: https://tec-flow.ampecportal.com
       SSH_HOST: ${{ secrets.CPANEL_HOST }}
       SSH_USER: ${{ secrets.CPANEL_USER }}
       SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
