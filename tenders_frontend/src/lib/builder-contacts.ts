@@ -1,5 +1,5 @@
 /** Shared people are scoped to one builder; projects keep their selected people. */
-export type BuilderContact={id?:string;revision?:number;name:string;phones:string[];emails:string[]};
+export type BuilderContact={id?:string;revision?:number;canDelete?:boolean;name:string;phones:string[];emails:string[]};
 export type BuilderContactGroup={builder:string;contacts:BuilderContact[]};
 export type ContactLookupField='name'|'email'|'phone';
 

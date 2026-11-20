@@ -1,0 +1,4 @@
+/* Both opportunity navigation actions use the same dimensions and treatment. */
+.op-card .op-card-project-action{display:flex;align-items:center;justify-content:center;width:100%;min-height:38px;gap:7px;padding:9px 12px;font-size:12px;line-height:18px;white-space:normal}
+.op-card .op-card-project-action svg{flex:none}
+.op-card>.op-card-linked-project{margin-top:10px}

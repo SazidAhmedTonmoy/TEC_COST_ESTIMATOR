@@ -140,6 +140,7 @@ SECTIONS = [
             'Tender and Open-Awarded share the same quotation contacts. The explicitly linked Opportunity keeps the same selected people for that builder.',
             'Editing a saved person updates that person wherever used. Removing a person from a project keeps them in the builder directory.',
             'In Builders, open a builder to see, add or edit all its contacts. Download all contacts exports the whole directory to Excel.',
+            'All administrators and members assigned to that builder’s Opportunities or Estimator projects, including individual assignees, can select Delete and confirm removal from all current selections. Audit history remains available.',
         ], 'An unrelated project keeps its own selected people. Save the form to apply changes.'),
         ('open-awarded', 'Open-Awarded: awarded builder projects', [
             'Open Tenders → Open-Awarded. This view includes builder submissions where TEC status is Open and Builder outcome is Awarded; it is available to signed-in users.',
@@ -157,6 +158,7 @@ SECTIONS = [
         ], 'Chase-up history retains its author; do not overwrite a colleague’s record to add a new contact.'),
         ('builders-projects', 'Projects and Builders registers', [
             'Use Projects for grouped project totals across builders.',
+            'Every Project Chase-up sort keeps the same project’s builder submissions together; pagination keeps each project on one page.',
             'Use Builders to compare builders’ submissions, wins, values and contact counts. Open a builder to see all available contacts, or add/edit a person.',
             'Select Download all contacts to export the complete builder contact directory to Excel, including phone numbers and email addresses.',
             'Open a group to examine its connected quotations.',
@@ -173,6 +175,7 @@ SECTIONS = [
         ], 'Back up the live database before major imports.'),
         ('opportunities', 'Opportunities and approvals', [
             'Open Opportunities and add a project with its address, builder, deadline and scope.',
+            'On a linked card, Open Linked Project opens the Estimator project, or the Tender project overview if no Estimator is linked. Open Project Chase-up remains a separate follow-up action; manage connections in View details.',
             'Under each builder, optionally add one or more contact people now or later. Choose a saved contact or enter an exact name, email or phone number to autofill matching details.',
             'Review incoming opportunities, assign an authorized team and approve or reject.',
             'Use Approved → Need to quote to find approved projects awaiting a quotation.',

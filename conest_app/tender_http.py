@@ -67,9 +67,11 @@ def route(h,path):
                      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                      'TEC-Flow-Builder-Contacts.xlsx');return
             if h.command == 'GET':
-                send(h,builder_contacts.directory(store));return
+                send(h,builder_contacts.directory(store,h.user));return
             if h.command == 'POST' and path == '/api/tenders/builder-contacts':
                 send(h,builder_contacts.save(store,h._json_body(),h.user));return
+            if h.command == 'DELETE' and path == '/api/tenders/builder-contacts':
+                send(h,builder_contacts.delete(store,h._json_body(),h.user));return
             raise tenders.ValidationError('Method not allowed',405)
         if path=='/api/tenders/data' and h.command=='GET':
             data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()

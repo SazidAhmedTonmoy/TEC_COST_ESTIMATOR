@@ -12,6 +12,8 @@ import {builderKey,cloneBuilderContacts,contactsForBuilder,replaceBuilderContact
 import type {BuilderContactGroup} from '@/lib/builder-contacts';
 import {notifyBuilderContactsChanged,useBuilderContactDirectory} from '@/hooks/use-builder-contacts';
 import {apiFetch,session} from '../main';
+import {hasOpportunityProjectLink,opportunityProjectTarget} from '@/lib/opportunity-linked-project';
+import './opportunity-linked-project.css';
 import {opportunityDate,opportunityStatusLabels} from '@/lib/opportunity-types';
 import {canQuoteOpportunity,canRejectOpportunity,isOpportunityQuoted,nextOpportunityDayChange,opportunityDeadline,opportunityLocalDate,opportunityTimezone,opportunityRouteUrl,safeOpportunityLink} from '@/lib/opportunity-display';
 import type {Opportunity,OpportunityActivity,OpportunityDetail,OpportunityList,OpportunityRegion,OpportunityStatus} from '@/lib/opportunity-types';
@@ -24,7 +26,7 @@ type DuplicateReview={duplicates:{id:string;project:string;location:string;statu
 type Management={kind:'assign'|'access';teams:number[];users:number[]};
 type Decision=OpportunityStatus|'delete';
 type QuoteDraft={id:string;revision:number;project:string;value:string;note:string;quoteNo:string;submittedDate:string;submittedByTeamId:string;builders:string[];availableBuilders:string[]};
-type OpportunitiesProps={requestedId:string|null;onRequestHandled:()=>void;onOpenChaseUp:(submissionId:string)=>void;onSubmissionsChanged:()=>Promise<void>|void};
+type OpportunitiesProps={requestedId:string|null;onRequestHandled:()=>void;onOpenChaseUp:(submissionId:string)=>void;onOpenLinkedTenderProject:(submissionId:string)=>Promise<void>|void;onSubmissionsChanged:()=>Promise<void>|void};
 const blankDraft=():Draft=>({project:'',builders:[],builderContacts:[],region:'NSW',location:'',due:'',workingScope:'',remarks:'',link:'',value:null,distanceKm:null,distanceOrigin:defaultRegions[0].origin,category:'',budget:'',addedDate:'',documentsAvailable:false});
 function draftOf(item:Opportunity):Draft {return {id:item.id,revision:item.revision,project:item.project,builders:[...item.builders],builderContacts:(item.builderContacts||[]).map(group=>({builder:group.builder,contacts:cloneBuilderContacts(group.contacts)})),region:item.region,location:item.location,due:item.due,workingScope:item.workingScope||'',remarks:item.remarks||'',link:item.link||'',value:item.value,distanceKm:item.distanceKm,distanceOrigin:item.distanceOrigin,category:item.category||'',budget:item.budget||'',addedDate:item.addedDate||'',documentsAvailable:item.documentsAvailable===true}}
 function StatusBadge({status}:{status:OpportunityStatus}){const Icon=statusIcons[status]||Clock;return <span className={'op-status op-status-'+status}><Icon size={13}/>{opportunityStatusLabels[status]||status}</span>}
@@ -88,7 +90,7 @@ function SourceInfo({source}:{source:Record<string,unknown>}) {
   return <>{warnings.length>0&&<section className="op-detail-section op-source-warnings"><h3>Source notes</h3>{warnings.map((warning,i)=><p key={i}>{warning}</p>)}</section>}<details className="op-source-details"><summary>Original workbook details</summary><dl>{Object.entries(source).filter(([key])=>!key.startsWith('_')&&!['cells','warnings'].includes(key)).map(([key,value])=><div key={key}><dt>{key}</dt><dd>{display(value)}</dd></div>)}</dl>{cells.length>0&&<div className="op-source-table-wrap"><table className="op-source-table"><thead><tr><th>Workbook column</th><th>Original value</th></tr></thead><tbody>{cells.map((cell,i)=><tr key={i}><th scope="row">{cell.header||cell.column}<small>Column {cell.column}</small></th><td>{display(cell.value)}{cell.formula&&<small>Formula: {cell.formula}</small>}</td></tr>)}</tbody></table></div>}</details></>;
 }
 
-export default function Opportunities({requestedId,onRequestHandled,onOpenChaseUp,onSubmissionsChanged}:OpportunitiesProps) {
+export default function Opportunities({requestedId,onRequestHandled,onOpenChaseUp,onOpenLinkedTenderProject,onSubmissionsChanged}:OpportunitiesProps) {
   const [result,setResult]=useState<OpportunityList|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const [query,setQuery]=useState(''),[search,setSearch]=useState(''),[status,setStatus]=useState<OpportunityStatus|'all'|'closed'>('pending');
   const [region,setRegion]=useState(''),[team,setTeam]=useState(''),[person,setPerson]=useState(''),[sort,setSort]=useState('due_desc'),[page,setPage]=useState(1);
@@ -107,6 +109,9 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
   const [quote,setQuote]=useState<QuoteDraft|null>(null);
   const [busy,setBusy]=useState(false),[actionError,setActionError]=useState(''),[activityLoading,setActivityLoading]=useState(false),[activityError,setActivityError]=useState('');
   const activityPending=useRef(false);
+  const [openingLinkedProject,setOpeningLinkedProject]=useState<string|null>(null);
+  const linkedProjectRequest=useRef<AbortController|null>(null);
+  useEffect(()=>()=>linkedProjectRequest.current?.abort(),[]);
   const listRequest=useRef<AbortController|null>(null),detailRequest=useRef<AbortController|null>(null),writePending=useRef(false);
   const selected=detail?.opportunity;
   const contactDirectory=useBuilderContactDirectory(!!form||!!selectedId);
@@ -207,6 +212,20 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
   useEffect(()=>{if(selectedId)void loadDetail(selectedId);else{detailRequest.current?.abort();setDetail(null)}return()=>detailRequest.current?.abort()},[selectedId,loadDetail]);
   useEffect(()=>{if(requestedId){setSelectedId(requestedId);setDetailTab('overview');onRequestHandled()}},[requestedId,onRequestHandled]);
   function openItem(id:string){setSelectedId(id);setDetailTab('overview');setDetail(null);setActionError('');setActivityError('')}
+  async function openLinkedProject(item:Opportunity){
+    if(linkedProjectRequest.current)return;
+    const controller=new AbortController();linkedProjectRequest.current=controller;setOpeningLinkedProject(item.id);
+    try{
+      const response=await apiFetch('opportunities/detail?id='+encodeURIComponent(item.id),{signal:controller.signal});
+      const latest=await response.json();if(!response.ok)throw Error(latest.error||'Unable to check the linked project.');
+      if(controller.signal.aborted)return;
+      const target=opportunityProjectTarget(latest);
+      if(target.kind==='estimator')window.location.assign(target.href);
+      else if(target.kind==='tender')await onOpenLinkedTenderProject(target.submissionId);
+      else toast.error(target.message,{action:{label:'View details',onClick:()=>openItem(item.id)}});
+    }catch(reason){if(!controller.signal.aborted)toast.error((reason as Error).message||'Unable to open the linked project.')}
+    finally{if(linkedProjectRequest.current===controller){linkedProjectRequest.current=null;if(!controller.signal.aborted)setOpeningLinkedProject(null)}}
+  }
   // Card actions need the record as context, without opening a second modal
   // alongside their action dialog. An already-open detail sheet stays open.
   function selectActionItem(item:Opportunity){setDetail(previous=>previous?.opportunity.id===item.id?{...previous,opportunity:item}:{opportunity:item,activity:[]});setDetailTab('overview');setActionError('');setActivityError('')}
@@ -285,8 +304,8 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
         <div className="op-card-facts">{item.location?.trim()?<a className="op-card-route" href={opportunityRouteUrl(item,regions)} target="_blank" rel="noopener noreferrer" aria-label={'View route to '+item.location} title={'View route from '+(item.distanceOrigin||regions.find(r=>r.code===item.region)?.origin||'your location')}><MapPin size={14}/><span>{item.location}</span><ArrowUpRight size={13} aria-hidden="true"/></a>:<span><MapPin size={14}/>Location to be confirmed</span>}</div><OpportunityLink value={item.link} project={item.project} compact/><div className="op-card-info-row"><p className="op-card-creator"><Users size={13} aria-hidden="true"/>Created by <strong>{item.createdByName||'Imported source'}</strong></p>{!item.deletedAt&&['pending','review','approved'].includes(item.status)&&<div className="op-docs-card-row"><DocumentAvailability item={item} change={toggleDocuments} busy={busy} compact/></div>}</div>
         <div className="op-card-meta"><span>{item.budget?`Budget: ${item.budget}`:<Money value={item.value}/>}</span>{item.distanceKm!=null&&<span title={'Distance from '+item.distanceOrigin}>{item.distanceKm} km</span>}</div>
         <div className="op-card-footer"><span className="op-assignees"><Users size={15}/>{assigned.length?assigned.join(' · '):'Not assigned'}</span><button className="secondary-btn" onClick={()=>openItem(item.id)}>View details</button></div>
-        {item.status==='approved'&&isOpportunityQuoted(item)&&<div className="op-card-quoted"><span><FileCheck2 size={17}/><b>{item.linkedAt?'Linked to tender':'Quoted'}</b>{item.quotedValue!=null&&<Money value={item.quotedValue} precise/>}</span>{item.submissionIds?.[0]&&<button className="secondary-btn" onClick={()=>onOpenChaseUp(item.submissionIds![0])}>Open Project Chase-up<ArrowUpRight size={15}/></button>}</div>}
-        {canLink(item)&&<button className="secondary-btn op-link-existing" onClick={()=>{setActionError('');setLinkItem(item)}}><Link2 size={15}/>{isOpportunityQuoted(item)?'Change linked project':'Link existing project'}</button>}
+        {item.status==='approved'&&isOpportunityQuoted(item)&&<div className="op-card-quoted"><span><FileCheck2 size={17}/><b>{item.linkedAt?'Linked to tender':'Quoted'}</b>{item.quotedValue!=null&&<Money value={item.quotedValue} precise/>}</span>{item.submissionIds?.[0]&&<button type="button" className="secondary-btn op-card-project-action" onClick={()=>onOpenChaseUp(item.submissionIds![0])}>Open Project Chase-up<ArrowUpRight size={15}/></button>}</div>}
+        {hasOpportunityProjectLink(item)?<button type="button" className="secondary-btn op-card-project-action op-card-linked-project" disabled={openingLinkedProject!==null} aria-busy={openingLinkedProject===item.id} onClick={()=>void openLinkedProject(item)}>{openingLinkedProject===item.id?'Opening linked project…':'Open Linked Project'}<ArrowUpRight size={15}/></button>:canLink(item)&&<button type="button" className="secondary-btn op-link-existing" onClick={()=>{setActionError('');setLinkItem(item)}}><Link2 size={15}/>Link existing project</button>}
         {canQuote(item)&&<div className="op-quote-actions" aria-label={'Quote outcome for '+item.project}><button className="primary-btn" disabled={busy} onClick={()=>openQuote(item)}><FileCheck2 size={16}/>Quoted</button><button className="secondary-btn danger-text" disabled={busy} onClick={()=>markNotQuoted(item)}><XCircle size={16}/>Not quoted</button></div>}
       </article>})}{!result?.items.length&&!error&&<div className="op-empty"><ClipboardList size={33}/><h3>{filterCount?'No opportunities match these filters':'No opportunities yet'}</h3><p>{filterCount?'Try another team, region or search.':'Add a potential project or import your opportunity workbook.'}</p><button className="secondary-btn" onClick={filterCount?clearFilters:()=>edit()}>{filterCount?'Clear filters':'Add opportunity'}</button></div>}</div>}
       {(result?.total||0)>0&&<div className="pagination op-pagination"><span>{(currentPage-1)*OPPORTUNITY_PAGE_SIZE+1}–{Math.min(currentPage*OPPORTUNITY_PAGE_SIZE,result!.total)} of {result!.total}</span><div><button className="icon-btn" aria-label="Previous opportunities page" disabled={currentPage<=1||loading} onClick={()=>setPage(currentPage-1)}><ChevronLeft size={19}/></button><span>Page {currentPage} of {totalPages}</span><button className="icon-btn" aria-label="Next opportunities page" disabled={currentPage>=totalPages||loading} onClick={()=>setPage(currentPage+1)}><ChevronRight size={19}/></button></div></div>}

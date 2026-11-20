@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.3 · Estimator and Tenders
+Version 3.8.4 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -208,6 +208,7 @@ Open **? Help → User Guide** inside the website to search these instructions.
 5. Edit a saved person's details in any of these areas to update that person wherever used. Removing a person from a project's selection keeps them in the builder's available contact list.
 6. In **Builders**, click a builder or its contact count to see **All builder contacts**. Use **Add contact** or **Edit** to maintain a person without opening a project.
 7. Select **Download all contacts** at the top of **Builders** to export an Excel file with Builder, Contact person, Phone numbers and Email addresses. This download includes the whole contact directory, regardless of the current filters.
+8. To delete a shared person, open **Builders → the builder → All builder contacts → Delete**. All administrators and members assigned to that builder's Opportunities or Estimator projects can delete contacts, including individual assignees. Confirm the deletion to remove the person from the directory and all Opportunity, Tender/Chase-up and Open-Awarded selections. Removing a person from just one project remains a separate action.
 
 Existing Tender and Open-Awarded contacts become available automatically after the update. Save and reload if another user changes a contact while you are editing it.
 
@@ -237,6 +238,13 @@ Existing Tender and Open-Awarded contacts become available automatically after t
 6. In the **Chase-up Calendar**, select any date to view that day's agenda in the panel beneath the calendar, including when there are no events.
 
 **Tip:** Chase-up history retains its author; do not overwrite a colleague’s record to add a new contact.
+
+### Linked project access and grouped sorting (v3.8.4)
+
+- On an Opportunity card, **Open Project Chase-up** opens follow-up details. **Open Linked Project** opens the linked Estimator project; where no Estimator is linked, it opens the linked Tender project overview. Both actions use matching button sizes.
+- Use **View details → Project journey → Change / unlink** to manage the Estimator connection. Tender-project link changes remain in the details controls.
+- Sorting Project Chase-up by any column keeps the same project's builder rows together, including names differing only in case or spacing. Date/value sorts order each project by its earliest/lowest value for ascending, or latest/highest for descending; missing values appear last.
+- Pages target 20 submissions but keep whole projects together. A project with more than 20 builder submissions appears on its own page.
 
 ### Projects and Builders registers
 

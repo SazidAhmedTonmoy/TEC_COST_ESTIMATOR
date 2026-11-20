@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.3
+# TEC Flow — v3.8.4
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -53,10 +53,11 @@ uploads.** Never overwrite live databases with local files.
 
 ## Data compatibility
 
-- Application version: **3.8.3**
+- Application version: **3.8.4**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.
+- v3.8.4 automatically adds deleted-contact records to prevent stale forms from restoring a removed contact.
 - Legacy internal paths/identifiers such as `conest_catalog.db` remain for
   compatibility with deployed databases and existing exports.
 - Older migration Python modules remain in the code because upgrades from
@@ -91,3 +92,9 @@ uploads.** Never overwrite live databases with local files.
 - Tender/Chase-up and Open-Awarded use the same quotation contacts. Explicitly linked Opportunities keep the same selected people for that builder. Changes to a saved person apply wherever selected.
 - Builders shows all available people, including contacts from Opportunities without a submitted tender. Open a builder to view, add or edit contacts. **Download all contacts** exports the complete directory to Excel.
 - Removing a person from a project's selection does not delete them from the builder directory.
+
+## Contact management and navigation (v3.8.4)
+
+- All administrators and members assigned to a builder's Opportunities or Estimator projects can delete a shared contact from **Builders**. Individual assignees also have access. A confirmation explains that the contact will be removed from every current selection; historical audit entries remain available.
+- **Open Linked Project** on an Opportunity card opens its explicitly linked Estimator project, or its linked Tender project overview when there is no Estimator link. Change/unlink controls remain in the details view.
+- Project Chase-up sorts keep all builder submissions for the same project together. Pagination also keeps each project on one page.

@@ -166,6 +166,10 @@ def sync_contacts(db, builder, raw, *, legacy=False, touch=True):
     selected, selected_ids, changed = [], set(), False
     for value in raw:
         current = None
+        if isinstance(value, dict) and value.get('id'):
+            identifier = tenders.text(value.get('id'), 'Contact ID', required=True, limit=100)
+            if db.execute('SELECT 1 FROM builder_contact_deletions WHERE id=?', (identifier,)).fetchone():
+                raise tenders.ValidationError('This contact was deleted. Refresh the contact list before saving.', 409)
         if not legacy and isinstance(value, dict) and value.get('id'):
             identifier = tenders.text(value.get('id'), 'Contact ID', required=True, limit=100)
             row = db.execute('SELECT * FROM builder_contacts WHERE id=?', (identifier,)).fetchone()
@@ -398,6 +402,9 @@ def initialize(store):
             position INTEGER NOT NULL, contact_id TEXT NOT NULL REFERENCES builder_contacts(id),
             PRIMARY KEY(source_kind,source_id,builder_key,position))''')
         db.execute('CREATE INDEX IF NOT EXISTS builder_contact_links_contact ON builder_contact_links(contact_id)')
+        db.execute('''CREATE TABLE IF NOT EXISTS builder_contact_deletions (
+            id TEXT PRIMARY KEY, builder_key TEXT NOT NULL,
+            deleted_at TEXT NOT NULL, deleted_by INTEGER NOT NULL)''')
         if not db.execute('SELECT 1 FROM settings WHERE id=?', (MARKER,)).fetchone():
             submissions = [json.loads(row['body']) for row in db.execute('SELECT body FROM submissions')]
             for item in submissions:
@@ -432,11 +439,56 @@ def initialize(store):
     store._builder_contacts_ready = True
 
 
-def directory(store):
+def _delete_access(user):
+    """Resolve live membership and actual project assignments, never UI flags."""
+    from .database import connect as account_connection
+    from .builders import read_builders
+    if not isinstance(user, dict) or type(user.get('id')) is not int:
+        raise tenders.ValidationError('An active account is required.', 403)
+    with account_connection() as db:
+        row = db.execute('SELECT id,name,role,is_active,team_id FROM users WHERE id=?', (user['id'],)).fetchone()
+        if not row or not row['is_active']:
+            raise tenders.ValidationError('Your account is no longer active. Sign in again.', 403)
+        actor = dict(row)
+        teams = {row[0] for row in db.execute('SELECT id FROM teams')}
+        memberships = {row[0] for row in db.execute('SELECT team_id FROM user_team_memberships WHERE user_id=?', (actor['id'],))} & teams
+        if not memberships and actor['team_id'] in teams:
+            memberships.add(actor['team_id'])
+        # project_user_access is the current table of explicit editors. The
+        # older project_assignments table is historical and is not a grant.
+        clauses = ['EXISTS (SELECT 1 FROM project_user_access a WHERE a.project_id=p.id AND a.user_id=?)']
+        args = [actor['id']]
+        if memberships:
+            clauses.append('EXISTS (SELECT 1 FROM project_teams a WHERE a.project_id=p.id AND a.team_id IN (' + ','.join('?' for _ in memberships) + '))')
+            args.extend(sorted(memberships))
+        projects = db.execute('SELECT p.id,p.client FROM projects p WHERE ' + ' OR '.join(clauses), args).fetchall()
+        project_ids = {row['id'] for row in projects}
+        builder_keys = {tenders.builder_key(name) for row in projects for name in read_builders({'client': row['client']})}
+    return {'actor': actor, 'memberships': memberships, 'projectIds': project_ids, 'builderKeys': builder_keys}
+
+
+def _deletable_builders(db, access):
+    from .opportunity_retention import active_sql
+    allowed = set(access['builderKeys'])
+    actor_id = access['actor']['id']
+    for row in db.execute('SELECT body FROM opportunities WHERE deleted_at IS NULL AND ' + active_sql('opportunity', 'opportunities.id')):
+        item = json.loads(row['body'])
+        assigned_teams = {value for value in (item.get('assignedTeamIds') or []) if type(value) is int}
+        assigned_people = {value for value in (item.get('assignedUserIds') or []) if type(value) is int}
+        project_id = item.get('estimatorProjectId')
+        linked_project = type(project_id) is int and project_id in access['projectIds']
+        if (actor_id in assigned_people or assigned_teams & access['memberships'] or linked_project):
+            allowed.update(tenders.builder_key(name) for name in (item.get('builders') or []) if isinstance(name, str) and name.strip())
+    return allowed
+
+
+def directory(store, user=None):
     initialize(store)
+    access = _delete_access(user) if user is not None else None
     from .opportunity_retention import active_sql
     with store.connect() as db:
         db.execute('BEGIN')
+        allowed = _deletable_builders(db, access) if access and access['actor']['role'] != 'admin' else set()
         builders = {row['builder_key']: {'builder': row['name'], 'contacts': []} for row in db.execute(
             'SELECT builder_key,name FROM opportunity_builders WHERE ' + active_sql('builder', 'opportunity_builders.builder_key'))}
         for row in db.execute('SELECT body FROM submissions'):
@@ -445,7 +497,10 @@ def directory(store):
                 builders.setdefault(tenders.builder_key(name), {'builder': name, 'contacts': []})
         for row in db.execute('SELECT * FROM builder_contacts ORDER BY builder COLLATE NOCASE,id'):
             group = builders.setdefault(row['builder_key'], {'builder': row['builder'], 'contacts': []})
-            group['contacts'].append(_contact(row))
+            person = _contact(row)
+            if access is not None:
+                person['canDelete'] = access['actor']['role'] == 'admin' or row['builder_key'] in allowed
+            group['contacts'].append(person)
         for group in builders.values():
             group['contacts'].sort(key=lambda person: (person['name'].casefold(), ';'.join(person['emails']).casefold(), person['id']))
         return {'builders': sorted(builders.values(), key=lambda group: group['builder'].casefold())}
@@ -463,7 +518,155 @@ def save(store, payload, user):
         people = sync_contacts(db, builder, payload.get('contacts', []))
         if db.total_changes != before:
             store.activity(db, actor['id'], actor['name'], 'Updated builder contacts', details={'builder': builder, 'contactIds': [p['id'] for p in people]})
-    return directory(store)
+    return directory(store, user)
+
+
+def _mentions_deleted(people, deleted, *, match_legacy=True):
+    if not isinstance(people, list):
+        return False
+    for raw in people:
+        if not isinstance(raw, dict):
+            continue
+        if raw.get('id') == deleted['id']:
+            return True
+        if match_legacy and not raw.get('id'):
+            person = _legacy_person(raw)
+            if person and _candidate([deleted], person) is not None:
+                return True
+    return False
+
+
+def _without_deleted_snapshot(people, deleted, *, match_legacy=True):
+    """Filter one person without normalising other historical snapshot fields."""
+    if not isinstance(people, list):
+        return people
+    return [person for person in people
+            if not _mentions_deleted([person], deleted, match_legacy=match_legacy)]
+
+
+def delete(store, payload, user):
+    """Delete one shared person and every current assignment in one transaction."""
+    initialize(store)
+    access = _delete_access(user)
+    actor = access['actor']
+    identifier = tenders.text(payload.get('id'), 'Contact ID', required=True, limit=100)
+    revision = payload.get('revision')
+    if type(revision) is not int or revision < 0:
+        raise tenders.ValidationError('Choose the current contact before deleting it.', 409)
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row = db.execute('SELECT * FROM builder_contacts WHERE id=?', (identifier,)).fetchone()
+        if not row:
+            raise tenders.ValidationError('This contact no longer exists. Refresh the contact list.', 404)
+        key, builder, deleted = row['builder_key'], row['builder'], _contact(row)
+        if actor['role'] != 'admin' and key not in _deletable_builders(db, access):
+            raise tenders.ValidationError('Only an administrator or a user assigned to this builder’s opportunities or projects can delete its contacts.', 403)
+        if revision != row['revision']:
+            raise tenders.ValidationError('This contact changed in another window. Refresh it before deleting.', 409)
+        linked = {(r['source_kind'], r['source_id']) for r in db.execute('SELECT source_kind,source_id FROM builder_contact_links WHERE contact_id=?', (identifier,))}
+        # Retired/deleted Opportunities were intentionally not migrated to
+        # sidecar links. Distinguish those original snapshots from selections
+        # that were canonical even when deleting their final link below.
+        canonical_opportunity_groups = {(r['source_id'], r['builder_key']) for r in db.execute(
+            "SELECT DISTINCT source_id,builder_key FROM builder_contact_links WHERE source_kind='opportunity'")}
+        db.execute('DELETE FROM builder_contact_links WHERE contact_id=?', (identifier,))
+        moment = tenders.timestamp()
+        changed_submissions, changed_opportunities = [], []
+        for source in db.execute('SELECT * FROM submissions').fetchall():
+            item = json.loads(source['body'])
+            item['id'] = source['id']
+            same_builder = tenders.builder_key(item.get('builder')) == key
+            explicit = any(_mentions_deleted(item.get(field), deleted) for field in ('contacts', 'awardContacts')) if same_builder else any(
+                isinstance(person, dict) and person.get('id') == identifier
+                for field in ('contacts', 'awardContacts') for person in (item.get(field) if isinstance(item.get(field), list) else []))
+            legacy_people = []
+            if not isinstance(item.get('contacts'), list):
+                legacy_people += legacy_tender_contacts(item)
+            if not isinstance(item.get('awardContacts'), list):
+                legacy_people += tenders.awarded_contacts_from(item)
+            legacy = same_builder and _mentions_deleted(legacy_people, deleted)
+            if ('submission', source['id']) not in linked and not explicit and not legacy:
+                continue
+            # Read links directly: fallback to original legacy JSON would
+            # otherwise resurrect a deleted final contact on old submissions.
+            people = _links(db, 'submission', source['id'], item.get('builder', ''))
+            _apply_submission_fields(item, people)
+            if 'phone' in item:
+                item['phone'] = next(iter(people[0]['phones']), '') if people else ''
+            item.update(revision=source['revision'] + 1, updatedAt=moment, updatedBy=actor['id'], updatedByName=actor['name'])
+            db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?', (json.dumps(item, ensure_ascii=False), item['revision'], source['id']))
+            store.activity(db, actor['id'], actor['name'], 'Deleted shared builder contact', item,
+                           {'contactId': identifier, 'builder': builder})
+            changed_submissions.append(source['id'])
+        from . import opportunities as op
+        for source in db.execute('SELECT * FROM opportunities').fetchall():
+            item = json.loads(source['body'])
+            # Some preserved legacy bodies omit id; the SQL primary key is
+            # authoritative for link cleanup, revision writes and audit rows.
+            item['id'] = source['id']
+            groups = item.get('builderContacts') if isinstance(item.get('builderContacts'), list) else []
+            names = item.get('builders') if isinstance(item.get('builders'), list) else []
+            single_builder = len(names) == 1 and isinstance(names[0], str) and tenders.builder_key(names[0]) == key
+            explicit = any(isinstance(group, dict) and isinstance(group.get('builder'), str)
+                           and _mentions_deleted(group.get('contacts'), deleted,
+                               match_legacy=tenders.builder_key(group['builder']) == key) for group in groups)
+            legacy_array = _mentions_deleted(item.get('contacts'), deleted, match_legacy=single_builder)
+            legacy_scalar = single_builder and _mentions_deleted(legacy_tender_contacts(
+                {field: item.get(field) for field in ('contact', 'email', 'phone')}), deleted)
+            legacy = legacy_array or legacy_scalar
+            if ('opportunity', source['id']) not in linked and not explicit and not legacy:
+                continue
+            updated_groups, has_target_group = [], False
+            for group in groups:
+                if not isinstance(group, dict) or not isinstance(group.get('builder'), str):
+                    updated_groups.append(group)
+                    continue
+                group_key = tenders.builder_key(group['builder'])
+                has_target_group |= group_key == key
+                affected = _mentions_deleted(group.get('contacts'), deleted, match_legacy=group_key == key)
+                canonical = (source['id'], group_key) in canonical_opportunity_groups
+                if affected or (canonical and group_key == key and ('opportunity', source['id']) in linked):
+                    people = (_links(db, 'opportunity', source['id'], group['builder']) if canonical else
+                              _without_deleted_snapshot(group.get('contacts'), deleted, match_legacy=group_key == key))
+                    updated_groups.append({**group, 'contacts': people})
+                else:
+                    updated_groups.append(group)
+            # Migrated legacy records may have sidecar selections without a
+            # builderContacts JSON property. Only materialise the affected
+            # canonical group; unrelated archived snapshots stay untouched.
+            if not has_target_group and (source['id'], key) in canonical_opportunity_groups:
+                current_name = next((name for name in names if isinstance(name, str) and tenders.builder_key(name) == key), None)
+                if current_name:
+                    updated_groups.append({'builder': current_name, 'contacts': _links(db, 'opportunity', source['id'], current_name)})
+            if 'builderContacts' in item or updated_groups:
+                item['builderContacts'] = updated_groups
+            if legacy_array:
+                item['contacts'] = _without_deleted_snapshot(item['contacts'], deleted, match_legacy=single_builder)
+            if legacy_scalar:
+                remaining = item.get('contacts') if isinstance(item.get('contacts'), list) else []
+                if not remaining:
+                    remaining = next((group.get('contacts', []) for group in updated_groups if isinstance(group, dict)
+                                      and isinstance(group.get('builder'), str) and tenders.builder_key(group['builder']) == key), [])
+                first = _legacy_person(remaining[0]) if isinstance(remaining, list) and remaining else None
+                replacements = {'contact': first['name'] if first else '',
+                                'email': next(iter(first['emails']), '') if first else '',
+                                'phone': next(iter(first['phones']), '') if first else ''}
+                for field, value in replacements.items():
+                    if field in item:
+                        item[field] = value
+            item.update(revision=source['revision'] + 1, updatedAt=moment, updatedBy=actor['id'], updatedByName=actor['name'])
+            db.execute('UPDATE opportunities SET body=?,revision=?,updated_at=? WHERE id=?',
+                       (json.dumps(item, ensure_ascii=False), item['revision'], moment, source['id']))
+            op._activity(store, db, actor, 'Deleted shared builder contact', item,
+                         {'contactId': identifier, 'builder': builder})
+            changed_opportunities.append(source['id'])
+        db.execute('INSERT INTO builder_contact_deletions(id,builder_key,deleted_at,deleted_by) VALUES(?,?,?,?)', (identifier, key, moment, actor['id']))
+        db.execute('DELETE FROM builder_contacts WHERE id=?', (identifier,))
+        store.activity(db, actor['id'], actor['name'], 'Deleted builder directory contact',
+                       details={'contactId': identifier, 'builder': builder,
+                                'submissionIds': changed_submissions, 'opportunityIds': changed_opportunities})
+        _touch(db)
+    return {'ok': True, 'deletedId': identifier, **directory(store, user)}
 
 
 def export_workbook(store):
