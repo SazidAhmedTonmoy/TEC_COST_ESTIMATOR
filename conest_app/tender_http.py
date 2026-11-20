@@ -60,6 +60,17 @@ def route(h,path):
         store=tenders.get_store()
         from .opportunity_http import route as opportunity_route
         if opportunity_route(h,path,store,send):return
+        if path in ('/api/tenders/builder-contacts', '/api/tenders/builder-contacts/export.xlsx'):
+            from . import builder_contacts
+            if h.command == 'GET' and path.endswith('/export.xlsx'):
+                send(h,builder_contacts.export_workbook(store),
+                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     'TEC-Flow-Builder-Contacts.xlsx');return
+            if h.command == 'GET':
+                send(h,builder_contacts.directory(store));return
+            if h.command == 'POST' and path == '/api/tenders/builder-contacts':
+                send(h,builder_contacts.save(store,h._json_body(),h.user));return
+            raise tenders.ValidationError('Method not allowed',405)
         if path=='/api/tenders/data' and h.command=='GET':
             data={k:v for k,v in store.all_data().items() if k not in ('report','projectSummary')};data['settings']={**data['settings'],'author':h.user['name']};data['teams']=tenders.submission_teams()
             send(h,tenders.live_teams(data));return

@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.2
+# TEC Flow — v3.8.3
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -15,8 +15,8 @@ contains the current app, frontend source, required database migration code, and
   quotes, reminders, calendars, reporting, and team assignments.
 - **Open–Awarded:** builder-awarded projects whose TEC quote status is still Open.
   Cards and Calendar show awards, estimated starts, latest chase-ups, submitted values,
-  linked Opportunity URLs, and separately managed follow-up contacts.
-  Multiple people, phone numbers and emails are supported per builder submission.
+  linked Opportunity URLs, and shared builder contacts.
+  Multiple people, phone numbers and emails are shared with Tender/Chase-up and its linked Opportunity.
   Calls use the device dialler; email uses Outlook web compose.
 
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
@@ -53,10 +53,10 @@ uploads.** Never overwrite live databases with local files.
 
 ## Data compatibility
 
-- Application version: **3.8.2**
+- Application version: **3.8.3**
 - Estimator SQLite schema: **36**
-- Tender data schema: unchanged from v3.7.30
-- Database migration for v3.8.2: **none** (branding only)
+- Tender data: additive shared contact directory and selection tables.
+- Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.
 - Legacy internal paths/identifiers such as `conest_catalog.db` remain for
   compatibility with deployed databases and existing exports.
 - Older migration Python modules remain in the code because upgrades from
@@ -83,3 +83,11 @@ uploads.** Never overwrite live databases with local files.
 - Enter the **actual submitted date** to start a 14-day first-chase waiting period, then the first following Wednesday at 9:00 am Sydney time. Automatic first schedules repeat every 14 days. Existing records with unknown submitted dates are not guessed.
 - Manual schedules may also repeat every 14 days. Click a chase-up calendar day to view the day's agenda underneath. Schedule authors and administrators can delete schedules.
 - Older records with builder outcome Unsuccessful are reconciled on startup; **back up both databases before rollout**.
+
+## Shared builder contacts (v3.8.3)
+
+- Add optional contact people per builder when creating or editing an Opportunity or Tender. Each person supports multiple phone numbers and email addresses.
+- Choose a saved person, or enter a matching name, email or phone number to autofill their details. Ambiguous names require a selection.
+- Tender/Chase-up and Open-Awarded use the same quotation contacts. Explicitly linked Opportunities keep the same selected people for that builder. Changes to a saved person apply wherever selected.
+- Builders shows all available people, including contacts from Opportunities without a submitted tender. Open a builder to view, add or edit contacts. **Download all contacts** exports the complete directory to Excel.
+- Removing a person from a project's selection does not delete them from the builder directory.

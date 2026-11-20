@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.2 · Estimator and Tenders
+Version 3.8.3 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -199,6 +199,18 @@ Open **? Help → User Guide** inside the website to search these instructions.
 
 **Tip:** Filters should stay in place when opening a tender and returning to the register.
 
+### Shared builder contacts (v3.8.3)
+
+1. In a new or existing **Opportunity**, add each builder. Under that builder, optionally select **Add contact person**. You can leave contacts blank and add them later through **Edit opportunity**.
+2. Use **Use a saved contact**, or type an existing person's full name, email or phone number and leave the field to fill matching details. If more than one person matches, choose the correct person from the saved-contact list.
+3. Add multiple people, phone numbers and email addresses as needed. Save the Opportunity or Tender to keep your changes. Each project supports up to 20 people per builder, with up to 12 phone numbers and 12 emails per person.
+4. **New/Edit Tender**, **Tender/Chase-up**, and **Open-Awarded** reuse the same builder directory. Contacts on a quotation also stay in sync with its explicitly linked Opportunity. An unrelated project keeps its own selected people.
+5. Edit a saved person's details in any of these areas to update that person wherever used. Removing a person from a project's selection keeps them in the builder's available contact list.
+6. In **Builders**, click a builder or its contact count to see **All builder contacts**. Use **Add contact** or **Edit** to maintain a person without opening a project.
+7. Select **Download all contacts** at the top of **Builders** to export an Excel file with Builder, Contact person, Phone numbers and Email addresses. This download includes the whole contact directory, regardless of the current filters.
+
+Existing Tender and Open-Awarded contacts become available automatically after the update. Save and reload if another user changes a contact while you are editing it.
+
 ### Open–Awarded builder project follow-up (v3.8)
 
 1. Open **Tenders → Open–Awarded**. Only builder submissions with TEC quotation **Open** and Builder outcome **Awarded** appear. All active signed-in users can view this register.
@@ -209,7 +221,7 @@ Open **? Help → User Guide** inside the website to search these instructions.
 6. Click a phone number to open the device dialler or an email to compose in Outlook on the web. Contact details appear on Cards, in the Calendar selected-day panel, and in the complete Tender Details drawer.
 7. Switch to **Calendar** to see Awarded events in **amber** and Estimated Start events in **teal**. **Today** has a separate **blue** highlight in Sydney time. Navigate with arrows or the month picker.
 8. Select an event to show its builder's contacts in the panel **beneath the calendar**. Use **View project** to open full Tender Details, or **Edit contact** to change fields. Dates that were not recorded are not shown as calendar events.
-9. Select a Card or **View project** to open the existing Tender details and chase history. Changes to the awarded-project contacts do not overwrite the original Tender contact.
+9. Select a Card or **View project** to open the existing Tender details and chase history. Tender/Chase-up and Open-Awarded now share the same quotation contacts. Their linked Opportunity shows the same selected people for that builder.
 
 **Project link:** Linked Opportunities provide their current URL automatically. A unique exact project+builder+region match may provide a display-only suggestion, but ambiguous matches are never linked automatically. Clearing a manual URL restores the Opportunity URL when available.
 
@@ -229,7 +241,7 @@ Open **? Help → User Guide** inside the website to search these instructions.
 ### Projects and Builders registers
 
 1. Use Projects for grouped project totals across builders.
-2. Use Builders to compare builders’ submissions, wins and values.
+2. Use Builders to compare builders’ submissions, wins, values and contact counts. Builders entered only in Opportunities are included.
 3. Open a group to examine its connected quotations.
 
 **Tip:** Project value may use the highest builder quote; builder submissions remain separate.

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const ts=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript');
+const ts=require('../tenders_frontend/node_modules/typescript');
 const root=path.resolve(__dirname,'..');
 function src(p){return fs.readFileSync(path.join(root,p),'utf8')}
 function parse(p){const source=src(p);const ast=ts.createSourceFile(p,source,ts.ScriptTarget.Latest,true,p.endsWith('.tsx')?ts.ScriptKind.TSX:ts.ScriptKind.TS);assert.deepEqual(ast.parseDiagnostics,[],`${p} should parse`);return source}
@@ -25,12 +25,16 @@ test('old one-contact records support combined office/mobile number and email wi
 test('all three views share multi-contact rendering and the editor has repeatable inputs',()=>{
  const card=parse('tenders_frontend/src/components/open-awarded.tsx');
  const shared=parse('tenders_frontend/src/components/award-contact-list.tsx');
+ const editor=parse('tenders_frontend/src/components/builder-contacts.tsx');
  const drawer=parse('tenders_frontend/src/components/tender-app.tsx');
- const css=src('tenders_frontend/src/components/open-awarded.css');
+ const css=src('tenders_frontend/src/components/builder-contacts.css');
  assert.equal((card.match(/<AwardContactList submission=\{s\}/g)||[]).length,2,'card and calendar');
- assert.match(drawer,/<AwardContactList submission=\{chosen\}/);
- for(const label of ['Add contact person','Add phone','Add email','Remove person','Save details'])assert.ok(card.includes(label));
- assert.match(card,/onClick=\{\(\)=>removeContactField/);
+ assert.match(drawer,/<BuilderContactList contacts=\{submissionContacts\(chosen\)\}/);
+ assert.match(card,/<BuilderContactEditor builder=\{editing.builder\}/);
+ assert.match(card,/availableContacts=\{contactsForBuilder\(contactDirectory,editing.builder\)\}/);
+ for(const label of ['Add contact person','Add phone','Add email','Remove person'])assert.ok(editor.includes(label));
+ assert.ok(card.includes('Save details'));
+ assert.match(editor,/person\[field\]\.filter/);
  assert.match(shared,/person\.phones\.map/);assert.match(shared,/person\.emails\.map/);
- assert.match(css,/oa-contact-editor/);assert.match(css,/oa-contact-entry/);
+ assert.match(css,/bc-editor/);assert.match(css,/bc-person/);
 });

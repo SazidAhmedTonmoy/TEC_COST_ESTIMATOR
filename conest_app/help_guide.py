@@ -133,11 +133,19 @@ SECTIONS = [
             'Values within one field use OR; different fields combine using AND.',
             'Clear a field or use Clear filters to start over.',
         ], 'Filters should stay in place when opening a tender and returning to the register.'),
+        ('builder-contacts', 'Shared builder contacts', [
+            'Opportunities, Tender/Chase-up and Open-Awarded use one shared builder contact directory.',
+            'Add contact person supports multiple people, each with up to 12 phone numbers and 12 email addresses. Contacts are optional and can be added later.',
+            'Use a saved contact or type an existing full name, email or phone number and leave the field to autofill a unique match. Choose explicitly if more than one person matches.',
+            'Tender and Open-Awarded share the same quotation contacts. The explicitly linked Opportunity keeps the same selected people for that builder.',
+            'Editing a saved person updates that person wherever used. Removing a person from a project keeps them in the builder directory.',
+            'In Builders, open a builder to see, add or edit all its contacts. Download all contacts exports the whole directory to Excel.',
+        ], 'An unrelated project keeps its own selected people. Save the form to apply changes.'),
         ('open-awarded', 'Open-Awarded: awarded builder projects', [
             'Open Tenders → Open-Awarded. This view includes builder submissions where TEC status is Open and Builder outcome is Awarded; it is available to signed-in users.',
             'Use Cards to see the project and builder, submitted amount, awarded date, estimated start date, latest chase-up, project URL and awarded-project contacts. Dated awards sort newest first; missing dates sort last.',
             'Select Edit or Add contact. Record the actual award/start dates, optional manual project URL, and add up to 20 contact people; each person can have multiple phone numbers and email addresses.',
-            'Use Add contact person, Add phone and Add email; confirm with Save details. Original Tender contacts remain separate.',
+            'Use Add contact person, Add phone and Add email; confirm with Save details. These contacts are shared with Tender/Chase-up and the explicitly linked Opportunity.',
             'Choose Calendar for amber Awarded events and teal Estimated Start events. Today is marked in blue using the Sydney date. Select an event to see contact details in a panel below the calendar.',
             'Click a phone number to open your dialler or an email to open Outlook web compose. Use View project to open full Tender Details and chase-up history.',
             'If a Tender is linked to an Opportunity, its current project URL is displayed automatically; manually entered URLs override it. Unmatched or ambiguous records are not guessed.',
@@ -149,7 +157,8 @@ SECTIONS = [
         ], 'Chase-up history retains its author; do not overwrite a colleague’s record to add a new contact.'),
         ('builders-projects', 'Projects and Builders registers', [
             'Use Projects for grouped project totals across builders.',
-            'Use Builders to compare builders’ submissions, wins and values.',
+            'Use Builders to compare builders’ submissions, wins, values and contact counts. Open a builder to see all available contacts, or add/edit a person.',
+            'Select Download all contacts to export the complete builder contact directory to Excel, including phone numbers and email addresses.',
             'Open a group to examine its connected quotations.',
         ], 'Project value may use the highest builder quote; builder submissions remain separate.'),
         ('tender-calendar', 'Calendar, deadlines and reminders', [
@@ -164,6 +173,7 @@ SECTIONS = [
         ], 'Back up the live database before major imports.'),
         ('opportunities', 'Opportunities and approvals', [
             'Open Opportunities and add a project with its address, builder, deadline and scope.',
+            'Under each builder, optionally add one or more contact people now or later. Choose a saved contact or enter an exact name, email or phone number to autofill matching details.',
             'Review incoming opportunities, assign an authorized team and approve or reject.',
             'Use Approved → Need to quote to find approved projects awaiting a quotation.',
         ], 'Opportunity approval is separate from submitting an electrical quotation.'),

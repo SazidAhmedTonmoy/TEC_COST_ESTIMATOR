@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const ts=require('/opt/nvm/versions/node/v22.16.0/lib/node_modules/typescript');
+const ts=require('../tenders_frontend/node_modules/typescript');
 const root=path.resolve(__dirname,'..');
 const app=fs.readFileSync(path.join(root,'tenders_frontend/src/components/tender-app.tsx'),'utf8');
 const cards=fs.readFileSync(path.join(root,'tenders_frontend/src/components/open-awarded.tsx'),'utf8');
@@ -31,12 +31,12 @@ test('Tender navigation, direct route and detail drawer connect new page',()=>{
  assert.match(app,/\['open-awarded','Open-Awarded',Award\]/);
  assert.match(app,/onOpen=\{s=>open\(s,'history'\)\}/);
  assert.match(app,/post\('open-awarded\/contact'/);
- assert.match(app,/AwardContactList submission=\{chosen\}/);
+ assert.match(app,/BuilderContactList contacts=\{submissionContacts\(chosen\)\}/);
  assert.match(app,/\'open-awarded\'\]\.includes\(initialView\)/);
  assert.match(main,/location\.pathname\.split\('\/'\)\[2\]/);
  assert.match(html,/href="\/tenders\/open-awarded"/);
 });
-test('contacts are separate, cards warn for missing fields, phone and Outlook links are direct',()=>{
+test('shared contacts retain missing-field hints and direct phone and Outlook links',()=>{
  assert.match(cards,/awardContacts/);
  assert.match(cards,/AwardContactList submission=\{s\}/);
  const shared=fs.readFileSync(path.join(root,'tenders_frontend/src/components/award-contact-list.tsx'),'utf8');

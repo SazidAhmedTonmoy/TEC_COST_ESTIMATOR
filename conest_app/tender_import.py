@@ -198,7 +198,11 @@ def import_workbook(store, filename, content, actor, expected=None):
                 tid=aliases.get(values['submittedByTeam'].casefold())
                 values['submittedByTeam']=names.get(tid,'');values['submittedByTeamId']=tid
             base=baselines.get(sid,seed.get(sid,{}) if parsed['raw'] else {})
-            updates={k:v for k,v in values.items() if old is None or (v!=old.get(k,None if k in ('value','submittedByTeamId') else '') and (k not in base or v!=base[k]))}
+            # Exports display the current shared person. Compare those two
+            # cells to that same view, while retaining the original source body.
+            from .builder_contacts import submission_view
+            comparison = submission_view(db, old) if old else {}
+            updates={k:v for k,v in values.items() if old is None or (v!=(comparison if k in ('contact','email') else old).get(k,None if k in ('value','submittedByTeamId') else '') and (k not in base or v!=base[k]))}
             shared={k:updates[k] for k in ('region','due','value','quoteNo','submittedByTeam','submittedByTeamId') if k in updates}
             if shared:
                 pk=project_key(values['project']);pending=project_changes.setdefault(pk,{})
@@ -223,6 +227,8 @@ def import_workbook(store, filename, content, actor, expected=None):
             current[sid]=item
             if sid not in by_pair.setdefault(key,[]): by_pair[key].append(sid)
             if expected is not None and (old is None or updates):
+                from .builder_contacts import register_imported_submission
+                register_imported_submission(store, db, item, old, updates, actor)
                 db.execute('INSERT INTO submissions VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body,revision=excluded.revision',(sid,json.dumps(item,ensure_ascii=False),item['revision']))
         for sid,item in current.items():
             shared=project_changes.get(project_key(item.get('project')),{}).copy()

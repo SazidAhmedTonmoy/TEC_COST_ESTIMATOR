@@ -54,7 +54,7 @@ test('calendar event preview includes builder contact with direct actions and a 
  const css=src('tenders_frontend/src/components/open-awarded.css');
  const footer=ui.slice(ui.indexOf('className="oa-calendar-footer"'));
  assert.match(footer,/oa-selected-event-contact/);
- assert.match(footer,/Contact person/);
+ assert.match(footer,/Contact people/);
  assert.match(footer,/AwardContactList submission=\{s\}/);
  const shared=src('tenders_frontend/src/components/award-contact-list.tsx');
  assert.match(shared,/person\.phones\.map/);

@@ -149,6 +149,8 @@ def link_project(store, payload, user):
             linkedAt=moment, linkedBy=actor['id'], linkedByName=actor['name'],
             quotedValue=max(values) if values else None, quotedBuilders=sorted({row['builder'] for row in rows}),
             updatedAt=moment, updatedBy=actor['id'], updatedByName=actor['name'], revision=item['revision']+1)
+        from .builder_contacts import share_linked_project_contacts
+        share_linked_project_contacts(store, db, item, rows, actor)
         op._write(db, item)
         event = op._activity(store, db, actor, 'Linked existing tender project', item,
                             {'project': target['project'], 'submissionIds': ids})

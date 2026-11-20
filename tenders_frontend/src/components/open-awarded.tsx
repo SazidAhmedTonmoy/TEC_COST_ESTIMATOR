@@ -1,15 +1,17 @@
 'use client';
 import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
-import {Award,CalendarDays,Check,ChevronLeft,ChevronRight,Clock,ExternalLink,Search,UserRound,AlertTriangle,Pencil,LayoutGrid,Link2,Plus,Trash2,X} from 'lucide-react';
+import {Award,CalendarDays,Check,ChevronLeft,ChevronRight,Clock,ExternalLink,Search,UserRound,AlertTriangle,Pencil,LayoutGrid,Link2} from 'lucide-react';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {safeOpportunityLink} from '@/lib/opportunity-display';
 import type {AwardContact,Chase,Submission} from '@/lib/types';
 import {awardedContacts,missingAwardContact,searchAwardContacts} from '@/lib/award-contacts';
 import {AwardContactList} from './award-contact-list';
+import {BuilderContactEditor} from './builder-contacts';
+import {contactsForBuilder,type BuilderContactGroup} from '@/lib/builder-contacts';
 import './open-awarded.css';
 
 type AwardContactFields={awardedDate:string;estStartDate:string;awardProjectLink:string;awardContacts:AwardContact[]};
-type Props={submissions:Submission[];chases:Chase[];saving:boolean;onOpen:(s:Submission)=>void;onSave:(s:Submission,fields:AwardContactFields)=>Promise<boolean>};
+type Props={submissions:Submission[];chases:Chase[];saving:boolean;contactDirectory:BuilderContactGroup[];onContactsOpen:()=>void;onOpen:(s:Submission)=>void;onSave:(s:Submission,fields:AwardContactFields)=>Promise<boolean>};
 export type AwardCalendarEvent={date:string;kind:'awarded'|'start';submission:Submission};
 const fieldsFrom=(s:Submission):AwardContactFields=>({awardedDate:s.awardedDate||'',estStartDate:s.estStartDate||'',awardProjectLink:s.awardProjectLink||'',awardContacts:awardedContacts(s)});
 const toDate=(s:string)=>s?new Date(s+'T12:00:00').toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'}):'Not recorded';
@@ -54,7 +56,7 @@ export function selectOpenAwarded(rows:Submission[]){
  return rows.filter(s=>s.status==='Open'&&s.builderStatus==='Awarded').sort((a,b)=>
    (b.awardedDate||'').localeCompare(a.awardedDate||'')||a.project.localeCompare(b.project)||a.builder.localeCompare(b.builder));
 }
-export function OpenAwarded({submissions,chases,saving,onOpen,onSave}:Props){
+export function OpenAwarded({submissions,chases,saving,contactDirectory,onContactsOpen,onOpen,onSave}:Props){
  const [query,setQuery]=useState('');
  const [onlyMissing,setOnlyMissing]=useState(false);
  const [view,setView]=useState<'cards'|'calendar'>(savedDisplay);
@@ -90,28 +92,8 @@ export function OpenAwarded({submissions,chases,saving,onOpen,onSave}:Props){
  const dayEvents=selectedDay?eventsByDay.get(selectedDay)||[]:[];
  function hasUnsavedDraft(){return Boolean(editing&&JSON.stringify(draft)!==JSON.stringify(fieldsFrom(editing)));}
  function cancelEdit(){if(saving)return;if(hasUnsavedDraft()&&!window.confirm('Discard unsaved awarded-project details?'))return;setEditing(null);}
- function edit(s:Submission){setEditing(s);setDraft(fieldsFrom(s));}
+ function edit(s:Submission){setEditing(s);setDraft(fieldsFrom(s));onContactsOpen();}
  async function save(e:FormEvent){e.preventDefault();if(!editing)return;if(await onSave(editing,draft))setEditing(null);}
- function changeContact(personIndex:number,updated:AwardContact){setDraft(old=>({...old,awardContacts:old.awardContacts.map((c,i)=>i===personIndex?updated:c)}));}
- function changeContactField(personIndex:number,field:'name'|'emails'|'phones',value:string|number,entryIndex?:number){
-  const person=draft.awardContacts[personIndex];
-  if(field==='name')changeContact(personIndex,{...person,name:String(value)});
-  else changeContact(personIndex,{...person,[field]:person[field].map((entry,i)=>i===entryIndex?String(value):entry)});
- }
- function addContactField(personIndex:number,field:'emails'|'phones'){
-  const person=draft.awardContacts[personIndex];
-  if(person[field].length>=12)return;
-  changeContact(personIndex,{...person,[field]:[...person[field],'']});
- }
- function removeContactField(personIndex:number,field:'emails'|'phones',entryIndex:number){
-  const person=draft.awardContacts[personIndex];
-  changeContact(personIndex,{...person,[field]:person[field].filter((_,i)=>i!==entryIndex)});
- }
- function addContact(){setDraft(old=>({...old,awardContacts:[...old.awardContacts,{name:'',emails:[''],phones:['']}]}));}
- function removeContact(index:number){
-  if(!window.confirm('Remove this contact from the draft? The change is saved only when you select Save details.'))return;
-  setDraft(old=>({...old,awardContacts:old.awardContacts.filter((_,i)=>i!==index)}));
- }
  function goMonth(delta:number){setMonth(previous=>shiftMonth(previous,delta));setSelectedDay('');setFocusedEvent('');}
  // Reveal the contact preview without leaving Calendar or losing the user's month.
  function revealCalendarEvent(date:string,event?:AwardCalendarEvent){
@@ -169,18 +151,7 @@ export function OpenAwarded({submissions,chases,saving,onOpen,onSave}:Props){
        <p className="oa-calendar-missing">{visible.filter(s=>!s.awardedDate).length} missing award date · {visible.filter(s=>!s.estStartDate).length} missing estimated start date</p>
       </div>
     </div>}
-   <Dialog open={Boolean(editing)} onOpenChange={v=>{if(!v)cancelEdit()}}><DialogContent className="tender-dialog oa-dialog"><DialogHeader><DialogTitle>Awarded project details</DialogTitle><DialogDescription>{editing?.project} — {editing?.builder}. Dates, project link and multiple contacts are saved for this builder submission.</DialogDescription></DialogHeader>
-   {editing&&<form onSubmit={e=>void save(e)} className="oa-edit-form"><div className="oa-date-fields"><label>Awarded date<input type="date" value={draft.awardedDate} onChange={e=>setDraft({...draft,awardedDate:e.target.value})}/></label><label>Estimated start date<input type="date" value={draft.estStartDate} onChange={e=>setDraft({...draft,estStartDate:e.target.value})}/></label></div><label>Project link<input type="url" inputMode="url" maxLength={2048} placeholder={editing.opportunityLink||'https://example.com/project'} value={draft.awardProjectLink} onChange={e=>setDraft({...draft,awardProjectLink:e.target.value})}/></label>{safeOpportunityLink(editing.opportunityLink)&&<p className="oa-linked-hint"><Link2 size={14}/> {draft.awardProjectLink?'Manual link overrides the linked Opportunity URL.':'The Opportunity URL will be used automatically.'} <a href={safeOpportunityLink(editing.opportunityLink)} target="_blank" rel="noopener noreferrer">View Opportunity link <ExternalLink size={12}/></a>{draft.awardProjectLink&&<button type="button" onClick={()=>setDraft({...draft,awardProjectLink:''})}>Use Opportunity link</button>}</p>}<div className="oa-contact-editor"><div className="oa-contact-editor-heading"><h3>Contact people</h3><button type="button" className="oa-add-control" onClick={addContact} disabled={draft.awardContacts.length>=20}><Plus size={14}/> Add contact person</button></div>
-    {draft.awardContacts.map((person,personIndex)=><section className="oa-edit-person" key={personIndex}><div className="oa-edit-person-heading"><strong>Contact {personIndex+1}</strong><button type="button" className="oa-remove-control" onClick={()=>removeContact(personIndex)}><Trash2 size={14}/> Remove person</button></div>
-      <label>Contact person name<input type="text" maxLength={200} placeholder="Name of the person handling this project" value={person.name} onChange={e=>changeContactField(personIndex,'name',e.target.value)}/></label>
-      <div className="oa-contact-entry-list"><div className="oa-contact-entry-heading"><strong>Phone numbers</strong><button type="button" className="oa-add-control" disabled={person.phones.length>=12} onClick={()=>addContactField(personIndex,'phones')}><Plus size={13}/> Add phone</button></div>
-       {person.phones.map((phone,i)=><div className="oa-contact-entry" key={i}><input type="tel" maxLength={45} placeholder="e.g. 02 9616 2990" aria-label={`Phone ${i+1} for contact ${personIndex+1}`} value={phone} onChange={e=>changeContactField(personIndex,'phones',e.target.value,i)}/><button type="button" aria-label={`Remove phone ${i+1} from contact ${personIndex+1}`} onClick={()=>removeContactField(personIndex,'phones',i)}><X size={16}/></button></div>)}
-      </div>
-      <div className="oa-contact-entry-list"><div className="oa-contact-entry-heading"><strong>Email addresses</strong><button type="button" className="oa-add-control" disabled={person.emails.length>=12} onClick={()=>addContactField(personIndex,'emails')}><Plus size={13}/> Add email</button></div>
-       {person.emails.map((email,i)=><div className="oa-contact-entry" key={i}><input type="email" maxLength={254} placeholder="e.g. project@builder.com.au" aria-label={`Email ${i+1} for contact ${personIndex+1}`} value={email} onChange={e=>changeContactField(personIndex,'emails',e.target.value,i)}/><button type="button" aria-label={`Remove email ${i+1} from contact ${personIndex+1}`} onClick={()=>removeContactField(personIndex,'emails',i)}><X size={16}/></button></div>)}
-      </div>
-    </section>)}
-    {!draft.awardContacts.length&&<p className="oa-contact-no-people">No contacts yet. Select Add contact person to record the builder's team.</p>}
-   </div><p className="form-hint">Dates are optional. Leave Project link blank to use the linked Opportunity URL. Add as many contact people, phone numbers and email addresses as needed. Each number opens your dialler, and each email opens Outlook.</p><div className="dialog-actions"><button type="button" className="secondary-btn" disabled={saving} onClick={cancelEdit}>Cancel</button><button type="submit" className="primary-btn" disabled={saving}>{saving?'Saving…':'Save details'}</button></div></form>}</DialogContent></Dialog>
+   <Dialog open={Boolean(editing)} onOpenChange={v=>{if(!v)cancelEdit()}}><DialogContent className="tender-dialog oa-dialog"><DialogHeader><DialogTitle>Awarded project details</DialogTitle><DialogDescription>{editing?.project} — {editing?.builder}. Contacts are shared with Tender/Chase-up and the linked Opportunity. Dates and project link apply to this quotation.</DialogDescription></DialogHeader>
+   {editing&&<form onSubmit={e=>void save(e)} className="oa-edit-form"><div className="oa-date-fields"><label>Awarded date<input type="date" value={draft.awardedDate} onChange={e=>setDraft({...draft,awardedDate:e.target.value})}/></label><label>Estimated start date<input type="date" value={draft.estStartDate} onChange={e=>setDraft({...draft,estStartDate:e.target.value})}/></label></div><label>Project link<input type="url" inputMode="url" maxLength={2048} placeholder={editing.opportunityLink||'https://example.com/project'} value={draft.awardProjectLink} onChange={e=>setDraft({...draft,awardProjectLink:e.target.value})}/></label>{safeOpportunityLink(editing.opportunityLink)&&<p className="oa-linked-hint"><Link2 size={14}/> {draft.awardProjectLink?'Manual link overrides the linked Opportunity URL.':'The Opportunity URL will be used automatically.'} <a href={safeOpportunityLink(editing.opportunityLink)} target="_blank" rel="noopener noreferrer">View Opportunity link <ExternalLink size={12}/></a>{draft.awardProjectLink&&<button type="button" onClick={()=>setDraft({...draft,awardProjectLink:''})}>Use Opportunity link</button>}</p>}<BuilderContactEditor builder={editing.builder} contacts={draft.awardContacts} availableContacts={contactsForBuilder(contactDirectory,editing.builder)} onChange={contacts=>setDraft(old=>({...old,awardContacts:contacts}))} disabled={saving}/><p className="form-hint">Dates are optional. Leave Project link blank to use the linked Opportunity URL. Contacts are optional. Choose existing builder contacts or add people, phone numbers and email addresses. Each number opens your dialler, and each email opens Outlook.</p><div className="dialog-actions"><button type="button" className="secondary-btn" disabled={saving} onClick={cancelEdit}>Cancel</button><button type="submit" className="primary-btn" disabled={saving}>{saving?'Saving…':'Save details'}</button></div></form>}</DialogContent></Dialog>
  </section>;
 }

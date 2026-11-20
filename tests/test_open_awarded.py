@@ -1,4 +1,4 @@
-"""Open-Awarded card contact and awarded-date persistence (no schema changes)."""
+"""Open-Awarded dates, shared contact persistence and authorization."""
 import unittest
 from conest_app import tenders
 import support_http as helpers
@@ -17,7 +17,7 @@ class OpenAwardedTests(unittest.TestCase):
         self.assertEqual(result[0],200,result)
         return result[1]['submission']
 
-    def test_contact_and_award_date_save_without_changing_original_contact(self):
+    def test_contact_and_award_date_save_updates_shared_person_preserving_project_fields(self):
         s=self.create()
         payload={'id':s['id'],'revision':s['revision'],'awardedDate':'2026-11-12',
                  'awardContactName':'Contract administrator','awardContactEmail':'admin@builder.com.au',
@@ -30,8 +30,9 @@ class OpenAwardedTests(unittest.TestCase):
         self.assertEqual(updated['awardContactEmail'],payload['awardContactEmail'])
         self.assertEqual(updated['awardContactPhone'],payload['awardContactPhone'])
         self.assertEqual(updated['awardedDate'],payload['awardedDate'])
-        self.assertEqual(updated['contact'],'Original estimator')
-        self.assertEqual(updated['email'],'original@example.com')
+        self.assertEqual(updated['contact'],payload['awardContactName'])
+        self.assertEqual(updated['email'],payload['awardContactEmail'])
+        self.assertEqual(updated['contacts'],updated['awardContacts'])
         self.assertEqual(updated['value'],12345.67)
         self.assertEqual(updated['status'],'Open')
         self.assertEqual(updated['builderStatus'],'Awarded')
@@ -54,7 +55,7 @@ class OpenAwardedTests(unittest.TestCase):
         self.assertEqual(status,200,d)
         self.assertEqual(d['submission']['awardContactName'],'Jane')
         self.assertEqual(d['submission']['awardedDate'],'')
-        self.assertEqual(d['submission']['awardContactEmail'],'')
+        self.assertEqual(d['submission']['awardContactEmail'],'original@example.com')
 
     def test_validation_and_non_awarded_rejection(self):
         s=self.create('Contact validation')
@@ -75,7 +76,7 @@ class OpenAwardedTests(unittest.TestCase):
         one=next(i for i in data['submissions'] if i['id']==first['id'])
         two=next(i for i in data['submissions'] if i['id']==second['id'])
         self.assertEqual(one['awardContactName'],'First builder manager')
-        self.assertFalse(two.get('awardContactName'))
+        self.assertEqual(two.get('awardContactName'),'Original estimator')
 
     def test_all_authenticated_users_and_no_unauthorized_access(self):
         s=self.create('General user access')

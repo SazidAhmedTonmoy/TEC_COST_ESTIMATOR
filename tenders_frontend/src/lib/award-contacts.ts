@@ -1,7 +1,7 @@
 import type {AwardContact,Submission} from './types';
 /** Older records still use one name/email/phone. Do not mutate those records. */
 export function awardedContacts(s:Pick<Submission,'awardContacts'|'awardContactName'|'awardContactEmail'|'awardContactPhone'>):AwardContact[]{
- if(Array.isArray(s.awardContacts))return s.awardContacts.map(person=>({name:person.name||'',emails:[...(person.emails||[])],phones:[...(person.phones||[])]}));
+ if(Array.isArray(s.awardContacts))return s.awardContacts.map(person=>({...person,name:person.name||'',emails:[...(person.emails||[])],phones:[...(person.phones||[])]}));
  const name=s.awardContactName||'',email=s.awardContactEmail||'',phone=s.awardContactPhone||'';
  return name||email||phone?[{name,emails:email?email.split(/[,;\n]+/).map(v=>v.trim()).filter(Boolean):[],phones:phone?phone.split(/(?:\s{2,}|[;\n]+)/).map(v=>v.trim()).filter(Boolean):[]}]:[];
 }

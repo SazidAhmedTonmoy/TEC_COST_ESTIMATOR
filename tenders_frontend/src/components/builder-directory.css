@@ -1,0 +1,20 @@
+.builder-directory .register-heading{gap:12px;flex-wrap:wrap}
+.builder-directory .register-heading h3{margin:0}
+.builder-directory-list{display:grid;gap:10px;margin:14px 0}
+.builder-directory-person{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);border-radius:10px;min-width:0}
+.builder-directory-person>div{flex:1;min-width:0}
+.builder-directory-person>button{flex-shrink:0}
+.builder-directory-search{margin-top:12px}
+.builder-directory-error{color:var(--destructive,#c94444);display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.builder-directory-form{display:grid;gap:16px}
+.builder-contact-count{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.builder-contact-summary{display:block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:var(--muted-foreground);margin-top:4px}
+.builder-export-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.view-strip .builder-export-actions button{margin-left:0}
+.tender-builder-contacts{display:grid;gap:18px;margin:18px 0}
+.tender-builder-contacts>section{min-width:0;padding-top:12px;border-top:1px solid var(--border)}
+.tender-builder-contacts h3{margin:0 0 12px;font-size:15px}
+.shared-submission-contacts{margin:18px 0;padding:16px;border:1px solid var(--border);border-radius:12px}
+.shared-submission-contacts .register-heading{margin-bottom:12px}
+.shared-submission-contacts .register-heading h3{margin:0;font-size:15px}
+@media(max-width:600px){.builder-export-actions{width:100%;margin-left:0}.builder-export-actions button{flex:1;justify-content:center}.builder-directory-person{padding:10px}.shared-submission-contacts{padding:12px}}

@@ -93,12 +93,16 @@ def quote(store, payload, user):
         team_name = next((team['name'] for team in teams if team['id'] == fields['submittedByTeamId']), '')
         moment = tenders.timestamp()
         ids = []
+        from .builder_contacts import opportunity_view
+        selections = {tenders.builder_key(group['builder']): group['contacts']
+                      for group in opportunity_view(db, item)['builderContacts']}
         for builder in fields['builders']:
             result = store.save_submission({
                 'project': item['project'], 'builder': builder, 'value': fields['value'],
                 'status': 'Open', 'builderStatus': '', 'location': item.get('location', ''),
                 'region': item['region'], 'due': item.get('due', ''),
                 'contact': '', 'email': '', 'pricing': '', 'remarks': fields['note'],
+                'contacts': selections.get(tenders.builder_key(builder), []),
                 'quoteNo': fields['quoteNo'], 'submittedByTeam': team_name,
                 'submittedDate': fields['submittedDate'],
                 '_actor_id': actor['id'], 'author': actor['name'],

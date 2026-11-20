@@ -1,9 +1,10 @@
+import type {BuilderContactGroup} from './builder-contacts';
 export type OpportunityStatus = 'pending' | 'review' | 'approved' | 'rejected' | 'expired';
 export type OpportunityTeam = {id:number; name:string};
 export type OpportunityUser = {id:number; name:string; teamId?:number|null; teamIds?:number[]; role?:string};
 export type OpportunityRegion = {code:string; origin:string; timezone?:string};
 export type Opportunity = {
-  id:string; project:string; builders:string[]; region:string; location:string;
+  id:string; project:string; builders:string[]; builderContacts?:BuilderContactGroup[]; region:string; location:string;
   due:string; workingScope:string; remarks:string; link?:string;
   value:number|null; distanceKm:number|null; distanceOrigin:string;
   category?:string; budget?:string; addedDate?:string; sourceData?:Record<string,unknown>;sourceStatus?:OpportunityStatus;

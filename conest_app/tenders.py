@@ -228,6 +228,8 @@ class Store:
         # must run after the owner's one-time reset has retired its old cohort.
         # Keep it separate from the reusable opportunity schema initializer.
         restore_approved_once(self)
+        from .builder_contacts import initialize as initialize_builder_contacts
+        initialize_builder_contacts(self)
 
     def keep_open(self):
         """Keep the shared server database's WAL attached between requests.
@@ -564,7 +566,8 @@ class Store:
             for row in db.execute('SELECT * FROM submissions'):
                 item = json.loads(row['body'])
                 item['revision'] = row['revision']
-                item['awardContacts'] = awarded_contacts_from(item)
+                from .builder_contacts import submission_view
+                item = submission_view(db, item)
                 # A submission linked to an Opportunity gets its CURRENT URL;
                 # manual overrides stay separate inside the submission JSON.
                 linked_id = item.get('opportunityId') or opportunity_by_submission.get(row['id'])
@@ -623,6 +626,10 @@ class Store:
                 revision = old['revision'] + 1
             else:
                 item, revision = {'latest':'','chaseNumber':''}, 0
+            from . import builder_contacts
+            previous_builder = item.get('builder', fields['builder'])
+            current_people = (builder_contacts.submission_view(db, item)['contacts']
+                              if b.get('id') and builder_key(previous_builder) == builder_key(fields['builder']) else [])
             if 'quoteNo' not in b:fields['quoteNo']=item.get('quoteNo','')
             if submitted_date is not None:
                 item['submittedDate'] = submitted_date
@@ -638,6 +645,29 @@ class Store:
             history=[json.loads(r[0]) for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(identifier,))]
             fields['statusUpdated']=max((c.get('date','') for c in history),default='')
             item.update(fields, id=identifier, value=value, revision=revision)
+            if 'contacts' in b:
+                people = builder_contacts.sync_contacts(db, fields['builder'], b['contacts'])
+            elif 'awardContacts' in b:
+                people = builder_contacts.sync_contacts(db, fields['builder'], b['awardContacts'])
+            elif any(k in b for k in ('contact', 'email')):
+                # Legacy forms edit the primary person and keep any extra people.
+                primary = dict(current_people[0]) if current_people else {'name': '', 'phones': [], 'emails': []}
+                if 'contact' in b:
+                    primary['name'] = fields['contact']
+                if 'email' in b:
+                    emails = [v.strip() for v in re.split(r'[,;\n]+', fields['email']) if v.strip()]
+                    primary['emails'] = emails + [v for v in primary.get('emails', [])[1:] if v.casefold() not in {e.casefold() for e in emails}]
+                # Historical Tender contact fields accepted free-form source
+                # values. Preserve that compatibility for legacy callers.
+                if current_people and primary == current_people[0]:
+                    people = current_people
+                elif primary.get('id'):
+                    people = builder_contacts.sync_contacts(db, fields['builder'], [primary] + current_people[1:])
+                else:
+                    people = builder_contacts.sync_contacts(db, fields['builder'], [primary], legacy=True)
+            else:
+                people = current_people
+            builder_contacts.save_submission_selection(self, db, item, people, b.get('_actor_id'), b.get('author', ''))
             if team is not None:
                 item['submittedByTeam']=team
                 if team:
@@ -685,10 +715,12 @@ class Store:
             # New clients send the whole contact list; older clients may still
             # update one legacy field. In that case, update only the first person
             # and never erase additional people, phone numbers or email addresses.
+            from . import builder_contacts
+            current_people = builder_contacts.submission_view(db, item)['contacts']
             if 'awardContacts' in b:
-                people = validate_awarded_contacts(b['awardContacts'])
+                people = builder_contacts.sync_contacts(db, item['builder'], b['awardContacts'])
             else:
-                people = validate_awarded_contacts(awarded_contacts_from(item))
+                people = current_people
                 legacy_keys = ('awardContactName', 'awardContactEmail', 'awardContactPhone')
                 if any(k in b for k in legacy_keys):
                     primary = dict(people[0]) if people else {'name': '', 'emails': [], 'phones': []}
@@ -700,12 +732,15 @@ class Store:
                     if 'awardContactPhone' in b:
                         value = text(b['awardContactPhone'], 'Awarded-project contact phone', limit=45)
                         primary['phones'] = ([v.strip() for v in re.split(r'(?:\s{2,}|[;\n]+)', value) if v.strip()] if value else []) + primary['phones'][1:]
-                    people = validate_awarded_contacts([primary] + people[1:])
+                    people = builder_contacts.sync_contacts(db, item['builder'], [primary] + people[1:])
             fields = {
                 'awardedDate': date_value(b.get('awardedDate', item.get('awardedDate'))),
                 'estStartDate': date_value(b.get('estStartDate', item.get('estStartDate'))),
                 'awardProjectLink': normalise_link(b.get('awardProjectLink', item.get('awardProjectLink'))),
                 'awardContacts': people,
+                'contacts': people,
+                'contact': people[0]['name'] if people else '',
+                'email': next(iter(people[0]['emails']), '') if people else '',
                 **awarded_legacy_fields(people),
             }
             if all((item.get(key) if key == 'awardContacts' and 'awardContacts' in item else (item.get(key) or ([] if key == 'awardContacts' else ''))) == value for key, value in fields.items()):
@@ -714,6 +749,7 @@ class Store:
             item.update(fields, revision=old['revision'] + 1,
                         updatedBy=b.get('_actor_id'), updatedByName=b.get('author', ''),
                         updatedAt=timestamp())
+            builder_contacts.save_submission_selection(self, db, item, people, b.get('_actor_id'), b.get('author', ''))
             db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?',
                        (json.dumps(item, ensure_ascii=False), old['revision'] + 1, identifier))
             self.activity(db, b.get('_actor_id'), b.get('author', ''),
@@ -726,8 +762,12 @@ class Store:
         if b.get('id'):raise ValidationError('Multiple builders are only supported for a new tender.')
         names=[text(v,'Builder',True,1000) for v in builders]
         if len({builder_key(v) for v in names})!=len(names):raise ValidationError('Choose each builder only once.')
+        from .builder_contacts import validate_groups
+        groups = validate_groups(b['builderContacts'], names) if 'builderContacts' in b else []
+        contacts = {builder_key(group['builder']): group['contacts'] for group in groups}
         with self.connect(write=True) as db:
-            results=[self.save_submission({**b,'builder':name},_db=db) for name in names]
+            results=[self.save_submission({**b,'builder':name,
+                     **({'contacts': contacts.get(builder_key(name), [])} if 'builderContacts' in b else {})},_db=db) for name in names]
         return {'ok':True,'id':results[0]['id'],'ids':[x['id'] for x in results]}
 
     def sync_project(self, db, source, actor_id=None, actor_name=''):
@@ -907,8 +947,10 @@ class Store:
             row=db.execute('SELECT * FROM submissions WHERE id=?',(sid,)).fetchone()
             item=json.loads(row['body']) if row else None
             if item:item['revision']=row['revision']
+            from .builder_contacts import submission_view
+            if item:item=submission_view(db,item)
             return {'submissionId':sid,'submission':item,
-                    'relatedSubmissions':[{**json.loads(r['body']),'revision':r['revision']} for r in db.execute('SELECT * FROM submissions WHERE id!=?',(sid,)) if item and project_key(json.loads(r['body']).get('project'))==project_key(item.get('project'))],
+                    'relatedSubmissions':[submission_view(db,{**json.loads(r['body']),'revision':r['revision']}) for r in db.execute('SELECT * FROM submissions WHERE id!=?',(sid,)) if item and project_key(json.loads(r['body']).get('project'))==project_key(item.get('project'))],
                     'chases':[{k:v for k,v in json.loads(r[0]).items() if k!='edits'} for r in db.execute('SELECT body FROM chases WHERE submission_id=?',(sid,))],
                     'reminders':[json.loads(r[0]) for r in db.execute('SELECT body FROM reminders WHERE submission_id=?',(sid,))]}
 
@@ -923,6 +965,7 @@ class Store:
                 raise ValidationError('This tender changed. Refresh before deleting.',409)
             db.execute('DELETE FROM reminders WHERE submission_id=?',(sid,))
             db.execute('DELETE FROM chases WHERE submission_id=?',(sid,))
+            db.execute("DELETE FROM builder_contact_links WHERE source_kind='submission' AND source_id=?",(sid,))
             db.execute('DELETE FROM submissions WHERE id=?',(sid,))
         return self.delta(sid)
 

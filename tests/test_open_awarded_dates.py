@@ -24,7 +24,7 @@ class OpenAwardedDatesTests(unittest.TestCase):
         self.assertEqual(status, 200, data)
         return data['submission']
 
-    def test_dates_link_and_contact_save_separately_with_no_schema_migration(self):
+    def test_dates_and_project_link_persist_when_shared_contact_changes(self):
         record = self.create()
         status, data = self.request('POST', '/api/tenders/open-awarded/contact', {
             'id': record['id'], 'revision': record['revision'],
@@ -36,8 +36,10 @@ class OpenAwardedDatesTests(unittest.TestCase):
         self.assertEqual(record['estStartDate'], '2027-02-12')
         self.assertEqual(record['awardProjectLink'], 'https://builder.example.com/tenders/project?a=1')
         self.assertEqual(record['awardedDate'], '2026-11-08')
-        self.assertEqual(record['contact'], 'Original tender contact')
-        self.assertEqual(record['email'], 'original@example.com')
+        self.assertEqual(record['contact'], 'Site manager')
+        self.assertEqual(record['email'], 'manager@example.com')
+        self.assertEqual(record['contacts'], record['awardContacts'])
+        self.assertTrue(record['contacts'][0]['id'])
         self.assertEqual(record['value'], 1234)
         # Older clients updating only the contact must NOT erase saved new fields.
         status, result = self.request('POST', '/api/tenders/open-awarded/contact', {

@@ -6,7 +6,7 @@ export function tenderSearchText(s:Submission,chases:Chase[],reminders:Reminder[
  const excludeComments=view==='dashboard'||view==='chase-up'||view==='search';
  const fields: (keyof Submission)[]=['project','quoteNo','builder','value','status','builderStatus','pricing','region','location','contact','email','month','due','statusUpdated','submittedByTeam','remarks','createdByName','importedByName','updatedByName'];
  const chaseValues=chases.flatMap(c=>[c.date,c.method,c.author,...(excludeComments?[]:[c.note])]);
- return normalize([...fields.map(k=>s[k]),...(excludeComments?[]:[s.latest]),...labels,...chaseValues,...reminders.flatMap(r=>[r.due,r.note])].join(' '));
+ return normalize([...fields.map(k=>s[k]),...(s.contacts||s.awardContacts||[]).flatMap(person=>[person.name,...person.emails,...person.phones]),...(excludeComments?[]:[s.latest]),...labels,...chaseValues,...reminders.flatMap(r=>[r.due,r.note])].join(' '));
 }
 const aliases:Record<string,string>={'closed':'close','no pricing feedback':'no feedback','builder awarded':'awarded','tec won':'won'};
 const terms=new Set(['open','won','lost','close','hold','awarded','unsuccessful','in progress','builder withdrawn','suspended','competitive','high','mid-range','lower','mix','nil','not recorded','no feedback']);

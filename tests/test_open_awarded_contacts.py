@@ -1,7 +1,11 @@
-"""v3.8: multiple people, phone numbers and emails per awarded submission."""
+"""Multiple people stay shared across a tender's chase-up and awarded views."""
 import unittest
 from conest_app import tenders
 import support_http as helpers
+
+
+def contact_details(people):
+    return [{key: person[key] for key in ('name', 'phones', 'emails')} for person in people]
 
 
 class MultipleAwardContactsTests(unittest.TestCase):
@@ -41,22 +45,24 @@ class MultipleAwardContactsTests(unittest.TestCase):
         status, result = self.request('POST', '/api/tenders/open-awarded/contact', payload)
         self.assertEqual(status, 200, result)
         saved = result['submission']
-        self.assertEqual(saved['awardContacts'], people)
+        self.assertEqual(contact_details(saved['awardContacts']), people)
+        self.assertEqual(saved['contacts'], saved['awardContacts'])
+        self.assertTrue(all(person.get('id') for person in saved['contacts']))
         self.assertEqual(saved['awardContactName'], 'Josh Giles')
         self.assertEqual(saved['awardContactPhone'], '02 9616 2990')
         self.assertEqual(saved['awardContactEmail'], 'josh@example.com')
-        self.assertEqual(saved['contact'], 'Original tender contact')
-        self.assertEqual(saved['email'], 'tender@example.com')
-        self.assertEqual(self.rows(s['id'])['awardContacts'], people)
-        # Generic tender editing cannot erase independent awarded contacts.
+        self.assertEqual(saved['contact'], 'Josh Giles')
+        self.assertEqual(saved['email'], 'josh@example.com')
+        self.assertEqual(contact_details(self.rows(s['id'])['awardContacts']), people)
+        # Generic tender editing preserves the shared contact selection.
         self.assertEqual(self.request('POST', '/api/tenders/submissions', {
             **saved, 'remarks': 'Updated tender text'})[0], 200)
-        self.assertEqual(self.rows(s['id'])['awardContacts'], people)
+        self.assertEqual(contact_details(self.rows(s['id'])['awardContacts']), people)
         # Changing an awarded date through the old endpoint must not erase them.
         next_rev = self.rows(s['id'])['revision']
         self.assertEqual(self.request('POST', '/api/tenders/open-awarded/contact', {
             'id': s['id'], 'revision': next_rev, 'awardedDate': '2026-11-10'})[0], 200)
-        self.assertEqual(self.rows(s['id'])['awardContacts'], people)
+        self.assertEqual(contact_details(self.rows(s['id'])['awardContacts']), people)
 
     def test_legacy_single_contact_is_read_as_list_and_can_expand_without_loss(self):
         s = self.create('Legacy migration')
@@ -73,7 +79,7 @@ class MultipleAwardContactsTests(unittest.TestCase):
         status, result = self.request('POST', '/api/tenders/open-awarded/contact', {
             'id': s['id'], 'revision': current['revision'], 'awardContacts': expanded})
         self.assertEqual(status, 200, result)
-        self.assertEqual(result['submission']['awardContacts'], expanded)
+        self.assertEqual(contact_details(result['submission']['awardContacts']), contact_details(expanded))
         # Old clients that edit just the phone preserve the second contact.
         status, result = self.request('POST', '/api/tenders/open-awarded/contact', {
             'id': s['id'], 'revision': result['submission']['revision'],
@@ -81,7 +87,7 @@ class MultipleAwardContactsTests(unittest.TestCase):
         self.assertEqual(status, 200, result)
         self.assertEqual(result['submission']['awardContacts'][0]['phones'],
                          ['02 9000 0000', '0427 420 103'])
-        self.assertEqual(result['submission']['awardContacts'][1], expanded[1])
+        self.assertEqual(contact_details(result['submission']['awardContacts'])[1], contact_details(expanded)[1])
 
     def test_removing_contact_and_last_contact_clears_legacy_fields(self):
         s = self.create('Removal')
@@ -125,7 +131,7 @@ class MultipleAwardContactsTests(unittest.TestCase):
         self.assertEqual(status, 200, result)
         self.assertEqual(self.request('POST', '/api/tenders/open-awarded/contact', {
             **base, 'awardContacts': []})[0], 409)
-        self.assertEqual(self.rows(s['id'])['awardContacts'], valid)
+        self.assertEqual(contact_details(self.rows(s['id'])['awardContacts']), valid)
 
     def test_contacts_are_isolated_per_builder(self):
         a = self.create('One project', 'Builder A')
@@ -134,7 +140,8 @@ class MultipleAwardContactsTests(unittest.TestCase):
             'id': a['id'], 'revision': a['revision'],
             'awardContacts': [{'name': 'Builder A contact', 'phones': ['02 4444 5555'], 'emails': []}]})[0], 200)
         self.assertEqual(len(self.rows(a['id'])['awardContacts']), 1)
-        self.assertEqual(self.rows(b['id'])['awardContacts'], [])
+        self.assertEqual(contact_details(self.rows(b['id'])['awardContacts']), [
+            {'name': 'Original tender contact', 'phones': [], 'emails': ['tender@example.com']}])
 
 
 if __name__ == '__main__':

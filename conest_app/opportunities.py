@@ -265,6 +265,19 @@ def _normalise(db, payload, current=None):
         fields['builders'] = validate_builders(base.get('builders', []))
     except ValueError as exc:
         raise tenders.ValidationError(str(exc)) from None
+    if 'builderContacts' in payload:
+        from .builder_contacts import validate_groups
+        groups = payload['builderContacts']
+        if current and isinstance(groups, list):
+            selected = {tenders.builder_key(name) for name in fields['builders']}
+            removed = {tenders.builder_key(name) for name in current.get('builders', [])} - selected
+            # Whole-record clients retain the old per-builder groups while
+            # changing builders. Removal unassigns those groups; it must never
+            # move their people to another company or recreate removed links.
+            groups = [group for group in groups if not (
+                isinstance(group, dict) and isinstance(group.get('builder'), str)
+                and tenders.builder_key(group['builder']) in removed)]
+        fields['builderContacts'] = validate_groups(groups, fields['builders'])
     origin = tenders.text(base.get('distanceOrigin'), 'Distance origin', limit=1000)
     row = db.execute('SELECT origin FROM opportunity_regions WHERE code=?', (fields['region'],)).fetchone()
     if row:
@@ -449,6 +462,15 @@ def save(store, payload, user):
             item = _new_item(db, fields, actor)
             item['documentsAvailable'] = documents_available
         item.update(_authority(payload, item, actor, teams, users))
+        if 'builderContacts' in payload or (identifier and fields['builders'] != before.get('builders', [])):
+            from .builder_contacts import opportunity_view, save_opportunity_selection
+            groups = fields.get('builderContacts')
+            if groups is None:
+                keep = {tenders.builder_key(name) for name in fields['builders']}
+                groups = [group for group in opportunity_view(db, before)['builderContacts']
+                          if tenders.builder_key(group['builder']) in keep]
+            save_opportunity_selection(store, db, item, groups, actor)
+            fields['builderContacts'] = item['builderContacts']
         changed = {k: item.get(k) for k in fields if before.get(k) != item.get(k)}
         if not identifier:
             changed['documentsAvailable'] = item['documentsAvailable']
@@ -633,13 +655,16 @@ def delete(store, payload, user):
     return {'ok': True, 'id': identifier}
 
 
-def _public(item, actor):
+def _public(item, actor, db=None):
+    if db is not None:
+        from .builder_contacts import opportunity_view
+        item = opportunity_view(db, item)
     return {**item, 'permissions': permissions(item, actor)}
 
 
 def _detail(db, item, actor):
     from .opportunity_journey import build
-    return {'opportunity': _public(item, actor), 'journey': build(db, item),
+    return {'opportunity': _public(item, actor, db), 'journey': build(db, item),
             **_activity_page(db, item['id'])}
 
 
@@ -834,6 +859,8 @@ def list_opportunities(store, filters, user):
             active_sql('opportunity', 'o.id') + ' GROUP BY p.person_id')}
         unassigned = db.execute("SELECT COUNT(*) FROM opportunities o WHERE o.deleted_at IS NULL AND " +
             active_sql('opportunity', 'o.id') + " AND NOT EXISTS (SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND p.kind='assignedTeamIds')").fetchone()[0]
+        public_items = [_public(_decode_opportunity(row), actor, db) for row in rows]
+        public_latest = _public(_decode_opportunity(latest_row), actor, db) if latest_row else None
     builders = {tenders.builder_key(name): name for name in saved_builders}
     for submission in store.all_data()['submissions']:
         name = submission.get('builder', '')
@@ -845,8 +872,8 @@ def list_opportunities(store, filters, user):
             for name in str(row[0]).splitlines():
                 if name.strip():
                     builders.setdefault(tenders.builder_key(name), name.strip())
-    return {'items': [_public(_decode_opportunity(r), actor) for r in rows],
-            'latestOpportunity': _public(_decode_opportunity(latest_row), actor) if latest_row else None,
+    return {'items': public_items,
+            'latestOpportunity': public_latest,
             'total': total, 'page': page, 'pageSize': size, 'counts': counts,
             'quoteCounts': {'quoted': quote_counts[0], 'needsQuote': quote_counts[1]},
             'regions': regions, 'teams': teams, 'users': users, 'categories': category_options,
@@ -1097,6 +1124,9 @@ def import_records(store, records, actor, source, seed_key=None, expected_genera
             expired = bool(item['due'] and date.fromisoformat(item['due']) < _today(db, item['region']))
             if expired and item['status'] == 'pending':
                 item['status'] = 'expired'
+            if 'builderContacts' in fields:
+                from .builder_contacts import save_opportunity_selection
+                save_opportunity_selection(store, db, item, fields['builderContacts'], actor)
             _write(db, item, new=True)
             _activity(store, db, actor, 'Imported opportunity', item,
                       {'source': source, 'sourceStatus': item['sourceStatus'],
