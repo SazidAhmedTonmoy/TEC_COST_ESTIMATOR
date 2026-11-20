@@ -27,6 +27,9 @@ def route(handler, path, store, send):
         elif path == prefix + '/duplicates':
             from .opportunity_matching import check_duplicates
             result = check_duplicates(store, params, handler.user)
+        elif path == prefix + '/deadline-load':
+            from .opportunity_deadlines import deadline_load
+            result = deadline_load(store, params, handler.user)
         elif path == prefix + '/estimator-projects':
             from .opportunity_journey import estimator_choices
             result = estimator_choices(store, params, handler.user)

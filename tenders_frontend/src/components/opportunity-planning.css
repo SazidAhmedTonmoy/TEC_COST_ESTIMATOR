@@ -1,0 +1,12 @@
+/* Footer actions share one size and keep their existing left/right positions. */
+.op-card-footer .op-card-footer-action{width:108px;min-width:108px;height:35px;min-height:35px;flex:0 0 108px;padding:8px 10px;gap:6px;font-size:11px;line-height:17px;white-space:nowrap}
+.op-card-footer .op-card-footer-action svg{flex:none}
+.op-card-footer .op-assignees{min-width:0;flex:1}
+.op-deadline-load{display:flex;align-items:flex-start;gap:7px;font-size:11px;font-weight:400;line-height:1.5;color:var(--muted-foreground)}
+.op-deadline-load:empty{display:none}
+.op-deadline-load-warning{padding:8px 10px;border:1px solid #dfcb78;border-radius:7px;background:#fff6cb;color:#775700}
+.op-deadline-load-warning svg{flex:none;margin-top:1px}
+.op-deadline-load-content{display:grid;gap:5px;min-width:0}
+.op-deadline-teams{display:grid;gap:2px;overflow-wrap:anywhere}
+html[data-theme=dark] .op-deadline-load-warning{color:#ffe18a;background:#463b1c;border-color:#806c2d}
+@media(max-width:767px),(pointer:coarse){.op-card-footer .op-card-footer-action{height:44px;min-height:44px}}

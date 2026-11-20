@@ -29,7 +29,7 @@ class TECFlowBrandingTests(unittest.TestCase):
         self.assertIn('conest_session', (ROOT / 'conest_app/http_workspace.py').read_text(encoding='utf-8'))
 
     def test_release_versions(self):
-        self.assertEqual(__version__, '3.8.4')
+        self.assertEqual(__version__, '3.8.6')
         pkg = json.loads((ROOT/'tenders_frontend/package.json').read_text())
         lock = json.loads((ROOT/'tenders_frontend/package-lock.json').read_text())
         self.assertEqual(pkg['version'], __version__)

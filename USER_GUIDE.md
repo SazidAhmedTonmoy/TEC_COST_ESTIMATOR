@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.4 · Estimator and Tenders
+Version 3.8.6 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -273,8 +273,10 @@ Existing Tender and Open-Awarded contacts become available automatically after t
 ### Opportunities and approvals
 
 1. Open Opportunities and add a project with its address, builder, deadline and scope.
-2. Review incoming opportunities, assign an authorized team and approve or reject.
-3. Use Approved → Need to quote to find approved projects awaiting a quotation.
+2. When choosing **Closing deadline**, a warning shows how many other projects have that date, followed by their assigned teams and counts. Shared assignments show the team names together; **No team assigned** covers projects without a team, including those assigned only to people. It checks the whole register across statuses, teams and regions, excludes deleted/retired records and the project being edited, and counts each Opportunity once. The warning does not prevent saving.
+3. On an unassigned card, select **Assign team** beside **View details**. Save the assignment using the existing team/person choices. Assigning a team follows the existing automatic approval rules.
+4. After assignment, the card shows the assigned names as text. To change or remove them, open **View details → Assign**. The card action is only for the initial assignment and uses your existing assignment permissions.
+5. Use Approved → Need to quote to find approved projects awaiting a quotation.
 
 **Tip:** Opportunity approval is separate from submitting an electrical quotation.
 

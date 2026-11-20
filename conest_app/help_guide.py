@@ -175,8 +175,10 @@ SECTIONS = [
         ], 'Back up the live database before major imports.'),
         ('opportunities', 'Opportunities and approvals', [
             'Open Opportunities and add a project with its address, builder, deadline and scope.',
+            'Choosing Closing deadline shows a nonblocking count of other projects with that date and a breakdown by assigned team names. Shared teams appear together; No team assigned means no team was selected. Deleted/retired records and the edited project are excluded; each Opportunity counts once.',
             'On a linked card, Open Linked Project opens the Estimator project, or the Tender project overview if no Estimator is linked. Open Project Chase-up remains a separate follow-up action; manage connections in View details.',
             'Under each builder, optionally add one or more contact people now or later. Choose a saved contact or enter an exact name, email or phone number to autofill matching details.',
+            'Select Assign team in an unassigned card’s footer. It matches View details and uses the existing permissions and automatic approval rules. Assigned names then appear as text; change them through View details → Assign.',
             'Review incoming opportunities, assign an authorized team and approve or reject.',
             'Use Approved → Need to quote to find approved projects awaiting a quotation.',
         ], 'Opportunity approval is separate from submitting an electrical quotation.'),

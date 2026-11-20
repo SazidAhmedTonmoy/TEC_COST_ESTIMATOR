@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.4
+# TEC Flow — v3.8.6
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -53,7 +53,7 @@ uploads.** Never overwrite live databases with local files.
 
 ## Data compatibility
 
-- Application version: **3.8.4**
+- Application version: **3.8.6**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.
@@ -98,3 +98,10 @@ uploads.** Never overwrite live databases with local files.
 - All administrators and members assigned to a builder's Opportunities or Estimator projects can delete a shared contact from **Builders**. Individual assignees also have access. A confirmation explains that the contact will be removed from every current selection; historical audit entries remain available.
 - **Open Linked Project** on an Opportunity card opens its explicitly linked Estimator project, or its linked Tender project overview when there is no Estimator link. Change/unlink controls remain in the details view.
 - Project Chase-up sorts keep all builder submissions for the same project together. Pagination also keeps each project on one page.
+
+## Opportunity assignment and closing dates (v3.8.5)
+
+- An unassigned Opportunity card shows **Assign team** in the left footer, matching **View details**. After assignment, the card displays the assigned names; change assignments through **View details → Assign**. Existing assignment permissions and automatic approval rules apply.
+- Selecting a closing date shows a nonblocking warning when other Opportunity projects share that date. The count covers the whole register across statuses, teams and regions, excludes deleted/retired records and the edited project, and counts each Opportunity once regardless of its builders.
+- In v3.8.6, the warning also shows assigned team names and project counts. Projects shared by several teams appear under the combined team names; **No team assigned** identifies projects without a team. Each project appears in one group, keeping the breakdown equal to the total.
+- This update requires no database migration.
