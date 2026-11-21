@@ -9,6 +9,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 import weakref
+from encrypted_backup_fixture import open_backup
 
 from conest_app import backups, opportunities, tenders
 from conest_app.database import connect
@@ -85,7 +86,7 @@ class TenderLifetimeTests(unittest.TestCase):
             for _ in range(10):
                 result = backups.create_tender_backup('manual', self.actor['id'])
                 snapshot = store.path.parent / 'tender_backups' / result['name']
-                with closing(sqlite3.connect(snapshot)) as db:
+                with open_backup(snapshot, purpose='backup:tenders') as db:
                     self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
                 with store.connect() as db:
                     db.execute('PRAGMA wal_checkpoint(PASSIVE)').fetchall()

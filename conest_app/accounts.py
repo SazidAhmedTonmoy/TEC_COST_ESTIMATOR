@@ -14,7 +14,19 @@ from .utils import utc_now
 # A one-time starter credential, stored only as a hash. Never reset an existing account.
 from .initial_roster import INITIAL_ROSTER
 STARTER_HASH = next(entry[2] for entry in INITIAL_ROSTER if entry[0]=='Tonmoy')
-SESSION_SECONDS = 400 * 24 * 60 * 60
+STARTER_HASHES = frozenset(entry[2] for entry in INITIAL_ROSTER)
+def _session_seconds():
+    """Absolute session lifetime; refreshing a page must not extend access."""
+    try:
+        hours = int(os.environ.get('CONEST_SESSION_HOURS', '12'))
+    except ValueError as exc:
+        raise RuntimeError('CONEST_SESSION_HOURS must be a whole number from 1 to 720') from exc
+    if not 1 <= hours <= 720:
+        raise RuntimeError('CONEST_SESSION_HOURS must be a whole number from 1 to 720')
+    return hours * 60 * 60
+
+
+SESSION_SECONDS = _session_seconds()
 PUBLIC_FIELDS = ('id', 'username', 'name', 'job_title', 'role', 'is_active', 'must_change_password', 'created_at', 'updated_at', 'last_login_at')
 
 
@@ -47,6 +59,11 @@ def verify_password(password, encoded):
 
 def public_user(row):
     result={key: row[key] for key in PUBLIC_FIELDS}
+    # Legacy installs marked the bundled starter roster as ready. Enforce setup
+    # from the current hash on every request, including already-issued sessions,
+    # without resetting passwords or affecting customized account credentials.
+    if 'password_hash' in row.keys() and row['password_hash'] in STARTER_HASHES:
+        result['must_change_password'] = 1
     for key in ('team_id','team_name','email','contact_number','avatar_version','has_avatar'):
         if key in row.keys():result[key]=row[key]
     return result
@@ -166,7 +183,7 @@ def edit_user(conn, target_id, payload, actor, admin=False):
     if not admin and (password or username != current['username']):
         if not verify_password(payload.get('current_password'), current['password_hash']):
             raise ValueError('Current password is incorrect')
-    if not admin and current['must_change_password'] and not password:
+    if not admin and (current['must_change_password'] or current['password_hash'] in STARTER_HASHES) and not password:
         raise ValueError('Choose a new password to finish setting up your account')
     if not admin and password and verify_password(password, current['password_hash']):
         raise ValueError('Choose a password different from your current password')
@@ -232,8 +249,11 @@ def _replace_profile_photo(conn, user_id, photo):
 def start_session(conn, user_id):
     token = secrets.token_urlsafe(48)
     now = int(time.time())
-    conn.execute('DELETE FROM sessions WHERE expires_at>0 AND expires_at<=?', (now,))
-    conn.execute('INSERT INTO sessions VALUES (?,?,?,?)', (token_digest(token), user_id, 0, utc_now()))
+    conn.execute('''DELETE FROM sessions WHERE (expires_at>0 AND expires_at<=?)
+                    OR (expires_at=0 AND COALESCE(CAST(strftime('%s',created_at) AS INTEGER),0)<=?)''',
+                 (now, now - SESSION_SECONDS))
+    conn.execute('INSERT INTO sessions VALUES (?,?,?,?)',
+                 (token_digest(token), user_id, now + SESSION_SECONDS, utc_now()))
     return token
 
 
@@ -248,10 +268,13 @@ def csrf_token(token):
 def session_user(conn, token):
     if not token or len(token) > 256:
         return None
+    now = int(time.time())
     row = conn.execute('''SELECT u.*,t.name AS team_name FROM sessions s JOIN users u ON u.id=s.user_id
                           LEFT JOIN teams t ON t.id=u.team_id
-                          WHERE s.token_hash=? AND (s.expires_at=0 OR s.expires_at>?) AND u.is_active=1''',
-                       (token_digest(token), int(time.time()))).fetchone()
+                          WHERE s.token_hash=? AND u.is_active=1
+                            AND (s.expires_at>? OR (s.expires_at=0
+                              AND COALESCE(CAST(strftime('%s',s.created_at) AS INTEGER),0)>?))''',
+                       (token_digest(token), now, now - SESSION_SECONDS)).fetchone()
     return enriched_user(conn,row) if row else None
 
 

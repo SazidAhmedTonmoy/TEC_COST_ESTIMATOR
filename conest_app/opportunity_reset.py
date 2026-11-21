@@ -17,6 +17,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 
 from .auto_upgrade import UpgradeError, _process_lock
+from .snapshot_protection import publish_snapshot
 
 RESET_KEY = 'opportunities-owner-reset-v351'
 log = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _backup(store, expected_counts):
     folder = store.path.parent / 'upgrade_backups'
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    target = folder / f'{store.path.stem}-before-opportunity-reset-v351-{stamp}-{uuid.uuid4().hex[:6]}.db'
+    target = folder / f'{store.path.stem}-before-opportunity-reset-v351-{stamp}-{uuid.uuid4().hex[:6]}.db.enc'
     pending = target.with_suffix('.pending')
     try:
         descriptor = os.open(pending, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -49,8 +50,7 @@ def _backup(store, expected_counts):
                 # A single portable backup file must not depend on WAL sidecars.
                 saved.execute('PRAGMA journal_mode=DELETE')
         os.chmod(pending, 0o600)
-        os.replace(pending, target)
-        return target
+        return publish_snapshot(pending, target, purpose='backup:tenders')
     finally:
         pending.unlink(missing_ok=True)
 

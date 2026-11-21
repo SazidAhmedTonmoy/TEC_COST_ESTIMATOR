@@ -41,7 +41,8 @@ class HostedStartupTests(unittest.TestCase):
         with connect() as db:
             identifier = db.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()[0]
             self.actor_id = identifier
-            db.execute('UPDATE users SET must_change_password=0 WHERE id=?', (identifier,))
+            db.execute('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?',
+                       (accounts.password_hash('hosted-startup-test-only-password'), identifier))
             self.token = accounts.start_session(db, identifier)
 
     def tearDown(self):
@@ -207,7 +208,7 @@ class HostedStartupTests(unittest.TestCase):
                              ('newbuilder', 'New Builder'))
             self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunities').fetchone()[0], 2)
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
-        self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
+        self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db.enc'))), 1)
 
         tenders.close_store()
         self.assertEqual(self.request('/api/health?check=tenders')['status'], 200)
@@ -218,7 +219,7 @@ class HostedStartupTests(unittest.TestCase):
                                        active_sql('opportunity', 'opportunities.id')).fetchone()[0], 1)
             self.assertEqual(db.execute('SELECT COUNT(*) FROM opportunity_builders WHERE ' +
                                        active_sql('builder', 'opportunity_builders.builder_key')).fetchone()[0], 1)
-        self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db'))), 1)
+        self.assertEqual(len(list((path.parent / 'upgrade_backups').glob('*schema-v354-*.db.enc'))), 1)
 
     def test_legacy_creator_column_accepts_current_form_after_completed_reset(self):
         """The hosted screenshot failure must recover through the real adapter."""

@@ -9,6 +9,7 @@ from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import workspace, productivity, auto_upgrade, projects
 from conest_app.database import database_path, connect
 from legacy_schema_fixture import drop_fixture_columns
+from encrypted_backup_fixture import open_backup
 
 class ReviewWorkflowTests(unittest.TestCase):
     request=helpers.HttpPatchTests.request
@@ -72,8 +73,8 @@ class ReviewWorkflowTests(unittest.TestCase):
             self.assertEqual(p['completed_at'],'2026-09-20')
             self.assertEqual(projects.calculate_project(c,pid)['totals'],before['totals'])
             self.assertEqual(c.execute('SELECT COUNT(*) FROM project_activity').fetchone()[0],events)
-        snapshot=next((database_path().parent/'upgrade_backups').glob(f'*before-schema-{CURRENT_SCHEMA}.db'))
-        with sqlite3.connect(snapshot) as c:
+        snapshot=next((database_path().parent/'upgrade_backups').glob(f'*before-schema-{CURRENT_SCHEMA}.db.enc'))
+        with open_backup(snapshot) as c:
             self.assertEqual(c.execute('SELECT status FROM projects WHERE id=?',(pid,)).fetchone()[0],'completed')
         auto_upgrade._ready.pop(str(database_path()),None)
         with connect() as c:self.assertEqual(workspace.get_project(c,pid)['revision'],p['revision'])

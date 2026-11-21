@@ -31,7 +31,7 @@ def main():
     if args.preflight:
         return
     failed = []
-    for name in ('openpyxl', 'pdfplumber', 'PIL', 'tzdata'):
+    for name in ('openpyxl', 'pdfplumber', 'PIL', 'tzdata', 'cryptography'):
         try:
             module = importlib.import_module(name)
             print(name, getattr(module, '__version__', ''), module.__file__)

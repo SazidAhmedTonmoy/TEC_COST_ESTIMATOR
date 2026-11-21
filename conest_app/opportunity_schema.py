@@ -17,6 +17,7 @@ import time
 import uuid
 
 from .auto_upgrade import UpgradeError, _process_lock
+from .snapshot_protection import publish_snapshot
 from . import opportunity_compatibility, opportunity_retention
 
 
@@ -109,7 +110,7 @@ def _backup(store, expected_counts):
     folder = store.path.parent / 'upgrade_backups'
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    target = folder / f'{store.path.stem}-before-opportunity-schema-v354-{stamp}-{uuid.uuid4().hex[:6]}.db'
+    target = folder / f'{store.path.stem}-before-opportunity-schema-v354-{stamp}-{uuid.uuid4().hex[:6]}.db.enc'
     pending = target.with_suffix('.pending')
     try:
         # Keep the snapshot private even while SQLite is filling the file.
@@ -133,8 +134,7 @@ def _backup(store, expected_counts):
                         raise UpgradeError('The opportunity schema backup is incomplete. No opportunity schema changes were committed.')
                 saved.execute('PRAGMA journal_mode=DELETE')
         os.chmod(pending, 0o600)
-        os.replace(pending, target)
-        return target
+        return publish_snapshot(pending, target, purpose='backup:tenders')
     finally:
         pending.unlink(missing_ok=True)
 

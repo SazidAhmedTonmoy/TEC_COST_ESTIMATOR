@@ -14,6 +14,7 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
+from encrypted_backup_fixture import open_backup
 
 from openpyxl import Workbook
 from PIL import Image
@@ -76,8 +77,8 @@ class Patch231Tests(unittest.TestCase):
         with connect() as conn:
             self.assertEqual(before,[tuple(row) for row in conn.execute('SELECT id,username,name,password_hash FROM users')])
             self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],CURRENT_SCHEMA)
-        snapshots=list((self.root/'upgrade_backups').glob('*.db'));self.assertEqual(len(snapshots),1)
-        with closing(sqlite3.connect(snapshots[0])) as conn, conn:self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],23)
+        snapshots=list((self.root/'upgrade_backups').glob('*.db.enc'));self.assertEqual(len(snapshots),1)
+        with open_backup(snapshots[0]) as conn:self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],23)
         from conest_app.backups import create_backup
         create_backup();create_backup();self.assertTrue(snapshots[0].exists())
 

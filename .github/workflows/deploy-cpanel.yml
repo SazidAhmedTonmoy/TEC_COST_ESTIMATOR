@@ -20,8 +20,8 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DEPLOY_PATH: /home/ampecportal/tec-flow.ampecportal.com
-      SITE_URL: https://tec-flow.ampecportal.com
+      DEPLOY_PATH: ${{ vars.CPANEL_DEPLOY_PATH || '/home/ampecportal/tec-const.ampecportal.com' }}
+      SITE_URL: ${{ vars.CPANEL_SITE_URL || 'https://tec-flow.ampecportal.com' }}
       SSH_HOST: ${{ secrets.CPANEL_HOST }}
       SSH_USER: ${{ secrets.CPANEL_USER }}
       SSH_PORT: ${{ secrets.CPANEL_SSH_PORT }}
@@ -49,6 +49,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           python tools/build_frontend.py
+          python tools/check_secrets.py
           python -m compileall -q app.py conest_app
           python tools/run_tests.py --workers 4
 

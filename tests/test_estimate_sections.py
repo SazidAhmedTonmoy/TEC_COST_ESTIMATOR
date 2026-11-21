@@ -257,9 +257,10 @@ class EstimateSectionTests(unittest.TestCase):
                 self.assertEqual(after['totals'],before['totals'])
                 self.assertEqual(conn.execute('SELECT version FROM schema_version').fetchone()[0],auto_upgrade.CURRENT_SCHEMA)
                 self.assertEqual(conn.execute('PRAGMA foreign_key_check').fetchall(),[])
-        backup=database_path().parent/'upgrade_backups'/f'{database_path().stem}-before-schema-{auto_upgrade.CURRENT_SCHEMA}.db'
+        backup=database_path().parent/'upgrade_backups'/f'{database_path().stem}-before-schema-{auto_upgrade.CURRENT_SCHEMA}.db.enc'
         self.assertTrue(backup.is_file())
-        with _raw_connect(backup) as saved:
+        from encrypted_backup_fixture import open_backup
+        with open_backup(backup) as saved:
             self.assertEqual(saved.execute('SELECT version FROM schema_version').fetchone()[0],31)
             self.assertEqual(saved.execute('SELECT name FROM projects WHERE id=?',(pid,)).fetchone()[0],before['project']['name'])
         stamp=backup.stat().st_mtime_ns

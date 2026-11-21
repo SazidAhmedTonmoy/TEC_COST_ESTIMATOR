@@ -1,9 +1,10 @@
 """Transactional, repeatable import of the deployed legacy lighting database."""
-import hashlib,json,os,sqlite3
+import hashlib,json,os,sqlite3,uuid
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from .database import write_lock
+from .snapshot_protection import publish_snapshot
 
 def merge_legacy_prices(target):
     target=Path(target).resolve()
@@ -21,9 +22,17 @@ def merge_legacy_prices(target):
         new.execute('CREATE TABLE IF NOT EXISTS lighting_migrations(source_path TEXT,source_hash TEXT,completed_at TEXT,PRIMARY KEY(source_path,source_hash))');new.commit()
         if new.execute('SELECT 1 FROM lighting_migrations WHERE source_path=? AND source_hash=?',(str(source),digest)).fetchone():return
         if records['quotes']:
-            folder=target.parent/'migration_backups';folder.mkdir(exist_ok=True)
-            backup=folder/('pre-v2-merge-'+datetime.now().strftime('%Y%m%dT%H%M%S%f')+'.db')
-            with closing(sqlite3.connect(backup)) as dest:new.backup(dest)
+            folder=target.parent/'migration_backups';folder.mkdir(mode=0o700,exist_ok=True)
+            backup=folder/('pre-v2-merge-'+datetime.now().strftime('%Y%m%dT%H%M%S%f')+'-'+uuid.uuid4().hex[:8]+'.db.enc')
+            pending=backup.with_suffix('.pending')
+            try:
+                descriptor=os.open(pending,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600);os.close(descriptor)
+                with closing(sqlite3.connect(pending)) as dest:
+                    new.backup(dest)
+                    if dest.execute('PRAGMA quick_check').fetchone()[0]!='ok':raise ValueError('The lighting recovery snapshot failed verification. No prices were merged.')
+                    dest.execute('PRAGMA journal_mode=DELETE')
+                publish_snapshot(pending,backup,purpose='backup:catalog',database=target)
+            finally:pending.unlink(missing_ok=True)
         new.execute('PRAGMA foreign_keys=ON');new.execute('BEGIN IMMEDIATE')
         try:
             def insert(table,record,changes):

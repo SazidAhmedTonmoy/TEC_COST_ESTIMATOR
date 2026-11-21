@@ -20,6 +20,27 @@ contains the current app, frontend source, required database migration code, and
   Calls use the device dialler; email uses Outlook web compose.
 
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
+See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
+
+## Security and capacity update (v3.8.6)
+
+- The register summary now says **Total quote amount**. The calculation is unchanged:
+  each project is counted once, using its highest builder submission.
+- Saved Gemini credentials and newly created database backups use authenticated
+  AES-256-GCM encryption. The saved key is never returned to the browser.
+- Sessions expire after 12 hours by default. Unchanged bundled starter passwords
+  require a password change before business data is available.
+- Private-file rules protect Apache deployments while preserving cPanel settings.
+  The runtime installer updates the WSGI adapter while preserving host bootstrap configuration.
+- Bounded request admission, batched queries and generation-aware caches improve
+  concurrency. Admin-only runtime metrics and repeatable offline load checks are included.
+- Local validation passed at 10, 25 and 50 simulated users: 6,800 requests,
+  1,700 verified writes, no unexpected errors, and p95 below 2 seconds at each level.
+  The workload and hosting limits are documented in **OPERATIONS.md**.
+
+**Live SQLite business databases still require encrypted hosting storage for full
+encryption at rest.** Keep the original encryption key securely and separately
+from backups; it is not included in a backup or a source ZIP.
 
 ## Local setup
 
@@ -45,11 +66,31 @@ Pushing to `main` runs `.github/workflows/deploy-cpanel.yml`:
 1. Build the Tender React frontend and Estimator assets.
 2. Run isolated Python regression checks.
 3. Upload application code to the configured cPanel host, preserving runtime data.
-4. Restart Passenger and verify application health.
+4. Install dependencies, private-file rules and the current WSGI adapter.
+5. Restart Passenger and verify application health.
 
 Use your existing GitHub Actions secrets and server configuration. **Before updating a
 production installation, back up both SQLite databases and keep `.env`, `data/`, and
 uploads.** Never overwrite live databases with local files.
+
+The current public address is `https://tec-flow.ampecportal.com/`. Set the GitHub
+repository variable **CPANEL_DEPLOY_PATH** to the actual cPanel application folder
+if it differs from the existing deployment path. A website hostname does not
+necessarily identify its filesystem folder. **CPANEL_SITE_URL** can override the
+health-check address. For a manual update, build both frontends and run
+`sh tools/install_runtime.sh` before restarting Passenger. This installs the new
+`cryptography` dependency and the Apache/WSGI protection hooks.
+
+The **UPDATE_ONLY** ZIP overlays the corrected v3.8.5 source. It preserves your
+host's `passenger_wsgi.py`; the installer delegates that existing entry point to
+the updated runtime without removing its interpreter or environment setup.
+Rebuilding the Estimator assets also removes the superseded generated bundle.
+The **FULL_SOURCE** ZIP includes a generic entry point for a fresh installation.
+
+On first startup the server creates an owner-only key outside the website.
+Keep a separate secure copy before relying on encrypted backups. When moving
+the database to another path or host, configure the original key using
+`CONEST_ENCRYPTION_KEY_FILE`; see **OPERATIONS.md** for recovery commands.
 
 ## Data compatibility
 
@@ -103,5 +144,5 @@ uploads.** Never overwrite live databases with local files.
 
 - An unassigned Opportunity card shows **Assign team** in the left footer, matching **View details**. After assignment, the card displays the assigned names; change assignments through **View details → Assign**. Existing assignment permissions and automatic approval rules apply.
 - Selecting a closing date shows a nonblocking warning when other Opportunity projects share that date. The count covers the whole register across statuses, teams and regions, excludes deleted/retired records and the edited project, and counts each Opportunity once regardless of its builders.
-- In v3.8.6, the warning also shows assigned team names and project counts. Projects shared by several teams appear under the combined team names; **No team assigned** identifies projects without a team. Each project appears in one group, keeping the breakdown equal to the total.
+- The warning also shows assigned team names and project counts. Projects shared by several teams appear under the combined team names; **No team assigned** identifies projects without a team. Each project appears in one group, keeping the breakdown equal to the total. This feature is part of the corrected v3.8.5 baseline.
 - This update requires no database migration.

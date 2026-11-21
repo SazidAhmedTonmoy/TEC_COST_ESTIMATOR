@@ -50,7 +50,11 @@ async function pollPresence(){
 }
 async function loadBackups(){
   const result=await api('/api/backups');
-  $('#backup-list').innerHTML=result.backups.length?result.backups.map(b=>`<article class="tool-row"><div><strong>${b.database==='tenders'?'Tenders':'Catalog / Estimator'} · ${escapeHtml(b.reason||'Backup')}</strong><small>${escapeHtml(b.created_at||b.name)} · ${(b.bytes/1048576).toFixed(1)} MB</small></div><a class="button secondary small" href="/api/backups/${encodeURIComponent(b.name)}/download">Download</a>${b.database==='tenders'?'':`<button class="button secondary small" data-restore-backup="${escapeHtml(b.name)}">Restore</button>`}</article>`).join(''):'<p>No backups yet. Daily backups are scheduled for 12:10 am server time.</p>';
+  $('#backup-list').innerHTML=result.backups.length?result.backups.map(b=>{
+    const encrypted=b.encrypted===true||String(b.name).endsWith('.db.enc');
+    const protection=encrypted?'Encrypted':'Legacy unencrypted';
+    return `<article class="tool-row"><div><strong>${b.database==='tenders'?'Tenders':'Catalog / Estimator'} · ${escapeHtml(b.reason||'Backup')}</strong><small>${escapeHtml(b.created_at||b.name)} · ${(b.bytes/1048576).toFixed(1)} MB · ${protection}</small></div><a class="button secondary small" href="/api/backups/${encodeURIComponent(b.name)}/download" title="${encrypted?'Download encrypted backup (.db.enc)':'Download legacy unencrypted backup (.db)'}">Download</a>${b.database==='tenders'?'':`<button class="button secondary small" data-restore-backup="${escapeHtml(b.name)}">Restore</button>`}</article>`;
+  }).join(''):'<p>No backups yet. New backups are encrypted. Daily backups are scheduled for 12:10 am server time.</p>';
 }
 async function openRevisions(pid){
   productivityState.revisionProject=Number(pid);

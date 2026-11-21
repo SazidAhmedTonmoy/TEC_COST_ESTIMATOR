@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+from encrypted_backup_fixture import open_backup
 import subprocess
 import sys
 import tempfile
@@ -82,7 +83,7 @@ class OpportunitySchemaMigrationTests(unittest.TestCase):
             self.original = [tuple(row) for row in db.execute('SELECT * FROM opportunities ORDER BY id')]
 
     def backups(self):
-        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-schema-v354-*.db'))
+        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-schema-v354-*.db.enc'))
 
     def columns(self):
         with self.store.connect() as db:
@@ -127,7 +128,7 @@ class OpportunitySchemaMigrationTests(unittest.TestCase):
             db.execute("INSERT INTO opportunity_builders(builder_key,name) VALUES('newbuilder','New Builder')")
         backups = self.backups()
         self.assertEqual(len(backups), 1)
-        with closing(sqlite3.connect(f'{backups[0].as_uri()}?mode=ro', uri=True)) as db:
+        with open_backup(backups[0], purpose='backup:tenders') as db:
             self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0], 'ok')
             self.assertEqual(db.execute('SELECT * FROM opportunity_builders').fetchall(), original)
             self.assertIsNone(db.execute("SELECT 1 FROM sqlite_master WHERE name='opportunities'").fetchone())
@@ -260,7 +261,7 @@ class OpportunitySchemaMigrationTests(unittest.TestCase):
         backups = self.backups()
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
-        with closing(sqlite3.connect(f'{backups[0].as_uri()}?mode=ro', uri=True)) as db:
+        with open_backup(backups[0], purpose='backup:tenders') as db:
             self.assertEqual(db.execute('PRAGMA quick_check').fetchone()[0], 'ok')
             self.assertEqual(db.execute('PRAGMA journal_mode').fetchone()[0], 'delete')
             self.assertNotIn('deleted_at', [row[1] for row in db.execute('PRAGMA table_info(opportunities)')])

@@ -1,5 +1,5 @@
 """Run every unittest module in isolated processes; fail if any module fails."""
-import argparse,concurrent.futures,os,subprocess,sys,tempfile,time
+import argparse,base64,concurrent.futures,os,subprocess,sys,tempfile,time
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 
@@ -13,6 +13,10 @@ def run(path):
         environment.update({
             'CONEST_DB_PATH':str(Path(folder)/'catalog.db'),
             'CONEST_TENDERS_DB_PATH':'',
+            # Never use an operator's deployment key or create persistent keys
+            # while running disposable isolated test databases.
+            'CONEST_ENCRYPTION_KEY':base64.urlsafe_b64encode(os.urandom(32)).decode('ascii'),
+            'CONEST_ENCRYPTION_KEY_FILE':'',
         })
         result=subprocess.run([sys.executable,'-m','unittest','discover','-s','tests','-p',path.name,'-v'],cwd=ROOT,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True,env=environment)
     return path.name,result.returncode,result.stdout,time.monotonic()-start

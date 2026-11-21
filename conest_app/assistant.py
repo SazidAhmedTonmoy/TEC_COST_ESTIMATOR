@@ -58,7 +58,14 @@ def _setting_map(conn: sqlite3.Connection) -> dict[str, str]:
         "SELECT key, value FROM settings WHERE key IN "
         "('llm_enabled', 'llm_model', 'llm_provider', 'gemini_api_key')"
     ).fetchall()
-    return {row["key"]: row["value"] for row in rows}
+    settings = {row["key"]: row["value"] for row in rows}
+    if settings.get("gemini_api_key"):
+        from .data_protection import connection_database_path, unprotect_secret
+        settings["gemini_api_key"] = unprotect_secret(
+            settings["gemini_api_key"], setting="gemini_api_key",
+            database=connection_database_path(conn),
+        )
+    return settings
 
 
 def _enabled(settings: dict[str, str]) -> bool:
@@ -134,15 +141,17 @@ def _gemini_generate(api_key: str, model: str, prompt: str, max_output_tokens: i
 
 
 def _http_error_message(exc: urllib.error.HTTPError) -> str:
-    try:
-        raw = exc.read().decode("utf-8", errors="replace")
-        parsed = json.loads(raw)
-        message = clean_text((parsed.get("error") or {}).get("message"))
-        if message:
-            return message[:280]
-    except (OSError, ValueError, json.JSONDecodeError):
-        pass
-    return f"Gemini returned HTTP {exc.code}"
+    # Provider bodies and exception strings can echo credentials or request
+    # data. Only a local, status-specific message crosses the browser boundary.
+    if exc.code in (401, 403):
+        return "Gemini rejected the configured API key or its permissions."
+    if exc.code == 404:
+        return "The selected Gemini model is unavailable."
+    if exc.code == 429:
+        return "Gemini free quota is currently exhausted (429). Local catalog search still works."
+    if exc.code >= 500:
+        return "Gemini is temporarily unavailable. Please try again later."
+    return "Gemini could not complete the connection test. Check its configuration."
 
 
 def test_gemini_connection(
@@ -165,7 +174,7 @@ def test_gemini_connection(
             "success": True,
             "model": selected_model,
             "message": "Gemini connection is working.",
-            "response": text[:80],
+            "response": "OK",
         }
     except urllib.error.HTTPError as exc:
         if exc.code == 429:
@@ -173,11 +182,11 @@ def test_gemini_connection(
         else:
             message = _http_error_message(exc)
         return {"success": False, "model": selected_model, "status": exc.code, "message": message}
-    except (OSError, ValueError, KeyError, urllib.error.URLError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, KeyError, urllib.error.URLError, json.JSONDecodeError):
         return {
             "success": False,
             "model": selected_model,
-            "message": clean_text(str(exc)) or "Gemini connection failed.",
+            "message": "Gemini connection failed. Check the server connection and Gemini configuration.",
         }
 
 

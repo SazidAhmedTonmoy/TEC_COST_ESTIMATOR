@@ -75,7 +75,7 @@ class ItemMarkupTests(unittest.TestCase):
             self.assertEqual(after['totals'],before)
             self.assertTrue(all(not row[field] for row in after['lines'] for field in FIELDS))
             self.assertEqual(c.execute('SELECT version FROM schema_version').fetchone()[0],CURRENT_SCHEMA)
-        self.assertTrue(list((database_path().parent/'upgrade_backups').glob(f'*before-schema-{CURRENT_SCHEMA}.db')))
+        self.assertTrue(list((database_path().parent/'upgrade_backups').glob(f'*before-schema-{CURRENT_SCHEMA}.db.enc')))
 
     def test_export_arithmetic_with_mixed_exclusions_and_fixed_quantity(self):
         def evaluate(w,sheet,cell):

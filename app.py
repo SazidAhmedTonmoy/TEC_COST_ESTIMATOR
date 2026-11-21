@@ -1,3 +1,5 @@
+#Main Code
+
 from __future__ import annotations
 
 from conest_app import __version__
@@ -107,6 +109,11 @@ class ApiError(Exception):
 class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     server_version = f"TECFlow/{__version__}"
 
+    def send_response(self, code, message=None):
+        if code >= 200:
+            self._runtime_response_status = code
+        super().send_response(code, message)
+
     def setup(self):
         super().setup()
         self.connection.settimeout(120)
@@ -145,6 +152,8 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        if status == 503:
+            self.send_header('Retry-After', '2')
         self._security_headers()
         self.end_headers()
         self.wfile.write(body)
@@ -236,7 +245,10 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         if isinstance(exc, LookupError):
             self._send_json({"success": False, "error": str(exc)}, 404)
             return
-        if isinstance(exc, (ValueError, sqlite3.IntegrityError)):
+        if isinstance(exc, sqlite3.IntegrityError):
+            self._send_json({"success": False, "error": "This change conflicts with an existing or linked record. Refresh the page and check the details."}, 400)
+            return
+        if isinstance(exc, ValueError):
             self._send_json({"success": False, "error": str(exc)}, 400)
             return
         if isinstance(exc, sqlite3.OperationalError) and ("locked" in str(exc) or "busy" in str(exc)):
@@ -305,6 +317,13 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         try:
             path, query = self._route()
+            if path == '/api/admin/runtime-metrics':
+                self._guard(path)
+                if self.user['role'] != 'admin':
+                    raise ApiError(403, 'Administrator access is required')
+                from conest_app.runtime_metrics import runtime_snapshot
+                self._send_json(runtime_snapshot())
+                return
             if path == '/api/admin/startup-diagnostics':
                 # Read the captured failure without opening the Tender store:
                 # diagnostics must remain available when that startup fails.
@@ -495,13 +514,6 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 with self._read_connection() as conn:
                     issues = list_import_issues(conn, unresolved)
                 self._send_json({"success": True, "issues": issues})
-                return
-            if path == "/api/settings/saved-key":
-                # Requested explicitly by the Settings form; normal settings
-                # responses and the dashboard continue to omit credentials.
-                with self._read_connection() as conn:
-                    saved = get_settings(conn, include_secrets=True).get("gemini_api_key", "")
-                self._send_json({"success": True, "api_key": saved})
                 return
             if path == "/api/settings":
                 self._send_json(self._settings_payload());return
@@ -903,6 +915,8 @@ class ConEstServer(ThreadingHTTPServer):
         self._database_keeper = None
         self._backup_thread = None
         self._next_backup_check = 0
+        from conest_app.request_limits import request_gate
+        self._connection_slots = threading.BoundedSemaphore(request_gate.limit + request_gate.queue_limit)
         super().__init__(*args, **kwargs)
         try:
             # Keep the WAL open throughout service. Request connections never
@@ -912,6 +926,55 @@ class ConEstServer(ThreadingHTTPServer):
         except Exception:
             self.server_close()
             raise
+
+    @staticmethod
+    def _busy_response(request):
+        body = b'{"success":false,"error":"The server is busy. Please retry shortly."}'
+        response = (b'HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n'
+                    b'Content-Type: application/json; charset=utf-8\r\nCache-Control: no-store\r\n'
+                    b'Retry-After: 2\r\nX-Content-Type-Options: nosniff\r\nContent-Length: '
+                    + str(len(body)).encode() + b'\r\n\r\n' + body)
+        try:
+            request.settimeout(1)
+            request.sendall(response)
+        except OSError:
+            pass
+
+    def process_request(self, request, client_address):
+        # ThreadingHTTPServer otherwise creates an unbounded number of threads.
+        if not self._connection_slots.acquire(blocking=False):
+            from conest_app.runtime_metrics import runtime_metrics
+            runtime_metrics.observe('other', 503, 0, rejection='connections_full')
+            self._busy_response(request)
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._connection_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._connection_slots.release()
+
+    def finish_request(self, request, client_address):
+        from conest_app.request_limits import request_gate
+        from conest_app.runtime_metrics import runtime_metrics
+        started = time.perf_counter()
+        handler = None
+        with request_gate.enter() as (admitted, reason, queue_ms):
+            try:
+                if admitted:
+                    handler = self.RequestHandlerClass(request, client_address, self)
+                else:
+                    self._busy_response(request)
+            finally:
+                status = getattr(handler, '_runtime_response_status', 500) if admitted else 503
+                runtime_metrics.observe(getattr(handler, 'path', 'other'), status,
+                                        (time.perf_counter() - started) * 1000, queue_ms, reason)
 
     def service_actions(self):
         import time

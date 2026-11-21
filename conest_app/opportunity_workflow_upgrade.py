@@ -10,6 +10,7 @@ import uuid
 from contextlib import closing
 
 from .auto_upgrade import UpgradeError, _process_lock
+from .snapshot_protection import publish_snapshot
 from .opportunity_retention import active_sql
 
 MIGRATION_KEY = 'opportunities-approved-persistence-v357'
@@ -63,7 +64,7 @@ def _backup(store, expected_counts):
     folder = store.path.parent / 'upgrade_backups'
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')
-    target = folder / f'{store.path.stem}-before-opportunity-workflow-v357-{stamp}-{uuid.uuid4().hex[:6]}.db'
+    target = folder / f'{store.path.stem}-before-opportunity-workflow-v357-{stamp}-{uuid.uuid4().hex[:6]}.db.enc'
     pending = target.with_suffix('.pending')
     try:
         descriptor = os.open(pending, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
@@ -84,8 +85,7 @@ def _backup(store, expected_counts):
                         raise UpgradeError('The approval-history backup is incomplete. No approval corrections were committed.')
                 saved.execute('PRAGMA journal_mode=DELETE')
         os.chmod(pending, 0o600)
-        os.replace(pending, target)
-        return target
+        return publish_snapshot(pending, target, purpose='backup:tenders')
     finally:
         pending.unlink(missing_ok=True)
 

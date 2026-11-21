@@ -58,7 +58,7 @@ class WorkspaceHTTP:
         if self.user['must_change_password'] and path not in ('/api/auth/session', '/api/auth/profile', '/api/auth/profile/photo', '/api/auth/logout'):
             raise accounts.AccessError(403, 'Choose a new password in My profile to finish setting up your account')
         admin_required = (path.startswith('/api/users') or (path.startswith('/api/teams') and mutation)
-                          or path == '/api/settings/saved-key' or (path.startswith('/api/settings') and mutation)
+                          or (path.startswith('/api/settings') and mutation)
                           or path.startswith('/api/backups') or path.endswith('/review'))
         if admin_required and self.user['role'] != 'admin':
             raise accounts.AccessError(403, 'Administrator access is required')

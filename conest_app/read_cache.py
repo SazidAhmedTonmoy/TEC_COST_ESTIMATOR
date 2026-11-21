@@ -1,5 +1,6 @@
 """Bounded shared read cache, invalidated by committed catalogue changes."""
 from collections import OrderedDict
+from contextlib import contextmanager
 from copy import deepcopy
 from functools import wraps
 from pathlib import Path
@@ -8,6 +9,26 @@ import sqlite3
 
 _cache=OrderedDict()
 _lock=RLock()
+_flights={}
+
+
+@contextmanager
+def _single_flight(key):
+    """Coalesce the same cold read; unrelated cache keys keep running."""
+    with _lock:
+        entry = _flights.get(key)
+        if entry is None:
+            entry = [RLock(), 0]
+            _flights[key] = entry
+        entry[1] += 1
+    try:
+        with entry[0]:
+            yield
+    finally:
+        with _lock:
+            entry[1] -= 1
+            if not entry[1]:
+                _flights.pop(key, None)
 
 
 def initialize_catalog_generation(conn):
@@ -40,10 +61,15 @@ def catalog_read_cache(function):
             if key in _cache:
                 _cache.move_to_end(key)
                 return deepcopy(_cache[key])
-        value=function(conn,*args,**kwargs)
-        with _lock:
-            _cache[key]=value
-            _cache.move_to_end(key)
-            if len(_cache)>128:_cache.popitem(last=False)
-            return deepcopy(value)
+        with _single_flight(key):
+            with _lock:
+                if key in _cache:
+                    _cache.move_to_end(key)
+                    return deepcopy(_cache[key])
+            value=function(conn,*args,**kwargs)
+            with _lock:
+                _cache[key]=value
+                _cache.move_to_end(key)
+                if len(_cache)>128:_cache.popitem(last=False)
+                return deepcopy(value)
     return cached

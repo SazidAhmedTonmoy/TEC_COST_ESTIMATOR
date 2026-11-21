@@ -63,12 +63,12 @@ def initialize_teams(conn):
             WHERE a.project_id=projects.id AND a.action='Created project' ORDER BY a.id LIMIT 1)
             WHERE created_by IS NULL''')
         conn.execute('INSERT INTO app_migrations VALUES (?,?)',('v1.8-team-roster',now))
-    # One-time testing convenience for the supplied roster; never reset passwords
-    # or remove first-time setup from accounts created later.
+    # Retain the historic migration marker, but bundled starter credentials
+    # must finish password setup before accessing business data.
     if not conn.execute("SELECT 1 FROM app_migrations WHERE name='v1.13-existing-roster-ready'").fetchone():
         from .initial_roster import INITIAL_ROSTER
-        for username,*_ in INITIAL_ROSTER:
-            conn.execute('UPDATE users SET must_change_password=0 WHERE username=? COLLATE NOCASE AND is_active=1',(username,))
+        for entry in INITIAL_ROSTER:
+            conn.execute('UPDATE users SET must_change_password=1 WHERE password_hash=?',(entry[2],))
         conn.execute('INSERT INTO app_migrations VALUES (?,?)',('v1.13-existing-roster-ready',utc_now()))
     conn.commit()
 

@@ -5,6 +5,7 @@ original JSON. A contact ID belongs to one builder; edits are revision checked.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 import re
 import uuid
@@ -221,6 +222,23 @@ def _links(db, kind, identifier, builder):
         ORDER BY l.position''', (kind, identifier, tenders.builder_key(builder)))]
 
 
+def opportunity_contact_map(db, identifiers):
+    """Read a list page's current contact selections in one snapshot/query."""
+    identifiers = list(dict.fromkeys(identifiers))
+    if not identifiers:
+        return {}
+    placeholders = ','.join('?' for _ in identifiers)
+    grouped = {}
+    for row in db.execute('''SELECT l.source_id AS linked_source_id,
+        l.builder_key AS linked_builder_key,c.* FROM builder_contact_links l
+        JOIN builder_contacts c ON c.id=l.contact_id
+        WHERE l.source_kind='opportunity' AND l.source_id IN (''' + placeholders + ''')
+        ORDER BY l.source_id,l.builder_key,l.position''', identifiers):
+        key = (row['linked_source_id'], row['linked_builder_key'])
+        grouped.setdefault(key, []).append(_contact(row))
+    return grouped
+
+
 def _set_links(db, kind, identifier, builder, people):
     key = tenders.builder_key(builder)
     ids = [person['id'] for person in people]
@@ -266,10 +284,12 @@ def submission_view(db, item):
     return result
 
 
-def opportunity_view(db, item):
+def opportunity_view(db, item, *, contact_map=None):
     result = dict(item)
     result['builderContacts'] = [{'builder': builder,
-        'contacts': _links(db, 'opportunity', item['id'], builder)} for builder in item.get('builders', [])]
+        'contacts': (_links(db, 'opportunity', item['id'], builder) if contact_map is None else
+                     deepcopy(contact_map.get((item['id'], tenders.builder_key(builder)), [])))}
+        for builder in item.get('builders', [])]
     return result
 
 

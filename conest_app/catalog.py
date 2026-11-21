@@ -3,6 +3,7 @@ from .estimate_options import display_title, annotate_catalog
 
 import sqlite3
 import math
+from hashlib import sha256
 from difflib import SequenceMatcher
 from typing import Any
 from types import MappingProxyType
@@ -131,7 +132,6 @@ def _row_score(
 
 
 @catalog_read_cache
-@catalog_read_cache
 def catalog_overview(conn: sqlite3.Connection) -> dict[str, Any]:
     rows = conn.execute(
         """SELECT id, content_key, category, data_status, is_manual
@@ -187,10 +187,92 @@ def _search_rows(conn):
            WHERE ci.is_active = 1
            GROUP BY ci.id"""
     ).fetchall()
-    return _ImmutableRows(MappingProxyType(dict(row)) for row in rows)
+    records = [dict(row) for row in rows]
+    families = {}
+    for row in records:
+        key = (row['content_key'] or f"item:{row['id']}", row['assembly_size'])
+        counts = families.setdefault(key, [0, 0, 0])
+        counts[0] += 1
+        counts[1] += int(row['occurrence_count'] or 0)
+        counts[2] += int(row['data_status'] == 'reference_only')
+    for row in records:
+        row['_search_title'] = normalize_text(display_title(row['name']))
+        key = (row['content_key'] or f"item:{row['id']}", row['assembly_size'])
+        row['_family_variants'], row['_family_sources'], row['_family_incomplete'] = families[key]
+    return _ImmutableRows(MappingProxyType(row) for row in records)
+
+
+def _search_metadata(conn, identifiers):
+    """Fetch displayed results' source/component details in two bound queries."""
+    if not identifiers:
+        return {}, {}
+    placeholders = ','.join('?' for _ in identifiers)
+    occurrences = {}
+    for row in conn.execute('''SELECT so.catalog_item_id,s.file_name,s.sheet_name,s.project_name,
+        so.source_row,s.imported_at FROM source_occurrences so JOIN sources s ON s.id=so.source_id
+        WHERE so.catalog_item_id IN (''' + placeholders + ') ORDER BY s.imported_at DESC,so.id DESC', identifiers):
+        occurrences.setdefault(row['catalog_item_id'], []).append(row)
+    sources = {}
+    for identifier in identifiers:
+        rows = occurrences.get(identifier, [])
+        sources[identifier] = {
+            'source_count': len(rows), 'source_file': rows[0]['file_name'] if rows else 'Manual catalog',
+            'source_sheet': rows[0]['sheet_name'] if rows else '',
+            'source_project': rows[0]['project_name'] if rows else '',
+            'source_row': rows[0]['source_row'] if rows else None,
+            'last_uploaded_at': rows[0]['imported_at'] if rows else '',
+        }
+    components = {}
+    for row in conn.execute('SELECT * FROM catalog_components WHERE catalog_item_id IN (' +
+                            placeholders + ') ORDER BY catalog_item_id,line_order,id', identifiers):
+        components.setdefault(row['catalog_item_id'], []).append(dict(row))
+    return sources, components
 
 
 def search_catalog(
+    conn: sqlite3.Connection,
+    query: str,
+    limit: int = 20,
+    *,
+    category: str = '',
+    include_incomplete: bool = False,
+    group_variants: bool = True,
+    recent_first: bool = False,
+    sort_by: str = 'legacy',
+    offset: int = 0,
+    page_info: dict | None = None,
+) -> list[dict[str, Any]]:
+    # HTTP readers already hold a read transaction: generation, recent usage
+    # and result rows therefore describe the same committed snapshot. Writers
+    # and standalone autocommit callers keep the direct calculation path.
+    if conn.in_transaction and not conn.total_changes:
+        recent = conn.execute('''SELECT catalog_item_id,MAX(created_at) FROM project_lines
+            WHERE catalog_item_id IS NOT NULL GROUP BY catalog_item_id ORDER BY catalog_item_id''').fetchall()
+        recent_fingerprint = sha256(repr([tuple(row) for row in recent]).encode()).hexdigest()
+        results, paging = _cached_search_page(conn, clean_text(query), max(1, min(int(limit or 20), 100)),
+            clean_text(category), bool(include_incomplete), bool(group_variants), bool(recent_first),
+            sort_by, max(0, int(offset)), recent_fingerprint)
+        if page_info is not None:
+            page_info.update(paging)
+        return results
+    return _search_catalog_uncached(conn, query, limit, category=category,
+        include_incomplete=include_incomplete, group_variants=group_variants,
+        recent_first=recent_first, sort_by=sort_by, offset=offset, page_info=page_info)
+
+
+@catalog_read_cache
+def _cached_search_page(conn, query, limit, category, include_incomplete, group_variants,
+                        recent_first, sort_by, offset, recent_fingerprint):
+    # recent_fingerprint is part of the cache key because deleting a project
+    # line can change recent-use order without modifying any catalogue row.
+    paging = {}
+    results = _search_catalog_uncached(conn, query, limit, category=category,
+        include_incomplete=include_incomplete, group_variants=group_variants,
+        recent_first=recent_first, sort_by=sort_by, offset=offset, page_info=paging)
+    return results, paging
+
+
+def _search_catalog_uncached(
     conn: sqlite3.Connection,
     query: str,
     limit: int = 20,
@@ -215,21 +297,13 @@ def search_catalog(
         "SELECT catalog_item_id, MAX(created_at) FROM project_lines WHERE catalog_item_id IS NOT NULL GROUP BY catalog_item_id"
     )}
     tokens = normalized.split()
-    content_sizes: dict[str, dict[str, int]] = {}
-    for row in rows:
-        key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"])
-        summary = content_sizes.setdefault(key, {"variants": 0, "sources": 0, "incomplete": 0})
-        summary["variants"] += 1
-        summary["sources"] += int(row["occurrence_count"] or 0)
-        summary["incomplete"] += int(row["data_status"] == "reference_only")
-
     scored: list[tuple[float, float, sqlite3.Row, str]] = []
     for row in rows:
         if category and row["category"] != category:
             continue
         if not include_incomplete and row["data_status"] == "reference_only" and not row["is_manual"]:
             continue
-        title=normalize_text(display_title(row['name']))
+        title=row['_search_title']
         if normalized and not all(token in title for token in tokens):continue
         score=1200 if normalized==title else 850 if title.startswith(normalized) else 600 if normalized in title else 400
         best_alias='title' 
@@ -253,7 +327,7 @@ def search_catalog(
         best_by_content = {}
         for candidate in scored:
             row = candidate[2]
-            key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"],normalize_text(display_title(row["name"])),row["category"],row["work_type"])
+            key = (row["content_key"] or f"item:{row['id']}",row["assembly_size"],row['_search_title'],row["category"],row["work_type"])
             current = best_by_content.get(key)
             rank = recency_rank(candidate)
             if current is None or rank > recency_rank(current):
@@ -269,8 +343,12 @@ def search_catalog(
         scored.sort(key=recency_rank,reverse=True)
     results: list[dict[str, Any]] = []
     if page_info is not None:page_info.update(total=len(scored),offset=offset,has_more=offset+limit<len(scored))
-    for score, quality, row, alias_source in scored[offset:offset+limit]:
+    selected = scored[offset:offset+limit]
+    sources, components_by_item = _search_metadata(conn, [int(candidate[2]['id']) for candidate in selected])
+    for score, quality, row, alias_source in selected:
         item = dict(row)
+        for key in ('_search_title', '_family_variants', '_family_sources', '_family_incomplete'):
+            item.pop(key, None)
         item.pop("search_text", None)
         item["last_used_at"] = recent.get(int(row["id"]), "")
         item["score"] = round(score, 2)
@@ -278,17 +356,17 @@ def search_catalog(
         item["matched_by_learning"] = alias_source == "selection"
         item["unit_material"] = float(row["unit_material"] or 0.0)
         item["unit_hours"] = float(row["unit_hours"] or 0.0)
-        source = _source_summary(conn, int(row["id"]))
+        source = sources[int(row['id'])]
         family_key = row["catalog_key"] or catalog_family_key(row["code"], row["name"])
-        family = content_sizes[(row["content_key"] or f"item:{row['id']}", row["assembly_size"])]
         item.update(source)
         item["catalog_key"] = family_key
-        item["variant_count"] = family["variants"]
-        item["source_count"] = family["sources"] or source["source_count"]
-        item["incomplete_variant_count"] = family["incomplete"]
-        item["specification"] = _specification(conn, item["id"], item["name"])
+        item["variant_count"] = row['_family_variants']
+        item["source_count"] = row['_family_sources'] or source["source_count"]
+        item["incomplete_variant_count"] = row['_family_incomplete']
+        components = components_by_item.get(item['id'], [])
+        item["specification"] = catalog_specification(item['name'], components)
         item["is_recommended"] = True
-        annotate_catalog(item,[dict(c) for c in conn.execute('SELECT * FROM catalog_components WHERE catalog_item_id=? ORDER BY line_order,id',(item['id'],))])
+        annotate_catalog(item, components)
         results.append(item)
     return results
 

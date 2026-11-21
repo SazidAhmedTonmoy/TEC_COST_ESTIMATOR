@@ -68,7 +68,11 @@ def directory():
         teams = [dict(r) for r in db.execute('SELECT id,name FROM teams ORDER BY name COLLATE NOCASE')]
         users = [dict(r) for r in db.execute('''SELECT id,name,team_id AS teamId,role
             FROM users WHERE is_active=1 ORDER BY name COLLATE NOCASE''')]
-        for u in users:u['teamIds']=[r[0] for r in db.execute('SELECT team_id FROM user_team_memberships WHERE user_id=?',(u['id'],))]
+        memberships = {}
+        for row in db.execute('SELECT user_id,team_id FROM user_team_memberships ORDER BY user_id,team_id'):
+            memberships.setdefault(row['user_id'], []).append(row['team_id'])
+        for user in users:
+            user['teamIds'] = memberships.get(user['id'], [])
     return teams, users
 
 
@@ -655,10 +659,10 @@ def delete(store, payload, user):
     return {'ok': True, 'id': identifier}
 
 
-def _public(item, actor, db=None):
+def _public(item, actor, db=None, *, contact_map=None):
     if db is not None:
         from .builder_contacts import opportunity_view
-        item = opportunity_view(db, item)
+        item = opportunity_view(db, item, contact_map=contact_map)
     return {**item, 'permissions': permissions(item, actor)}
 
 
@@ -859,11 +863,19 @@ def list_opportunities(store, filters, user):
             active_sql('opportunity', 'o.id') + ' GROUP BY p.person_id')}
         unassigned = db.execute("SELECT COUNT(*) FROM opportunities o WHERE o.deleted_at IS NULL AND " +
             active_sql('opportunity', 'o.id') + " AND NOT EXISTS (SELECT 1 FROM opportunity_people p WHERE p.opportunity_id=o.id AND p.kind='assignedTeamIds')").fetchone()[0]
-        public_items = [_public(_decode_opportunity(row), actor, db) for row in rows]
-        public_latest = _public(_decode_opportunity(latest_row), actor, db) if latest_row else None
+        decoded_items = [_decode_opportunity(row) for row in rows]
+        decoded_latest = _decode_opportunity(latest_row) if latest_row else None
+        from .builder_contacts import opportunity_contact_map
+        contact_map = opportunity_contact_map(db,
+            [item['id'] for item in decoded_items] + ([decoded_latest['id']] if decoded_latest else []))
+        public_items = [_public(item, actor, db, contact_map=contact_map) for item in decoded_items]
+        public_latest = _public(decoded_latest, actor, db, contact_map=contact_map) if decoded_latest else None
+        # Builder suggestions need only names. Loading the entire Tender data
+        # set here rebuilt every submission/contact view after ordinary
+        # Opportunity edits and serialized otherwise independent list readers.
+        submission_builders = [row[0] for row in db.execute("SELECT json_extract(body,'$.builder') FROM submissions")]
     builders = {tenders.builder_key(name): name for name in saved_builders}
-    for submission in store.all_data()['submissions']:
-        name = submission.get('builder', '')
+    for name in submission_builders:
         if name:
             builders.setdefault(tenders.builder_key(name), name)
     # Include builders already entered in Estimator projects as well.

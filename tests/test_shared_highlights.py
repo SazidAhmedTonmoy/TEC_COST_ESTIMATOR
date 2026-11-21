@@ -102,7 +102,7 @@ class HighlightMigrationTests(unittest.TestCase):
                     self.assertEqual([(x['id'],x['reference_name'],x['quantity']) for x in after['lines']],
                                      [(x['id'],x['reference_name'],x['quantity']) for x in before['lines']])
                     self.assertTrue(all(l['highlight_level']==0 for l in after['lines']))
-                backups=list((path.parent/'upgrade_backups').glob(f'{path.stem}-before-schema-{CURRENT_SCHEMA}.db'))
+                backups=list((path.parent/'upgrade_backups').glob(f'{path.stem}-before-schema-{CURRENT_SCHEMA}.db.enc'))
                 self.assertEqual(len(backups),1)
 
 

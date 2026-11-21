@@ -118,22 +118,27 @@ def _status(path, expected_version=CURRENT_SCHEMA, migration_key=MIGRATION_KEY):
 
 
 def _safety_backup(path, previous):
-    """One protected pre-upgrade snapshot, separate from daily retention."""
+    """One encrypted pre-upgrade snapshot, separate from daily retention."""
     if not path.exists() or not path.stat().st_size:
         return None
     from .database import _raw_connect
-    folder = path.parent / 'upgrade_backups'
-    folder.mkdir(mode=0o700, parents=True, exist_ok=True)
-    target = folder / f'{path.stem}-before-schema-{CURRENT_SCHEMA}.db'
+    from .data_protection import private_directory, verify_encrypted_file
+    from .snapshot_protection import publish_snapshot
+    import tempfile
+    folder = private_directory(path.parent / 'upgrade_backups')
+    target = folder / f'{path.stem}-before-schema-{CURRENT_SCHEMA}.db.enc'
     # Preserve the first snapshot even after a failed/interrupted migration.
     if target.exists():
-        with _raw_connect(target) as saved:
-            if saved.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
-                raise UpgradeError('The pre-upgrade safety backup failed its integrity check. Ask your administrator to review server storage.')
+        verify_encrypted_file(target, purpose='backup:catalog', database=path)
         return target
-    pending = target.with_suffix('.pending')
-    try:
-        with _raw_connect(path) as source, _raw_connect(pending) as dest:
+    legacy = target.with_suffix('')
+    # A previous release's original recovery copy remains intact. If present,
+    # encrypt that first copy rather than a potentially half-migrated live DB.
+    source_path = legacy if legacy.is_file() and not legacy.is_symlink() else path
+    with tempfile.TemporaryDirectory(prefix='.schema-snapshot-', dir=folder) as temporary:
+        pending = Path(temporary) / 'snapshot.db'
+        pending.touch(mode=0o600)
+        with _raw_connect(source_path) as source, _raw_connect(pending) as dest:
             deadline = time.monotonic() + 120
             def progress(status, remaining, total):
                 if time.monotonic() > deadline:
@@ -141,18 +146,17 @@ def _safety_backup(path, previous):
             source.backup(dest, pages=512, progress=progress)
             if dest.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
                 raise UpgradeError('The safety backup could not be verified; no upgrade was started.')
-        os.chmod(pending, 0o600)
-        os.replace(pending, target)
-        target.with_suffix('.json').write_text(json.dumps({'from_schema': previous, 'to_schema': CURRENT_SCHEMA,
-            'database': str(path), 'created_at': time.time()}), encoding='utf-8')
+        publish_snapshot(pending, target, purpose='backup:catalog', database=path)
+        metadata = target.with_suffix('.json')
+        with os.fdopen(os.open(str(metadata), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w', encoding='utf-8') as handle:
+            json.dump({'from_schema': previous, 'to_schema': CURRENT_SCHEMA,
+                       'database': str(path), 'created_at': time.time(), 'encrypted': True}, handle)
         # One completed protected snapshot per database; do not prune the old
         # snapshot until a replacement has safely been created.
-        for old in folder.glob(f'{path.stem}-before-schema-*.db'):
+        for old in folder.glob(f'{path.stem}-before-schema-*.db.enc'):
             if old != target and not old.is_symlink():
                 old.unlink(); old.with_suffix('.json').unlink(missing_ok=True)
         return target
-    finally:
-        pending.unlink(missing_ok=True)
 
 
 def ensure_database(path=None):
@@ -245,5 +249,14 @@ def ensure_database(path=None):
                     raise UpgradeError('Automatic database upgrade failed. Your administrator should check server permissions, free disk space and the server error log. The existing database has not been replaced.') from exc
                 finally:
                     _local.paths = paths
+            # Runs once per worker even when no schema upgrade is needed.
+            # An existing plaintext API credential is encrypted before serving
+            # requests, using a key kept outside the website directory.
+            from .data_protection import protect_database_settings
+            with _raw_connect(target) as conn:
+                credential_changed = protect_database_settings(conn)
+            if credential_changed:
+                with _raw_connect(target) as conn:
+                    conn.execute('PRAGMA wal_checkpoint(TRUNCATE)').fetchone()
             _ready[key] = _identity(target)
     return target

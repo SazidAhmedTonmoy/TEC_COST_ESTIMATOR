@@ -35,3 +35,8 @@ data/upgrade_backups/
 
 node_modules/
 data/tender_backups/
+
+# Server-only encryption and authentication material
+*.key
+*.pem
+.tec-flow/

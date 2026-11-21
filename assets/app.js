@@ -1241,13 +1241,9 @@ async function loadSettings(render = true, initialData = null) {
     $("#toggle-gemini-key").textContent = "Show";
     const source = result.settings.llm_api_key_source;
     $("#llm-key-status").textContent = result.settings.llm_api_key_configured
-      ? source === "saved" ? "Gemini API key is saved in this app. Select Show to view it, or replace it and save defaults."
+      ? source === "saved" ? "Gemini API key is saved securely. Leave this field blank to keep it, or enter a replacement and save defaults."
         : "Gemini API key is configured from GEMINI_API_KEY. Enter a key here to save an override."
       : "No Gemini API key is configured. Search suggestions and local fuzzy matching still work without AI.";
-    if (source === "saved") {
-      const saved = await api("/api/settings/saved-key");
-      keyInput.value = saved.api_key || "";
-    }
   }
   return result.settings;
 }

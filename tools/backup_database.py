@@ -14,6 +14,10 @@ def main():
             path=Path(config[key])
             if not path.is_absolute() or (key=='catalog' and not path.is_file()):raise SystemExit(f'{key} database not found; no replacement database was created.')
             os.environ[env]=str(path)
+        if config.get('encryption_key_environment_required') and not os.environ.get('CONEST_ENCRYPTION_KEY', '').strip():
+            raise SystemExit('Configure CONEST_ENCRYPTION_KEY for this cron job using the same server key; no plaintext backup was created.')
+        if config.get('encryption_key_file') and not os.environ.get('CONEST_ENCRYPTION_KEY', '').strip():
+            os.environ['CONEST_ENCRYPTION_KEY_FILE']=config['encryption_key_file']
     from conest_app.database import database_path
     from conest_app.backups import create_backup_set,daily_backup
     if not database_path().is_file():raise SystemExit('Catalog database not found')

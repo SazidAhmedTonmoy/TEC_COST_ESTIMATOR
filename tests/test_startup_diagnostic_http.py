@@ -51,8 +51,8 @@ class StartupDiagnosticHTTPTests(unittest.TestCase):
         with connect() as db:
             self.admin_id = db.execute("SELECT id FROM users WHERE role='admin' LIMIT 1").fetchone()[0]
             self.user_id = db.execute("SELECT id FROM users WHERE role='user' LIMIT 1").fetchone()[0]
-            db.execute('UPDATE users SET must_change_password=0 WHERE id IN (?,?)',
-                       (self.admin_id, self.user_id))
+            db.execute('UPDATE users SET password_hash=?,must_change_password=0 WHERE id IN (?,?)',
+                       (accounts.password_hash('startup-diagnostics-test-only-password'), self.admin_id, self.user_id))
             self.admin_token = accounts.start_session(db, self.admin_id)
             self.user_token = accounts.start_session(db, self.user_id)
 

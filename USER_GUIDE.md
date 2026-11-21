@@ -314,13 +314,20 @@ Existing Tender and Open-Awarded contacts become available automatically after t
 
 **Tip:** Do not share admin credentials. Viewer access and edit access are different.
 
+Sign-in sessions expire after **12 hours by default**, including while you are using the app; your administrator can configure this limit. Sign in again when prompted. Accounts still using a starter password must choose a new password before continuing.
+
 ### Settings, AI configuration and backups
 
 1. Administrators open App Settings to configure supported application options and Gemini access.
+   Saved Gemini keys are encrypted on the server and are not displayed again. Enter a replacement to change the key.
 2. Confirm integrations before submitting private workspace records or documents to an external AI provider.
-3. Use database backup/restore controls carefully; restoring a backup replaces newer data.
+3. New Estimator and Tender backup downloads are marked **Encrypted** and use `.db.enc`. Older downloads may be marked **Legacy unencrypted**.
+4. The server keeps the latest regular backup for each database. Download any recovery copies you need to retain separately.
+5. Estimator backups can be restored through the backup controls; restoring replaces newer data and signs everyone out. Tender recovery is performed by the server administrator.
 
-**Tip:** Your application has separate Estimator and Tender SQLite databases; protect both.
+**Recovery:** Ask the server administrator to keep the original encryption key securely and separately from the downloads. Encrypted backups require that key; a lost or different key cannot unlock them. Server recovery instructions are in `OPERATIONS.md`.
+
+Your application has separate Estimator and Tender databases; protect both. Encryption covers saved Gemini keys and new backups. The server's active business databases still require protected hosting storage, and authorized Excel/JSON exports remain readable files.
 
 ### AI Assistant, documents and confirmed actions
 

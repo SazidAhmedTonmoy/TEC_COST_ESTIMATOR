@@ -482,12 +482,25 @@ def get_settings(conn: sqlite3.Connection, include_secrets: bool = False) -> dic
     if not include_secrets:
         for key in SECRET_SETTING_KEYS:
             settings.pop(key, None)
+    else:
+        from .data_protection import connection_database_path, unprotect_secret
+        path = connection_database_path(conn)
+        for key in SECRET_SETTING_KEYS:
+            if settings.get(key):
+                settings[key] = unprotect_secret(settings[key], setting=key, database=path)
+    settings.pop('data_protection_key_id', None)
     return settings
 
 
 def update_settings(conn: sqlite3.Connection, values: dict[str, str]) -> None:
     now = utc_now()
+    if SECRET_SETTING_KEYS.intersection(values):
+        from .data_protection import connection_database_path, protect_database_settings, protect_secret
+        protect_database_settings(conn)
+        path = connection_database_path(conn)
     for key, value in values.items():
+        if key in SECRET_SETTING_KEYS:
+            value = protect_secret(str(value), setting=key, database=path)
         conn.execute(
             """INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?)
                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",

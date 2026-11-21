@@ -186,6 +186,31 @@ def awarded_legacy_fields(people):
             'awardContactEmail': next(iter(first.get('emails', [])), ''),
             'awardContactPhone': next(iter(first.get('phones', [])), '')}
 
+
+def _legacy_upgrade_snapshot(source, target):
+    """Preserve old recovery copies and encrypt every newly created snapshot."""
+    from .auto_upgrade import UpgradeError, _process_lock
+    from .snapshot_protection import publish_snapshot
+
+    encrypted = target.with_name(target.name + '.enc')
+    lock = target.with_name('.' + target.name + '.lock')
+    with _process_lock(lock):
+        if target.exists() or encrypted.exists():
+            return
+        pending = target.with_name('.' + target.name + '.' + uuid.uuid4().hex + '.pending')
+        try:
+            descriptor = os.open(pending, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            os.close(descriptor)
+            with closing(sqlite3.connect(pending)) as saved:
+                source.backup(saved)
+                if saved.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
+                    raise UpgradeError('The tender recovery snapshot failed verification. No upgrade was started.')
+                saved.execute('PRAGMA journal_mode=DELETE')
+            publish_snapshot(pending, encrypted, purpose='backup:tenders')
+        finally:
+            pending.unlink(missing_ok=True)
+
+
 class Store:
     def __init__(self, path=None):
         self.path = Path(path or os.environ.get('CONEST_TENDERS_DB_PATH') or database_path().parent / 'tec_tenders.db').resolve()
@@ -207,17 +232,14 @@ class Store:
                 has_settings=old.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='settings'").fetchone()
                 migrated=has_settings and old.execute("SELECT 1 FROM settings WHERE id='attribution-v33'").fetchone()
                 backup=self.path.with_suffix('.pre-v33.db')
-                if has_settings and not migrated and not backup.exists():
-                    with closing(sqlite3.connect(backup)) as target:
-                        old.backup(target)
+                if has_settings and not migrated:
+                    _legacy_upgrade_snapshot(old, backup)
                 if has_settings and not old.execute("SELECT 1 FROM settings WHERE id='submission-teams-v34'").fetchone():
                     backup34=self.path.with_suffix('.pre-v34.db')
-                    if not backup34.exists():
-                        with closing(sqlite3.connect(backup34)) as target:old.backup(target)
+                    _legacy_upgrade_snapshot(old, backup34)
                 if has_settings and not old.execute("SELECT 1 FROM settings WHERE id='normalized-fields-v34b'").fetchone():
                     backup_fields=self.path.with_suffix('.pre-v34b.db')
-                    if not backup_fields.exists():
-                        with closing(sqlite3.connect(backup_fields)) as target:old.backup(target)
+                    _legacy_upgrade_snapshot(old, backup_fields)
         self.initialize()
         from .opportunities import initialize as initialize_opportunities
         from .opportunity_reset import reset_once as reset_opportunities_once

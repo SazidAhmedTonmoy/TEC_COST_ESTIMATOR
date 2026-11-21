@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+from encrypted_backup_fixture import open_backup
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -76,7 +77,7 @@ class ParentSchemaTests(unittest.TestCase):
         schema.initialize(self.store, op.DEFAULT_REGIONS)
 
     def backups(self):
-        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-schema-*.db'))
+        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-schema-*.db.enc'))
 
     def present(self, db):
         return {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -119,7 +120,7 @@ class ParentSchemaTests(unittest.TestCase):
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
             self.assertEqual(compatibility.migration_plan(db, self.present(db)), [])
         self.assertEqual(len(self.backups()), 1)
-        with closing(sqlite3.connect(self.backups()[0])) as db:
+        with open_backup(self.backups()[0], purpose='backup:tenders') as db:
             self.assertEqual(tuple(db.execute('SELECT * FROM opportunities').fetchone()), original)
         self.assertEqual(self.backups()[0].stat().st_mode & 0o777, 0o600)
         with patch.object(schema, '_backup', side_effect=AssertionError('Repeated parent migration')):
@@ -261,7 +262,7 @@ class ParentSchemaTests(unittest.TestCase):
             self.assertEqual(snapshot(db), before)
             self.assertEqual(db.execute('PRAGMA foreign_key_check').fetchall(), [])
         self.assertEqual(len(self.backups()), 1)
-        with closing(sqlite3.connect(self.backups()[0])) as db:
+        with open_backup(self.backups()[0], purpose='backup:tenders') as db:
             db.row_factory = sqlite3.Row
             self.assertEqual(snapshot(db), before)
         self.initialize()

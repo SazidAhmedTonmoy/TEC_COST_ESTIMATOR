@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+from encrypted_backup_fixture import open_backup
 import subprocess
 import sys
 import tempfile
@@ -51,7 +52,7 @@ class OpportunityResetTests(unittest.TestCase):
         return json.loads(row[0]) if row else None
 
     def backups(self):
-        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-reset-v351-*.db'))
+        return list((self.store.path.parent / 'upgrade_backups').glob('*before-opportunity-reset-v351-*.db.enc'))
 
     def populate(self):
         first = op.save(self.store, {
@@ -111,7 +112,7 @@ class OpportunityResetTests(unittest.TestCase):
         self.assertEqual(len(saved), 1)
         self.assertEqual(self.marker()['backupFile'], saved[0].name)
         self.assertNotIn(str(self.store.path.parent), json.dumps(self.marker()))
-        with closing(sqlite3.connect(f'{saved[0].as_uri()}?mode=ro', uri=True)) as db:
+        with open_backup(saved[0], purpose='backup:tenders') as db:
             self.assertEqual(db.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
             self.assertEqual(db.execute('PRAGMA journal_mode').fetchone()[0], 'delete')
             for table, old in self.before.items():
@@ -196,7 +197,7 @@ class OpportunityResetTests(unittest.TestCase):
         with self.store.connect() as db:
             self.assertEqual([r[0] for r in db.execute('SELECT id FROM opportunities WHERE ' +
                              retention.active_sql('opportunity', 'opportunities.id'))], [created['id']])
-        with closing(sqlite3.connect(self.backups()[0])) as db:
+        with open_backup(self.backups()[0], purpose='backup:tenders') as db:
             self.assertEqual(self.rows(db, 'opportunities'), self.before['opportunities'])
 
     def test_two_processes_reset_once_and_create_one_backup(self):
