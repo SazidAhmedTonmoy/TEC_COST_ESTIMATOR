@@ -12,7 +12,7 @@ from unittest.mock import patch
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfoNotFoundError
 
-import passenger_wsgi as wsgi
+from conest_app import wsgi_runtime as wsgi
 from conest_app.auto_upgrade import CURRENT_SCHEMA
 from conest_app import __version__, accounts, tenders
 from conest_app.database import connect

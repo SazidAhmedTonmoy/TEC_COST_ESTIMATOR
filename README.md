@@ -87,6 +87,11 @@ the updated runtime without removing its interpreter or environment setup.
 Rebuilding the Estimator assets also removes the superseded generated bundle.
 The **FULL_SOURCE** ZIP includes a generic entry point for a fresh installation.
 
+The corrected v3.8.6 packages validate the shipped `conest_app.wsgi_runtime`
+directly, including when an update retains an older host entry point. Apply the
+corrected update to the same repository and rerun the deployment workflow; keep
+the validation step enabled. The server installer still preserves cPanel setup.
+
 On first startup the server creates an owner-only key outside the website.
 Keep a separate secure copy before relying on encrypted backups. When moving
 the database to another path or host, configure the original key using

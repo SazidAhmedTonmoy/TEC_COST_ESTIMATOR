@@ -1,5 +1,5 @@
 import gzip,unittest
-from passenger_wsgi import prepare_response,accepts_gzip,_request_bytes
+from conest_app.wsgi_runtime import prepare_response,accepts_gzip,_request_bytes
 
 class TransportTests(unittest.TestCase):
  def test_compression_negotiation_and_exact_length(self):

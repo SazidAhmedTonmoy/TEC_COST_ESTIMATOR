@@ -12,7 +12,7 @@ import time
 import unittest
 from unittest.mock import patch
 
-import passenger_wsgi as wsgi
+from conest_app import wsgi_runtime as wsgi
 from conest_app.request_limits import BodyBudget, RequestGate
 from conest_app.runtime_metrics import RuntimeMetrics, route_group
 
@@ -34,44 +34,102 @@ def request(path='/', method='GET', body=b'', token='', **extra):
 
 class RuntimeLimitTests(unittest.TestCase):
     def test_waiting_users_are_admitted_in_order(self):
+        from types import SimpleNamespace
+        from conest_app import request_limits
+
         gate = RequestGate(active=1, queued=2, timeout=1)
         order = []
+
+        class ControlledEvent:
+            def __init__(self):
+                self.waiting = threading.Event()
+                self.released = threading.Event()
+
+            def wait(self, _timeout=None):
+                self.waiting.set()
+                # Test ordering independently of wall-clock scheduling. This
+                # bound detects a deadlock; it does not expire the gate ticket.
+                if not self.released.wait(10):
+                    raise AssertionError('The queued request was not released')
+                return True
+
+            def set(self):
+                self.released.set()
+
+        first_waiter, second_waiter = ControlledEvent(), ControlledEvent()
+        waiters = iter((first_waiter, second_waiter))
+        gate_threading = SimpleNamespace(Lock=threading.Lock, Event=lambda: next(waiters))
+
         def work(number):
             with gate.enter() as admitted:
                 self.assertTrue(admitted[0])
                 order.append(number)
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            with gate.enter():
-                first = pool.submit(work, 1)
-                deadline = time.monotonic() + 1
-                while gate.snapshot()['waiting'] != 1 and time.monotonic() < deadline:
-                    time.sleep(.001)
-                second = pool.submit(work, 2)
-                deadline = time.monotonic() + 1
-                while gate.snapshot()['waiting'] != 2 and time.monotonic() < deadline:
-                    time.sleep(.001)
-            first.result(timeout=2)
-            second.result(timeout=2)
+
+        # Replace only the gate's Event factory, not threading.Event globally:
+        # ThreadPoolExecutor still uses ordinary thread synchronization.
+        with patch.object(request_limits, 'threading', gate_threading):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                try:
+                    with gate.enter() as held:
+                        self.assertTrue(held[0])
+                        first = pool.submit(work, 1)
+                        self.assertTrue(first_waiter.waiting.wait(10))
+                        self.assertEqual(gate.snapshot()['waiting'], 1)
+                        second = pool.submit(work, 2)
+                        self.assertTrue(second_waiter.waiting.wait(10))
+                        self.assertEqual(gate.snapshot()['waiting'], 2)
+                    first.result(timeout=10)
+                    second.result(timeout=10)
+                finally:
+                    first_waiter.set()
+                    second_waiter.set()
         self.assertEqual(order, [1, 2])
+        state = gate.snapshot()
+        self.assertEqual((state['active'], state['waiting']), (0, 0))
+        self.assertEqual((state['peak_active'], state['peak_waiting']), (1, 2))
 
     def test_admission_bounds_waiters_times_out_and_releases_after_failure(self):
+        from types import SimpleNamespace
+        from conest_app import request_limits
+
         gate = RequestGate(active=1, queued=1, timeout=.05)
         entered = threading.Event()
+        expire = threading.Event()
+
+        class ControlledTimeout:
+            def wait(self, _timeout=None):
+                # Signal only after RequestGate has actually queued the ticket.
+                entered.set()
+                if not expire.wait(10):
+                    raise AssertionError('The test did not trigger the timeout')
+                return False
+
+            def set(self):
+                expire.set()
+
+        gate_threading = SimpleNamespace(Lock=threading.Lock, Event=ControlledTimeout)
+
         def waiting():
-            entered.set()
             with gate.enter() as result:
                 return result
-        with gate.enter() as first:
-            self.assertTrue(first[0])
-            with ThreadPoolExecutor(max_workers=1) as pool:
-                pending = pool.submit(waiting)
-                self.assertTrue(entered.wait(1))
-                deadline = time.monotonic() + 1
-                while gate.snapshot()['waiting'] != 1 and time.monotonic() < deadline:
-                    time.sleep(.001)
-                with gate.enter() as extra:
-                    self.assertEqual(extra[:2], (False, 'queue_full'))
-                self.assertEqual(pending.result(timeout=1)[:2], (False, 'queue_timeout'))
+
+        with patch.object(request_limits, 'threading', gate_threading):
+            with gate.enter() as first:
+                self.assertTrue(first[0])
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    try:
+                        pending = pool.submit(waiting)
+                        self.assertTrue(entered.wait(10))
+                        self.assertEqual(gate.snapshot()['waiting'], 1)
+                        with gate.enter() as extra:
+                            self.assertEqual(extra[:2], (False, 'queue_full'))
+                        # Expire the waiting ticket only after queue-full has
+                        # been checked, so runner preemption cannot change it.
+                        expire.set()
+                        self.assertEqual(pending.result(timeout=10)[:2], (False, 'queue_timeout'))
+                        self.assertEqual(gate.snapshot()['waiting'], 0)
+                    finally:
+                        expire.set()
         with self.assertRaises(RuntimeError):
             with gate.enter():
                 raise RuntimeError('simulated handler failure')

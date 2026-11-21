@@ -1,5 +1,6 @@
 """Preserve host bootstrap settings while installing current security/runtime."""
 from pathlib import Path
+import io
 import sys
 import tempfile
 from types import ModuleType
@@ -45,6 +46,33 @@ class RuntimeInstallerTests(unittest.TestCase):
         self.assertEqual(result.count(wsgi.BEGIN), 1)
         self.assertGreater(result.index(wsgi.DELEGATION), result.index(b'application = None'))
         self.assertFalse(wsgi.install(self.root))
+
+    def test_installed_legacy_entry_enforces_current_runtime_limits(self):
+        from conest_app import wsgi_runtime as runtime
+        from conest_app.request_limits import RequestGate
+
+        original = b"HOST_CONFIGURATION = 'preserved'\ndef application(environ, start_response):\n    raise AssertionError('Legacy request handling must not run')\n"
+        self.target.write_bytes(original)
+        wsgi.install(self.root)
+        namespace = {}
+        exec(compile(self.target.read_bytes(), str(self.target), 'exec'), namespace)
+        self.assertEqual(namespace['HOST_CONFIGURATION'], 'preserved')
+        self.assertIs(namespace['application'], runtime.application)
+
+        result = {}
+        def start_response(status, headers):
+            result.update(status=status, headers=dict(headers))
+        environ = {'REQUEST_METHOD': 'GET', 'PATH_INFO': '/api/tenders/data',
+                   'QUERY_STRING': '', 'CONTENT_LENGTH': '0',
+                   'wsgi.input': io.BytesIO(b''), 'HTTP_HOST': 'localhost'}
+        gate = RequestGate(active=1, queued=0, timeout=.01)
+        with patch.object(runtime, 'request_gate', gate), patch.object(runtime, '_application') as dispatch:
+            with gate.enter():
+                body = b''.join(namespace['application'](environ, start_response))
+        self.assertTrue(result['status'].startswith('503 '))
+        self.assertEqual(result['headers']['Retry-After'], '2')
+        self.assertTrue(body)
+        dispatch.assert_not_called()
 
     def test_invalid_host_syntax_is_left_untouched_without_echoing_source(self):
         original = b"HOST_CONFIGURATION = 'private-value-do-not-echo\n"

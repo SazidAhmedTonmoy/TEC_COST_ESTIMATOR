@@ -277,7 +277,7 @@ def run(args):
         # Suppress ordinary access logs and failure detail; report safe aggregate
         # outcomes only. Temp records and randomly generated keys are discarded.
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            import passenger_wsgi as wsgi
+            from conest_app import wsgi_runtime as wsgi
             from conest_app import accounts, tenders
             from conest_app.database import connect
             from conest_app.runtime_metrics import runtime_snapshot

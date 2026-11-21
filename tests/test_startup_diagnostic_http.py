@@ -15,7 +15,7 @@ import unittest
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
-import passenger_wsgi as wsgi
+from conest_app import wsgi_runtime as wsgi
 from conest_app import accounts, opportunity_reset, runtime_health, tenders
 from conest_app import startup_diagnostics as diagnostics
 from conest_app.database import connect
