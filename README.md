@@ -89,12 +89,17 @@ production installation, back up both SQLite databases and keep `.env`, `data/`,
 uploads.** Never overwrite live databases with local files.
 
 The public address is `https://tec-flow.ampecportal.com/`. The corrected v3.8.7
-workflow reads cPanel's matching Passenger registration or the domain's explicit
-`PassengerAppRoot`. It no longer assumes the old `tec-const` directory. If the
-host does not expose that information, set the GitHub repository variable
-**CPANEL_DEPLOY_PATH** to the exact, absolute **Application root** shown in cPanel.
-An explicit path must agree with any discovered website configuration. A hostname
-is not a filesystem path. **CPANEL_SITE_URL** can override the health-check address.
+workflow defaults to the application root verified in cPanel:
+`/home/ampecportal/tec-flow.ampecportal.com`. No GitHub path variable is required
+for this installation. An optional repository variable **CPANEL_DEPLOY_PATH**
+takes precedence; a same-named repository secret is also supported. Empty or
+whitespace-only overrides fall back to the next available setting.
+
+The target must be an existing TEC Flow installation owned by the SSH account
+and must agree with any cPanel Passenger registration or `PassengerAppRoot`
+that can be discovered. **CPANEL_SITE_URL** can override the health-check address.
+Commit and push the updated workflow to `main` and use the new run. Re-running
+an earlier failed run uses its original commit and will not load this correction.
 For a manual update, build both frontends and run
 `sh tools/install_runtime.sh` before restarting Passenger. This installs the new
 `cryptography` dependency and the Apache/WSGI protection hooks.

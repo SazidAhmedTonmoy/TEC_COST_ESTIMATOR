@@ -20,7 +20,9 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DEPLOY_PATH: ${{ vars.CPANEL_DEPLOY_PATH || '' }}
+      # The default matches the existing application shown in cPanel.
+      DEPLOY_PATH: ${{ vars.CPANEL_DEPLOY_PATH || secrets.CPANEL_DEPLOY_PATH || '/home/ampecportal/tec-flow.ampecportal.com' }}
+      DEPLOY_PATH_SECRET: ${{ secrets.CPANEL_DEPLOY_PATH || '' }}
       SITE_URL: ${{ vars.CPANEL_SITE_URL || 'https://tec-flow.ampecportal.com' }}
       SSH_HOST: ${{ secrets.CPANEL_HOST }}
       SSH_USER: ${{ secrets.CPANEL_USER }}
@@ -75,6 +77,15 @@ jobs:
         run: |
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
+          # GitHub expressions treat whitespace as non-empty. Ignore blank
+          # overrides before falling back to the verified application folder.
+          if [ -z "${DEPLOY_PATH//[[:space:]]/}" ]; then
+            DEPLOY_PATH="${DEPLOY_PATH_SECRET:-}"
+          fi
+          if [ -z "${DEPLOY_PATH//[[:space:]]/}" ]; then
+            DEPLOY_PATH='/home/ampecportal/tec-flow.ampecportal.com'
+          fi
+          echo 'Deployment target selected; validating the existing cPanel application.'
           BOOTSTRAP='if command -v python3.11 >/dev/null 2>&1; then exec python3.11 "$@"; else exec python3 "$@"; fi'
           printf -v TARGET_COMMAND '%q ' sh -c "$BOOTSTRAP" tec-deploy - --site-url "$SITE_URL" --root "$DEPLOY_PATH" --action inspect
           ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
@@ -93,7 +104,7 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as output:
               output.write('DEPLOY_PATH=' + root + '\n')
               output.write('PASSENGER_PYTHON=' + interpreter + '\n')
-          print('Validated application root: ' + root)
+          print('Validated the existing TEC Flow application folder.')
           print('Target selection: ' + target.get('detection', 'explicit'))
           PY
           python tools/check_uploaded_release.py create --root . \
@@ -171,7 +182,8 @@ jobs:
           BOOTSTRAP='if command -v python3.11 >/dev/null 2>&1; then exec python3.11 "$@"; else exec python3 "$@"; fi'
           printf -v RESTART_COMMAND '%q ' sh -c "$BOOTSTRAP" tec-deploy - --site-url "$SITE_URL" --root "$DEPLOY_PATH" --action restart
           ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
-            "$RESTART_COMMAND" < tools/cpanel_target.py
+            "$RESTART_COMMAND" < tools/cpanel_target.py > "$RUNNER_TEMP/tec-restart-result.json"
+          echo 'Passenger restart requested for the validated application.'
 
       - name: Verify automatic migration and production health
         run: |
@@ -198,7 +210,7 @@ jobs:
             echo "Waiting for release $EXPECTED_RELEASE at $SITE_URL (attempt $ATTEMPT/18)."
             sleep 5
           done
-          echo "Uploaded release files were verified at $DEPLOY_PATH, but the website did not confirm release $EXPECTED_RELEASE." >&2
+          echo "Uploaded release files were verified, but the website did not confirm release $EXPECTED_RELEASE." >&2
           echo 'For a release mismatch, check the website binding and restart this application in cPanel. For a startup/schema error, check Passenger logs. Keep the version check enabled.' >&2
           exit 1
 

@@ -7,12 +7,18 @@ with successful database checks, the website is still serving the earlier releas
 The response alone cannot distinguish an incorrect upload directory, a retained
 Passenger worker, a different website binding, or an intermediate cache.
 
-The corrected v3.8.7 workflow resolves the target from cPanel's exact matching
-Passenger registration or the domain's explicit `PassengerAppRoot`. It stops
-before upload when roots conflict. If discovery is unavailable, set repository
-variable **CPANEL_DEPLOY_PATH** to the absolute Application root shown in cPanel
-for this website. Copy that setting; do not derive it from the hostname. Keep
-**CPANEL_SITE_URL** set to the URL served by that same application.
+The corrected v3.8.7 workflow uses the verified application root
+`/home/ampecportal/tec-flow.ampecportal.com` by default. This works even when
+cPanel's automatic application lookup is unavailable. Optional repository
+variable **CPANEL_DEPLOY_PATH** takes precedence, followed by a same-named
+repository secret; blank values fall back to the next setting. The existing
+installation, account ownership and any available Passenger configuration are
+still checked before upload. Conflicting roots stop the deployment.
+
+For another hosting location, supply its verified absolute application root and
+keep **CPANEL_SITE_URL** set to the URL served by that application. Commit and
+push the workflow change to `main` and open the new deployment run. Re-running
+an old failed run retains its original commit and cannot pick up this fix.
 
 The upload preserves the inspected hosting `.htaccess`, document-root directory
 and restart marker, including configurations that place them below the
