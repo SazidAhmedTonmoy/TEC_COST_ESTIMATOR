@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.6 · Estimator and Tenders
+Version 3.8.7 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -252,13 +252,29 @@ Existing Tender and Open-Awarded contacts become available automatically after t
 2. Use Builders to compare builders’ submissions, wins, values and contact counts. Builders entered only in Opportunities are included.
 3. Open a group to examine its connected quotations.
 
-**Tip:** Project value may use the highest builder quote; builder submissions remain separate.
+**Lifetime Total Quotes** shows the total quoted value for projects in the current
+results. Each project is counted once using its highest builder submission;
+individual builder submissions remain separate.
 
 ### Calendar, deadlines and reminders
 
-1. Open Calendar for upcoming submission deadlines, follow-ups and approved opportunities.
-2. Switch Month / Agenda where available and move to the required date.
-3. Use Reminders to review due and completed follow-ups.
+1. Open **Estimator → Calendar** for submission and review deadlines, or
+   **Tenders → Calendar** for Approved Opportunities and Project Chase-up.
+   **Open–Awarded → Calendar** shows awards and estimated starts.
+2. Use the month arrows, month picker or **Today**. A blue date badge marks today;
+   the selected date is highlighted separately. Existing team and event colours
+   distinguish the entries. Saturday and Sunday are shaded and labelled **Off
+   day** across all calendars; events on those dates remain visible and selectable.
+3. Hover over an event, or focus it with the keyboard, for its relevant details:
+   project, builder, date, status and available team, cost, contact or follow-up
+   information. Press **Escape** to dismiss the preview.
+4. Select a date or **+ more** to see that day's agenda below the month grid.
+   Select an entry to access its project or follow-up details. Month / Agenda
+   switches remain available in the Tender calendars.
+5. The Estimator monthly summary reads left to right: **Projects due this month,
+   Labour allowance, Total labour price, Total material cost, Total estimate /
+   quoted value**. These figures cover that month's submission deadlines.
+6. Use **Reminders** to review due and completed follow-ups.
 
 **Tip:** Notifications may require browser permission; in-app reminders do not.
 

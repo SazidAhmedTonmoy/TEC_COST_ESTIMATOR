@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useRef,useState,type FormEvent} from 'react';
-import {Award,CalendarDays,Check,ChevronLeft,ChevronRight,Clock,ExternalLink,Search,UserRound,AlertTriangle,Pencil,LayoutGrid,Link2} from 'lucide-react';
+import {Award,CalendarDays,Check,Clock,ExternalLink,Search,UserRound,AlertTriangle,Pencil,LayoutGrid,Link2} from 'lucide-react';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';
 import {safeOpportunityLink} from '@/lib/opportunity-display';
 import type {AwardContact,Chase,Submission} from '@/lib/types';
@@ -9,6 +9,7 @@ import {AwardContactList} from './award-contact-list';
 import {BuilderContactEditor} from './builder-contacts';
 import {contactsForBuilder,type BuilderContactGroup} from '@/lib/builder-contacts';
 import './open-awarded.css';
+import {CalendarMonthToolbar,MonthCalendar} from './calendar-month';
 
 type AwardContactFields={awardedDate:string;estStartDate:string;awardProjectLink:string;awardContacts:AwardContact[]};
 type Props={submissions:Submission[];chases:Chase[];saving:boolean;contactDirectory:BuilderContactGroup[];onContactsOpen:()=>void;onOpen:(s:Submission)=>void;onSave:(s:Submission,fields:AwardContactFields)=>Promise<boolean>};
@@ -31,7 +32,6 @@ const shiftMonth=(month:string,change:number)=>{
  const [year,number]=month.split('-').map(Number);
  return new Date(Date.UTC(year,number-1+change,1)).toISOString().slice(0,7);
 };
-const monthTitle=(month:string)=>new Date(month+'-01T12:00:00Z').toLocaleDateString('en-AU',{timeZone:'UTC',month:'long',year:'numeric'});
 /** Dates are treated as calendar days, not timestamps; no timezone shifts. */
 export function awardCalendarEvents(rows:Submission[]):AwardCalendarEvent[]{
  return rows.flatMap(submission=>[
@@ -88,7 +88,6 @@ export function OpenAwarded({submissions,chases,saving,contactDirectory,onContac
   for(const event of events){const list=days.get(event.date)||[];list.push(event);days.set(event.date,list)}
   return days;
  },[events]);
- const days=useMemo(()=>awardMonthCells(month),[month]);
  const dayEvents=selectedDay?eventsByDay.get(selectedDay)||[]:[];
  function hasUnsavedDraft(){return Boolean(editing&&JSON.stringify(draft)!==JSON.stringify(fieldsFrom(editing)));}
  function cancelEdit(){if(saving)return;if(hasUnsavedDraft()&&!window.confirm('Discard unsaved awarded-project details?'))return;setEditing(null);}
@@ -122,9 +121,17 @@ export function OpenAwarded({submissions,chases,saving,contactDirectory,onContac
        <button type="button" className="oa-view-details" onClick={()=>onOpen(s)}>View project, contacts and chase history <ExternalLink size={14}/></button>
       </article>})}</div>
     </>:<div className="oa-calendar" aria-label="Open-Awarded monthly calendar">
-      <div className="oa-calendar-toolbar"><div className="oa-calendar-nav"><button type="button" aria-label="Previous month" onClick={()=>goMonth(-1)}><ChevronLeft size={19}/></button><label className="oa-month-field"><span className="sr-only">Calendar month</span><input type="month" aria-label="Calendar month" value={month} onChange={e=>{if(e.target.value){setMonth(e.target.value);setSelectedDay('');setFocusedEvent('')}}}/></label><button type="button" aria-label="Next month" onClick={()=>goMonth(1)}><ChevronRight size={19}/></button><button type="button" className="oa-today" onClick={()=>{const date=sydneyCalendarDate();setToday(date);setMonth(date.slice(0,7));setSelectedDay(date);setFocusedEvent('')}}>Today</button></div><strong className="oa-calendar-title">{monthTitle(month)}</strong><div className="oa-calendar-legend"><span><i className="oa-legend-award"/> Awarded</span><span><i className="oa-legend-start"/> Estimated start</span></div></div>
-      <div className="oa-calendar-weekdays">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=><span key={day}>{day}</span>)}</div>
-      <div className="oa-calendar-grid">{days.map((date,i)=>date?<div key={date} className={'oa-calendar-day'+(selectedDay===date?' is-active':'')+(today===date?' is-today':'')}><button type="button" className="oa-calendar-date" onClick={()=>revealCalendarEvent(date)} aria-label={'Show events on '+toDate(date)+(today===date?' (today)':'')} aria-current={today===date?'date':undefined} aria-pressed={selectedDay===date}>{Number(date.slice(-2))}</button>{today===date&&<span className="oa-today-label" aria-hidden="true">Today</span>}{(eventsByDay.get(date)||[]).slice(0,3).map((event,index)=><button key={event.submission.id+event.kind+index} type="button" className={'oa-calendar-event '+(event.kind==='awarded'?'oa-event-award':'oa-event-start')} title={`${event.kind==='awarded'?'Awarded':'Estimated start'}: ${event.submission.project} — ${event.submission.builder}\nContact: ${searchAwardContacts(event.submission)||'Not recorded'}`} aria-label={`${event.kind==='awarded'?'Awarded':'Estimated start'}: ${event.submission.project}, ${event.submission.builder}. Show contact details`} onClick={()=>revealCalendarEvent(date,event)}><span>{event.kind==='awarded'?'Awarded':'Start'}</span> {event.submission.project}</button>)}{(eventsByDay.get(date)||[]).length>3&&<button type="button" className="oa-calendar-more" onClick={()=>revealCalendarEvent(date)}>+{(eventsByDay.get(date)||[]).length-3} more</button>}</div>:<div key={'pad-'+i} className="oa-calendar-day oa-calendar-pad" aria-hidden="true"/>)}</div>
+      <CalendarMonthToolbar month={month} monthLabel="Calendar month" onPrevious={()=>goMonth(-1)} onNext={()=>goMonth(1)} onToday={()=>{const date=sydneyCalendarDate();setToday(date);setMonth(date.slice(0,7));revealCalendarEvent(date)}} onMonthChange={value=>{setMonth(value);setSelectedDay('');setFocusedEvent('')}}/>
+      <div className="flow-calendar-award-legend"><span><i className="oa-legend-award"/> Awarded</span><span><i className="oa-legend-start"/> Estimated start</span></div>
+      <MonthCalendar month={month} today={today} selectedDay={selectedDay} onSelectDate={revealCalendarEvent} label="Open-Awarded monthly calendar" events={events.map(event=>{
+        const s=event.submission,contacts=awardedContacts(s),chase=latest.get(s.id);
+        return {id:s.id+':'+event.kind,date:event.date,title:s.project,kind:event.kind==='awarded'?'Builder awarded':'Estimated start',
+          accent:event.kind==='awarded'?'#e9b13d':'#14aa9c',actionLabel:'Show contacts and day agenda',onOpen:()=>revealCalendarEvent(event.date,event),
+          details:[{label:'Date',value:toDate(event.date)},{label:'Builder',value:s.builder},{label:'TEC status',value:'Open'},
+            {label:'Submitted by',value:s.submittedByTeam||'Not recorded'},{label:'Quoted value',value:s.value==null?'Not recorded':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:2}).format(s.value)},
+            {label:'Contact people',value:contacts.map(person=>[person.name,...person.phones,...person.emails].filter(Boolean).join('\n')).join('\n\n')||'Not recorded'},
+            {label:'Last chase-up',value:chase?toDate(chase.date):'Not recorded'}],note:chase?.note};
+      })}/>
       <div className="oa-calendar-footer" ref={selectedEventsRef}>
        <div className="oa-calendar-footer-intro">
         <strong>{selectedDay?`Events on ${toDate(selectedDay)}`:'Select a date or project to see contact details'}</strong>

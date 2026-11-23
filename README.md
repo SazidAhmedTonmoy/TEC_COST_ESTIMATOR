@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.6
+# TEC Flow — v3.8.7
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -22,10 +22,23 @@ contains the current app, frontend source, required database migration code, and
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
 See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
 
+## Calendar update (v3.8.7)
+
+- Estimator, Approved Opportunities, Project Chase-up and Open–Awarded use
+  consistent month calendars with teal weekday headers, compact events, clear
+  date selection and hover or keyboard-focus previews. Select a date for its
+  agenda below the grid. Saturday and Sunday are marked **Off day**; existing
+  deadlines and events on those dates remain visible.
+- Estimator summary cards appear in this order: **Projects due this month →
+  Labour allowance → Total labour price → Total material cost →
+  Total estimate / quoted value**.
+- The shared register summary is labelled **Lifetime Total Quotes**. Its
+  calculation is unchanged: each project is counted once, using its highest
+  builder submission. Monthly calendar figures remain specific to that month.
+- This update requires no database migration.
+
 ## Security and capacity update (v3.8.6)
 
-- The register summary now says **Total quote amount**. The calculation is unchanged:
-  each project is counted once, using its highest builder submission.
 - Saved Gemini credentials and newly created database backups use authenticated
   AES-256-GCM encryption. The saved key is never returned to the browser.
 - Sessions expire after 12 hours by default. Unchanged bundled starter passwords
@@ -81,16 +94,15 @@ health-check address. For a manual update, build both frontends and run
 `sh tools/install_runtime.sh` before restarting Passenger. This installs the new
 `cryptography` dependency and the Apache/WSGI protection hooks.
 
-The **UPDATE_ONLY** ZIP overlays the corrected v3.8.5 source. It preserves your
+The **UPDATE_ONLY** ZIP overlays the corrected v3.8.6 source. It preserves your
 host's `passenger_wsgi.py`; the installer delegates that existing entry point to
 the updated runtime without removing its interpreter or environment setup.
 Rebuilding the Estimator assets also removes the superseded generated bundle.
 The **FULL_SOURCE** ZIP includes a generic entry point for a fresh installation.
 
-The corrected v3.8.6 packages validate the shipped `conest_app.wsgi_runtime`
-directly, including when an update retains an older host entry point. Apply the
-corrected update to the same repository and rerun the deployment workflow; keep
-the validation step enabled. The server installer still preserves cPanel setup.
+Validation uses the shipped `conest_app.wsgi_runtime` directly, including when
+an update retains an older host entry point. Keep the validation step enabled.
+The server installer preserves cPanel setup.
 
 On first startup the server creates an owner-only key outside the website.
 Keep a separate secure copy before relying on encrypted backups. When moving
@@ -99,7 +111,7 @@ the database to another path or host, configure the original key using
 
 ## Data compatibility
 
-- Application version: **3.8.6**
+- Application version: **3.8.7**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.

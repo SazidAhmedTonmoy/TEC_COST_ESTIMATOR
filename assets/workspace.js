@@ -1,5 +1,5 @@
 /* Project board, account administration and deadline calendar. */
-const workspaceState = { teamSummary: null, teamSummaryKey: '', teamSummaryFetched: 0, teamSummaryPending: null, teamSummaryPendingKey: '', teamSummaryRequest: 0, teamSummaryError: '', summaryMode: 'month', summaryPeriod: '', boardMonth: '', filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0 };
+const workspaceState = { teamSummary: null, teamSummaryKey: '', teamSummaryFetched: 0, teamSummaryPending: null, teamSummaryPendingKey: '', teamSummaryRequest: 0, teamSummaryError: '', summaryMode: 'month', summaryPeriod: '', boardMonth: '', filter: 'month', reminderRows: [], boardView: 'cards', boardSort: 'newest', users: [], teams: [], notesProjectId: null, notesRequest: 0, noteCounts: {}, noteStatusRequests: {}, noteReadPending: {}, notesSyncBusy: false, teamId: null, briefId: null, userId: null, month: new Date(new Date().getFullYear(), new Date().getMonth(), 1), briefRequest: 0, calendarDay: '' };
 const statusNames = { draft: 'Not started', in_progress: 'In progress', in_review: 'In review', submitted: 'Submitted', closed: 'Closed' };
 
 function localDateKey(date = new Date()) {
@@ -594,33 +594,92 @@ async function removeProjectNote(button) {
 }
 
 function renderCalendar() {
+  hideEstimatorCalendarPreview();
   const month=workspaceState.month;
-  const y=month.getFullYear(), m=month.getMonth();
+  const y=month.getFullYear(), m=month.getMonth(), prefix=localDateKey(month).slice(0,7);
+  if(workspaceState.calendarDay&&!workspaceState.calendarDay.startsWith(prefix))workspaceState.calendarDay='';
   $('#calendar-month').textContent=month.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+  $('#calendar-month-picker').value=prefix;
   const offset=(new Date(y,m,1).getDay()+6)%7;
   const dayCount=new Date(y,m+1,0).getDate();
   const cells=Math.ceil((offset+dayCount)/7)*7;
-  let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div class="calendar-weekday ${i>=5?'is-weekend':''}">${d}</div>`).join('');
+  let html=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>`<div class="calendar-weekday ${i>=5?'is-weekend':''}"><span>${d}</span>${i>=5?'<small>Off day</small>':''}</div>`).join('');
   const projects=state.projects.filter(p=>p.submission_deadline);
   const reviews=state.projects.filter(p=>p.status==='in_review'&&p.review_deadline);
   for(let i=0;i<cells;i++) {
     const day=new Date(y,m,i-offset+1), key=localDateKey(day);
-    const items=projects.filter(p=>p.submission_deadline===key);
-    const weekend=day.getDay()===0||day.getDay()===6;
-    const reviewItems=reviews.filter(p=>p.review_deadline===key&&p.submission_deadline!==key);
-    const event=(p,reviewOnly=false)=>{
+    const items=projects.filter(p=>p.submission_deadline===key).map(p=>({project:p,reviewOnly:false}));
+    const weekend=day.getDay()===0||day.getDay()===6, today=key===localDateKey();
+    items.push(...reviews.filter(p=>p.review_deadline===key&&p.submission_deadline!==key).map(p=>({project:p,reviewOnly:true})));
+    const event=({project:p,reviewOnly})=>{
       const review=p.status==='in_review',reviewToday=review&&p.review_deadline===key;
       const label=reviewOnly?'Review due':reviewToday?'Submission · Review due':'Submission due';
-      return `<button class="calendar-event ${review?'is-review':['submitted','closed'].includes(p.status)?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" data-event-kind="${reviewOnly?'review':'submission'}" title="${escapeHtml(p.name)} — ${label} — ${escapeHtml(statusNames[p.status])}">${escapeHtml(p.name)}${reviewToday?`<small class="calendar-review-stamp">${label}</small>`:''}</button>`;
+      return `<button class="calendar-event ${reviewOnly||reviewToday?'is-review':['submitted','closed'].includes(p.status)?'done':isOverdue(p)?'late':p.is_assigned?'assigned':''}" type="button" data-project-brief="${p.id}" data-calendar-preview="${p.id}" data-calendar-date="${key}" data-event-kind="${reviewOnly?'review':'submission'}" aria-label="${escapeHtml(p.name+' · '+label+' · '+dateLabel(key)+' · '+(statusNames[p.status]||p.status))}"><span class="calendar-event-label">${escapeHtml(p.name)}</span>${reviewToday?`<span class="calendar-review-stamp">${label}</span>`:''}</button>`;
     };
-    html+=`<div class="calendar-day ${weekend?'is-weekend':''} ${day.getMonth()!==m?'outside-month':''} ${key===localDateKey()?'is-today':''}"><time datetime="${key}" aria-label="${escapeHtml(dateLabel(key))}${weekend?', weekend':''}">${day.getDate()}</time>${items.map(p=>event(p)).join('')}${reviewItems.map(p=>event(p,true)).join('')}</div>`;
-
+    html+=`<div class="calendar-day ${weekend?'is-weekend':''} ${day.getMonth()!==m?'outside-month':''} ${today?'is-today':''} ${key===workspaceState.calendarDay?'is-selected':''}" data-calendar-day="${key}"><button type="button" class="calendar-date-button" data-calendar-select="${key}" aria-label="${escapeHtml(dateLabel(key))}${today?', today':''}${weekend?', off day':''}; ${items.length} deadline${items.length===1?'':'s'}" aria-pressed="${key===workspaceState.calendarDay}"${today?' aria-current="date"':''}><time datetime="${key}">${day.getDate()}</time></button><div class="calendar-day-events">${items.slice(0,2).map(event).join('')}${items.length>2?`<button type="button" class="calendar-more-events" data-calendar-select="${key}" aria-label="Show all ${items.length} deadlines for ${escapeHtml(dateLabel(key))}">+${items.length-2} more</button>`:''}</div></div>`;
   }
   $('#calendar-grid').innerHTML=html;
-  const monthProjects=projects.filter(p=>p.submission_deadline.startsWith(`${y}-${String(m+1).padStart(2,'0')}`)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
+  const monthProjects=projects.filter(p=>p.submission_deadline.startsWith(prefix)).sort((a,b)=>a.submission_deadline.localeCompare(b.submission_deadline));
   // Monetary totals and counts use submission dates only, never review entries.
   renderCalendarSummary(monthProjects);
 }
+function selectEstimatorCalendarDate(key,scroll=true) {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(key))return;
+  const [year,month,day]=key.split('-').map(Number),date=new Date(year,month-1,day);
+  if(localDateKey(date)!==key)return;
+  workspaceState.calendarDay=key;
+  workspaceState.month=new Date(year,month-1,1);
+  renderCalendar();
+  if(scroll)$('#calendar-agenda').scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'nearest'});
+}
+let estimatorCalendarPreviewTarget=null,estimatorCalendarPreviewTimer=null;
+function hideEstimatorCalendarPreview() {
+  if(estimatorCalendarPreviewTimer!==null)clearTimeout(estimatorCalendarPreviewTimer);
+  estimatorCalendarPreviewTimer=null;
+  estimatorCalendarPreviewTarget?.removeAttribute('aria-describedby');
+  estimatorCalendarPreviewTarget=null;
+  const preview=document.getElementById?.('estimator-calendar-preview');
+  if(preview)preview.hidden=true;
+}
+function estimatorCalendarPreviewContent(project,key,kind) {
+  const review=project.status==='in_review'&&project.review_deadline===key;
+  const label=kind==='review'?'Review deadline':review?'Submission and review deadline':'Submission deadline';
+  const row=(name,value)=>`<div><dt>${name}</dt><dd>${escapeHtml(value)}</dd></div>`;
+  let details=row('Builder',builderText(project,'Not assigned'))+row('Team',teamNames(project));
+  const people=(project.individual_users||[]).map(person=>person.name).filter(Boolean).join(', ');
+  details+=row('Estimator',people||project.owner_name||project.created_by_name||'Not recorded');
+  details+=row('Progress',statusNames[project.status]||project.status||'Not recorded');
+  if(project.award_status)details+=row('Result',project.award_status==='won'?'Won':project.award_status==='lost'?'Lost':'Not recorded');
+  const totals=project.totals;
+  if(project.can_view!==false&&totals){
+    const money=key=>`${project.currency||'AUD'} ${fmtMoney(totals[key]||0,project.currency)}`;
+    details+=row('Labour allowance',`${fmtNumber(totals.hours||0,2)} hrs`)+row('Labour price',money('labor'))+row('Material cost',money('material'))+row('Estimate / quoted value',money('quoted'));
+  }
+  return `<header class="calendar-preview-heading ${review?'is-review':''}"><span class="calendar-preview-type">${label}</span></header><div class="calendar-preview-body"><h3>${escapeHtml(project.name)}</h3><p class="calendar-preview-date">${escapeHtml(dateLabel(key))}</p><dl>${details}</dl><p class="calendar-preview-hint">Click the entry to open this project.</p></div>`;
+}
+function showEstimatorCalendarPreview(target) {
+  clearTimeout(estimatorCalendarPreviewTimer);
+  if(target===estimatorCalendarPreviewTarget)return;
+  const project=state.projects.find(p=>String(p.id)===target.dataset.calendarPreview);
+  if(!project)return;
+  hideEstimatorCalendarPreview();
+  let preview=document.getElementById('estimator-calendar-preview');
+  if(!preview){
+    preview=document.createElement('aside');preview.id='estimator-calendar-preview';preview.className='estimator-calendar-preview';preview.setAttribute('role','tooltip');
+    preview.addEventListener('pointerenter',()=>clearTimeout(estimatorCalendarPreviewTimer));
+    preview.addEventListener('pointerleave',()=>{if(document.activeElement!==estimatorCalendarPreviewTarget)hideEstimatorCalendarPreview();});
+    document.body.appendChild(preview);
+  }
+  preview.innerHTML=estimatorCalendarPreviewContent(project,target.dataset.calendarDate,target.dataset.eventKind);
+  preview.hidden=false;preview.style.left='12px';preview.style.top='12px';
+  const anchor=target.getBoundingClientRect(),box=preview.getBoundingClientRect(),gap=8,margin=12;
+  const maxLeft=Math.max(margin,window.innerWidth-box.width-margin),maxTop=Math.max(margin,window.innerHeight-box.height-margin);
+  const top=anchor.bottom+gap+box.height<=window.innerHeight-margin?anchor.bottom+gap:anchor.top-box.height-gap;
+  preview.style.left=`${Math.min(maxLeft,Math.max(margin,anchor.left))}px`;
+  preview.style.top=`${Math.min(maxTop,Math.max(margin,top))}px`;
+  estimatorCalendarPreviewTarget=target;target.setAttribute('aria-describedby',preview.id);
+}
+
 function bindWorkspaceEvents() {
   setInterval(async()=>{
     if(!state.user || state.user.must_change_password || document.hidden || state.apiPendingCount || workspaceState.notesSyncBusy) return;
@@ -717,8 +776,34 @@ function bindWorkspaceEvents() {
   });
   $('#open-calendar').addEventListener('click',event=>{if(event.currentTarget.tagName!=='A')setView('calendar');});
   $('#brief-open-estimate').addEventListener('click',event=>{ if(event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return; $('#project-brief-dialog').close(); if(event.currentTarget.tagName!=='A')openProject(workspaceState.briefId).catch(error=>toast(error.message,true)); });
-  $('#calendar-prev').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()-1,1);renderCalendar();});
-  $('#calendar-next').addEventListener('click',()=>{workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()+1,1);renderCalendar();});
+  const changeCalendarMonth=delta=>{workspaceState.calendarDay='';workspaceState.month=new Date(workspaceState.month.getFullYear(),workspaceState.month.getMonth()+delta,1);renderCalendar();};
+  $('#calendar-prev').addEventListener('click',()=>changeCalendarMonth(-1));
+  $('#calendar-next').addEventListener('click',()=>changeCalendarMonth(1));
+  $('#calendar-today').addEventListener('click',()=>selectEstimatorCalendarDate(localDateKey()));
+  $('#calendar-month-picker').addEventListener('change',event=>{
+    if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(event.target.value))return;
+    const [year,month]=event.target.value.split('-').map(Number);
+    workspaceState.month=new Date(year,month-1,1);workspaceState.calendarDay='';renderCalendar();
+  });
+  $('#calendar-grid').addEventListener('click',event=>{
+    const select=event.target.closest('[data-calendar-select]');
+    if(select)selectEstimatorCalendarDate(select.dataset.calendarSelect);
+    else if(!event.target.closest('button,a')){
+      const cell=event.target.closest('[data-calendar-day]');if(cell)selectEstimatorCalendarDate(cell.dataset.calendarDay);
+    }
+  });
+  $('#calendar-agenda').addEventListener('click',event=>{if(event.target.closest('[data-calendar-month-agenda]')){workspaceState.calendarDay='';renderCalendar();}});
+  document.addEventListener('pointerover',event=>{const target=event.target.closest('[data-calendar-preview]');if(target)showEstimatorCalendarPreview(target);});
+  document.addEventListener('pointerout',event=>{
+    const target=event.target.closest('[data-calendar-preview]');
+    if(target&&!target.contains(event.relatedTarget)&&document.activeElement!==target)estimatorCalendarPreviewTimer=setTimeout(hideEstimatorCalendarPreview,140);
+  });
+  document.addEventListener('focusin',event=>{const target=event.target.closest('[data-calendar-preview]');if(target)showEstimatorCalendarPreview(target);});
+  document.addEventListener('focusout',event=>{if(event.target===estimatorCalendarPreviewTarget)hideEstimatorCalendarPreview();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')hideEstimatorCalendarPreview();});
+  document.addEventListener('click',hideEstimatorCalendarPreview);
+  window.addEventListener('resize',hideEstimatorCalendarPreview);
+  document.addEventListener('scroll',event=>{if(!document.getElementById('estimator-calendar-preview')?.contains(event.target))hideEstimatorCalendarPreview();},{capture:true,passive:true});
   document.addEventListener('click',event=>{
     if(event.target.closest('[data-workload-retry]'))loadTeamSummary(true).catch(()=>{});
     const older=event.target.closest('[data-older-activity]');

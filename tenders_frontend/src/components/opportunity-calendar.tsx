@@ -1,8 +1,9 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import type {CSSProperties} from 'react';
-import {CalendarDays,ChevronLeft,ChevronRight,RefreshCw,Clock} from 'lucide-react';
+import {CalendarDays,RefreshCw,Clock} from 'lucide-react';
 import {apiFetch} from '../main';
 import {calendarTeamAppearance,teamCalendarColor,calendarTeamPalette} from '../lib/calendar-team-colors';
+import {CalendarMonthToolbar,MonthCalendar} from './calendar-month';
 
 type CalendarOpportunity={id:string;project:string;due:string;region:string;builders:string[];quoted:boolean;assignedTeamIds:number[]};
 type CalendarResponse={month:string;items:CalendarOpportunity[];total:number;quoted:number;teams:{id:number;name:string}[]};
@@ -15,6 +16,8 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
   const [data,setData]=useState<CalendarResponse|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[day,setDay]=useState('');
   const [displayMode,setDisplayMode]=useState<'month'|'agenda'>('month'),[agendaDays,setAgendaDays]=useState<7|30>(7);
   const [agendaData,setAgendaData]=useState<CalendarOpportunity[]>([]),[agendaLoading,setAgendaLoading]=useState(false),[agendaError,setAgendaError]=useState('');
+  const agendaRef=useRef<HTMLElement>(null);
+  function selectDate(date:string){setDay(date);requestAnimationFrame(()=>agendaRef.current?.scrollIntoView({behavior:'smooth',block:'start'}))}
   const today=sydDate(),end=plusDate(today,agendaDays-1);
   useEffect(()=>{
     if(displayMode!=='agenda')return;
@@ -27,7 +30,7 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
     return()=>controller.abort();
   },[displayMode,agendaDays,today,end]);
   useEffect(()=>{
-    const controller=new AbortController();setLoading(true);setError('');setDay('');
+    const controller=new AbortController();setLoading(true);setError('');setDay(current=>current.startsWith(month)?current:'');
     apiFetch('opportunities/calendar?'+new URLSearchParams({month}),{signal:controller.signal})
       .then(async response=>{const result=await response.json();if(!response.ok)throw Error(result.error||'Calendar unavailable');return result as CalendarResponse})
       .then(result=>{if(!controller.signal.aborted)setData(result)})
@@ -36,9 +39,6 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
     return()=>controller.abort();
   },[month]);
   const [year,part]=month.split('-').map(Number);
-  const first=new Date(Date.UTC(year,part-1,1));
-  const days=new Date(Date.UTC(year,part,0)).getUTCDate();
-  const offset=(first.getUTCDay()+6)%7;
   const rows=useMemo(()=>data?.items||[],[data]);
   const visibleRows=displayMode==='agenda'?agendaData:rows;
   // Use the complete team directory, ordered by immutable ID, to keep a team's
@@ -76,13 +76,7 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
       <button type="button" className="secondary-btn" aria-pressed={displayMode==='agenda'} onClick={()=>setDisplayMode('agenda')}><Clock size={16}/>Agenda</button>
       {displayMode==='agenda'&&<div className="agenda-range" role="group" aria-label="Agenda timeframe"><button className="secondary-btn" aria-pressed={agendaDays===7} onClick={()=>setAgendaDays(7)}>Next 7 days</button><button className="secondary-btn" aria-pressed={agendaDays===30} onClick={()=>setAgendaDays(30)}>Next 30 days</button></div>}
     </div>
-    {displayMode==='month'&&<div className="calendar-toolbar"><div>
-      <button className="icon-btn" aria-label="Previous month" onClick={()=>shift(-1)}><ChevronLeft size={19}/></button>
-      <h2>{first.toLocaleDateString('en-AU',{timeZone:'UTC',month:'long',year:'numeric'})}</h2>
-      <button className="icon-btn" aria-label="Next month" onClick={()=>shift(1)}><ChevronRight size={19}/></button>
-      <button className="secondary-btn" onClick={()=>{const parts=new Intl.DateTimeFormat('en-AU',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit'}).formatToParts(new Date());setMonth((parts.find(part=>part.type==='year')?.value||'2026')+'-'+(parts.find(part=>part.type==='month')?.value||'01'))}}>Today</button>
-      <input type="month" aria-label="Choose opportunity month" value={month} onChange={e=>{if(e.target.value)setMonth(e.target.value)}}/>
-    </div></div>}
+    {displayMode==='month'&&<CalendarMonthToolbar month={month} monthLabel="Choose opportunity month" onPrevious={()=>shift(-1)} onNext={()=>shift(1)} onToday={()=>{setMonth(today.slice(0,7));selectDate(today)}} onMonthChange={setMonth}/>}
     <div className="calendar-legend team-calendar-legend" aria-label="Calendar team colours">
       {needsQuoteTeams.map(team=><span key={team.key} title={'Needs quote · '+team.name}><i className="legend-dot" style={{background:team.color.accent}}/>Needs quote · {team.name}</span>)}
       <span><i className="legend-dot" style={{background:'#18a785'}}/>Quoted / linked</span>
@@ -92,19 +86,18 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
     {error&&<div role="alert" className="error-banner">{error}</div>}
     {(displayMode==='month'?loading:agendaLoading)&&<p role="status" className="calendar-help"><RefreshCw size={15}/> Loading approved opportunities…</p>}
     {agendaError&&displayMode==='agenda'&&<div role="alert" className="error-banner">{agendaError}</div>}
-    {displayMode==='month'&&<><section className="panel calendar-panel"><div className="calendar-grid week-labels">{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(text=><span key={text}>{text}</span>)}</div>
-    <div className="calendar-grid">{Array.from({length:Math.ceil((offset+days)/7)*7},(_,i)=>{
-      const number=i-offset+1;if(number<1||number>days)return <div key={i} className="calendar-day outside"/>;
-      const date=month+'-'+String(number).padStart(2,'0'),events=byDay.get(date)||[];
-      return <div key={date} className={'calendar-day'+(date===today?' is-today':'')+(day===date?' is-selected':'')}><button className="day-number" aria-current={date===today?'date':undefined} aria-label={date===today?'Today, '+label(date):label(date)} onClick={()=>setDay(day===date?'':date)}>{number}</button>{events.slice(0,3).map(event=>{
-        const appearance=event.quoted?null:needsQuoteAppearance(event);
-        return <button key={event.id} className={'calendar-event opportunity-calendar-event '+(event.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style} title={event.project+' · '+(event.quoted?'Quoted / linked':'Needs quote · '+appearance?.label)} aria-label={event.project+', '+(event.quoted?'already quoted or linked':'needs quote, '+appearance?.label)} onClick={()=>onOpen(event.id)}><span>{event.project}</span></button>;
-      })}{events.length>3&&<button className="more-events" onClick={()=>setDay(date)}>+{events.length-3} more</button>}</div>;
-    })}</div></section>
-    <section className="panel agenda"><div className="panel-heading"><h2>{day?label(day):'Approved deadline agenda'}</h2>{day&&<button className="text-btn" onClick={()=>setDay('')}>Show full month</button>}</div>{agenda.map(item=>{
+    {displayMode==='month'&&<><MonthCalendar month={month} today={today} selectedDay={day} onSelectDate={selectDate} label="Approved opportunity deadline calendar" events={rows.map(event=>{
+      const appearance=calendarTeamAppearance(event.assignedTeamIds,teams,palette);
+      return {id:event.id,date:event.due,title:event.project,kind:event.quoted?'Approved · Quoted / linked':'Approved · Needs quote',
+        accent:event.quoted?'#18a785':appearance.color.accent,actionLabel:'Open opportunity',onOpen:()=>onOpen(event.id),
+        details:[{label:'Closing date',value:label(event.due)},{label:'Builders',value:event.builders.join('\n')||'Not specified'},
+          {label:'Assigned team',value:appearance.label},{label:'Region',value:event.region||'Not recorded'},
+          {label:'Quote status',value:event.quoted?'Quoted / linked':'Needs quote'}]};
+    })}/>
+    <section ref={agendaRef} className="panel agenda" aria-live="polite"><div className="panel-heading"><h2>{day?label(day):'Approved deadline agenda'}</h2>{day&&<button className="text-btn" onClick={()=>setDay('')}>Show full month</button>}</div>{agenda.map(item=>{
       const appearance=item.quoted?null:needsQuoteAppearance(item);
       return <div key={item.id} className="agenda-row"><div className="agenda-date">{label(item.due)}</div><span className={'calendar-quote-state '+(item.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style}>{item.quoted?'Quoted':'Need quote · '+appearance?.label}</span><button className="project-name" onClick={()=>onOpen(item.id)}>{item.project}<span className="sub-line">{item.builders.join(' · ')||'Builder not specified'} · {item.region}</span></button></div>;
-    })}{!agenda.length&&<div className="empty-state"><CalendarDays/><h3>No approved opportunities for this period</h3><p>Choose another month or switch to the Chase-up calendar.</p></div>}</section></>}
+    })}{!agenda.length&&<div className="empty-state"><CalendarDays/><h3>{day?'No deadlines on this date':'No approved opportunities for this period'}</h3><p>{day?'Select another date or show the full month.':'Choose another month or switch to the Chase-up calendar.'}</p></div>}</section></>}
     {displayMode==='agenda'&&<section className="panel opportunity-rolling-agenda" aria-label={`Approved deadlines in the next ${agendaDays} days`}>
       <div className="panel-heading"><div><h2>Upcoming approved deadlines</h2><p>{label(today)} – {label(end)} · {agendaData.length} opportunities</p></div></div>
       {Object.entries(agendaGroups).sort(([a],[b])=>a.localeCompare(b)).map(([date,items])=><div key={date} className="calendar-agenda-day"><h3>{label(date)} <span className={'agenda-urgency '+(dueInDays(date)<=3?'urgent':dueInDays(date)<=7?'soon':'upcoming')}>{dueInDays(date)===0?'Due today':dueInDays(date)===1?'Due tomorrow':`In ${dueInDays(date)} days`}</span><small>{items.length} project{items.length===1?'':'s'}</small></h3>{items.map(item=>{const appearance=item.quoted?null:needsQuoteAppearance(item);return <div key={item.id} className="calendar-agenda-entry"><span className={'calendar-quote-state '+(item.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style}>{item.quoted?'Quoted / linked':'Need quote · '+appearance?.label}</span><div><b>{item.project}</b><small>{item.builders.join(' · ')||'Builder not specified'} · {item.region}</small></div><button className="secondary-btn" onClick={()=>onOpen(item.id)}>Open opportunity</button></div>})}</div>)}

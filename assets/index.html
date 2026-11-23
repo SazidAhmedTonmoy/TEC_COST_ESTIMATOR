@@ -10,7 +10,7 @@
   <meta name="application-name" content="TEC Flow">
   <meta name="description" content="TEC Flow — Electrical Estimating &amp; Tender Management Platform. From Opportunity to Award.">
   <link rel="icon" type="image/svg+xml" href="/assets/tec-mark.svg?v=3.8.2">
-  <link rel="stylesheet" href="/assets/styles.20999f06e16c.css">
+  <link rel="stylesheet" href="/assets/styles.1725e0d1f799.css">
   <link rel="stylesheet" href="/assets/responsive-v3511.css?v=3.5.11">
 <link rel="stylesheet" href="/assets/workspace-transition.css?v=3.0-r5"><script src="/assets/workspace-transition.js?v=3.0-r5"></script><script src="/assets/startup-watchdog.js?v=3.0-r1" defer></script><link rel="stylesheet" href="/assets/help_shared.css?v=3.7.27-r1">
   <link rel="stylesheet" href="/assets/mobile-v3512.css?v=3.7.9">
@@ -135,12 +135,12 @@
       </section>
 
       <section id="calendar-view" class="view">
-        <section class="panel calendar-panel">
-          <div class="panel-heading"><div><p class="eyebrow">Submission &amp; review deadlines</p><h2 id="calendar-month"></h2></div><div class="inline-actions"><button id="calendar-prev" class="button secondary" aria-label="Previous month">‹</button><button id="calendar-next" class="button secondary" aria-label="Next month">›</button></div></div>
+        <section class="panel calendar-panel estimator-calendar">
+          <div class="panel-heading estimator-calendar-toolbar"><div class="inline-actions calendar-toolbar-nav"><button id="calendar-today" class="button secondary" type="button">Today</button><button id="calendar-prev" class="button secondary calendar-nav" type="button" aria-label="Previous month">Back</button><button id="calendar-next" class="button secondary calendar-nav" type="button" aria-label="Next month">Next</button></div><h2 id="calendar-month"></h2><input id="calendar-month-picker" type="month" aria-label="Choose calendar month"></div>
           <div id="calendar-summary" class="calendar-summary" aria-live="polite"></div>
+          <div class="estimator-calendar-legend" aria-label="Deadline types"><span><i></i>Submission deadline</span><span><i class="is-review"></i>Review deadline</span><span>Choose a date for its agenda · Hover or focus an entry for details</span></div>
           <div class="calendar-scroll"><div id="calendar-grid" class="calendar-grid" aria-label="Project deadline calendar"></div></div>
-          
-          <div id="calendar-agenda" class="calendar-agenda"></div>
+          <div id="calendar-agenda" class="calendar-agenda" aria-live="polite" tabindex="-1"></div>
         </section>
       </section>
 
@@ -492,6 +492,6 @@
     <div id="help-chat-messages" class="help-chat-messages" role="log" aria-live="polite"></div>
     <form id="help-chat-form"><label for="help-chat-question">Your question</label><div class="help-chat-compose"><textarea id="help-chat-question" rows="2" maxlength="1000" placeholder="Try: Summarise Orchid office; find cable tray in catalog; light price for DL-100…" required></textarea><button id="send-help-chat" class="button primary" type="submit">Ask</button></div></form>
   </dialog>
-  <script src="/assets/app.9b0ade6ac422.js" defer></script>
+  <script src="/assets/app.9f50a9b4c709.js" defer></script>
 </body>
 </html>

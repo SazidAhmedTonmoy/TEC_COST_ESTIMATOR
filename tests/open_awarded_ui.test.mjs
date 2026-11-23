@@ -15,7 +15,8 @@ test('Open-Awarded has switchable Cards and Calendar views and separate event co
  assert.match(ui,/oa-event-start/);
  assert.match(css,/oa-legend-award/);
  assert.match(css,/oa-legend-start/);
- assert.match(ui,/revealCalendarEvent\(date,event\)/);
+ assert.match(ui,/onOpen:\(\)=>revealCalendarEvent\(event\.date,event\)/);
+ assert.match(ui,/<MonthCalendar[^>]*onSelectDate=\{revealCalendarEvent\}/);
  assert.match(ui,/onClick=\{\(\)=>onOpen\(s\)\}/);
 });
 
@@ -35,15 +36,18 @@ test('Awarded cards, detail and edit dialog support start dates and safe project
 
 test('today is visibly marked independently of selected day; Refresh header removed',()=>{
  const ui=src('tenders_frontend/src/components/open-awarded.tsx');
- const css=src('tenders_frontend/src/components/open-awarded.css');
+ const css=src('tenders_frontend/src/components/calendar-month.css');
+ const calendar=src('tenders_frontend/src/components/calendar-month.tsx');
  const app=src('tenders_frontend/src/components/tender-app.tsx');
  assert.match(ui,/sydneyCalendarDate/);
- assert.match(ui,/today===date\?' is-today'/);
- assert.match(ui,/aria-current=\{today===date\?'date'/);
- assert.match(ui,/oa-today-label/);
+ assert.match(ui,/<MonthCalendar[^>]*today=\{today\}[^>]*selectedDay=\{selectedDay\}/);
+ assert.match(calendar,/cell\.date===today\?' is-today'/);
+ assert.match(calendar,/cell\.date===selectedDay\?' is-selected'/);
+ assert.match(calendar,/aria-current=\{cell\.date===today\?'date'/);
+ assert.match(calendar,/flow-month-today-label/);
  assert.match(ui,/setSelectedDay\(date\)/);
- assert.match(css,/\.oa-calendar-day\.is-today/);
- assert.match(css,/\.oa-calendar-day\.is-active:not\(\.is-today\)/);
+ assert.match(css,/\.flow-month-day\.is-today \.flow-month-date/);
+ assert.match(css,/\.flow-month-day\.is-selected/);
  assert.doesNotMatch(ui,/>Refresh<|onRefresh|RefreshCw/);
  assert.doesNotMatch(app,/onRefresh=\{refresh\}/);
 });
