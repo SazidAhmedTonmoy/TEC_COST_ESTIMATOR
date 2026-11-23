@@ -612,3 +612,48 @@ html[data-theme=dark] .calendar-quote-state.needs-quote.team-coded{
 .chase-calendar-layout .panel.agenda{scroll-margin-top:24px}
 .calendar-day:not(.outside){cursor:pointer}
 .calendar-day.is-selected{outline:2px solid var(--primary,#2164bb);outline-offset:-2px}
+
+
+/* v3.8.8: readable Opportunity analytics in both site themes. */
+.op-analytics{
+  --op-analytics-surface:var(--card);
+  --op-analytics-text:var(--foreground);
+  --op-analytics-muted:var(--muted-foreground);
+  --op-analytics-header:#eaf1f7;
+  --op-analytics-stripe:#f6f9fc;
+  color:var(--op-analytics-text);
+}
+.op-analytics .op-analytics-modes{background:var(--muted);border-color:var(--border)}
+.op-analytics .op-analytics-modes button{color:var(--foreground)}
+.op-analytics .op-analytics-modes button:hover:not([aria-pressed="true"]){background:var(--accent)}
+.op-analytics .op-analytics-modes button[aria-pressed="true"]{background:#087f75;color:#fff}
+.op-analytics .op-analytics-dates label,.op-analytics .op-analytics-period,
+.op-analytics .op-analytics-date-note{color:var(--op-analytics-muted)}
+.op-analytics .op-analytics-dates :is(select,input){background:var(--card);border-color:var(--border);color:var(--foreground);color-scheme:light}
+.op-analytics .op-analytics-period strong{color:var(--op-analytics-text)}
+.op-analytics :is(.op-analytics-card,.op-analytics-table-panel){background:var(--op-analytics-surface);border-color:var(--border);color:var(--op-analytics-text)}
+.op-analytics :is(.op-analytics-card h4,.op-analytics-table-panel h3,.op-analytics-donut strong,.op-analytics-legend-line,.op-analytics-table-panel td,.op-analytics-table-panel th){color:var(--op-analytics-text)}
+.op-analytics .op-analytics-donut>div{background:var(--op-analytics-surface)}
+.op-analytics :is(.op-analytics-donut span,.op-analytics-empty){color:var(--op-analytics-muted)}
+.op-analytics .op-analytics-table-panel thead th{background:var(--op-analytics-header)!important;color:var(--op-analytics-text)!important}
+.op-analytics .op-analytics-table-panel tbody th{background:var(--op-analytics-surface)!important;color:var(--op-analytics-text)!important}
+.op-analytics .op-analytics-table-panel tbody tr:nth-child(even)>:is(th,td){background:var(--op-analytics-stripe)!important}
+.op-analytics .op-analytics-table-panel :is(th,td){border-color:var(--border)}
+html[data-theme="dark"] .op-analytics{--op-analytics-header:#223945;--op-analytics-stripe:#142733}
+html[data-theme="dark"] .op-analytics .op-analytics-modes button[aria-pressed="true"]{background:#16a49b;color:#081e23}
+html[data-theme="dark"] .op-analytics .op-analytics-dates :is(select,input){color-scheme:dark}
+
+/* v3.8.8: keep the create/edit Opportunity save action in view while entering contacts. */
+[data-slot=dialog-content].op-opportunity-editor{display:flex;flex-direction:column;height:min(90dvh,960px);max-height:90dvh;overflow:hidden;gap:13px}
+.op-opportunity-editor>[data-slot=dialog-header]{flex:none}
+.op-opportunity-editor>form{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
+.op-opportunity-editor .op-form-grid{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:5px 6px 16px;scroll-padding-block:16px;scrollbar-gutter:stable}
+.op-opportunity-editor .op-dialog-actions.op-opportunity-save-bar{position:static;flex:none;display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:10px;margin:0;padding:13px 0 0;border-top:1px solid var(--border);background:var(--card)}
+.op-opportunity-save-bar .op-editor-save-hint{margin-right:auto;font-size:11px;line-height:1.5;color:var(--muted-foreground)}
+.op-opportunity-editor .error-banner{flex:none;max-height:100px;overflow:auto;margin:8px 0}
+@media(max-width:767px){
+  [data-slot=dialog-content].op-opportunity-editor{height:92dvh;max-height:92dvh;padding:16px}
+  .op-opportunity-editor .op-dialog-actions.op-opportunity-save-bar{padding-top:10px;gap:8px}
+  .op-opportunity-save-bar .op-editor-save-hint{flex:1 0 100%;font-size:10px}
+  .op-opportunity-editor .op-dialog-actions>button{flex:1;min-height:44px}
+}

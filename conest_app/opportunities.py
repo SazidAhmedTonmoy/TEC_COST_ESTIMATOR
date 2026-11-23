@@ -921,6 +921,7 @@ def approved_calendar(store, filters, user):
         {'id': item['id'], 'project': item['project'], 'due': item['due'],
          'region': item['region'], 'builders': item.get('builders', []),
          'assignedTeamIds': item.get('assignedTeamIds', []),
+         'documentsAvailable': item.get('documentsAvailable') is True,
          'quoted': _is_quoted(item) or bool(item.get('linkedAt'))}
         for item in items], 'total': len(items),
         'teams': teams,

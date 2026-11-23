@@ -3,7 +3,7 @@ import {createPortal} from 'react-dom';
 
 export type CalendarDetail={label:string;value:string};
 export type MonthCalendarEvent={
-  id:string;date:string;title:string;kind:string;accent?:string;details:CalendarDetail[];
+  id:string;date:string;title:string;kind:string;accent?:string;documentsAvailable?:boolean;details:CalendarDetail[];
   note?:string;onOpen:()=>void;actionLabel?:string;
 };
 export type MonthCell={date:string;inMonth:boolean;weekend:boolean};
@@ -76,10 +76,11 @@ export function CalendarEventButton({event}:{event:MonthCalendarEvent}){
     return()=>{window.removeEventListener('resize',place);window.removeEventListener('scroll',place,true);document.removeEventListener('keydown',dismiss);document.removeEventListener('pointerdown',closeOutside)};
   },[open]);
   const accent=event.accent||'#0f6cbd';
+  const documentsMissing=event.documentsAvailable===false;
   const color={'--flow-event-accent':accent,'--flow-event-ink':eventInk(accent)} as CSSProperties;
   return <>
-    <button ref={anchor} type="button" className="flow-calendar-event" style={color}
-      aria-label={`${event.kind}: ${event.title}. ${event.actionLabel||'Open details'}`}
+    <button ref={anchor} type="button" className={"flow-calendar-event"+(documentsMissing?" is-documents-pending":"")} style={color}
+      aria-label={`${event.kind}: ${event.title}.${documentsMissing?" Documents not available.":""} ${event.actionLabel||'Open details'}`}
       aria-describedby={open?id:undefined}
       onPointerEnter={e=>{if(e.pointerType!=='touch')show()}} onPointerLeave={leave}
       onFocus={show} onBlur={hide} onClick={()=>{hide();event.onOpen()}}>

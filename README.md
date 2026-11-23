@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.7
+# TEC Flow — v3.8.8
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -21,6 +21,17 @@ contains the current app, frontend source, required database migration code, and
 
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
 See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
+
+## Usability update (v3.8.8)
+
+- Opportunity analytics is readable in both light and dark modes, including donut
+  totals, legends, filters and report tables.
+- Approved Opportunities calendar shows a softer event tone when tender documents
+  are not available. The hover card states the document availability explicitly.
+- New/Edit Opportunity keeps the save actions visible when entering long builder
+  contact lists, while the form fields scroll independently. Contact changes are
+  saved with the Opportunity.
+- Existing database schema and login configuration are unchanged.
 
 ## Calendar update (v3.8.7)
 
@@ -88,7 +99,7 @@ Use your existing GitHub Actions secrets and server configuration. **Before upda
 production installation, back up both SQLite databases and keep `.env`, `data/`, and
 uploads.** Never overwrite live databases with local files.
 
-The public address is `https://tec-flow.ampecportal.com/`. The corrected v3.8.7
+The public address is `https://tec-flow.ampecportal.com/`. The deployment
 workflow defaults to the application root verified in cPanel:
 `/home/ampecportal/tec-flow.ampecportal.com`. No GitHub path variable is required
 for this installation. An optional repository variable **CPANEL_DEPLOY_PATH**
@@ -109,8 +120,7 @@ mismatch. It does not by itself indicate a failed database migration. The workfl
 reports the expected and served versions and keeps the version check enabled;
 see **OPERATIONS.md → Deployment version mismatch**.
 
-The **UPDATE_ONLY** ZIP overlays the corrected v3.8.6 source or the previously
-supplied v3.8.7. It preserves your
+The **UPDATE_ONLY** ZIP overlays the current v3.8.7 source. It preserves your
 host's `passenger_wsgi.py`; the installer delegates that existing entry point to
 the updated runtime without removing its interpreter or environment setup.
 Rebuilding the Estimator assets also removes the superseded generated bundle.
@@ -127,7 +137,7 @@ the database to another path or host, configure the original key using
 
 ## Data compatibility
 
-- Application version: **3.8.7**
+- Application version: **3.8.8**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.

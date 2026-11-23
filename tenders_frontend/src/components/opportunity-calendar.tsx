@@ -5,7 +5,7 @@ import {apiFetch} from '../main';
 import {calendarTeamAppearance,teamCalendarColor,calendarTeamPalette} from '../lib/calendar-team-colors';
 import {CalendarMonthToolbar,MonthCalendar} from './calendar-month';
 
-type CalendarOpportunity={id:string;project:string;due:string;region:string;builders:string[];quoted:boolean;assignedTeamIds:number[]};
+type CalendarOpportunity={id:string;project:string;due:string;region:string;builders:string[];quoted:boolean;documentsAvailable:boolean;assignedTeamIds:number[]};
 type CalendarResponse={month:string;items:CalendarOpportunity[];total:number;quoted:number;teams:{id:number;name:string}[]};
 const label=(date:string)=>new Date(date+'T12:00:00').toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
 const sydDate=()=>{const parts=new Intl.DateTimeFormat('en-AU',{timeZone:'Australia/Sydney',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const get=(key:string)=>parts.find(p=>p.type===key)?.value||'';return `${get('year')}-${get('month')}-${get('day')}`};
@@ -89,10 +89,11 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
     {displayMode==='month'&&<><MonthCalendar month={month} today={today} selectedDay={day} onSelectDate={selectDate} label="Approved opportunity deadline calendar" events={rows.map(event=>{
       const appearance=calendarTeamAppearance(event.assignedTeamIds,teams,palette);
       return {id:event.id,date:event.due,title:event.project,kind:event.quoted?'Approved · Quoted / linked':'Approved · Needs quote',
-        accent:event.quoted?'#18a785':appearance.color.accent,actionLabel:'Open opportunity',onOpen:()=>onOpen(event.id),
+        accent:event.quoted?'#18a785':appearance.color.accent,documentsAvailable:event.documentsAvailable,actionLabel:'Open opportunity',onOpen:()=>onOpen(event.id),
         details:[{label:'Closing date',value:label(event.due)},{label:'Builders',value:event.builders.join('\n')||'Not specified'},
           {label:'Assigned team',value:appearance.label},{label:'Region',value:event.region||'Not recorded'},
-          {label:'Quote status',value:event.quoted?'Quoted / linked':'Needs quote'}]};
+          {label:'Quote status',value:event.quoted?'Quoted / linked':'Needs quote'},
+          {label:'Documents',value:event.documentsAvailable?'Available':'Not available'}]};
     })}/>
     <section ref={agendaRef} className="panel agenda" aria-live="polite"><div className="panel-heading"><h2>{day?label(day):'Approved deadline agenda'}</h2>{day&&<button className="text-btn" onClick={()=>setDay('')}>Show full month</button>}</div>{agenda.map(item=>{
       const appearance=item.quoted?null:needsQuoteAppearance(item);

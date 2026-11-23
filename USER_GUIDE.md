@@ -312,6 +312,8 @@ individual builder submissions remain separate.
 
 **Tip:** Do not treat builder award status as proof TEC won the work.
 
+When adding builder contacts in **New/Edit Opportunity**, the save buttons stay visible at the bottom of the window. Save the Opportunity to keep the contact changes.
+
 ### Opportunity analytics
 
 1. Open Opportunities → Analytics to view created, approved, pending quotation, rejected and expired counts.

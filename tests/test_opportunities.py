@@ -50,6 +50,22 @@ class OpportunityTests(unittest.TestCase):
                        'builders': ['Builder One', 'Builder Two'], 'due': '2099-03-04',
                        'workingScope': 'Power, lighting and communications', **changes}, self.creator)['opportunity']
 
+    def test_approved_calendar_exposes_document_availability_without_other_changes(self):
+        first = self.create(project='Docs available calendar', due='2099-03-04',
+                            documentsAvailable=True)
+        second = self.create(project='Docs pending calendar', due='2099-03-05',
+                             documentsAvailable=False)
+        for record in (first, second):
+            op.decide(self.store, {'id': record['id'], 'revision': record['revision'],
+                                   'decision': 'approved'}, self.member)
+        result = op.approved_calendar(self.store, {'month': '2099-03'}, self.creator)
+        by_id = {item['id']: item for item in result['items']}
+        self.assertTrue(by_id[first['id']]['documentsAvailable'])
+        self.assertFalse(by_id[second['id']]['documentsAvailable'])
+        self.assertEqual(by_id[first['id']]['project'], 'Docs available calendar')
+        self.assertEqual(by_id[second['id']]['project'], 'Docs pending calendar')
+        self.assertEqual(len(by_id), 2)
+
     def test_recent_activity_respects_filters_and_pagination(self):
         with patch.object(op.tenders, 'timestamp', return_value='2026-10-27T10:00:00Z'):
             first = self.create(project='Earlier NSW', region='NSW', due='2099-01-01')

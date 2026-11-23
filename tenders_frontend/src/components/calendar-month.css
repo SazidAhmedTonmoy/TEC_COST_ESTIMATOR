@@ -68,3 +68,17 @@ html[data-theme="dark"] .flow-calendar-preview{box-shadow:0 10px 32px #0008}
 .flow-calendar-award-legend{display:flex;align-items:center;gap:16px;padding:0 15px 12px;font-size:12px;color:var(--muted-foreground)}
 .flow-calendar-award-legend>span{display:flex;align-items:center;gap:6px}.flow-calendar-award-legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
 @media(max-width:800px){.flow-calendar-toolbar{grid-template-columns:1fr 1fr}.flow-calendar-toolbar h2{grid-column:1/-1;grid-row:1;font-size:18px}.flow-calendar-tools input{max-width:145px}.flow-calendar-tools [data-slot=select-trigger]{max-width:150px}.flow-calendar-nav>button{padding:6px 10px}}
+
+
+/* v3.8.8: retain each calendar category colour but gently mute projects without documents. */
+.flow-calendar-event.is-documents-pending,
+.flow-calendar-event.is-documents-pending:hover{
+  background:color-mix(in srgb,var(--flow-event-accent,#0f6cbd) 52%,var(--card));
+  color:var(--foreground);
+  border-left-color:var(--flow-event-accent,#0f6cbd);
+}
+html[data-theme="dark"] .flow-calendar-event.is-documents-pending,
+html[data-theme="dark"] .flow-calendar-event.is-documents-pending:hover{
+  background:color-mix(in srgb,var(--flow-event-accent,#0f6cbd) 26%,var(--card));
+  color:var(--foreground);
+}
