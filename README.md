@@ -78,23 +78,34 @@ Pushing to `main` runs `.github/workflows/deploy-cpanel.yml`:
 
 1. Build the Tender React frontend and Estimator assets.
 2. Run isolated Python regression checks.
-3. Upload application code to the configured cPanel host, preserving runtime data.
-4. Install dependencies, private-file rules and the current WSGI adapter.
-5. Restart Passenger and verify application health.
+3. Resolve and validate the website's existing Passenger application root.
+4. Upload application code and verify its file hashes, preserving runtime data.
+5. Install dependencies, private-file rules and the current WSGI adapter.
+6. Request a restart in the configured Passenger restart directory and require
+   two fresh health responses for the expected release.
 
 Use your existing GitHub Actions secrets and server configuration. **Before updating a
 production installation, back up both SQLite databases and keep `.env`, `data/`, and
 uploads.** Never overwrite live databases with local files.
 
-The current public address is `https://tec-flow.ampecportal.com/`. Set the GitHub
-repository variable **CPANEL_DEPLOY_PATH** to the actual cPanel application folder
-if it differs from the existing deployment path. A website hostname does not
-necessarily identify its filesystem folder. **CPANEL_SITE_URL** can override the
-health-check address. For a manual update, build both frontends and run
+The public address is `https://tec-flow.ampecportal.com/`. The corrected v3.8.7
+workflow reads cPanel's matching Passenger registration or the domain's explicit
+`PassengerAppRoot`. It no longer assumes the old `tec-const` directory. If the
+host does not expose that information, set the GitHub repository variable
+**CPANEL_DEPLOY_PATH** to the exact, absolute **Application root** shown in cPanel.
+An explicit path must agree with any discovered website configuration. A hostname
+is not a filesystem path. **CPANEL_SITE_URL** can override the health-check address.
+For a manual update, build both frontends and run
 `sh tools/install_runtime.sh` before restarting Passenger. This installs the new
 `cryptography` dependency and the Apache/WSGI protection hooks.
 
-The **UPDATE_ONLY** ZIP overlays the corrected v3.8.6 source. It preserves your
+A health response with `status: ok` but an older `release` is a deployment-version
+mismatch. It does not by itself indicate a failed database migration. The workflow
+reports the expected and served versions and keeps the version check enabled;
+see **OPERATIONS.md → Deployment version mismatch**.
+
+The **UPDATE_ONLY** ZIP overlays the corrected v3.8.6 source or the previously
+supplied v3.8.7. It preserves your
 host's `passenger_wsgi.py`; the installer delegates that existing entry point to
 the updated runtime without removing its interpreter or environment setup.
 Rebuilding the Estimator assets also removes the superseded generated bundle.

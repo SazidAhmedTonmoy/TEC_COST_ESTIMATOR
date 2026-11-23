@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 15
 
     env:
-      DEPLOY_PATH: ${{ vars.CPANEL_DEPLOY_PATH || '/home/ampecportal/tec-const.ampecportal.com' }}
+      DEPLOY_PATH: ${{ vars.CPANEL_DEPLOY_PATH || '' }}
       SITE_URL: ${{ vars.CPANEL_SITE_URL || 'https://tec-flow.ampecportal.com' }}
       SSH_HOST: ${{ secrets.CPANEL_HOST }}
       SSH_USER: ${{ secrets.CPANEL_USER }}
@@ -71,6 +71,46 @@ jobs:
           chmod 600 ~/.ssh/tec_conest_deploy_key
           ssh-keyscan -p "$PORT" -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
+      - name: Resolve and validate the cPanel application
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          BOOTSTRAP='if command -v python3.11 >/dev/null 2>&1; then exec python3.11 "$@"; else exec python3 "$@"; fi'
+          printf -v TARGET_COMMAND '%q ' sh -c "$BOOTSTRAP" tec-deploy - --site-url "$SITE_URL" --root "$DEPLOY_PATH" --action inspect
+          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
+            "$TARGET_COMMAND" < tools/cpanel_target.py > "$RUNNER_TEMP/tec-deploy-target.json"
+          python - "$RUNNER_TEMP/tec-deploy-target.json" <<'PY'
+          import json, os, sys
+          from pathlib import PurePosixPath
+          target = json.load(open(sys.argv[1], encoding='utf-8'))
+          root = target.get('root')
+          interpreter = target.get('passenger_python', '')
+          for value in (root, interpreter):
+              if not isinstance(value, str) or any(ord(c) < 32 or ord(c) == 127 for c in value):
+                  raise SystemExit('Invalid deployment target response; nothing was uploaded.')
+          if not root or not PurePosixPath(root).is_absolute() or root == '/':
+              raise SystemExit('Invalid application root; nothing was uploaded.')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as output:
+              output.write('DEPLOY_PATH=' + root + '\n')
+              output.write('PASSENGER_PYTHON=' + interpreter + '\n')
+          print('Validated application root: ' + root)
+          print('Target selection: ' + target.get('detection', 'explicit'))
+          PY
+          python tools/check_uploaded_release.py create --root . \
+            --output "$RUNNER_TEMP/tec-release-manifest.json"
+          python - "$RUNNER_TEMP/tec-deploy-target.json" "$RUNNER_TEMP/tec-release-manifest.json" "$RUNNER_TEMP/tec-host.filter" <<'PY'
+          import json, sys
+          from pathlib import Path
+          from tools.cpanel_target import TargetError, rsync_filter_rules
+          target = json.loads(Path(sys.argv[1]).read_text())
+          manifest = json.loads(Path(sys.argv[2]).read_text())
+          try:
+              rules = rsync_filter_rules(target, manifest['files'])
+          except TargetError as error:
+              raise SystemExit('Deployment target: ' + str(error))
+          Path(sys.argv[3]).write_text('\n'.join(rules) + '\n')
+          PY
+
       # The application creates a protected SQLite snapshot immediately before
       # migrating the REAL runtime database. No deployment step copies a .db.
 
@@ -79,8 +119,9 @@ jobs:
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
 
-          rsync -az --delete \
+          rsync -az --checksum --protect-args --delete \
             -e "ssh -i ~/.ssh/tec_conest_deploy_key -p $PORT" \
+            --filter "merge $RUNNER_TEMP/tec-host.filter" \
             --exclude 'node_modules/' \
             --exclude '.git/' \
             --exclude '.env' \
@@ -110,39 +151,62 @@ jobs:
             --exclude 'data/import_previews/' \
             ./ "$SSH_USER@$SSH_HOST:$DEPLOY_PATH/"
 
+      - name: Verify uploaded release files
+        run: |
+          set -euo pipefail
+          PORT="${SSH_PORT:-22}"
+          BOOTSTRAP='if command -v python3.11 >/dev/null 2>&1; then exec python3.11 "$@"; else exec python3 "$@"; fi'
+          printf -v VERIFY_COMMAND '%q ' sh -c "$BOOTSTRAP" tec-deploy "$DEPLOY_PATH/tools/check_uploaded_release.py" verify --root "$DEPLOY_PATH"
+          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
+            "$VERIFY_COMMAND" < "$RUNNER_TEMP/tec-release-manifest.json"
+
       - name: Install production dependencies and restart Passenger
         run: |
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
 
+          printf -v INSTALL_COMMAND 'cd %q && env CONEST_PASSENGER_PYTHON=%q sh tools/install_runtime.sh' \
+            "$DEPLOY_PATH" "${PASSENGER_PYTHON:-}"
+          ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" "$INSTALL_COMMAND"
+          BOOTSTRAP='if command -v python3.11 >/dev/null 2>&1; then exec python3.11 "$@"; else exec python3 "$@"; fi'
+          printf -v RESTART_COMMAND '%q ' sh -c "$BOOTSTRAP" tec-deploy - --site-url "$SITE_URL" --root "$DEPLOY_PATH" --action restart
           ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
-            "set -e; \
-             cd '$DEPLOY_PATH'; \
-             sh tools/install_runtime.sh; \
-             mkdir -p tmp; \
-             touch tmp/restart.txt; \
-             echo 'Passenger restart requested.'"
+            "$RESTART_COMMAND" < tools/cpanel_target.py
 
       - name: Verify automatic migration and production health
         run: |
           set -euo pipefail
+          EXPECTED_RELEASE="$(python -c 'from conest_app import __version__; print(__version__)')"
+          MATCHES=0
           for ATTEMPT in $(seq 1 18); do
-            RESPONSE="$(curl -sS --connect-timeout 15 --max-time 150 "$SITE_URL/api/health?check=tenders" || true)"
-            if printf '%s' "$RESPONSE" | python tools/check_deployment_health.py --require-tenders; then
-              echo "$RESPONSE"
-              echo 'Updated code, runtime databases, Tender startup, SQLite features and timezones are ready.'
-              exit 0
+            HEALTH_URL="${SITE_URL%/}/api/health?check=tenders&deployment=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}&attempt=$ATTEMPT"
+            if RESPONSE="$(curl --fail-with-body -sS --connect-timeout 15 --max-time 60 \
+              -H 'Cache-Control: no-cache, no-store' -H 'Pragma: no-cache' "$HEALTH_URL")"; then
+              if printf '%s' "$RESPONSE" | python tools/check_deployment_health.py --require-tenders --explain; then
+                MATCHES=$((MATCHES + 1))
+                if [ "$MATCHES" -ge 2 ]; then
+                  echo "Release $EXPECTED_RELEASE passed two fresh health checks; runtime databases and Tender startup are ready."
+                  exit 0
+                fi
+              else
+                MATCHES=0
+              fi
+            else
+              MATCHES=0
+              echo 'The website did not return a successful HTTP health response.'
             fi
-            echo "Waiting for the updated Passenger worker and database (attempt $ATTEMPT/18)."
+            echo "Waiting for release $EXPECTED_RELEASE at $SITE_URL (attempt $ATTEMPT/18)."
             sleep 5
           done
-          echo "$RESPONSE"
-          echo 'Updated application or automatic database migration is not ready. Check Passenger logs.' >&2
+          echo "Uploaded release files were verified at $DEPLOY_PATH, but the website did not confirm release $EXPECTED_RELEASE." >&2
+          echo 'For a release mismatch, check the website binding and restart this application in cPanel. For a startup/schema error, check Passenger logs. Keep the version check enabled.' >&2
           exit 1
 
       - name: Schedule daily database backups
         run: |
           set -euo pipefail
           PORT="${SSH_PORT:-22}"
+          printf -v BACKUP_COMMAND 'cd %q && env CONEST_PASSENGER_PYTHON=%q sh tools/install_backup_cron.sh' \
+            "$DEPLOY_PATH" "${PASSENGER_PYTHON:-}"
           ssh -i ~/.ssh/tec_conest_deploy_key -p "$PORT" "$SSH_USER@$SSH_HOST" \
-            "cd '$DEPLOY_PATH' && sh tools/install_backup_cron.sh"
+            "$BACKUP_COMMAND"

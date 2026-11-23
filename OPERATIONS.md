@@ -1,5 +1,47 @@
 # Runtime, load checks and monitoring
 
+## Deployment version mismatch
+
+If deployment expects **3.8.7** but `/api/health?check=tenders` returns **3.8.6**
+with successful database checks, the website is still serving the earlier release.
+The response alone cannot distinguish an incorrect upload directory, a retained
+Passenger worker, a different website binding, or an intermediate cache.
+
+The corrected v3.8.7 workflow resolves the target from cPanel's exact matching
+Passenger registration or the domain's explicit `PassengerAppRoot`. It stops
+before upload when roots conflict. If discovery is unavailable, set repository
+variable **CPANEL_DEPLOY_PATH** to the absolute Application root shown in cPanel
+for this website. Copy that setting; do not derive it from the hostname. Keep
+**CPANEL_SITE_URL** set to the URL served by that same application.
+
+The upload preserves the inspected hosting `.htaccess`, document-root directory
+and restart marker, including configurations that place them below the
+application root. A conflict between hosting configuration and a release-managed
+file stops the deployment before upload.
+
+After upload, SHA-256 verification checks the expected application and built
+frontend files without opening either business database. The restart helper
+honours `PassengerRestartDir` and changes the restart marker's timestamp. Fresh
+health requests use unique URLs and require two consecutive responses matching
+the release, schema and readiness checks. An older healthy version remains a
+failed deployment rather than being accepted.
+
+If the public endpoint still reports an older version after verified upload,
+open the relevant application in cPanel and use its **Restart** action. Confirm
+that its domain and Application root match the workflow's validated target.
+If the response reports a startup or schema error instead, inspect that
+application's Passenger log. Do not delete databases, replace encryption keys,
+or disable release validation to clear a deployment error.
+
+The read-only target check can also be run from the installed application:
+
+```sh
+python3 tools/cpanel_target.py --site-url https://tec-flow.ampecportal.com \
+  --root "$(pwd)" --action inspect
+```
+
+Reference: [Passenger application restarts](https://www.phusionpassenger.com/library/admin/apache/restart_app.html).
+
 ## One-host deployment
 
 TEC Flow retains its compatible SQLite/WAL design. Reads can overlap writes;

@@ -92,6 +92,26 @@ class RuntimeSelectionTests(unittest.TestCase):
         (self.root / 'passenger_wsgi.py').write_text('INTERP = "/unused/python"\n')
         self.assertEqual(self.select()[0], interpreter)
 
+    def test_discovered_passenger_python_can_live_in_separate_document_root(self):
+        interpreter = self.python('hosted-env/bin/python')
+        path, source, configured = self.select({'CONEST_PASSENGER_PYTHON': str(interpreter)})
+        self.assertEqual(path, interpreter)
+        self.assertEqual(source, 'discovered PassengerPython')
+        self.assertTrue(configured)
+
+    def test_discovered_python_does_not_override_wsgi_reexec(self):
+        interpreter = self.python()
+        (self.root / 'passenger_wsgi.py').write_text(
+            'import os, sys\nINTERP = {!r}\n'
+            'if sys.executable != INTERP:\n'
+            '    os.execl(INTERP, INTERP, *sys.argv)\n'.format(str(interpreter)))
+        self.assertEqual(self.select({'CONEST_PASSENGER_PYTHON': '/missing/bootstrap/python'})[0], interpreter)
+
+    def test_missing_discovered_python_never_falls_back(self):
+        self.python()
+        with self.assertRaisesRegex(selector.InterpreterSelectionError, 'no fallback'):
+            self.select({'CONEST_PASSENGER_PYTHON': '/missing/bootstrap/python'})
+
     def test_exec_in_unused_function_does_not_override_passenger(self):
         interpreter = self.python()
         (self.root / '.htaccess').write_text('PassengerPython {}\n'.format(interpreter))

@@ -208,6 +208,11 @@ def select_interpreter(root, environment=None, executable=None,
     startup = _startup_python(root)
     if startup:
         return _configured(startup, 'passenger_wsgi.py interpreter override')
+    # cPanel can keep PassengerPython in a separate document root. Deployment
+    # discovers that setting without overriding an intentional WSGI re-exec.
+    discovered = environment.get('CONEST_PASSENGER_PYTHON', '').strip()
+    if discovered:
+        return _configured(_path(discovered, root), 'discovered PassengerPython')
     passenger = _passenger_python(root)
     if passenger:
         return _configured(passenger, '.htaccess PassengerPython')
