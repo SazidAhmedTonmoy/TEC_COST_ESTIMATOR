@@ -4,10 +4,11 @@ import json
 from pathlib import Path
 from . import tenders, accounts
 from .accounts import AccessError
+from .browser_ocr_assets import OCR_PREFIX, OCR_MIME
 
 ROOT=Path(__file__).resolve().parents[1]
 
-def send(handler, body, mime='application/json; charset=utf-8', filename=None, cache='no-store'):
+def send(handler, body, mime='application/json; charset=utf-8', filename=None, cache='no-store', compress=True):
     if not isinstance(body,bytes):body=json.dumps(body,ensure_ascii=False,separators=(',',':')).encode()
     def accepts_gzip(value):
         choices={}
@@ -19,7 +20,7 @@ def send(handler, body, mime='application/json; charset=utf-8', filename=None, c
                     except ValueError:quality=0
             choices[parts[0].strip()]=quality
         return choices.get('gzip',choices.get('*',0))>0
-    compressed=len(body)>1024 and accepts_gzip(handler.headers.get('Accept-Encoding',''))
+    compressed=compress and len(body)>1024 and accepts_gzip(handler.headers.get('Accept-Encoding',''))
     if compressed:body=gzip.compress(body,compresslevel=5)
     handler.send_response(200)
     handler.send_header('Content-Type',mime)
@@ -34,7 +35,18 @@ def route(h,path):
     try:
         if path=='/tenders' or path.startswith('/tenders/'):
             if h.command!='GET':raise tenders.ValidationError('Method not allowed',405)
-            if path.startswith('/tenders/assets/'):
+            if path.startswith(OCR_PREFIX):
+                name=path.removeprefix(OCR_PREFIX)
+                mime=OCR_MIME.get(name)
+                if not mime:raise tenders.ValidationError('Not found',404)
+                root=ROOT/'tenders_web/assets/ocr-v6.0.1'
+                asset=root/name
+                if any(path.is_symlink() for path in (root, root.parent, root.parent.parent, asset)) or not asset.is_file() or asset.resolve().parent!=root.resolve():
+                    raise tenders.ValidationError('Browser OCR assets are missing. Rebuild the Tender frontend.',404)
+                # The model is already gzipped: send it as a normal file, not
+                # a transport-encoded response. Never expose arbitrary paths.
+                send(h,asset.read_bytes(),mime,cache='public, max-age=31536000, immutable',compress=not name.endswith('.gz'))
+            elif path.startswith('/tenders/assets/'):
                 import mimetypes
                 name=path.removeprefix('/tenders/assets/')
                 if Path(name).name!=name or name.startswith('.'):raise tenders.ValidationError('Not found',404)

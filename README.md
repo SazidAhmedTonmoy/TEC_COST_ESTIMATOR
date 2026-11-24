@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.9
+# TEC Flow — v3.8.10
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -22,17 +22,18 @@ contains the current app, frontend source, required database migration code, and
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
 See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
 
-## Calendar and contact import (v3.8.9)
+## Calendar and contact import (v3.8.10)
 
 - Hover or focus calendar agenda entries to see the same project preview as the
   month grid, including Approved Opportunities, Chase-up, Open–Awarded and Estimator.
-- New/Edit Opportunity → Builders → **Import screenshot** reads cropped PNG, JPEG or
-  WebP contact lists, with editable builder/name/phone/email previews. Confirm the
-  rows, then save the opportunity to use the existing shared contact directory.
-- Screenshot OCR runs locally using the server's Tesseract executable and English
-  language data. It does not send images to Gemini or any other service. If OCR is
-  unavailable, paste the builder/contact text and review the parsed results instead.
-- No database migration. See OPERATIONS.md for OCR setup.
+- New/Edit Opportunity → Builders → **Import screenshot** accepts Ctrl+V/Cmd+V,
+  drag and drop, or selecting a cropped PNG, JPEG or WebP. Review builder/name/phone/email
+  previews and save through the existing shared contact directory.
+- Screenshot recognition runs inside the browser using Tesseract.js and local,
+  version-pinned WebAssembly/English assets generated during `npm run build`.
+  Only recognized text is submitted to the authenticated contact parser. No OS
+  OCR executable, external AI API, or server setup is required.
+- No database migration. See OPERATIONS.md for build requirements.
 
 ## Usability update (v3.8.8)
 
@@ -132,7 +133,7 @@ mismatch. It does not by itself indicate a failed database migration. The workfl
 reports the expected and served versions and keeps the version check enabled;
 see **OPERATIONS.md → Deployment version mismatch**.
 
-The **UPDATE_ONLY** ZIP overlays the current v3.8.7 source. It preserves your
+The **UPDATE_ONLY** ZIP overlays the current v3.8.9 source. It preserves your
 host's `passenger_wsgi.py`; the installer delegates that existing entry point to
 the updated runtime without removing its interpreter or environment setup.
 Rebuilding the Estimator assets also removes the superseded generated bundle.
@@ -149,7 +150,7 @@ the database to another path or host, configure the original key using
 
 ## Data compatibility
 
-- Application version: **3.8.9**
+- Application version: **3.8.10**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.

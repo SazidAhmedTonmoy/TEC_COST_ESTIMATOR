@@ -1,11 +1,14 @@
 {
   "name": "tec-flow-tenders-frontend",
   "private": true,
-  "version": "3.8.9",
+  "version": "3.8.10",
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "prepare:ocr": "node scripts/prepare-ocr.mjs",
+    "prebuild": "npm run prepare:ocr",
+    "predev": "npm run prepare:ocr"
   },
   "dependencies": {
     "react": "19.2.6",

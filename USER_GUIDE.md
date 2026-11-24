@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.7 · Estimator and Tenders
+Version 3.8.10 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -367,11 +367,9 @@ Your application has separate Estimator and Tender databases; protect both. Encr
 
 ### Import builder contacts from a screenshot
 
-In New/Edit Opportunity, choose **Builders → Import screenshot**, then select a
-cropped contact-list image. Review and correct the detected builder names,
+In New/Edit Opportunity, choose **Builders → Import screenshot**, then paste a cropped contact-list screenshot with Ctrl+V/Cmd+V, drag it into the paste area, or choose a file. Review and correct the detected builder names,
 contact people, phones and emails, then click **Add reviewed builders & contacts**.
 The records are added to the unsaved form; use the persistent Save/Add opportunity
 button to commit them. Existing shared contacts are reused where an unambiguous
-match exists. If private OCR is not installed on the server, use **Paste or correct
-recognized text** and **Detect from text**. Hover over agenda entries as well as
+match exists. Recognition runs inside the browser; no native server OCR setup is needed. If recognition is unavailable, use **Paste or correct recognized text** and **Detect from text**. Hover over agenda entries as well as
 month-grid events for project previews.

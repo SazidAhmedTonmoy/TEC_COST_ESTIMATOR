@@ -283,19 +283,28 @@ database with transaction-safe adapters and migrations, move expensive imports
 to a bounded job queue, and add central metrics. That is a planned migration,
 not a claim that the existing SQLite application supports unlimited users.
 
-## Private screenshot recognition (v3.8.9)
+## Private browser screenshot recognition (v3.8.10)
 
-The optional Opportunity screenshot import uses the server's local `tesseract`
-executable with the English (`eng`) language pack. Install it through your hosting
-provider or OS package manager (for example, `tesseract-ocr` and
-`tesseract-ocr-eng` on Debian/Ubuntu). Shared cPanel hosting may require provider
-assistance. Ensure the executable and language data are accessible to Passenger,
-not just the SSH shell. Verify `tesseract --version` and `tesseract --list-langs`
-under the application user. If Passenger has a restricted PATH, set the optional
-`CONEST_TESSERACT_PATH` environment variable to the absolute executable path. No external API key or additional pip/npm package is
-needed. If absent, the app displays a clear setup message and supports text import.
+The Tender frontend build automatically runs `npm run prepare:ocr` before Vite.
+It fetches pinned Tesseract.js 6.0.1, Tesseract.js-core 6.0.0 and the English
+model package 1.0.0 from the public npm registry, without running their package
+scripts. The build needs the normal npm network access and `tar` command. The
+browser resources are generated under `tenders_web/assets/ocr-v6.0.1/` and
+included in the deployment hash manifest. No Tesseract executable needs to be
+installed on cPanel or Passenger. The build fails if required OCR assets are missing.
 
-Uploads are preview-only, authenticated and CSRF-protected. Images are restricted
-to single PNG/JPEG/WebP files up to 6 MB and 12 megapixels, processed in memory
-with a bounded OCR slot and subprocess timeout. The app does not store uploaded
-images or send them externally. Review all extracted contacts before saving.
+Open the import panel and press Ctrl+V/Cmd+V, drop an image, or choose a file.
+The screenshot is decoded and recognized in a browser worker, with a 6 MB file
+limit, 12-megapixel limit and a 90-second recognition timeout. The browser
+fetches OCR code and language data from TEC Flow, not a CDN. No API key is
+required. Only extracted text is sent to the authenticated, CSRF-protected
+contact parser; no contacts are saved until the user reviews and saves the
+Opportunity. Paste or correct recognized text remains available as a fallback.
+The old native Tesseract endpoint remains compatible with older browser tabs.
+
+Use a current browser with WebAssembly and Web Workers enabled. The first
+recognition loads the OCR assets; later recognitions can reuse the HTTP cache.
+The CSP allows WebAssembly only in the version-pinned OCR worker and does not
+allow general JavaScript eval or cross-origin connections. If OCR fails after
+updating, hard-refresh the site and check that the OCR worker and model were
+uploaded successfully. Do not weaken the site's CSP or use a public OCR API.

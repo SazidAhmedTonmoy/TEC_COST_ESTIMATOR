@@ -28,6 +28,15 @@ REQUIRED_FILES = {
     'tools/install_security_rules.py', 'tools/install_wsgi_runtime.py',
     'tools/check_uploaded_release.py',
 }
+# Standalone deployment checker: keep this explicit allowlist aligned with
+# conest_app/browser_ocr_assets.py. Do not generally allow .gz backups.
+OCR_BUILD_FILES = {'tenders_web/assets/ocr-v6.0.1/' + name for name in (
+    'tesseract.min.js', 'worker.min.js', 'tesseract-core-lstm.wasm.js',
+    'tesseract-core-simd-lstm.wasm.js', 'tesseract-core-lstm.wasm',
+    'tesseract-core-simd-lstm.wasm', 'eng.traineddata.gz', 'tesseract-LICENSE.txt',
+    'core-LICENSE.txt', 'tesseract.min.js.LICENSE.txt', 'worker.min.js.LICENSE.txt', 'NOTICE.txt',
+)}
+OCR_SOURCE = 'conest_app/browser_ocr_assets.py'
 VERSION_PATTERN = re.compile(r'[0-9]{1,4}(?:\.[0-9]{1,4}){1,3}')
 
 
@@ -50,6 +59,8 @@ def allowed_path(name):
         return True
     if len(parts) < 2:
         return False
+    if name in OCR_BUILD_FILES:
+        return True
     suffix = PurePosixPath(name).suffix.lower()
     if parts[0] == 'conest_app':
         return suffix == '.py'
@@ -138,7 +149,8 @@ def create_manifest(root):
                 name = (Path(current) / filename).relative_to(root).as_posix()
                 if allowed_path(name):
                     names.add(name)
-    missing = REQUIRED_FILES - names
+    required = REQUIRED_FILES | (OCR_BUILD_FILES if OCR_SOURCE in names else set())
+    missing = required - names
     if missing:
         raise ReleaseCheckError('Build or source files are missing: ' + ', '.join(sorted(missing)) + '.')
     if len(names) > MAX_FILES:
@@ -161,7 +173,8 @@ def _validate_manifest(manifest):
             raise ReleaseCheckError('Manifest contains an unsafe or unsupported release path.')
         if not isinstance(digest, str) or not re.fullmatch(r'[a-f0-9]{64}', digest):
             raise ReleaseCheckError('Manifest contains an invalid file hash.')
-    if not REQUIRED_FILES.issubset(manifest['files']):
+    required = REQUIRED_FILES | (OCR_BUILD_FILES if OCR_SOURCE in manifest['files'] else set())
+    if not required.issubset(manifest['files']):
         raise ReleaseCheckError('Manifest omits required release files.')
 
 

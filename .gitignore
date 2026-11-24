@@ -40,3 +40,7 @@ data/tender_backups/
 *.key
 *.pem
 .tec-flow/
+
+# Generated, pinned browser OCR resources (created by frontend build)
+tenders_frontend/public/assets/ocr-v6.0.1/
+tenders_frontend/public/assets/.ocr-v6.0.1-stage/

@@ -140,10 +140,16 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header(
-            "Content-Security-Policy",
-            "default-src 'self'; img-src 'self' data:; style-src 'self'" + (" 'unsafe-inline'" if self.path.startswith("/tenders") else "") + "; script-src 'self'; connect-src 'self'",
-        )
+        # Allow WASM compilation only inside the pinned OCR worker. The page
+        # and all other application routes retain the existing script policy.
+        from conest_app.browser_ocr_assets import is_ocr_worker
+        if is_ocr_worker(urlparse(self.path).path):
+            policy = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self'; worker-src 'none'"
+        else:
+            policy = ("default-src 'self'; img-src 'self' data:; style-src 'self'"
+                      + (" 'unsafe-inline'" if self.path.startswith("/tenders") else "")
+                      + "; script-src 'self'; connect-src 'self'; worker-src 'self'")
+        self.send_header("Content-Security-Policy", policy)
 
     def _send_json(self, payload: object, status: int = 200) -> None:
         payload = self._public_payload(payload)

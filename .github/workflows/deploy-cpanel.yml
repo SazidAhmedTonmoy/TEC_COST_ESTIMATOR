@@ -53,6 +53,7 @@ jobs:
           python tools/build_frontend.py
           python tools/check_secrets.py
           python -m compileall -q app.py conest_app
+          node --test tests/browser_contact_ocr.test.mjs tests/contact_screenshot_ui.test.mjs
           python tools/run_tests.py --workers 4
 
       - name: Configure SSH
@@ -134,6 +135,7 @@ jobs:
             -e "ssh -i ~/.ssh/tec_conest_deploy_key -p $PORT" \
             --filter "merge $RUNNER_TEMP/tec-host.filter" \
             --exclude 'node_modules/' \
+            --exclude '/tenders_frontend/public/assets/ocr-v6.0.1/' \
             --exclude '.git/' \
             --exclude '.env' \
             --exclude '.env.*' \
