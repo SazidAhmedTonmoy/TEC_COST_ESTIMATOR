@@ -82,3 +82,6 @@ html[data-theme="dark"] .flow-calendar-event.is-documents-pending:hover{
   background:color-mix(in srgb,var(--flow-event-accent,#0f6cbd) 26%,var(--card));
   color:var(--foreground);
 }
+
+/* Agenda rows use the same viewport-positioned preview as month events. */
+.flow-agenda-preview-anchor:hover,.flow-agenda-preview-anchor:focus-within{background:color-mix(in srgb,var(--foreground) 4%,var(--card));}

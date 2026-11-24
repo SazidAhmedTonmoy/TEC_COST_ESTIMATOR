@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.8
+# TEC Flow — v3.8.9
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -21,6 +21,18 @@ contains the current app, frontend source, required database migration code, and
 
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
 See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
+
+## Calendar and contact import (v3.8.9)
+
+- Hover or focus calendar agenda entries to see the same project preview as the
+  month grid, including Approved Opportunities, Chase-up, Open–Awarded and Estimator.
+- New/Edit Opportunity → Builders → **Import screenshot** reads cropped PNG, JPEG or
+  WebP contact lists, with editable builder/name/phone/email previews. Confirm the
+  rows, then save the opportunity to use the existing shared contact directory.
+- Screenshot OCR runs locally using the server's Tesseract executable and English
+  language data. It does not send images to Gemini or any other service. If OCR is
+  unavailable, paste the builder/contact text and review the parsed results instead.
+- No database migration. See OPERATIONS.md for OCR setup.
 
 ## Usability update (v3.8.8)
 
@@ -137,7 +149,7 @@ the database to another path or host, configure the original key using
 
 ## Data compatibility
 
-- Application version: **3.8.8**
+- Application version: **3.8.9**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.

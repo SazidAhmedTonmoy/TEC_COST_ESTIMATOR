@@ -364,3 +364,14 @@ Your application has separate Estimator and Tender databases; protect both. Encr
 
 **Tip:** When your connection is interrupted, keep the page open until you have verified the saved state.
 
+
+### Import builder contacts from a screenshot
+
+In New/Edit Opportunity, choose **Builders → Import screenshot**, then select a
+cropped contact-list image. Review and correct the detected builder names,
+contact people, phones and emails, then click **Add reviewed builders & contacts**.
+The records are added to the unsaved form; use the persistent Save/Add opportunity
+button to commit them. Existing shared contacts are reused where an unambiguous
+match exists. If private OCR is not installed on the server, use **Paste or correct
+recognized text** and **Detect from text**. Hover over agenda entries as well as
+month-grid events for project previews.

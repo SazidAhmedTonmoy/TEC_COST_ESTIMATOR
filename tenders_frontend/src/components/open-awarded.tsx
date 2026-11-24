@@ -9,7 +9,7 @@ import {AwardContactList} from './award-contact-list';
 import {BuilderContactEditor} from './builder-contacts';
 import {contactsForBuilder,type BuilderContactGroup} from '@/lib/builder-contacts';
 import './open-awarded.css';
-import {CalendarMonthToolbar,MonthCalendar} from './calendar-month';
+import {CalendarMonthToolbar,MonthCalendar,CalendarEventButton,type MonthCalendarEvent} from './calendar-month';
 
 type AwardContactFields={awardedDate:string;estStartDate:string;awardProjectLink:string;awardContacts:AwardContact[]};
 type Props={submissions:Submission[];chases:Chase[];saving:boolean;contactDirectory:BuilderContactGroup[];onContactsOpen:()=>void;onOpen:(s:Submission)=>void;onSave:(s:Submission,fields:AwardContactFields)=>Promise<boolean>};
@@ -100,7 +100,16 @@ export function OpenAwarded({submissions,chases,saving,contactDirectory,onContac
   setFocusedEvent(event?`${event.submission.id}:${event.kind}`:'');
   window.requestAnimationFrame(()=>selectedEventsRef.current?.scrollIntoView({behavior:'smooth',block:'start'}));
  }
- return <section className="oa-workspace">
+   const awardPreviewEvent=(event:AwardCalendarEvent):MonthCalendarEvent=>{
+        const s=event.submission,contacts=awardedContacts(s),chase=latest.get(s.id);
+        return {id:s.id+':'+event.kind,date:event.date,title:s.project,kind:event.kind==='awarded'?'Builder awarded':'Estimated start',
+          accent:event.kind==='awarded'?'#e9b13d':'#14aa9c',actionLabel:'Show contacts and day agenda',onOpen:()=>revealCalendarEvent(event.date,event),
+          details:[{label:'Date',value:toDate(event.date)},{label:'Builder',value:s.builder},{label:'TEC status',value:'Open'},
+            {label:'Submitted by',value:s.submittedByTeam||'Not recorded'},{label:'Quoted value',value:s.value==null?'Not recorded':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:2}).format(s.value)},
+            {label:'Contact people',value:contacts.map(person=>[person.name,...person.phones,...person.emails].filter(Boolean).join('\n')).join('\n\n')||'Not recorded'},
+            {label:'Last chase-up',value:chase?toDate(chase.date):'Not recorded'}],note:chase?.note};
+      };
+return <section className="oa-workspace">
    <div className="oa-heading"><div><span className="oa-eyebrow"><Award size={15}/> TENDER FOLLOW-UP</span><h2>Open-Awarded</h2><p>Builder-awarded projects with TEC quotations still marked Open. Keep the award, start date, project link and follow-up contact in one place.</p></div></div>
    <div className="oa-toolbar"><div className="oa-search"><Search size={17}/><input type="search" aria-label="Search Open-Awarded projects" placeholder="Search project, builder, contact or chase-up…" value={query} onChange={e=>setQuery(e.target.value)}/></div><label className="oa-missing-only"><input type="checkbox" checked={onlyMissing} onChange={e=>setOnlyMissing(e.target.checked)}/> Missing contacts only</label><span className="oa-count">{visible.length} of {all.length} projects</span><div className="oa-view-switch" role="group" aria-label="Open-Awarded display"><button type="button" className={view==='cards'?'is-selected':''} aria-pressed={view==='cards'} onClick={()=>setView('cards')}><LayoutGrid size={15}/> Cards</button><button type="button" className={view==='calendar'?'is-selected':''} aria-pressed={view==='calendar'} onClick={()=>setView('calendar')}><CalendarDays size={15}/> Calendar</button></div></div>
    {visible.length===0?<div className="oa-empty"><Award size={26}/><h3>{all.length?'No matching projects':'No Open-Awarded projects yet'}</h3><p>{all.length?'Try clearing the search or the missing-contacts filter.':'Projects appear here when TEC status is Open and the builder outcome is Awarded.'}</p>{all.length>0&&<button type="button" className="secondary-btn" onClick={()=>{setQuery('');setOnlyMissing(false)}}>Clear filters</button>}</div>:
@@ -123,15 +132,7 @@ export function OpenAwarded({submissions,chases,saving,contactDirectory,onContac
     </>:<div className="oa-calendar" aria-label="Open-Awarded monthly calendar">
       <CalendarMonthToolbar month={month} monthLabel="Calendar month" onPrevious={()=>goMonth(-1)} onNext={()=>goMonth(1)} onToday={()=>{const date=sydneyCalendarDate();setToday(date);setMonth(date.slice(0,7));revealCalendarEvent(date)}} onMonthChange={value=>{setMonth(value);setSelectedDay('');setFocusedEvent('')}}/>
       <div className="flow-calendar-award-legend"><span><i className="oa-legend-award"/> Awarded</span><span><i className="oa-legend-start"/> Estimated start</span></div>
-      <MonthCalendar month={month} today={today} selectedDay={selectedDay} onSelectDate={revealCalendarEvent} label="Open-Awarded monthly calendar" events={events.map(event=>{
-        const s=event.submission,contacts=awardedContacts(s),chase=latest.get(s.id);
-        return {id:s.id+':'+event.kind,date:event.date,title:s.project,kind:event.kind==='awarded'?'Builder awarded':'Estimated start',
-          accent:event.kind==='awarded'?'#e9b13d':'#14aa9c',actionLabel:'Show contacts and day agenda',onOpen:()=>revealCalendarEvent(event.date,event),
-          details:[{label:'Date',value:toDate(event.date)},{label:'Builder',value:s.builder},{label:'TEC status',value:'Open'},
-            {label:'Submitted by',value:s.submittedByTeam||'Not recorded'},{label:'Quoted value',value:s.value==null?'Not recorded':new Intl.NumberFormat('en-AU',{style:'currency',currency:'AUD',maximumFractionDigits:2}).format(s.value)},
-            {label:'Contact people',value:contacts.map(person=>[person.name,...person.phones,...person.emails].filter(Boolean).join('\n')).join('\n\n')||'Not recorded'},
-            {label:'Last chase-up',value:chase?toDate(chase.date):'Not recorded'}],note:chase?.note};
-      })}/>
+      <MonthCalendar month={month} today={today} selectedDay={selectedDay} onSelectDate={revealCalendarEvent} label="Open-Awarded monthly calendar" events={events.map(awardPreviewEvent)}/>
       <div className="oa-calendar-footer" ref={selectedEventsRef}>
        <div className="oa-calendar-footer-intro">
         <strong>{selectedDay?`Events on ${toDate(selectedDay)}`:'Select a date or project to see contact details'}</strong>
@@ -140,7 +141,7 @@ export function OpenAwarded({submissions,chases,saving,contactDirectory,onContac
        {selectedDay&&<div className="oa-selected-events" aria-live="polite">{dayEvents.length?dayEvents.map((event,i)=>{
         const s=event.submission;
         const contactMissing=missing(s);
-        return <article key={s.id+event.kind+i} className={'oa-selected-event'+(focusedEvent===`${s.id}:${event.kind}`?' is-focused':'')}>
+        return <CalendarEventButton event={awardPreviewEvent(event)} key={s.id+event.kind+i} className={'oa-selected-event'+(focusedEvent===`${s.id}:${event.kind}`?' is-focused':'')}>
          <div className="oa-selected-event-heading">
           <span className={'oa-selected-event-kind '+(event.kind==='awarded'?'oa-event-award':'oa-event-start')}>{event.kind==='awarded'?'Awarded':'Estimated start'}</span>
           <div className="oa-selected-event-project"><strong>{s.project}</strong><small>{s.builder}</small></div>
@@ -153,7 +154,7 @@ export function OpenAwarded({submissions,chases,saving,contactDirectory,onContac
           <button type="button" className="oa-selected-edit" onClick={()=>edit(s)}><Pencil size={14}/>{contactMissing?'Add contact':'Edit contact'}</button>
           <button type="button" className="oa-selected-open" onClick={()=>onOpen(s)}>View project <ExternalLink size={13}/></button>
          </div>
-        </article>
+        </CalendarEventButton>
        }):<p>No events recorded on this date.</p>}</div>}
        <p className="oa-calendar-missing">{visible.filter(s=>!s.awardedDate).length} missing award date · {visible.filter(s=>!s.estStartDate).length} missing estimated start date</p>
       </div>

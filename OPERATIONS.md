@@ -282,3 +282,20 @@ If write contention or database size outgrows one host, move to a managed SQL
 database with transaction-safe adapters and migrations, move expensive imports
 to a bounded job queue, and add central metrics. That is a planned migration,
 not a claim that the existing SQLite application supports unlimited users.
+
+## Private screenshot recognition (v3.8.9)
+
+The optional Opportunity screenshot import uses the server's local `tesseract`
+executable with the English (`eng`) language pack. Install it through your hosting
+provider or OS package manager (for example, `tesseract-ocr` and
+`tesseract-ocr-eng` on Debian/Ubuntu). Shared cPanel hosting may require provider
+assistance. Ensure the executable and language data are accessible to Passenger,
+not just the SSH shell. Verify `tesseract --version` and `tesseract --list-langs`
+under the application user. If Passenger has a restricted PATH, set the optional
+`CONEST_TESSERACT_PATH` environment variable to the absolute executable path. No external API key or additional pip/npm package is
+needed. If absent, the app displays a clear setup message and supports text import.
+
+Uploads are preview-only, authenticated and CSRF-protected. Images are restricted
+to single PNG/JPEG/WebP files up to 6 MB and 12 megapixels, processed in memory
+with a bounded OCR slot and subprocess timeout. The app does not store uploaded
+images or send them externally. Review all extracted contacts before saving.

@@ -1,4 +1,4 @@
-import {useEffect,useId,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode} from 'react';
+import {useEffect,useId,useLayoutEffect,useMemo,useRef,useState,type CSSProperties,type ReactNode,type PointerEvent as ReactPointerEvent,type FocusEvent as ReactFocusEvent} from 'react';
 import {createPortal} from 'react-dom';
 
 export type CalendarDetail={label:string;value:string};
@@ -45,8 +45,8 @@ export function CalendarMonthToolbar({month,onPrevious,onNext,onToday,onMonthCha
 }
 
 /** The preview is portalled so scrollable calendars never cut off its contents. */
-export function CalendarEventButton({event}:{event:MonthCalendarEvent}){
-  const id=useId(),anchor=useRef<HTMLButtonElement>(null),preview=useRef<HTMLDivElement>(null);
+export function CalendarEventButton({event,children,className}:{event:MonthCalendarEvent;children?:ReactNode;className?:string}){
+  const id=useId(),anchor=useRef<HTMLElement>(null),preview=useRef<HTMLDivElement>(null);
   const closeTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
   const [open,setOpen]=useState(false),[position,setPosition]=useState({left:0,top:0,ready:false});
   function cancelClose(){if(closeTimer.current!==null){clearTimeout(closeTimer.current);closeTimer.current=null}}
@@ -78,14 +78,17 @@ export function CalendarEventButton({event}:{event:MonthCalendarEvent}){
   const accent=event.accent||'#0f6cbd';
   const documentsMissing=event.documentsAvailable===false;
   const color={'--flow-event-accent':accent,'--flow-event-ink':eventInk(accent)} as CSSProperties;
+  const interactions={onPointerEnter:(e:ReactPointerEvent<HTMLElement>)=>{if(e.pointerType!=='touch')show()},onPointerLeave:leave,
+    onFocus:show,onBlur:(e:ReactFocusEvent<HTMLElement>)=>{if(!e.currentTarget.contains(e.relatedTarget))hide()},onClick:hide};
+  const description=open?id:undefined;
   return <>
-    <button ref={anchor} type="button" className={"flow-calendar-event"+(documentsMissing?" is-documents-pending":"")} style={color}
+    {children!==undefined?<div ref={node=>{anchor.current=node}} className={(className||'')+' flow-agenda-preview-anchor'}
+      aria-describedby={description} {...interactions}>{children}</div>:
+    <button ref={node=>{anchor.current=node}} type="button" className={"flow-calendar-event"+(documentsMissing?" is-documents-pending":"")} style={color}
       aria-label={`${event.kind}: ${event.title}.${documentsMissing?" Documents not available.":""} ${event.actionLabel||'Open details'}`}
-      aria-describedby={open?id:undefined}
-      onPointerEnter={e=>{if(e.pointerType!=='touch')show()}} onPointerLeave={leave}
-      onFocus={show} onBlur={hide} onClick={()=>{hide();event.onOpen()}}>
+      aria-describedby={description} {...interactions} onClick={()=>{hide();event.onOpen()}}>
       <span className="flow-event-title">{event.title}</span>
-    </button>
+    </button>}
     {open&&createPortal(<div ref={preview} id={id} role="tooltip" className="flow-calendar-preview"
       style={{...color,left:position.left,top:position.top,visibility:position.ready?'visible':'hidden'}}
       onPointerEnter={cancelClose} onPointerLeave={leave}>

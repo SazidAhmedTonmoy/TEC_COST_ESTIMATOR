@@ -68,6 +68,9 @@ def route(handler, path, store, send):
         result = opportunities.delete(store, payload, handler.user)
     elif handler.command != 'POST':
         raise tenders.ValidationError('Not found', 404)
+    elif path == prefix + '/contact-screenshot':
+        from .contact_screenshot import recognize
+        result = recognize(payload)
     elif path == prefix + '/save':
         result = opportunities.save(store, payload, handler.user)
     elif path == prefix + '/decision':

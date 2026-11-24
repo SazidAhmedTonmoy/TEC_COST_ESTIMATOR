@@ -3,7 +3,7 @@ import type {CSSProperties} from 'react';
 import {CalendarDays,RefreshCw,Clock} from 'lucide-react';
 import {apiFetch} from '../main';
 import {calendarTeamAppearance,teamCalendarColor,calendarTeamPalette} from '../lib/calendar-team-colors';
-import {CalendarMonthToolbar,MonthCalendar} from './calendar-month';
+import {CalendarMonthToolbar,MonthCalendar,CalendarEventButton,type MonthCalendarEvent} from './calendar-month';
 
 type CalendarOpportunity={id:string;project:string;due:string;region:string;builders:string[];quoted:boolean;documentsAvailable:boolean;assignedTeamIds:number[]};
 type CalendarResponse={month:string;items:CalendarOpportunity[];total:number;quoted:number;teams:{id:number;name:string}[]};
@@ -70,6 +70,15 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
   const agenda=day?byDay.get(day)||[]:rows;
   const agendaGroups=agendaData.reduce<Record<string,CalendarOpportunity[]>>((groups,item)=>{(groups[item.due]??=[]).push(item);return groups},{})
   const dueInDays=(date:string)=>Math.round((Date.parse(date+'T12:00:00Z')-Date.parse(today+'T12:00:00Z'))/86400000);
+  const previewEvent=(event:CalendarOpportunity):MonthCalendarEvent=>{
+      const appearance=calendarTeamAppearance(event.assignedTeamIds,teams,palette);
+      return {id:event.id,date:event.due,title:event.project,kind:event.quoted?'Approved · Quoted / linked':'Approved · Needs quote',
+        accent:event.quoted?'#18a785':appearance.color.accent,documentsAvailable:event.documentsAvailable,actionLabel:'Open opportunity',onOpen:()=>onOpen(event.id),
+        details:[{label:'Closing date',value:label(event.due)},{label:'Builders',value:event.builders.join('\n')||'Not specified'},
+          {label:'Assigned team',value:appearance.label},{label:'Region',value:event.region||'Not recorded'},
+          {label:'Quote status',value:event.quoted?'Quoted / linked':'Needs quote'},
+          {label:'Documents',value:event.documentsAvailable?'Available':'Not available'}]};
+    };
   return <section className="approved-calendar" aria-label="Approved opportunity deadlines">
     <div className="calendar-display-switch" role="group" aria-label="Approved opportunity calendar layout">
       <button type="button" className="secondary-btn" aria-pressed={displayMode==='month'} onClick={()=>setDisplayMode('month')}><CalendarDays size={16}/>Month</button>
@@ -86,22 +95,14 @@ export function ApprovedOpportunityCalendar({month,setMonth,onOpen}:{month:strin
     {error&&<div role="alert" className="error-banner">{error}</div>}
     {(displayMode==='month'?loading:agendaLoading)&&<p role="status" className="calendar-help"><RefreshCw size={15}/> Loading approved opportunities…</p>}
     {agendaError&&displayMode==='agenda'&&<div role="alert" className="error-banner">{agendaError}</div>}
-    {displayMode==='month'&&<><MonthCalendar month={month} today={today} selectedDay={day} onSelectDate={selectDate} label="Approved opportunity deadline calendar" events={rows.map(event=>{
-      const appearance=calendarTeamAppearance(event.assignedTeamIds,teams,palette);
-      return {id:event.id,date:event.due,title:event.project,kind:event.quoted?'Approved · Quoted / linked':'Approved · Needs quote',
-        accent:event.quoted?'#18a785':appearance.color.accent,documentsAvailable:event.documentsAvailable,actionLabel:'Open opportunity',onOpen:()=>onOpen(event.id),
-        details:[{label:'Closing date',value:label(event.due)},{label:'Builders',value:event.builders.join('\n')||'Not specified'},
-          {label:'Assigned team',value:appearance.label},{label:'Region',value:event.region||'Not recorded'},
-          {label:'Quote status',value:event.quoted?'Quoted / linked':'Needs quote'},
-          {label:'Documents',value:event.documentsAvailable?'Available':'Not available'}]};
-    })}/>
+    {displayMode==='month'&&<><MonthCalendar month={month} today={today} selectedDay={day} onSelectDate={selectDate} label="Approved opportunity deadline calendar" events={rows.map(previewEvent)}/>
     <section ref={agendaRef} className="panel agenda" aria-live="polite"><div className="panel-heading"><h2>{day?label(day):'Approved deadline agenda'}</h2>{day&&<button className="text-btn" onClick={()=>setDay('')}>Show full month</button>}</div>{agenda.map(item=>{
       const appearance=item.quoted?null:needsQuoteAppearance(item);
-      return <div key={item.id} className="agenda-row"><div className="agenda-date">{label(item.due)}</div><span className={'calendar-quote-state '+(item.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style}>{item.quoted?'Quoted':'Need quote · '+appearance?.label}</span><button className="project-name" onClick={()=>onOpen(item.id)}>{item.project}<span className="sub-line">{item.builders.join(' · ')||'Builder not specified'} · {item.region}</span></button></div>;
+      return <CalendarEventButton key={item.id} event={previewEvent(item)} className="agenda-row"><div className="agenda-date">{label(item.due)}</div><span className={'calendar-quote-state '+(item.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style}>{item.quoted?'Quoted':'Need quote · '+appearance?.label}</span><button className="project-name" onClick={()=>onOpen(item.id)}>{item.project}<span className="sub-line">{item.builders.join(' · ')||'Builder not specified'} · {item.region}</span></button></CalendarEventButton>;
     })}{!agenda.length&&<div className="empty-state"><CalendarDays/><h3>{day?'No deadlines on this date':'No approved opportunities for this period'}</h3><p>{day?'Select another date or show the full month.':'Choose another month or switch to the Chase-up calendar.'}</p></div>}</section></>}
     {displayMode==='agenda'&&<section className="panel opportunity-rolling-agenda" aria-label={`Approved deadlines in the next ${agendaDays} days`}>
       <div className="panel-heading"><div><h2>Upcoming approved deadlines</h2><p>{label(today)} – {label(end)} · {agendaData.length} opportunities</p></div></div>
-      {Object.entries(agendaGroups).sort(([a],[b])=>a.localeCompare(b)).map(([date,items])=><div key={date} className="calendar-agenda-day"><h3>{label(date)} <span className={'agenda-urgency '+(dueInDays(date)<=3?'urgent':dueInDays(date)<=7?'soon':'upcoming')}>{dueInDays(date)===0?'Due today':dueInDays(date)===1?'Due tomorrow':`In ${dueInDays(date)} days`}</span><small>{items.length} project{items.length===1?'':'s'}</small></h3>{items.map(item=>{const appearance=item.quoted?null:needsQuoteAppearance(item);return <div key={item.id} className="calendar-agenda-entry"><span className={'calendar-quote-state '+(item.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style}>{item.quoted?'Quoted / linked':'Need quote · '+appearance?.label}</span><div><b>{item.project}</b><small>{item.builders.join(' · ')||'Builder not specified'} · {item.region}</small></div><button className="secondary-btn" onClick={()=>onOpen(item.id)}>Open opportunity</button></div>})}</div>)}
+      {Object.entries(agendaGroups).sort(([a],[b])=>a.localeCompare(b)).map(([date,items])=><div key={date} className="calendar-agenda-day"><h3>{label(date)} <span className={'agenda-urgency '+(dueInDays(date)<=3?'urgent':dueInDays(date)<=7?'soon':'upcoming')}>{dueInDays(date)===0?'Due today':dueInDays(date)===1?'Due tomorrow':`In ${dueInDays(date)} days`}</span><small>{items.length} project{items.length===1?'':'s'}</small></h3>{items.map(item=>{const appearance=item.quoted?null:needsQuoteAppearance(item);return <CalendarEventButton key={item.id} event={previewEvent(item)} className="calendar-agenda-entry"><span className={'calendar-quote-state '+(item.quoted?'is-quoted':'needs-quote team-coded')} style={appearance?.style}>{item.quoted?'Quoted / linked':'Need quote · '+appearance?.label}</span><div><b>{item.project}</b><small>{item.builders.join(' · ')||'Builder not specified'} · {item.region}</small></div><button className="secondary-btn" onClick={()=>onOpen(item.id)}>Open opportunity</button></CalendarEventButton>})}</div>)}
       {!agendaLoading&&!agendaError&&agendaData.length===0&&<div className="empty-state"><CalendarDays/><h3>No approved deadlines coming up</h3><p>Choose 30 days or return to the month calendar.</p></div>}
     </section>}
   </section>;

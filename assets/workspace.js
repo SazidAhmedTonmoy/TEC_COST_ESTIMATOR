@@ -667,7 +667,7 @@ function showEstimatorCalendarPreview(target) {
   if(!preview){
     preview=document.createElement('aside');preview.id='estimator-calendar-preview';preview.className='estimator-calendar-preview';preview.setAttribute('role','tooltip');
     preview.addEventListener('pointerenter',()=>clearTimeout(estimatorCalendarPreviewTimer));
-    preview.addEventListener('pointerleave',()=>{if(document.activeElement!==estimatorCalendarPreviewTarget)hideEstimatorCalendarPreview();});
+    preview.addEventListener('pointerleave',()=>{if(!estimatorCalendarPreviewTarget?.contains(document.activeElement))hideEstimatorCalendarPreview();});
     document.body.appendChild(preview);
   }
   preview.innerHTML=estimatorCalendarPreviewContent(project,target.dataset.calendarDate,target.dataset.eventKind);
@@ -796,10 +796,10 @@ function bindWorkspaceEvents() {
   document.addEventListener('pointerover',event=>{const target=event.target.closest('[data-calendar-preview]');if(target)showEstimatorCalendarPreview(target);});
   document.addEventListener('pointerout',event=>{
     const target=event.target.closest('[data-calendar-preview]');
-    if(target&&!target.contains(event.relatedTarget)&&document.activeElement!==target)estimatorCalendarPreviewTimer=setTimeout(hideEstimatorCalendarPreview,140);
+    if(target&&!target.contains(event.relatedTarget)&&!target.contains(document.activeElement))estimatorCalendarPreviewTimer=setTimeout(hideEstimatorCalendarPreview,140);
   });
   document.addEventListener('focusin',event=>{const target=event.target.closest('[data-calendar-preview]');if(target)showEstimatorCalendarPreview(target);});
-  document.addEventListener('focusout',event=>{if(event.target===estimatorCalendarPreviewTarget)hideEstimatorCalendarPreview();});
+  document.addEventListener('focusout',event=>{if(estimatorCalendarPreviewTarget?.contains(event.target)&&!estimatorCalendarPreviewTarget.contains(event.relatedTarget))hideEstimatorCalendarPreview();});
   document.addEventListener('keydown',event=>{if(event.key==='Escape')hideEstimatorCalendarPreview();});
   document.addEventListener('click',hideEstimatorCalendarPreview);
   window.addEventListener('resize',hideEstimatorCalendarPreview);
