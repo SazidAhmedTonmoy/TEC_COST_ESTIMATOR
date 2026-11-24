@@ -31,7 +31,7 @@ test('same-name contacts with conflicting phone and email remain separate',()=>{
  assert.equal(merged.builderContacts[0].contacts.length,2);
 });
 test('invalid data cannot be inserted into draft',()=>{
- assert.ok(validateDetectedContact({...contact,builder:''}));assert.ok(validateDetectedContact({...contact,emails:['bad']}));assert.throws(()=>mergeDetectedContacts(blank,[{...contact,phones:['not a number']}],[],[]));
+ assert.ok(validateDetectedContact({...contact,builder:''}));assert.ok(validateDetectedContact({...contact,name:'alex@'}));assert.ok(validateDetectedContact({...contact,name:'example.com.au'}));assert.ok(validateDetectedContact({...contact,emails:['bad']}));assert.throws(()=>mergeDetectedContacts(blank,[{...contact,phones:['not a number']}],[],[]));
 });
 test('screenshot import is accessible from New/Edit Opportunity and saves only into draft',()=>{
  const component=source('tenders_frontend/src/components/contact-screenshot-import.tsx');const form=source('tenders_frontend/src/components/opportunities.tsx');

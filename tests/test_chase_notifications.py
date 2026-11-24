@@ -1,5 +1,6 @@
 """New chase-up receipts and full-history, per-user notification search."""
 import os
+from datetime import datetime, timedelta, timezone
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,6 +31,7 @@ class ChaseNotificationTests(unittest.TestCase):
             '_actor_id':self.author['id']})['id']
         # Remove time-based fixture effects; these tests exercise only recorded
         # events and inbox queries, not the independently tested due sweep.
+        self.real_sweep = op.process_due
         sweep = patch.object(op, 'process_due')
         sweep.start(); self.addCleanup(sweep.stop)
 
@@ -98,6 +100,36 @@ class ChaseNotificationTests(unittest.TestCase):
         self.assertEqual(self.inbox(q='Alex')['unreadCount'],36)
         with self.assertRaises(tenders.ValidationError): self.inbox(kind='unknown')
         with self.assertRaises(tenders.ValidationError): self.inbox(q='x'*201)
+
+    def test_recover_recent_pre_notification_history_and_keep_read_state(self):
+        # Simulate a genuine authenticated entry recorded by v3.8.10.
+        with patch.object(op,'notify_recorded_chase',return_value=None):
+            self.record('Recent follow-up saved before release')
+            self.record('Older archived follow-up')
+            self.record('Another recent follow-up')
+        self.record('Workbook-style legacy row',_actor_id=None)
+        now=datetime.now(timezone.utc)
+        previous=(now-timedelta(days=1)).isoformat()
+        older=(now-timedelta(days=31)).isoformat()
+        with self.store.connect(write=True) as db:
+            db.execute("UPDATE tender_activity SET created_at=? WHERE action='Recorded chase-up'",(previous,))
+            db.execute("UPDATE tender_activity SET created_at=? WHERE action='Recorded chase-up' AND json_extract(details,'$.chaseId') IN (SELECT id FROM chases WHERE json_extract(body,'$.note')=?)",(older,'Older archived follow-up'))
+        self.assertEqual(self.inbox()['total'],0)
+        self.real_sweep(self.store,force=True,now=now)
+        result=self.inbox(q='alex example')
+        self.assertEqual(result['total'],2)
+        self.assertTrue(all(n['createdAt']==previous for n in result['items']))
+        self.assertTrue(any('Recent follow-up saved before release' in n['message'] for n in result['items']))
+        self.assertEqual(self.inbox(self.author)['total'],2)
+        self.assertEqual(self.inbox(q='Older archived')['total'],0)
+        self.assertEqual(self.inbox(q='Workbook-style')['total'],0)
+        ids=[n['id'] for n in result['items']]
+        op.mark_read(self.store,{'ids':ids},self.reader)
+        self.real_sweep(self.store,force=True,now=now)
+        again=self.inbox()
+        self.assertEqual({n['id'] for n in again['items']},set(ids))
+        self.assertTrue(all(n['read'] for n in again['items']))
+        self.assertTrue(all(not n['read'] for n in self.inbox(self.author)['items']))
 
     def test_failed_write_rolls_back_history_and_notifications(self):
         with patch.object(op,'notify_recorded_chase',side_effect=RuntimeError('test transaction failure')):

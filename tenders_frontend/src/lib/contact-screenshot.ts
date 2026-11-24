@@ -8,6 +8,7 @@ const nameKey=(value:string)=>value.normalize('NFKC').trim().toLowerCase().repla
 export function validateDetectedContact(row:DetectedContact):string{
   if(!row.builder.trim()||!builderKey(row.builder))return 'Enter a builder name.';
   if(row.builder.length>500||row.name.length>200)return 'Builder or contact name is too long.';
+  if(/@|^[a-z0-9.-]+\.(?:com|net|org|au|co|io|uk|nz)$/i.test(row.name.trim()))return 'This looks like an email address or fragment. Move it to Email addresses or correct the name.';
   if(row.phones.length>12||row.emails.length>12)return 'Choose up to 12 phone numbers and email addresses.';
   if(row.phones.some(v=>v.trim()&&(!/^[+0-9(). /-]{5,45}$/.test(v.trim())||!contactPhoneKey(v))))return 'Check the phone number.';
   if(row.emails.some(v=>v.trim()&&(v.length>254||!/^\S+@[^\s@]+\.[^\s@]+$/.test(v.trim()))))return 'Check the email address.';

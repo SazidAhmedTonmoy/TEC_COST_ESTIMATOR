@@ -155,7 +155,7 @@ SECTIONS = [
             'Open Project Chase-up and find a submission by project or builder.',
             'Record contacts, follow-up notes, dates and any promised next action.',
             'Schedule the next chase-up and review reminders when due.',
-            'New recorded chase-ups appear in the notification bell. Search by user name, project or message, or select Chase-ups; View chase-up opens its history.',
+            'New recorded chase-ups appear in the notification bell. Missing receipts for the last 30 days of authenticated chase-ups are recovered automatically. Search by user name, project or message, or select Chase-ups; View chase-up opens its history.',
         ], 'Chase-up history retains its author; do not overwrite a colleague’s record to add a new contact.'),
         ('builders-projects', 'Projects and Builders registers', [
             'Use Projects for grouped project totals across builders.',

@@ -22,16 +22,82 @@ MAX_PIXELS = 12_000_000
 MAX_TEXT = 24_000
 MAX_ROWS = 60
 _SLOTS = threading.BoundedSemaphore(1)
-_EMAIL = re.compile(r'[A-Za-z0-9.!#$%&\'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,24}')
+_EMAIL = re.compile(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,24}(?![A-Za-z0-9.-])")
 _PHONE = re.compile(r'(?<!\w)(?:\+?61[ .()-]*[2-478]|0[2-478])(?:[ .()-]*\d){8}(?!\d)|(?<!\d)(?:1300|1800)(?:[ .()-]*\d){6}(?!\d)|(?<!\d)13(?:[ .()-]*\d){4}(?!\d)')
 _COMPANY = re.compile(r'\b(?:construction[s]?|construct|builders?|building|contractors?|projects?|group|fitout[s]?|fit[- ]out[s]?|interiors?|pty|ltd|limited|development[s]?|corp(?:oration)?|commercial|contracting)\b', re.I)
+_COMPANY_SUFFIX = re.compile(r'^(?:constructions?|builders?|contractors?|projects?|group|interiors?|fit[- ]?outs?|developments?|contracting|pty(?:\s+ltd)?|ltd|limited)(?:\s+pty\s+ltd)?$', re.I)
 _REGION = re.compile(r'^\(?(?:NSW|VIC|QLD|WA|SA|TAS|NT|ACT)\)?$', re.I)
 _HEADER = re.compile(r'^(?:builders?|contacts?|contact people|contact details|phone(?: number)?|email(?: address)?|name)\s*:?$', re.I)
 _FIELD_LABEL = re.compile(r'^(?:builder|contact(?: person)?|name|phone(?: number)?|mobile|tel|email(?: address)?)\s*:\s*', re.I)
+_DOMAIN = re.compile(r'[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+')
+_ACRONYM = re.compile(r'[A-Z][A-Z0-9&]{1,11}')
+
+
+def _email_spacing(line):
+    # Repair OCR whitespace around @ and domain dots, not characters. Never
+    # guess whether a hyphen, dot or letter in a recognized address is wrong.
+    line = re.sub(r'\s*@\s*', '@', line)
+    if '@' in line:
+        left, right = line.split('@', 1)
+        right = re.sub(r'(?<=\w)\s*\.\s*(?=\w)', '.', right)
+        line = left + '@' + right
+    return line
+
+
+def _logical_lines(text, known):
+    raw = [' '.join(line.strip().split()).strip(' |•—–') for line in text.splitlines()]
+    raw = [_email_spacing(line) for line in raw if line and not _HEADER.fullmatch(line)]
+    i = 0
+    while i < len(raw):
+        line = raw[i]
+        i += 1
+        # A narrow browser column can split local-part@ and domain across lines.
+        # Only consume an adjacent domain-shaped continuation, not a person or
+        # builder. Also allow a domain ending in a dot to wrap to its suffix.
+        if i < len(raw):
+            following = raw[i]
+            # Local part and @domain can also be split, or a valid-looking
+            # address can continue on the next line with '.au'.
+            if re.fullmatch(r"[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+", line) and following.startswith('@'):
+                candidate = line + following
+                if _EMAIL.fullmatch(candidate):
+                    line = candidate
+                    i += 1
+        if '@' in line and i < len(raw):
+            following = raw[i]
+            continuation = bool(
+                re.search(r'@[A-Za-z0-9.-]*$', line) and (
+                    (not _EMAIL.search(line) and _DOMAIN.fullmatch(following))
+                    or (line.endswith('.') and re.fullmatch(r'[A-Za-z]{2,24}(?:\.[A-Za-z]{2,24})*', following))
+                    or re.fullmatch(r'\.[A-Za-z]{2,24}(?:\.[A-Za-z]{2,24})*', following)))
+            if continuation:
+                candidate = line + following
+                if _EMAIL.search(candidate):
+                    line = candidate
+                    i += 1
+        # Reassemble a wrapped builder heading before classifying either line.
+        # A known exact full name takes precedence over a partial known name.
+        if not ('@' in line or _PHONE.search(line) or _REGION.fullmatch(line)):
+            label = _FIELD_LABEL.sub('', line).strip()
+            if not re.match(r'^(?:contact(?: person)?|name|phone|email)\s*:', line, re.I):
+                for extra in (2, 1):
+                    following = raw[i:i+extra]
+                    if len(following) != extra or any('@' in v or _PHONE.search(v) or _FIELD_LABEL.match(v) for v in following):
+                        continue
+                    joined = ' '.join([label, *following])
+                    if builder_key(joined) in known:
+                        line = known[builder_key(joined)]
+                        i += extra
+                        break
+                else:
+                    if i < len(raw) and _COMPANY_SUFFIX.fullmatch(raw[i]) and _COMPANY.search(label):
+                        line += ' ' + raw[i]
+                        i += 1
+        yield line
 
 
 def parse_contact_text(text: str, known_builders=()):
-    """Read vertical builder blocks; ambiguous labels stay editable, never invented."""
+    """Read vertical builder blocks; preserve ambiguous fields for user review."""
     if not isinstance(text, str) or len(text) > MAX_TEXT:
         raise ValidationError('Contact text is too long.')
     known = {builder_key(name): name for name in known_builders if isinstance(name, str) and name.strip()}
@@ -39,6 +105,7 @@ def parse_contact_text(text: str, known_builders=()):
     company = ''
     person = {'name': '', 'phones': [], 'emails': []}
     notices = []
+    fragments = []
 
     def flush():
         nonlocal person
@@ -54,42 +121,58 @@ def parse_contact_text(text: str, known_builders=()):
             rows.append({'builder': company, 'name': '', 'phones': [], 'emails': []})
         company = known.get(builder_key(value), value)[:500]
 
-    for raw_line in text.splitlines():
-        line = ' '.join(raw_line.strip().split()).strip('|•—–')
-        if not line or _HEADER.fullmatch(line):
-            continue
+    lines = list(_logical_lines(text, known))
+    for index, line in enumerate(lines):
         explicit_builder = bool(re.match(r'^builder\s*:', line, re.I))
+        explicit_person = bool(re.match(r'^(?:contact(?: person)?|name)\s*:', line, re.I))
         line = _FIELD_LABEL.sub('', line).strip()
         if not line:
             continue
         if _REGION.fullmatch(line) and company and not any(person.values()):
-            # OCR often wraps the regional suffix to the next line.
             suffix = '(' + line.strip('()').upper() + ')'
             company = known.get(builder_key(company + ' ' + suffix), company + ' ' + suffix)
             continue
         emails = _EMAIL.findall(line)
         phones = [value.strip() for value in _PHONE.findall(line)]
         label = _PHONE.sub('', _EMAIL.sub('', line)).strip(' |,;:-')
-        if explicit_builder or (label and (builder_key(label) in known or _COMPANY.search(label))):
+        if label and ('@' in label or _DOMAIN.fullmatch(label) or ('.' in label and not re.search(r'\s', label) and re.search(r'\.(?:au|com|net|org|io|co|uk|nz)$', label, re.I))):
+            # A damaged address is not a new person or builder. Leave the raw
+            # text available in the editor and warn instead of inventing one.
+            fragments.append(label)
+            label = ''
+        next_line = lines[index+1] if index+1 < len(lines) else ''
+        short_builder = bool(label and _ACRONYM.fullmatch(label) and not emails and not phones
+                             and (not company or any(person.values())) and _PHONE.search(next_line))
+        if explicit_builder or (not explicit_person and label and (builder_key(label) in known or _COMPANY.search(label) or short_builder)):
             new_company(label or line)
             label = ''
-        elif label and not company and not (emails or phones):
+        elif label and not company and not (emails or phones) and not explicit_person:
             new_company(label)
             label = ''
         if label:
             if person['name']:
                 flush()
             person['name'] = label[:200]
-        if phones and not label and person['emails'] and person['name']:
-            # The sample's next person starts with a phone before their name.
-            flush()
+        if phones and not label and person['emails'] and person['name'] and next_line:
+            # Phone-first vertical lists may start another contact with a
+            # phone. Do not split consecutive additional numbers or emails.
+            following = _FIELD_LABEL.sub('', next_line).strip()
+            if (not re.match(r'^(?:contact(?: person)?|name)\s*:', next_line, re.I)
+                    and not _PHONE.search(following) and '@' not in following and not _DOMAIN.fullmatch(following)
+                    and builder_key(following) not in known and not _COMPANY.search(following)
+                    and not _ACRONYM.fullmatch(following) and not _REGION.fullmatch(following)):
+                flush()
         for field, values in (('phones', phones), ('emails', emails)):
             for value in values:
-                if value not in person[field] and len(person[field]) < 12:
+                key = value.casefold() if field == 'emails' else re.sub(r'\D', '', value)
+                existing = {v.casefold() if field == 'emails' else re.sub(r'\D', '', v) for v in person[field]}
+                if key not in existing and len(person[field]) < 12:
                     person[field].append(value)
     flush()
     if company and not any(row['builder'] == company for row in rows):
         rows.append({'builder': company, 'name': '', 'phones': [], 'emails': []})
+    if fragments:
+        notices.append('Some email fragments could not be read completely. Check the original screenshot or correct the recognized text; fragments have not been added as people.')
     if any(not row['builder'] or not row['name'] for row in rows):
         notices.append('Some names or builders are missing. Check the screenshot before adding these rows.')
     if len(rows) > MAX_ROWS:

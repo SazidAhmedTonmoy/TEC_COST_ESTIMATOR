@@ -40,6 +40,61 @@ class ContactScreenshotTests(unittest.TestCase):
         self.assertEqual([r['name'] for r in rows],['First Person','Second Person'])
         self.assertEqual(rows[0]['phones'],['+61 400 111 222'])
 
+    def test_wrapped_email_and_builder_headings_with_or_without_directory(self):
+        text = """Builder
+Example Constructions
+0400 111 222
+Alex De Sample
+alex.sample@
+exampleconstructions.com.au
+ABC
+0420000001
+Jordan Example
+jordan.example@
+abcprojects.com.au
+Sample Building Guild
+0400000002
+Lee Example
+lee@sampleguild.com
+Example Interior
+Projects
+0400 000 003
+Venus Example
+venus @exampleinterior.com.au"""
+        expected = [
+            {'builder':'Example Constructions','name':'Alex De Sample','phones':['0400 111 222'],'emails':['alex.sample@exampleconstructions.com.au']},
+            {'builder':'ABC','name':'Jordan Example','phones':['0420000001'],'emails':['jordan.example@abcprojects.com.au']},
+            {'builder':'Sample Building Guild','name':'Lee Example','phones':['0400000002'],'emails':['lee@sampleguild.com']},
+            {'builder':'Example Interior Projects','name':'Venus Example','phones':['0400 000 003'],'emails':['venus@exampleinterior.com.au']},
+        ]
+        for known in ([], [r['builder'] for r in expected]):
+            with self.subTest(known=known):
+                preview=scan.parse_contact_text(text,known)
+                self.assertEqual(preview['rows'],expected)
+                self.assertEqual(preview['warnings'],[])
+
+    def test_unreadable_email_fragment_is_not_a_person(self):
+        result=scan.parse_contact_text('Sample Group\n0400 111 222\nAlex Example\nalex@\nSecond Construction Group\n0400 111 333\nSam Example\nsam@example.com\norphan-domain.com.au')
+        self.assertEqual([r['name'] for r in result['rows']],['Alex Example','Sam Example'])
+        self.assertEqual(result['rows'][0]['emails'],[])
+        self.assertEqual(result['rows'][1]['emails'],['sam@example.com'])
+        self.assertTrue(any('email fragments' in w for w in result['warnings']))
+
+    def test_ocr_spacing_and_multiple_contacts_remain_distinct(self):
+        text='Builder: Example Group\nContact: Alex Example\nEmail: alex @ example . com.au\n0400 111 222\n0400 111 333\nContact: Sam Example\n0420 111 222\nsam@sample.\ncom.au'
+        result=scan.parse_contact_text(text)
+        self.assertEqual(len(result['rows']),2)
+        self.assertEqual(result['rows'][0]['emails'],['alex@example.com.au'])
+        self.assertEqual(result['rows'][0]['phones'],['0400 111 222','0400 111 333'])
+        self.assertEqual(result['rows'][1]['name'],'Sam Example')
+        self.assertEqual(result['rows'][1]['emails'],['sam@sample.com.au'])
+
+    def test_local_part_and_country_suffix_wrapping(self):
+        text='Example Group\nAlex Example\nalex.example\n@example.com.au\nSam Example\nsam@example.com\n.au'
+        rows=scan.parse_contact_text(text)['rows']
+        self.assertEqual([r['name'] for r in rows],['Alex Example','Sam Example'])
+        self.assertEqual([r['emails'] for r in rows],[['alex.example@example.com.au'],['sam@example.com.au']])
+
     def test_text_fallback_never_calls_ocr(self):
         with patch.object(scan.subprocess,'run') as run:
             self.assertEqual(len(scan.recognize({'text':TEXT})['rows']),2)

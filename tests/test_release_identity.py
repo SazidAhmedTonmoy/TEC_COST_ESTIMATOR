@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 class ReleaseIdentityTests(unittest.TestCase):
     def test_versions_and_guide_are_consistent(self):
-        self.assertEqual(__version__, '3.8.11')
+        self.assertEqual(__version__, '3.8.12')
         pkg=json.loads((ROOT/'tenders_frontend/package.json').read_text())
         lock=json.loads((ROOT/'tenders_frontend/package-lock.json').read_text())
         self.assertEqual(pkg['version'],__version__)

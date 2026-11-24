@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.11 · Estimator and Tenders
+Version 3.8.12 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -276,7 +276,7 @@ individual builder submissions remain separate.
    quoted value**. These figures cover that month's submission deadlines.
 6. Use **Reminders** to review due and completed follow-ups.
 
-Open the notification bell for new recorded chase-ups, opportunity updates and reminders. Search by the author’s name, project or message, or choose **Chase-ups** to see newly recorded follow-ups. Selecting **View chase-up** opens the tender. Notifications remain individually read/unread; reading one does not complete a reminder.
+Open the notification bell for new recorded chase-ups, opportunity updates and reminders. Search by the author’s name, project or message, or choose **Chase-ups** to see newly recorded follow-ups. Selecting **View chase-up** opens the tender. Missing notifications for authenticated chase-ups recorded within the last 30 days are recovered automatically; imported history is excluded. Notifications remain individually read/unread; reading one does not complete a reminder.
 
 **Tip:** Desktop notifications may require browser permission; in-app notifications do not.
 
@@ -370,7 +370,7 @@ Your application has separate Estimator and Tender databases; protect both. Encr
 ### Import builder contacts from a screenshot
 
 In New/Edit Opportunity, choose **Builders → Import screenshot**, then paste a cropped contact-list screenshot with Ctrl+V/Cmd+V, drag it into the paste area, or choose a file. Review and correct the detected builder names,
-contact people, phones and emails, then click **Add reviewed builders & contacts**.
+contact people, phones and emails. Wrapped builder headings and split email addresses are joined automatically; unreadable email fragments are flagged for review, not converted into extra contacts. Check spelling against the screenshot, then click **Add reviewed builders & contacts**.
 The records are added to the unsaved form; use the persistent Save/Add opportunity
 button to commit them. Existing shared contacts are reused where an unambiguous
 match exists. Recognition runs inside the browser; no native server OCR setup is needed. If recognition is unavailable, use **Paste or correct recognized text** and **Detect from text**. Hover over agenda entries as well as

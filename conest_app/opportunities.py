@@ -368,7 +368,7 @@ def notify_recorded_chase(db, submission, chase, users):
 
     Tender submissions and their reminders are shared across the authenticated
     workspace. Use the same active recipients and per-user read receipts; never
-    replay old/imported chase history. The event key prevents duplicate receipts.
+    replay imported chase history. The event key prevents duplicate receipts.
     """
     note = chase['note']
     excerpt = note[:500] + ('…' if len(note) > 500 else '')
@@ -381,6 +381,41 @@ def notify_recorded_chase(db, submission, chase, users):
         (str(uuid.uuid4()), person['id'], 'chase-recorded', 'submission',
          submission['id'], submission.get('project') or 'Tender chase-up', message,
          '', chase['createdAt'], key) for person in users))
+
+
+# Recover recent authenticated entries recorded before notification support or
+# during a rolling restart. Imported workbook rows do not have this audit event.
+CHASE_RECEIPT_RECOVERY_DAYS = 30
+
+
+def recover_recorded_chases(db, users, instant):
+    """Fill missing event receipts once, retaining original time and read state."""
+    if not users:
+        return
+    cutoff = (instant.astimezone(timezone.utc) - timedelta(days=CHASE_RECEIPT_RECOVERY_DAYS)).isoformat()
+    upper = instant.astimezone(timezone.utc).isoformat()
+    rows = db.execute("""SELECT a.actor_id, a.actor_name, a.created_at, c.body AS chase,
+                               c.id AS chase_id, s.body AS submission
+                        FROM tender_activity a
+                        JOIN chases c ON c.id=json_extract(a.details, '$.chaseId')
+                                     AND c.submission_id=a.submission_id
+                        JOIN submissions s ON s.id=c.submission_id
+                        WHERE a.action='Recorded chase-up' AND a.actor_id>0
+                          AND a.created_at>=? AND a.created_at<=?
+                          AND NOT EXISTS (SELECT 1 FROM tender_notifications n
+                                          WHERE n.event_key='chase:' || c.id)
+                        ORDER BY a.created_at, a.id""", (cutoff, upper)).fetchall()
+    for row in rows:
+        chase = json.loads(row['chase'])
+        if chase.get('legacyChase') or chase.get('method') == 'Imported' or chase.get('authorId') != row['actor_id']:
+            continue
+        if not all(chase.get(k) for k in ('date', 'note', 'method')):
+            continue
+        # A genuine recorded event uses the audit author and time even if the
+        # chase note was subsequently edited. Never timestamp it as new today.
+        chase.update(id=row['chase_id'], author=row['actor_name'] or chase.get('author') or 'User',
+                     createdAt=row['created_at'])
+        notify_recorded_chase(db, json.loads(row['submission']), chase, users)
 
 
 def _new_item(db, fields, actor):
@@ -997,6 +1032,7 @@ def process_due(store, force=False, now=None):
         instant = now or datetime.now(timezone.utc)
         utc_day = instant.astimezone(timezone.utc).date()
         with _transaction(store) as db:
+            recover_recorded_chases(db, users, instant)
             # Keep permanent approvals out of the expiry work queue. The UTC
             # buffer includes every region's local day; exact regional dates
             # below still decide expiry/reminders, including daylight saving.
