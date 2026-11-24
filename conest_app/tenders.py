@@ -834,6 +834,11 @@ class Store:
         author = text(b.get('author') or 'Tonmoy', 'Author', limit=100)
         reminder_note = text(b.get('reminderNote') or 'Follow up on tender progress', 'Reminder note', limit=2000)
         complete = text(b.get('completeReminder'), 'Reminder ID', limit=100)
+        # Resolve recipients before opening the Tender write transaction. The
+        # authenticated HTTP route supplies the actor; legacy/internal imports
+        # without an actor must not create historical inbox notifications.
+        from .opportunities import directory, notify_recorded_chase
+        users = directory()[1] if b.get('_actor_id') is not None else []
         with self.connect(write=True) as db:
             old = self.find(db, 'submissions', sid)
             if closed_for_chase(json.loads(old['body'])):
@@ -852,6 +857,8 @@ class Store:
             item.update(latest=latest['note'], statusUpdated=latest['date'], revision=old['revision']+1)
             db.execute('UPDATE submissions SET body=?,revision=revision+1 WHERE id=?',(json.dumps(item,ensure_ascii=False),sid))
             self.activity(db,b.get('_actor_id'),author,'Recorded chase-up',item,{'chaseId':c['id']})
+            if users:
+                notify_recorded_chase(db, item, c, users)
             # Follow-ups are created only through the explicit reminder endpoint.
         return {'ok':True}
 

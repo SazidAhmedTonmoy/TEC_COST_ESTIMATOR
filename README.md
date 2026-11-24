@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.10
+# TEC Flow — v3.8.11
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -21,6 +21,12 @@ contains the current app, frontend source, required database migration code, and
 
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
 See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
+
+## Notification update (v3.8.11)
+
+- Recording a new chase-up creates a per-user inbox notification for active Tender workspace users, with the author, project, builder, date and note excerpt.
+- The notification bell refreshes after saving and polls other users’ updates. Search the complete inbox by user name, project or message; filter by Chase-ups, Opportunities or Reminders.
+- Existing chase-up history is not replayed. No database migration.
 
 ## Calendar and contact import (v3.8.10)
 
@@ -150,7 +156,7 @@ the database to another path or host, configure the original key using
 
 ## Data compatibility
 
-- Application version: **3.8.10**
+- Application version: **3.8.11**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.

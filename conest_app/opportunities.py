@@ -362,6 +362,27 @@ def _notify(db, recipient_ids, event_key, kind, item, message, created_at=None):
                 item['project'], message, item.get('due', ''), moment, event_key))
 
 
+
+def notify_recorded_chase(db, submission, chase, users):
+    """Write inbox receipts in the same transaction as the recorded chase-up.
+
+    Tender submissions and their reminders are shared across the authenticated
+    workspace. Use the same active recipients and per-user read receipts; never
+    replay old/imported chase history. The event key prevents duplicate receipts.
+    """
+    note = chase['note']
+    excerpt = note[:500] + ('…' if len(note) > 500 else '')
+    message = (f'{chase["author"]} recorded a chase-up for {submission.get("builder") or "the builder"}. '
+               f'{chase["date"]} · {chase["method"]}\n{excerpt}')
+    key = 'chase:' + chase['id']
+    db.executemany('''INSERT OR IGNORE INTO tender_notifications
+        (id,user_id,kind,target_kind,target_id,title,message,due,created_at,event_key)
+        VALUES(?,?,?,?,?,?,?,?,?,?)''', (
+        (str(uuid.uuid4()), person['id'], 'chase-recorded', 'submission',
+         submission['id'], submission.get('project') or 'Tender chase-up', message,
+         '', chase['createdAt'], key) for person in users))
+
+
 def _new_item(db, fields, actor):
     now = tenders.timestamp()
     # Source workbook IDs never identify a new row. Check every physical row,
@@ -1048,13 +1069,32 @@ def notifications(store, filters, user):
     page = _page(filters.get('page'), 1, 100000)
     size = _page(filters.get('pageSize'), 30, 100)
     visible = _visible_notifications_sql()
+    # Search and category filters apply before counting/paging. All data remains
+    # scoped to the signed-in user's inbox; literal substring matching avoids
+    # treating SQL LIKE wildcard characters as operators.
+    query = tenders.text(filters.get('q'), 'Notification search', limit=200)
+    kind = filters.get('kind') or 'all'
+    categories = {
+        'all': '',
+        'opportunities': " AND target_kind='opportunity'",
+        'chases': " AND kind='chase-recorded'",
+        'reminders': " AND kind='reminder'",
+    }
+    if kind not in categories:
+        raise tenders.ValidationError('Choose a valid notification type.')
+    where = 'user_id=? AND ' + visible + categories[kind]
+    args = [actor['id']]
+    if query:
+        where += " AND instr(notification_casefold(title || ' ' || message), ?) > 0"
+        args.append(query.casefold())
     with store.connect() as db:
+        db.create_function('notification_casefold', 1, lambda value: (value or '').casefold())
         db.execute('BEGIN')
-        total = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND ' + visible, (actor['id'],)).fetchone()[0]
+        total = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE ' + where, args).fetchone()[0]
         unread = db.execute('SELECT COUNT(*) FROM tender_notifications WHERE user_id=? AND read_at IS NULL AND ' + visible, (actor['id'],)).fetchone()[0]
         page = min(page, max(1, (total + size - 1) // size))
-        rows = db.execute('SELECT * FROM tender_notifications WHERE user_id=? AND ' + visible +
-            ' ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?', (actor['id'], size, (page - 1) * size)).fetchall()
+        rows = db.execute('SELECT * FROM tender_notifications WHERE ' + where +
+            ' ORDER BY created_at DESC,id DESC LIMIT ? OFFSET ?', (*args, size, (page - 1) * size)).fetchall()
         items = []
         for row in rows:
             item = {'id': row['id'], 'kind': row['kind'], 'title': row['title'], 'message': row['message'],

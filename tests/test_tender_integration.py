@@ -62,6 +62,17 @@ class TenderIntegrationTests(unittest.TestCase):
         status,chase=self.request('POST','/api/tenders/chases',{'submissionId':sid,'note':'Check price','date':'2026-09-24','author':'Forged author','nextDue':'2026-09-26T09:00'})
         self.assertEqual(status,200,chase)
         self.assertNotEqual(chase['chases'][0]['author'],'Forged author')
+        # A successful HTTP save creates an inbox notice using the signed-in
+        # actor, not the author supplied by the browser.
+        from urllib.parse import urlencode
+        status,inbox=self.request('GET','/api/tenders/notifications?'+urlencode({
+            'kind':'chases','q':chase['chases'][0]['author']}))
+        self.assertEqual(status,200,inbox)
+        notices=[n for n in inbox['items'] if n.get('submissionId')==sid]
+        self.assertEqual(len(notices),1)
+        self.assertIn('Check price',notices[0]['message'])
+        self.assertNotIn('Forged author',notices[0]['message'])
+        self.assertEqual(self.request('GET','/api/tenders/notifications?kind=chases&q=Forged+author')[1]['total'],0)
         self.assertEqual(len(chase['reminders']),0)  # Recording history never schedules a follow-up.
         status,res=self.request('DELETE','/api/tenders/submissions',{'id':sid,'revision':item['revision']})
         self.assertEqual(status,409)

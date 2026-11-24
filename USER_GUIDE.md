@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.10 · Estimator and Tenders
+Version 3.8.11 · Estimator and Tenders
 
 Open **? Help → User Guide** inside the website to search these instructions.
 
@@ -276,7 +276,9 @@ individual builder submissions remain separate.
    quoted value**. These figures cover that month's submission deadlines.
 6. Use **Reminders** to review due and completed follow-ups.
 
-**Tip:** Notifications may require browser permission; in-app reminders do not.
+Open the notification bell for new recorded chase-ups, opportunity updates and reminders. Search by the author’s name, project or message, or choose **Chase-ups** to see newly recorded follow-ups. Selecting **View chase-up** opens the tender. Notifications remain individually read/unread; reading one does not complete a reminder.
+
+**Tip:** Desktop notifications may require browser permission; in-app notifications do not.
 
 ### Import and export tender registers
 

@@ -53,7 +53,7 @@ jobs:
           python tools/build_frontend.py
           python tools/check_secrets.py
           python -m compileall -q app.py conest_app
-          node --test tests/browser_contact_ocr.test.mjs tests/contact_screenshot_ui.test.mjs
+          node --test tests/browser_contact_ocr.test.mjs tests/contact_screenshot_ui.test.mjs tests/tender_notifications.test.mjs
           python tools/run_tests.py --workers 4
 
       - name: Configure SSH
