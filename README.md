@@ -29,18 +29,23 @@ quotation walkthroughs include screenshots and worked examples. Catalogue matchi
 uses the local database. The upgrade removes retired provider settings, including
 the stored provider key, when the application opens its database.
 
-For the updated-only source package, overlay the files on the v3.8.12 source
-tree and remove these retired files from that tree before building:
+When applying an update ZIP or replacing an existing checkout, copying files does
+not delete retired source. This also applies if the discarded v3.9.0 AI update was
+previously extracted into the checkout. From the repository root, after copying
+this release's files, run:
 
 ```text
-assets/app.f7ecc7922ad0.js
-assets/styles.1725e0d1f799.css
-assets/help_chat.js
-conest_app/assistant.py
-conest_app/assistant_actions.py
-conest_app/help_chat.py
-tests/test_help_assistant.py
+python tools/cleanup_retired_ai.py --apply
+python tools/cleanup_retired_ai.py
+git status --short
 ```
+
+The utility removes only explicitly listed retired AI source, compiled assets,
+AI documentation and obsolete tests. It does not modify databases, data folders,
+environment files or hosting configuration. Review the deletions, stage them
+with `git add -A`, commit and push to `main` to start a new GitHub Actions run.
+The workflow now checks that these obsolete files are absent before building.
+It still runs every current test. Do not rerun an older commit to apply the fix.
 
 Build Tenders and deploy using the normal deployment workflow below.
 

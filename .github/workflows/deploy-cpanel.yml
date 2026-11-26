@@ -38,6 +38,9 @@ jobs:
           python-version: '3.11'
           cache: pip
 
+      - name: Check retired AI source cleanup
+        run: python tools/cleanup_retired_ai.py
+
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
