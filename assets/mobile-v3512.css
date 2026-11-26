@@ -2,8 +2,8 @@
    Loaded after the legacy Estimator theme and responsive rules. */
 /* The login is shared by Estimator and Tenders. No estimate-only floating UI
    should appear during sign-in, loading or other non-estimate pages. */
-body:has(#login-screen:not(.hidden)) :is(#floating-search-button,#light-price-floating-search,#toggle-all-categories,#floating-bottom-button,#help-chat-button,.frozen-estimate-heading),
-body:has(#authenticated-app.hidden) :is(#floating-search-button,#light-price-floating-search,#toggle-all-categories,#floating-bottom-button,#help-chat-button,.frozen-estimate-heading),
+body:has(#login-screen:not(.hidden)) :is(#floating-search-button,#light-price-floating-search,#toggle-all-categories,#floating-bottom-button,#guide-launch,.frozen-estimate-heading),
+body:has(#authenticated-app.hidden) :is(#floating-search-button,#light-price-floating-search,#toggle-all-categories,#floating-bottom-button,#guide-launch,.frozen-estimate-heading),
 body:not(:has(#estimate-view.active)) :is(#toggle-all-categories,#floating-bottom-button) {display:none!important}
 .estimator-menu-backdrop[hidden] {display:none!important}
 .estimator-menu-backdrop {display:none}

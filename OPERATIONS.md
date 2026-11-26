@@ -86,12 +86,10 @@ overwrites.
 
 ## Storage, encryption keys and recovery
 
-Saved Gemini credentials and all newly created database backup/recovery snapshots
+All newly created database backup/recovery snapshots
 use authenticated **AES-256-GCM** encryption. Backup downloads use `.db.enc`;
 the browser receives the encrypted file. Authentication rejects altered files
-and wrong keys before a recovered database is used. Existing saved plaintext
-Gemini keys are encrypted during startup, and keys are never returned to the
-Settings form.
+and wrong keys before a recovered database is used.
 
 The active databases remain ordinary SQLite files. Full protection of active
 business data at rest requires encrypted hosting storage. Keys, new encrypted

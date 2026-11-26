@@ -250,8 +250,7 @@ def ensure_database(path=None):
                 finally:
                     _local.paths = paths
             # Runs once per worker even when no schema upgrade is needed.
-            # An existing plaintext API credential is encrypted before serving
-            # requests, using a key kept outside the website directory.
+            # Validate the backup key and retire obsolete provider settings.
             from .data_protection import protect_database_settings
             with _raw_connect(target) as conn:
                 credential_changed = protect_database_settings(conn)

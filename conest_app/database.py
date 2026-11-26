@@ -256,13 +256,10 @@ DEFAULT_SETTINGS = {
     "default_save_mode": "estimate",
     "default_overhead_markup": "0.10",
     "currency": "AUD",
-    "llm_provider": "gemini",
-    "llm_model": "gemini-3.8-flash",
-    "llm_enabled": "0",
-    "gemini_api_key": "",
+
 }
 
-SECRET_SETTING_KEYS = {"gemini_api_key"}
+RETIRED_SETTINGS = ("gemini_api_key", "llm_provider", "llm_model", "llm_enabled")
 
 
 def _ensure_catalog_metadata_columns(conn: sqlite3.Connection) -> bool:
@@ -398,19 +395,6 @@ def _initialize_schema(path: str | Path | None = None) -> Path:
                 (key, value, now),
             )
 
-        # Migrate the v1.0 OpenAI default to Gemini without overwriting a
-        # Gemini model that the user has already selected.
-        current_model = conn.execute("SELECT value FROM settings WHERE key='llm_model'").fetchone()
-        if current_model and current_model[0].strip().lower().startswith("gpt-"):
-            conn.execute(
-                "UPDATE settings SET value=?, updated_at=? WHERE key='llm_model'",
-                (DEFAULT_SETTINGS["llm_model"], now),
-            )
-        conn.execute(
-            "UPDATE settings SET value='gemini', updated_at=? WHERE key='llm_provider' AND value <> 'gemini'",
-            (now,),
-        )
-
         projects = conn.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
         if not projects and not conn.execute("SELECT 1 FROM sqlite_sequence WHERE name='projects'").fetchone():
             conn.execute(
@@ -476,31 +460,20 @@ def _initialize_schema(path: str | Path | None = None) -> Path:
     return target
 
 
-def get_settings(conn: sqlite3.Connection, include_secrets: bool = False) -> dict[str, str]:
+def get_settings(conn: sqlite3.Connection) -> dict[str, str]:
     settings = {row["key"]: row["value"] for row in conn.execute("SELECT key, value FROM settings")}
     settings.setdefault("default_save_mode", "estimate")
-    if not include_secrets:
-        for key in SECRET_SETTING_KEYS:
-            settings.pop(key, None)
-    else:
-        from .data_protection import connection_database_path, unprotect_secret
-        path = connection_database_path(conn)
-        for key in SECRET_SETTING_KEYS:
-            if settings.get(key):
-                settings[key] = unprotect_secret(settings[key], setting=key, database=path)
+    for key in RETIRED_SETTINGS:
+        settings.pop(key, None)
     settings.pop('data_protection_key_id', None)
     return settings
 
 
 def update_settings(conn: sqlite3.Connection, values: dict[str, str]) -> None:
     now = utc_now()
-    if SECRET_SETTING_KEYS.intersection(values):
-        from .data_protection import connection_database_path, protect_database_settings, protect_secret
-        protect_database_settings(conn)
-        path = connection_database_path(conn)
     for key, value in values.items():
-        if key in SECRET_SETTING_KEYS:
-            value = protect_secret(str(value), setting=key, database=path)
+        if key in RETIRED_SETTINGS:
+            continue
         conn.execute(
             """INSERT INTO settings(key, value, updated_at) VALUES (?, ?, ?)
                ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at""",

@@ -284,20 +284,13 @@ def protect_database_settings(conn: sqlite3.Connection) -> bool:
     identity = key_identifier(key)
     if recorded and not hmac.compare_digest(recorded, identity):
         raise ProtectionError("The configured encryption key does not match this database. Restore the original key.")
-    secret = conn.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()
-    changed = False
-    if secret and secret[0]:
-        if str(secret[0]).startswith(SECRET_PREFIX):
-            unprotect_secret(str(secret[0]), setting="gemini_api_key", database=database)
-        else:
-            conn.execute("PRAGMA secure_delete=ON")
-            encrypted = protect_secret(str(secret[0]), setting="gemini_api_key", database=database)
-            conn.execute("UPDATE settings SET value=? WHERE key='gemini_api_key'", (encrypted,))
-            changed = True
+    from .database import RETIRED_SETTINGS
+    conn.execute("PRAGMA secure_delete=ON")
+    deleted = conn.executemany("DELETE FROM settings WHERE key=?", ((key,) for key in RETIRED_SETTINGS))
     if not recorded:
         from .utils import utc_now
         conn.execute("INSERT INTO settings(key,value,updated_at) VALUES(?,?,?)", (KEY_ID_SETTING, identity, utc_now()))
-    return changed
+    return deleted.rowcount > 0
 
 
 def _header(purpose: str, key: bytes, nonce: bytes) -> bytes:

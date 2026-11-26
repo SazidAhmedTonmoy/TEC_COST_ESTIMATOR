@@ -240,8 +240,7 @@ def restore_backup(name):
                 raise ValueError('Restore requires a backup from the same application schema version')
             if not source.execute("SELECT 1 FROM users WHERE role='admin' AND is_active=1").fetchone():
                 raise ValueError('Backup has no active administrator')
-            # Legacy backups may contain a plaintext API key; encrypt it before
-            # it enters the restored live database. Validate the recorded key ID.
+            # Remove retired settings and validate the backup key before restore.
             protect_database_settings(source)
             source.commit()
             safety = create_backup('before-restore')

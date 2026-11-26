@@ -2,15 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 const source = name => readFileSync(new URL('../'+name,import.meta.url),'utf8');
-test('Help provides searchable guide and a separate assistant with explicit confirmation',()=>{
- const js=source('assets/help_chat.js');
- assert.match(js,/id=\\?"help-tab-guide/);
- assert.match(js,/help-guide-search/);
- assert.match(js,/Review before applying/);
- assert.match(js,/Confirm action/);
- assert.match(js,/\/api\/assistant\/action/);
- assert.doesNotMatch(js,/id=\\?"help-mode-button/);
-});
 test('Dashboard removes permanent three-field filter bar, while keeping advanced filters',()=>{
  const app=source('tenders_frontend/src/components/tender-app.tsx');
  assert.ok(app.includes('dashboard-quick-actions'));
@@ -27,7 +18,7 @@ test('Tender views remember search, filter, sorting and scroll when navigating',
 });
 test('Both client entrypoints load versioned guide styles',()=>{
  for(const file of ['assets/index.html','tenders_frontend/index.html']){
-  assert.match(source(file),/help_shared\.css\?v=3\.7\.27-r1/);
+  assert.match(source(file),/help_shared\.css\?v=3\.8\.13/);
  }
 });
 test('Estimate view preserves collapsed groups, expanded items and search by user and project',()=>{

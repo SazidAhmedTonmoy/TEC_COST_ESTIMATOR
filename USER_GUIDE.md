@@ -2,11 +2,29 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.12 · Estimator and Tenders
+Version 3.8.13 · Estimator and Tenders
 
-Open **? Help → User Guide** inside the website to search these instructions.
+Open **? Help** inside the website to search these instructions.
 
 ## Getting started
+
+### Build your first estimate
+
+![Estimate item search showing 12 downlights](assets/guide-catalog-search.png)
+
+1. **Find the fitting.** From the Estimate page, enter “12 x downlight” in Search by item title and select Find. Check the Qty field shows 12, then review a matching fitting and its components.
+2. **Add the quantity.** Add the reviewed fitting to this estimate. Give it the drawing reference D1 and check that the estimate line shows twelve fittings.
+3. **Allocate by floor.** In Breakdown, choose Active and add Ground floor and Level 1. Choose Multiple areas for D1. Enter eight on Ground floor and four on Level 1.
+4. **Review and export.** Return to the estimate and check D1 still totals twelve. Review the included price, save a revision and choose Export Excel. Check that the workbook includes both floor allocations.
+
+### Follow up your first quotation
+
+![Search for the project in Project Chase-up](assets/guide-tender-search.png)
+
+1. **Find the submission.** In Tenders, open Project Chase-up. Search for the project, then open the row for the builder you actually quoted. A project can have several builder submissions.
+2. **Record the conversation.** After speaking to the builder, add a chase-up entry with the contact, date and what they said. Save and check the newest history entry.
+3. **Schedule the next call.** Schedule a follow-up for the agreed date and time. Select the 14-day repeat option only if a fortnightly call was agreed. Open Calendar and select the date to check the entry.
+4. **Update the outcome.** When the builder confirms they won the main contract, record their outcome as Awarded. Keep TEC status Open while the electrical subcontract is undecided. Find the project in Open-Awarded.
 
 ### Sign in and choose a homepage
 
@@ -21,7 +39,7 @@ Open **? Help → User Guide** inside the website to search these instructions.
 1. Use the sidebar to open the features in your current workspace.
 2. Use the Estimator / Tenders switcher to change workspace without signing out.
 3. Use search in the relevant register to find a project by name, builder or reference.
-4. Use Help → User Guide for step-by-step instructions or Help → AI Assistant for a question.
+4. Open Help and search for the task you want to complete. Select a topic to see its steps.
 
 **Tip:** Opening a project should not force you to recreate a search or filter.
 
@@ -31,7 +49,7 @@ Open **? Help → User Guide** inside the website to search these instructions.
 2. Upload a profile photo or select initials. Choose My homepage.
 3. Enter the current password when changing your username or password, then save.
 
-**Tip:** A password change signs out other sessions. Do not share passwords with Help.
+**Tip:** A password change signs out other sessions.
 
 ## Estimator workspace
 
@@ -336,27 +354,17 @@ When adding builder contacts in **New/Edit Opportunity**, the save buttons stay 
 
 Sign-in sessions expire after **12 hours by default**, including while you are using the app; your administrator can configure this limit. Sign in again when prompted. Accounts still using a starter password must choose a new password before continuing.
 
-### Settings, AI configuration and backups
+### Application defaults and backups
 
-1. Administrators open App Settings to configure supported application options and Gemini access.
-   Saved Gemini keys are encrypted on the server and are not displayed again. Enter a replacement to change the key.
-2. Confirm integrations before submitting private workspace records or documents to an external AI provider.
+1. Open App Settings to set default currency, labour rate, crew size and mark-ups.
+2. Select Save defaults and check the settings in your next new project.
 3. New Estimator and Tender backup downloads are marked **Encrypted** and use `.db.enc`. Older downloads may be marked **Legacy unencrypted**.
 4. The server keeps the latest regular backup for each database. Download any recovery copies you need to retain separately.
 5. Estimator backups can be restored through the backup controls; restoring replaces newer data and signs everyone out. Tender recovery is performed by the server administrator.
 
 **Recovery:** Ask the server administrator to keep the original encryption key securely and separately from the downloads. Encrypted backups require that key; a lost or different key cannot unlock them. Server recovery instructions are in `OPERATIONS.md`.
 
-Your application has separate Estimator and Tender databases; protect both. Encryption covers saved Gemini keys and new backups. The server's active business databases still require protected hosting storage, and authorized Excel/JSON exports remain readable files.
-
-### AI Assistant, documents and confirmed actions
-
-1. Open ? Help → AI Assistant to ask about an estimate, project, catalog item or tender.
-2. Use the attachment button to supply a text PDF, spreadsheet, DOCX or text file.
-3. Enable configured Gemini in Help Settings if you want AI-powered analysis using supplied context.
-4. For supported write tasks, such as adding a note, updating project progress, changing a deadline, recording Won/Lost or renaming a project, review the preview and select Confirm.
-
-**Tip:** The assistant cannot arbitrarily access external systems, ignore user permissions or execute unknown operations. Actions require approval.
+Your application has separate Estimator and Tender databases; protect both. Encryption covers new backups. The server's active business databases still require protected hosting storage, and authorized Excel/JSON exports remain readable files.
 
 ### Saving, retry and recovery
 

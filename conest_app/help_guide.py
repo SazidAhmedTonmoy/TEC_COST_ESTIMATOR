@@ -1,13 +1,31 @@
-"""Versioned, searchable in-product documentation for TEC Flow.
-
-Each article is ordinary application documentation, never an instruction to an LLM.
-The same records supply the Help panel and grounded AI how-to context.
-"""
+"""Searchable instructions for the TEC Flow workspaces."""
 
 from . import __version__
 
+# Each stage pairs the instruction with the values a new user should recognise.
+WALKTHROUGHS = {
+    'first-estimate': [
+        ('Find the fitting', 'From the Estimate page, enter “12 x downlight” in Search by item title and select Find. Check the Qty field shows 12, then review a matching fitting and its components.', [('Search', '12 x downlight'), ('Quantity', '12')]),
+        ('Add the quantity', 'Add the reviewed fitting to this estimate. Give it the drawing reference D1 and check that the estimate line shows twelve fittings.', [('Reference', 'D1'), ('Estimate quantity', '12')]),
+        ('Allocate by floor', 'In Breakdown, choose Active and add Ground floor and Level 1. Choose Multiple areas for D1. Enter eight on Ground floor and four on Level 1.', [('Ground floor', '8'), ('Level 1', '4'), ('Remaining', '0')]),
+        ('Review and export', 'Return to the estimate and check D1 still totals twelve. Review the included price, save a revision and choose Export Excel. Check that the workbook includes both floor allocations.', [('D1 total', '12'), ('Ground floor + Level 1', '8 + 4')]),
+    ],
+    'first-follow-up': [
+        ('Find the submission', 'In Tenders, open Project Chase-up. Search for the project, then open the row for the builder you actually quoted. A project can have several builder submissions.', [('Project', 'Example office fitout'), ('Builder', 'Example Construction'), ('TEC status', 'Open')]),
+        ('Record the conversation', 'After speaking to the builder, add a chase-up entry with the contact, date and what they said. Save and check the newest history entry.', [('Contact', 'Alex'), ('Chase-up note', 'Pricing under review. Call next Wednesday.')]),
+        ('Schedule the next call', 'Schedule a follow-up for the agreed date and time. Select the 14-day repeat option only if a fortnightly call was agreed. Open Calendar and select the date to check the entry.', [('Next contact', 'Wednesday, 10 am Sydney'), ('Repeat every 14 days', 'Off')]),
+        ('Update the outcome', 'When the builder confirms they won the main contract, record their outcome as Awarded. Keep TEC status Open while the electrical subcontract is undecided. Find the project in Open-Awarded.', [('Builder outcome', 'Awarded'), ('TEC status', 'Open'), ('Register', 'Open-Awarded')]),
+    ],
+}
+
 SECTIONS = [
     ('start', 'Getting started', [
+        ('first-estimate', 'Build your first estimate', [
+            step[1] for step in WALKTHROUGHS['first-estimate']
+        ], 'Start with an editable estimate. If this tender already has a linked estimate, open that project before adding fittings.'),
+        ('first-follow-up', 'Follow up your first quotation', [
+            step[1] for step in WALKTHROUGHS['first-follow-up']
+        ], 'Start with a submitted quotation. A chase-up records a conversation. A scheduled follow-up puts the next call on your calendar.'),
         ('first-login', 'Sign in and choose a homepage', [
             'Sign in using your assigned account. If prompted, change the temporary password first.',
             'Choose Estimator or Tenders from the workspace switcher. Both use the same account.',
@@ -17,13 +35,13 @@ SECTIONS = [
             'Use the sidebar to open the features in your current workspace.',
             'Use the Estimator / Tenders switcher to change workspace without signing out.',
             'Use search in the relevant register to find a project by name, builder or reference.',
-            'Use Help → User Guide for step-by-step instructions or Help → AI Assistant for a question.',
+            'Open Help and search for a task such as “allocate quantities” or “builder contacts”.',
         ], 'Opening a project should not force you to recreate a search or filter.'),
         ('account', 'My Profile, photo and security', [
             'Click your profile in the sidebar and edit your name, contact details and job title.',
             'Upload a profile photo or select initials. Choose My homepage.',
             'Enter the current password when changing your username or password, then save.',
-        ], 'A password change signs out other sessions. Do not share passwords with Help.'),
+        ], 'A password change signs out other sessions.'),
     ]),
     ('estimator', 'Estimator workspace', [
         ('estimate-home', 'Estimator Home and Project Board', [
@@ -133,6 +151,12 @@ SECTIONS = [
             'Values within one field use OR; different fields combine using AND.',
             'Clear a field or use Clear filters to start over.',
         ], 'Filters should stay in place when opening a tender and returning to the register.'),
+        ('contact-import', 'Import builder contacts from a screenshot', [
+            'Open a new opportunity or edit an existing one. Under Builders, select Import screenshot.',
+            'Paste a cropped contact list, drag the image into the paste area or select a file. If recognition is unavailable, use Paste or correct recognized text and Detect from text.',
+            'Compare the proposed rows with your source. Check that each person sits under the right builder and that wrapped phone numbers and email addresses are complete.',
+            'Select Add reviewed builders & contacts. Check the list in the opportunity form, then save the opportunity.',
+        ], 'Adding the reviewed rows fills the form. Saving the opportunity commits them.'),
         ('builder-contacts', 'Shared builder contacts', [
             'Opportunities, Tender/Chase-up and Open-Awarded use one shared builder contact directory.',
             'Add contact person supports multiple people, each with up to 12 phone numbers and 12 email addresses. Contacts are optional and can be added later.',
@@ -205,17 +229,11 @@ SECTIONS = [
             'One account may belong to multiple teams. Team assignment controls access to relevant estimate editing.',
             'Each team can have its own default homepage and Estimator usage setting.',
         ], 'Do not share admin credentials. Viewer access and edit access are different.'),
-        ('app-settings', 'Settings, AI configuration and backups', [
-            'Administrators open App Settings to configure supported application options and Gemini access.',
-            'Confirm integrations before submitting private workspace records or documents to an external AI provider.',
+        ('app-settings', 'Application defaults and backups', [
+            'Administrators open App Settings to set the default currency, labour rate, mark-ups and crew size.',
+            'Choose Save defaults. Open a new estimate and check its costing settings before adding items.',
             'Use database backup/restore controls carefully; restoring a backup replaces newer data.',
         ], 'Your application has separate Estimator and Tender SQLite databases; protect both.'),
-        ('assistant', 'AI Assistant, documents and confirmed actions', [
-            'Open ? Help → AI Assistant to ask about an estimate, project, catalog item or tender.',
-            'Use the attachment button to supply a text PDF, spreadsheet, DOCX or text file.',
-            'Enable configured Gemini in Help Settings if you want AI-powered analysis using supplied context.',
-            'For supported write tasks, such as adding a note, updating project progress, changing a deadline, recording Won/Lost or renaming a project, review the preview and select Confirm.',
-        ], 'The assistant cannot arbitrarily access external systems, ignore user permissions or execute unknown operations. Actions require approval.'),
         ('save-recovery', 'Saving, retry and recovery', [
             'Watch Saved / Saving / Unsaved status in Estimator and Breakdown.',
             'If a write fails, do not repeat it blindly: first verify whether the server saved the change.',
@@ -228,21 +246,6 @@ SECTIONS = [
 def guide_payload():
     return {'version': __version__, 'sections': [
         {'id': group, 'title': label, 'articles': [
-            {'id': slug, 'title': title, 'steps': steps, 'note': note}
+            {'id': slug, 'title': title, 'steps': steps, 'note': note, 'walkthrough': WALKTHROUGHS.get(slug, [])}
             for slug, title, steps, note in articles
         ]} for group, label, articles in SECTIONS]}
-
-
-def guide_text(question='', max_articles=10):
-    """Retrieve only relevant guide entries so prompts stay bounded."""
-    import re
-    words = [w for w in re.findall(r'[a-z0-9]+', question.casefold()) if len(w)>3 and w not in {'about','from','with','show','make','what','where','when','which','please','help','this','that'}]
-    ranks = []
-    for group, label, articles in SECTIONS:
-        for slug, title, steps, note in articles:
-            body = f'{title} {label} ' + ' '.join(steps) + ' ' + note
-            score = sum(4 if w in title.casefold() else 2 if w in label.casefold() else 1 if w in body.casefold() else 0 for w in words)
-            ranks.append((score, title, steps, note))
-    ranks.sort(key=lambda x: x[0], reverse=True)
-    chosen = ranks[:max_articles] if words else ranks[:5]
-    return '\n\n'.join(f'{title}:\n' + '\n'.join(f'{i+1}. {step}' for i,step in enumerate(steps)) + f'\nNote: {note}' for _,title,steps,note in chosen)

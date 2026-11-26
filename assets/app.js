@@ -643,7 +643,7 @@ async function runSmartSearch() {
   box.classList.remove("hidden");
   box.innerHTML = "<p class='helper-text'>Searching item titles…</p>";
   try {
-    const result = await api("/api/assistant/interpret", { method: "POST", body: { text } });
+    const result = await api("/api/catalog/match", { method: "POST", body: { text } });
     if(requestVersion!==smartResultVersion)return;
     $("#smart-quantity").value = result.quantity;
     renderSearchResults(result);
@@ -659,8 +659,7 @@ function renderSearchResults(result) {
     box.innerHTML = `<div class="empty-state"><h3>No reliable catalog match</h3><p>Try a product name, size or shorter description, or create a manual item.</p></div>`;
     return;
   }
-  const methodLabel = result.method === "gemini_rerank" ? " Gemini reranked the local matches." : result.method === "local_free_quota" ? " Gemini free quota is exhausted, so local ranking was used." : result.method === "local_fallback" ? " Gemini was unavailable, so local ranking was used." : " Local catalog ranking was used.";
-  box.innerHTML = `<p class="helper-text">Interpreted as <strong>${escapeHtml(result.query)}</strong>, quantity <strong>${fmtNumber(result.quantity)}</strong>. Match confidence: ${escapeHtml(result.confidence)}.${methodLabel} Select an item to review its components.</p>` + result.candidates.map((item, index) => `
+  box.innerHTML = `<p class="helper-text">Interpreted as <strong>${escapeHtml(result.query)}</strong>, quantity <strong>${fmtNumber(result.quantity)}</strong>. Match confidence: ${escapeHtml(result.confidence)}. Select an item to review its components.</p>` + result.candidates.map((item, index) => `
     <article class="search-result catalog-peek" data-catalog-preview="${item.id}">
       <div class="search-result-main"><div><h3>${catalogName(item)}${index === 0 ? ` <em class="recommended-tag">Recommended</em>` : ""}</h3><p>${escapeHtml(item.category || "Other")} · ${escapeHtml(workTypeLabel(item.pricing_work_type || item.work_type))} / ${escapeHtml(item.base_uom || "EA")}</p><div class="result-tags"><span class="data-status ${escapeHtml(item.data_status)}">${(item.pricing_label || dataStatusLabel(item.data_status))}</span><span>${variantText(item)}</span><span>${Number(item.component_count || 0)} components</span></div></div></div>
       <div class="result-cost">${ratingStamp(item)}<span>Material / unit<strong>${fmtMoney(item.unit_material)}</strong></span><span>Labour / unit<strong>${catalogLaborLabel(item)}</strong></span>${Number(item.variant_count || 1) > 1 ? `<button class="button tertiary small compare-variants" data-id="${item.id}" data-query="${escapeHtml(item.name)}">Versions</button>` : ""}<button class="button secondary search-delete-item" type="button" data-id="${item.id}">Delete</button><button class="button secondary edit-add-result" data-id="${item.id}">Edit & add</button><button class="button primary add-result" data-id="${item.id}" data-query="${escapeHtml(result.original)}">Add</button></div>
@@ -1231,19 +1230,6 @@ async function loadSettings(render = true, initialData = null) {
     $("#default-currency").value = result.settings.currency || "AUD";
     $("#default-crew-size").value = result.settings.default_crew_size || 2;
     $("#default-hours-per-day").value = result.settings.default_hours_per_day || 8;
-    $("#llm-enabled").checked = result.settings.llm_enabled === "1";
-    const models = result.settings.llm_models || ["gemini-3.8-flash"];
-    $("#llm-model").innerHTML = models.map((model) => `<option value="${escapeHtml(model)}">${escapeHtml(model)}</option>`).join("");
-    $("#llm-model").value = models.includes(result.settings.llm_model) ? result.settings.llm_model : models[0];
-    const keyInput = $("#gemini-api-key");
-    keyInput.value = "";
-    keyInput.type = "password";
-    $("#toggle-gemini-key").textContent = "Show";
-    const source = result.settings.llm_api_key_source;
-    $("#llm-key-status").textContent = result.settings.llm_api_key_configured
-      ? source === "saved" ? "Gemini API key is saved securely. Leave this field blank to keep it, or enter a replacement and save defaults."
-        : "Gemini API key is configured from GEMINI_API_KEY. Enter a key here to save an override."
-      : "No Gemini API key is configured. Search suggestions and local fuzzy matching still work without AI.";
   }
   return result.settings;
 }
@@ -1259,42 +1245,10 @@ async function saveSettings(event) {
     currency: $("#default-currency").value,
     default_crew_size: Number($("#default-crew-size").value || 2),
     default_hours_per_day: Number($("#default-hours-per-day").value || 8),
-    llm_enabled: $("#llm-enabled").checked ? "1" : "0",
-    llm_model: $("#llm-model").value,
   };
-  const key = $("#gemini-api-key").value.trim();
-  if (key) payload.gemini_api_key = key;
   await api("/api/settings", { method: "PATCH", body: payload });
   await loadSettings();
-  toast("Application defaults and Gemini settings saved");
-}
-
-async function testGemini() {
-  const button = $("#test-llm-button");
-  const oldText = button.textContent;
-  button.disabled = true;
-  button.textContent = "Testing…";
-  try {
-    const payload = { llm_model: $("#llm-model").value };
-    const key = $("#gemini-api-key").value.trim();
-    if (key) payload.gemini_api_key = key;
-    const result = await api("/api/settings/test-llm", { method: "POST", body: payload });
-    $("#llm-key-status").textContent = `${result.message} Model: ${result.model}.`;
-    toast("Gemini connection is working");
-  } catch (error) {
-    $("#llm-key-status").textContent = error.message;
-    toast(error.message, true);
-  } finally {
-    button.disabled = false;
-    button.textContent = oldText;
-  }
-}
-
-async function clearGeminiKey() {
-  if (!confirm("Clear the Gemini API key saved in this app?")) return;
-  await api("/api/settings", { method: "PATCH", body: { clear_gemini_api_key: true } });
-  await loadSettings();
-  toast("Saved Gemini API key cleared");
+  toast("Application defaults saved");
 }
 
 function bindEvents() {
@@ -1502,14 +1456,6 @@ function bindEvents() {
   $("#import-form").addEventListener("submit", importWorkbook);
   $("#import-file").addEventListener("change", (event) => { if (event.target.files[0]) { $("#import-progress").textContent = "File selected. Click Preview workbook to continue."; $("#import-progress").classList.remove("hidden"); } });
   $("#app-settings-form").addEventListener("submit", (event) => saveSettings(event).catch((error) => toast(error.message, true)));
-  $("#test-llm-button").addEventListener("click", () => testGemini());
-  $("#clear-llm-key-button").addEventListener("click", () => clearGeminiKey().catch((error) => toast(error.message, true)));
-  $("#toggle-gemini-key").addEventListener("click", () => {
-    const input = $("#gemini-api-key");
-    const showing = input.type === "text";
-    input.type = showing ? "password" : "text";
-    $("#toggle-gemini-key").textContent = showing ? "Show" : "Hide";
-  });
   $("#export-button").addEventListener("click", () => { if (state.projectId) window.location.href = `/api/projects/${state.projectId}/export`; });
   document.addEventListener("mouseover", (event) => {
     const target = event.target.closest?.("[data-catalog-preview]");

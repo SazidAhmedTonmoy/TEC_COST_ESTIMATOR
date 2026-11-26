@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import patch
 import urllib.error
 
-from conest_app import assistant, auto_upgrade, backups, data_protection as protection
+from conest_app import auto_upgrade, backups, data_protection as protection
 from conest_app.database import connect, get_settings, initialize, update_settings
 from encrypted_backup_fixture import open_backup
 
@@ -37,28 +37,15 @@ class DataProtectionTests(unittest.TestCase):
         self.environment.stop()
         self.temporary.cleanup()
 
-    def test_saved_key_is_encrypted_and_never_in_public_settings(self):
-        initialize()
-        secret = 'synthetic-secret-for-encryption-test'
-        with connect() as connection:
-            update_settings(connection, {'gemini_api_key': secret})
-            stored = connection.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()[0]
-            self.assertTrue(stored.startswith(protection.SECRET_PREFIX))
-            self.assertNotIn(secret, stored)
-            self.assertNotIn('gemini_api_key', get_settings(connection))
-            self.assertNotIn(protection.KEY_ID_SETTING, get_settings(connection))
-            self.assertEqual(get_settings(connection, include_secrets=True)['gemini_api_key'], secret)
-            self.assertEqual(assistant._setting_map(connection)['gemini_api_key'], secret)
 
     def test_existing_plaintext_key_migrates_and_old_wal_frames_are_checkpointed(self):
         initialize()
         secret = 'legacy-synthetic-secret-must-disappear'
         with connect() as connection:
-            connection.execute("UPDATE settings SET value=? WHERE key='gemini_api_key'", (secret,))
+            connection.execute("INSERT INTO settings(key,value,updated_at) VALUES('gemini_api_key',?,'')", (secret,))
         auto_upgrade._ready.pop(str(self.database), None)
         with connect() as connection:
-            self.assertTrue(connection.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()[0].startswith(protection.SECRET_PREFIX))
-            self.assertEqual(get_settings(connection, include_secrets=True)['gemini_api_key'], secret)
+            self.assertNotIn('gemini_api_key', get_settings(connection))
         self.assertNotIn(secret.encode(), self.database.read_bytes())
         wal = self.database.with_name(self.database.name + '-wal')
         if wal.exists():
@@ -149,17 +136,17 @@ class DataProtectionTests(unittest.TestCase):
         self.assertEqual(len(list(backups.folder().glob('*.db.json'))), 1)
         self.assertFalse(list(backups.folder().glob('*.pending')))
 
-    def test_legacy_plaintext_backup_restore_encrypts_old_secret(self):
+    def test_legacy_plaintext_backup_restore_removes_retired_secret(self):
         initialize()
         legacy = backups.folder() / 'legacy.db'
         with connect() as source, closing(sqlite3.connect(legacy)) as destination:
             source.backup(destination)
-            destination.execute("UPDATE settings SET value=? WHERE key='gemini_api_key'", ('legacy-test-secret',))
+            destination.execute("INSERT INTO settings(key,value,updated_at) VALUES('gemini_api_key',?,'')", ('legacy-test-secret',))
             destination.commit()
         backups.restore_backup(legacy.name)
         with connect() as connection:
-            self.assertEqual(get_settings(connection, include_secrets=True)['gemini_api_key'], 'legacy-test-secret')
-            self.assertTrue(connection.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()[0].startswith(protection.SECRET_PREFIX))
+
+            self.assertIsNone(connection.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone())
 
     def test_default_key_provisioning_is_private_atomic_and_missing_key_fails_closed(self):
         home = self.root / 'service-home'
@@ -216,20 +203,6 @@ class DataProtectionTests(unittest.TestCase):
         with self.assertRaises(protection.ProtectionError):
             protection.decrypt_file(encrypted, self.root / 'wrong.db', purpose='backup:tenders')
 
-    def test_provider_response_bodies_and_errors_never_echo_credentials(self):
-        initialize()
-        secret = 'synthetic-provider-secret'
-        with connect() as connection:
-            update_settings(connection, {'gemini_api_key': secret})
-            error = urllib.error.HTTPError('https://example.invalid', 403, secret, {}, io.BytesIO(json.dumps({'error': {'message': secret}}).encode()))
-            with patch.object(assistant, '_gemini_generate', side_effect=error):
-                response = assistant.test_gemini_connection(connection)
-                self.assertNotIn(secret, json.dumps(response))
-                self.assertEqual(response['status'], 403)
-            with patch.object(assistant, '_gemini_generate', side_effect=OSError(secret)):
-                self.assertNotIn(secret, json.dumps(assistant.test_gemini_connection(connection)))
-            with patch.object(assistant, '_gemini_generate', return_value=secret):
-                self.assertNotIn(secret, json.dumps(assistant.test_gemini_connection(connection)))
 
 
 if __name__ == '__main__':

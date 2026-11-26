@@ -1,4 +1,4 @@
-# TEC Flow — v3.8.12
+# TEC Flow — v3.8.13
 
 **TEC Flow — Electrical Estimating & Tender Management Platform**  
 **From Opportunity to Award**
@@ -21,6 +21,28 @@ contains the current app, frontend source, required database migration code, and
 
 See [USER_GUIDE.md](USER_GUIDE.md) or **? Help → User Guide** for feature instructions.
 See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks and monitoring.
+
+## Updating from v3.8.12
+
+Help opens the searchable user guide in both workspaces. The first estimate and first
+quotation walkthroughs include screenshots and worked examples. Catalogue matching
+uses the local database. The upgrade removes retired provider settings, including
+the stored provider key, when the application opens its database.
+
+For the updated-only source package, overlay the files on the v3.8.12 source
+tree and remove these retired files from that tree before building:
+
+```text
+assets/app.f7ecc7922ad0.js
+assets/styles.1725e0d1f799.css
+assets/help_chat.js
+conest_app/assistant.py
+conest_app/assistant_actions.py
+conest_app/help_chat.py
+tests/test_help_assistant.py
+```
+
+Build Tenders and deploy using the normal deployment workflow below.
 
 ## Notification and screenshot import correction (v3.8.12)
 
@@ -70,8 +92,8 @@ See [OPERATIONS.md](OPERATIONS.md) for encryption keys, recovery, load checks an
 
 ## Security and capacity update (v3.8.6)
 
-- Saved Gemini credentials and newly created database backups use authenticated
-  AES-256-GCM encryption. The saved key is never returned to the browser.
+- New database backups use authenticated
+  AES-256-GCM encryption.
 - Sessions expire after 12 hours by default. Unchanged bundled starter passwords
   require a password change before business data is available.
 - Private-file rules protect Apache deployments while preserving cPanel settings.
@@ -157,7 +179,7 @@ the database to another path or host, configure the original key using
 
 ## Data compatibility
 
-- Application version: **3.8.12**
+- Application version: **3.8.13**
 - Estimator SQLite schema: **36**
 - Tender data: additive shared contact directory and selection tables.
 - Database migration for v3.8.3: automatic, idempotent import of existing Tender and Open-Awarded contacts; original source records are preserved during migration.

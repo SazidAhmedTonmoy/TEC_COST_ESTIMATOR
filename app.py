@@ -29,13 +29,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
 
-from conest_app.assistant import (
-    DEFAULT_GEMINI_MODEL,
-    FREE_TIER_GEMINI_MODELS,
-    gemini_key_configured,
-    interpret_request,
-    test_gemini_connection,
-)
+from conest_app.catalog_match import interpret_request
 from conest_app.catalog import (
     catalog_overview,
     create_manual_catalog_item,
@@ -306,18 +300,6 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
     def _settings_payload(self):
         with self._read_connection() as conn:
             settings = get_settings(conn)
-            configured = gemini_key_configured(conn)
-            stored = conn.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()
-        settings["llm_provider"] = "gemini"
-        settings["llm_model"] = settings.get("llm_model") or DEFAULT_GEMINI_MODEL
-        settings["llm_api_key_configured"] = configured
-        settings["llm_api_key_source"] = (
-            "saved" if stored and stored[0].strip()
-            else "environment" if os.environ.get("GEMINI_API_KEY", "").strip()
-            else "none"
-        )
-        settings["llm_models"] = list(FREE_TIER_GEMINI_MODELS)
-        settings["llm_free_tier_only"] = True
         return {"success": True, "settings": settings}
 
     def do_GET(self) -> None:  # noqa: N802
@@ -669,14 +651,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                     conn.commit()
                 self._send_json({"success": True, **result}, 201)
                 return
-            if path == "/api/assistant/help":
-                from conest_app.help_chat import prepare_context, answer_context
-                payload=self._json_body()
-                with self._read_connection() as conn:
-                    prepared=prepare_context(conn,self.user,payload)
-                self._send_json({"success":True,**answer_context(prepared)})
-                return
-            if path == "/api/assistant/interpret":
+            if path == "/api/catalog/match":
                 payload = self._json_body()
                 text = clean_text(payload.get("text"))
                 if not text:
@@ -684,16 +659,6 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 with connect() as conn:
                     result = interpret_request(conn, text)
                 self._send_json({"success": True, **result})
-                return
-            if path == "/api/settings/test-llm":
-                payload = self._json_body()
-                model = clean_text(payload.get("llm_model")) or None
-                if model and model not in FREE_TIER_GEMINI_MODELS:
-                    raise ValueError("Select a supported free-tier Gemini model")
-                api_key = clean_text(payload.get("gemini_api_key")) or None
-                with connect() as conn:
-                    result = test_gemini_connection(conn, api_key=api_key, model=model)
-                self._send_json({"success": result["success"], **result}, 200 if result["success"] else 400)
                 return
             preview_commit=re.fullmatch(r'/api/import-previews/([a-f0-9]{32})/commit',path)
             if preview_commit:
@@ -797,7 +762,7 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 allowed = {
                     "default_material_markup", "default_labor_rate", "default_overhead_markup",
                     "default_labor_hours_markup", "default_save_mode",
-                    "currency", "llm_model", "llm_enabled", "default_crew_size", "default_hours_per_day"
+                    "currency", "default_crew_size", "default_hours_per_day"
                 }
                 values = {key: value for key, value in payload.items() if key in allowed}
                 if "default_save_mode" in values and values["default_save_mode"] not in ("estimate", "update", "new"):
@@ -810,30 +775,10 @@ class ConEstHandler(ProductivityHTTP, WorkspaceHTTP, BaseHTTPRequestHandler):
                 if "default_labor_hours_markup" in values:
                     from conest_app.projects import labor_hours_markup
                     values["default_labor_hours_markup"]=labor_hours_markup(values["default_labor_hours_markup"])
-                selected_model = clean_text(values.get("llm_model"))
-                if selected_model and selected_model not in FREE_TIER_GEMINI_MODELS:
-                    raise ValueError("Select a supported free-tier Gemini model")
-                api_key = clean_text(payload.get("gemini_api_key"))
-                if api_key:
-                    values["gemini_api_key"] = api_key
-                if payload.get("clear_gemini_api_key"):
-                    values["gemini_api_key"] = ""
-                values["llm_provider"] = "gemini"
                 with self._write_connection() as conn:
                     update_settings(conn, values)
                     conn.commit()
                     settings = get_settings(conn)
-                    configured = gemini_key_configured(conn)
-                    stored = conn.execute("SELECT value FROM settings WHERE key='gemini_api_key'").fetchone()
-                settings["llm_provider"] = "gemini"
-                settings["llm_api_key_configured"] = configured
-                settings["llm_api_key_source"] = (
-                    "saved" if stored and stored[0].strip()
-                    else "environment" if os.environ.get("GEMINI_API_KEY", "").strip()
-                    else "none"
-                )
-                settings["llm_models"] = list(FREE_TIER_GEMINI_MODELS)
-                settings["llm_free_tier_only"] = True
                 self._send_json({"success": True, "settings": settings})
                 return
             raise ApiError(404, "Route not found")

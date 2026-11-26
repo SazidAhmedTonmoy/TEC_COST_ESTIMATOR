@@ -1,55 +1,38 @@
-.help-chat-launch{position:fixed;bottom:20px;left:250px;z-index:40;background:#087f75;color:white;border:1px solid #5bbfb5;border-radius:24px;padding:12px 17px;cursor:pointer;font:600 14px system-ui}.help-chat-launch.hidden{display:none}.help-chat-dialog{width:min(850px,94vw);max-height:90vh;padding:24px;border:1px solid #c7d6de;border-radius:20px;background:#fff;color:#183346;overflow:auto;font:14px/1.5 system-ui}.help-chat-dialog::backdrop{background:#07162199}.help-chat-heading{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}.help-chat-heading h2{font-size:21px;margin:0}.help-chat-heading p{margin:4px 0}.help-chat-notice{font-size:12px;color:#587185}.help-tools{display:grid;gap:12px;margin:16px 0}.help-tools label{display:flex;gap:9px;align-items:center}.help-chat-dialog select,.help-chat-dialog textarea{background:#f4f8fa;color:inherit;border:1px solid #bdcfd8;border-radius:9px;padding:10px;max-width:100%;font:inherit}.help-chat-dialog textarea{width:100%;box-sizing:border-box}.help-ai-choice{font-size:12px}.help-ai-choice input{width:auto}.help-memory{padding:12px;border:1px solid #cfdae0;border-radius:12px;margin-bottom:14px}.help-memory summary{cursor:pointer;font-weight:600}.help-memory label{display:block;margin:10px 0}.help-memory small{display:block;color:#587185}.help-chat-dialog .button{border:1px solid #bdcfd8;border-radius:9px;background:#f4f8fa;color:inherit;cursor:pointer;padding:8px 12px;font:600 13px system-ui}.help-chat-dialog .primary{background:#087f75;border-color:#087f75;color:white}.help-chat-dialog button:disabled{opacity:.55;cursor:wait}.help-chat-compose{display:flex;gap:10px;align-items:flex-end}.help-chat-compose textarea{flex:1}.help-chat-messages{max-height:40vh;overflow:auto;margin:16px 0}.help-message{margin:10px 0;padding:12px;border:1px solid #d1e0e5;border-radius:10px;background:#f5f9fa}.help-message.question{margin-left:35px;background:#e6f4f2}.help-message p{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}#help-documents>div{margin:12px 0;overflow-wrap:anywhere}#help-clear-memory{margin-top:12px}html[data-theme="dark"] .help-chat-dialog,.dark .help-chat-dialog{background:#182f3a;color:#dfebf1;border-color:#355463}html[data-theme="dark"] .help-chat-dialog textarea,html[data-theme="dark"] .help-chat-dialog select,html[data-theme="dark"] .help-chat-dialog .secondary,html[data-theme="dark"] .help-message{background:#10242e;color:#dfebf1;border-color:#355463}html[data-theme="dark"] .help-message.question{background:#163d3e}html[data-theme="dark"] .help-chat-notice,html[data-theme="dark"] .help-memory small{color:#aec5d2}.performance-toolbar{flex-wrap:wrap}#contribution-dates{display:flex;gap:12px;flex-wrap:wrap}#contribution-dates input{min-width:125px;max-width:170px}.performance-kpis{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}@media(max-width:650px){.help-chat-launch{left:16px;bottom:16px}.help-chat-dialog{padding:16px}.help-chat-compose{align-items:stretch;flex-direction:column}.help-tools label{flex-wrap:wrap}}
-.help-chat-dialog{margin:auto}.help-chat-dialog .help-tools label{display:flex;text-align:left;justify-content:flex-start}.help-chat-dialog .help-ai-choice{align-items:flex-start;flex-wrap:nowrap}.help-chat-dialog .help-ai-choice input[type="checkbox"]{flex:0 0 16px;width:16px;height:16px;margin:3px 0;padding:0}
+#guide-launch {position:fixed;bottom:18px;left:250px;z-index:40;border:1px solid #80beb7;border-radius:24px;background:#13675e;color:#fff;padding:10px 17px;min-height:42px;font:600 14px system-ui;cursor:pointer}
+#guide-launch[hidden] {display:none}
+#flow-guide {--paper:#fff;--text:#193442;--line:#c8d8db;--tint:#edf6f3;--accent:#156458;box-sizing:border-box;width:min(940px,95vw);max-height:90dvh;margin:auto;padding:0;border:1px solid var(--line);border-radius:16px;background:var(--paper);color:var(--text);font:15px/1.55 system-ui;overflow:auto}
+html[data-theme=dark] #flow-guide,.dark #flow-guide {--paper:#192f39;--text:#e3eef0;--line:#45606d;--tint:#213e47;--accent:#99e4d2}
+#flow-guide::backdrop {background:#11273199}
+#flow-guide header,#flow-guide label {display:flex;gap:14px;padding:14px 22px;align-items:center}
+#flow-guide header {justify-content:space-between;border-bottom:1px solid var(--line)}
+#flow-guide h2,#flow-guide h3,#flow-guide h4 {color:inherit;line-height:1.25;margin:0}
+#flow-guide h2 {font-size:20px}
+#flow-guide label {font-weight:600}
+#flow-guide input,#flow-guide button {font:inherit;color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-height:40px}
+#flow-guide input {flex:1;min-width:0}
+#flow-guide button {cursor:pointer}
+#flow-guide :focus-visible,#guide-launch:focus-visible {outline:3px solid #31998a;outline-offset:1px}
+#flow-guide .guide-layout {display:grid;grid-template-columns:minmax(190px,32%) 1fr;border-top:1px solid var(--line);height:min(520px,60dvh)}
+#flow-guide nav,#flow-guide article {overflow:auto;padding:18px 22px;overscroll-behavior:contain}
+#flow-guide nav {border-right:1px solid var(--line)}
+#flow-guide nav h4,#flow-guide article small,#flow-guide figcaption {color:var(--accent);font-weight:700;font-size:12px}
+#flow-guide nav h4 {margin:18px 0 6px}
+#flow-guide nav h4:first-child {margin-top:0}
+#flow-guide nav button {display:block;text-align:left;width:100%;border-color:transparent;padding:7px 9px;font-size:14px}
+#flow-guide nav button[aria-current=true] {background:var(--tint);border-color:var(--line);font-weight:650}
+#flow-guide article h3 {font-size:24px;margin:4px 0 16px}
+#flow-guide ol {padding-left:24px}
+#flow-guide li {padding:4px 0 8px 4px}
+#flow-guide aside {border-left:3px solid var(--accent);padding:8px 14px;margin:18px 0;background:var(--tint)}
+#flow-guide figure {margin:0 0 18px;border:1px solid var(--line);border-radius:12px;padding:14px 18px;background:var(--tint)}
+#flow-guide dl {display:grid;grid-template-columns:auto 1fr;column-gap:16px;margin:8px 0}
+#flow-guide dt,#flow-guide dd {border-bottom:1px solid var(--line);padding:7px 0;margin:0}
+#flow-guide dd {text-align:right;font-weight:650}
+#flow-guide .guide-controls {display:flex;gap:8px}
+#flow-guide button:disabled {opacity:.45;cursor:default}
+@media(prefers-reduced-motion:no-preference){#flow-guide figure {animation:guide-arrive .22s ease-out}@keyframes guide-arrive {from {opacity:.5;transform:translateY(5px)} to {opacity:1;transform:none}}}
+@media(max-width:700px){#guide-launch {left:12px;bottom:12px}#flow-guide .guide-layout {display:flex;flex-direction:column;height:63dvh}#flow-guide nav {max-height:16dvh;flex:none;border-right:0;border-bottom:1px solid var(--line)}#flow-guide article {flex:1}#flow-guide header,#flow-guide label,#flow-guide article,#flow-guide nav {padding:10px 14px}}
+.performance-toolbar{flex-wrap:wrap}#contribution-dates{display:flex;gap:12px;flex-wrap:wrap}#contribution-dates input{min-width:125px;max-width:170px}.performance-kpis{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
 
-.help-source-link{display:inline-block;margin:10px 12px 0 0;color:#087f75;text-decoration:underline}html[data-theme="dark"] .help-source-link{color:#7dd9cd}
-/* Focused chat workspace: controls above, conversation centre, composer below. */
-.help-chat-dialog[open]{display:flex;flex-direction:column;width:min(940px,94vw);height:min(800px,90vh);padding:0;overflow:hidden;border-radius:22px}.help-chat-dialog .help-chat-heading{padding:22px 24px;border-bottom:1px solid #dce5e9;flex-shrink:0;align-items:center}.help-chat-heading h2{font-size:20px}.help-chat-heading p{font-size:12px;color:#66808c}.help-header-actions{display:flex;gap:7px}.help-chat-dialog .help-chat-messages{flex:1;min-height:80px;max-height:none;margin:0;padding:24px;overflow-y:auto}.help-chat-messages:empty:before{content:'What are you working on? Ask about an estimate, tender or attached file.';display:block;text-align:center;margin:70px auto;max-width:400px;color:#68818d;font-size:20px;line-height:1.7}.help-chat-dialog .help-message{background:transparent;border:0;padding:14px 0;max-width:92%;margin:10px 0;line-height:1.65}.help-chat-dialog .help-message.question{background:#eef4f5;border-radius:18px;padding:12px 18px;margin-left:auto;width:fit-content;max-width:85%}.help-chat-dialog #help-chat-form{padding:12px 22px 16px;border-top:1px solid #e1e8ec;flex-shrink:0}.help-chat-dialog .help-chat-compose{align-items:flex-end;flex-direction:row;padding:10px;border:1px solid #bccfd7;border-radius:20px;background:#f7fafb;box-shadow:0 3px 12px #102c3810}.help-chat-dialog .help-chat-compose textarea{border:0;background:transparent;resize:vertical;min-height:48px;max-height:150px;padding:8px;box-shadow:none;outline:none}.help-chat-dialog #help-attach-button,.help-chat-dialog #send-help-chat{width:38px;height:38px;min-width:38px;border-radius:12px;font-size:22px;padding:0}.help-composer-note{font-size:11px;color:#738996;margin:8px 0 0;text-align:center}.help-chat-dialog #help-settings{margin:0;padding:18px 24px;max-height:45vh;overflow:auto;border:0;border-bottom:1px solid #dce5e9;border-radius:0;flex-shrink:0}.help-chat-dialog #help-settings[hidden]{display:none}.help-chat-dialog #help-settings h3{margin:0 0 12px}.help-chat-dialog #help-reset-memory{margin-top:12px}.help-chat-dialog input[hidden]{display:none}html[data-theme="dark"] .help-chat-dialog .help-chat-heading,html[data-theme="dark"] .help-chat-dialog #help-chat-form,html[data-theme="dark"] .help-chat-dialog #help-settings{border-color:#34505d}html[data-theme="dark"] .help-chat-dialog .help-chat-compose,html[data-theme="dark"] .help-chat-dialog .help-message.question{background:#102630;border-color:#355463}html[data-theme="dark"] .help-chat-dialog .help-message.answer,html[data-theme="dark"] .help-chat-dialog .help-chat-compose textarea{background:transparent}.project-status.status-closed{background:#e5e9ed;color:#52606c}@media(max-width:600px){.help-chat-dialog .help-chat-heading{padding:14px;align-items:flex-start;gap:10px;flex-wrap:wrap}.help-header-actions{margin-left:auto}.help-chat-dialog .help-chat-messages{padding:14px}.help-chat-dialog #help-chat-form{padding:10px}.help-header-actions .button{font-size:12px;padding:7px}.help-chat-dialog .help-chat-compose{gap:6px}}
-
-/* Equal header controls and a compact composer model selector. */
-#help-chat-dialog .help-header-actions{display:grid;grid-template-columns:repeat(4,86px);gap:6px;align-items:center}
-#help-chat-dialog .help-header-actions button{width:86px;height:42px;min-height:42px;margin:0;padding:0 7px;box-sizing:border-box;font-size:12px}
-#help-chat-dialog .help-compose-options{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 0;color:var(--muted);font-size:12px}
-#help-chat-dialog .help-compose-options label{display:flex;align-items:center;gap:8px;margin:0}
-#help-chat-dialog #help-model{width:auto;max-width:205px;min-height:32px;padding:4px 8px;font-size:12px}
-@media(max-width:650px){#help-chat-dialog .help-header-actions{grid-template-columns:repeat(4,minmax(0,1fr));width:100%}#help-chat-dialog .help-header-actions button{width:100%}#help-chat-dialog .help-compose-options{flex-wrap:wrap;gap:5px}}
-/* Tenders retains its gold accent in both colour modes. */
-html[data-workspace=tenders] .help-chat-launch{background:#f4cf38;border-color:#d1a900;color:#172b3a}
-html[data-workspace=tenders] .help-chat-launch:hover{background:#ffe170}
-html[data-workspace=tenders] .help-chat-dialog .primary{background:#f4cf38;border-color:#d1a900;color:#172b3a}
-html[data-workspace=tenders] .help-compose-options{color:#8da6b4}
-/* v3.7.27 Help: compact header, searchable guide and explicit action previews. */
-#help-chat-dialog .help-header-actions{display:flex;gap:8px;flex:0 0 auto;align-items:center}
-#help-chat-dialog .help-header-actions button{width:auto;min-width:80px;height:40px;min-height:40px;padding:0 15px}
-#help-chat-dialog .help-tabs{display:flex;gap:8px;padding:10px 24px;border-bottom:1px solid #355363;flex-shrink:0}
-#help-chat-dialog .help-tab{border-radius:9px;border:1px solid transparent;background:transparent;color:inherit;min-height:40px;padding:9px 15px;cursor:pointer;font-weight:650}
-#help-chat-dialog .help-tab.selected{background:#0b8780;color:#fff;border-color:#24a49c}
-#help-chat-dialog .help-guide[hidden],#help-chat-dialog .help-chat-messages[hidden],#help-chat-dialog #help-chat-form[hidden]{display:none!important}
-#help-chat-dialog .help-guide{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;padding:0 20px 20px}
-#help-chat-dialog .help-guide-search{display:grid;gap:6px;flex-shrink:0;margin:15px 0 12px;font-size:12px;font-weight:650}
-#help-chat-dialog .help-guide-search input{width:100%;min-height:42px;border:1px solid #567383;border-radius:10px;padding:10px;background:transparent;color:inherit;font:inherit}
-#help-chat-dialog .help-guide-layout{display:grid;grid-template-columns:minmax(185px,35%) minmax(0,1fr);gap:12px;min-height:0;flex:1}
-#help-chat-dialog .help-guide-topics,#help-chat-dialog .help-guide-content{overflow:auto;min-height:0;border:1px solid #3c5864;border-radius:12px;padding:12px}
-#help-chat-dialog .help-topic{display:block;border:0;border-radius:8px;width:100%;background:transparent;color:inherit;text-align:left;font-size:13px;padding:10px 11px;cursor:pointer;min-height:40px}
-#help-chat-dialog .help-topic:hover,#help-chat-dialog .help-topic.selected{background:#0b817924}
-#help-chat-dialog .help-topic.selected{box-shadow:inset 3px 0 #13a99e}
-#help-chat-dialog .help-topic-group{font-size:11px;font-weight:750;letter-spacing:.05em;text-transform:uppercase;color:#7ccabe;padding:14px 8px 4px}
-#help-chat-dialog .help-guide-content h3{font-size:20px;line-height:1.25;margin-bottom:5px}
-#help-chat-dialog .help-topic-category{color:#95b0bc;font-size:12px;margin-bottom:15px}
-#help-chat-dialog .help-guide-content ol{margin:0 0 16px 21px;padding:0;line-height:1.7}
-#help-chat-dialog .help-guide-content li{margin:10px 0}
-#help-chat-dialog .help-guide-tip{padding:12px;margin:14px 0;border:1px solid #456874;border-radius:9px;color:inherit;background:#063b3b16}
-#help-chat-dialog .help-guide-content>.button{margin:12px 0}
-#help-chat-dialog .help-settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
-#help-chat-dialog .help-attachment-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-#help-chat-dialog .help-compose-selectors{display:flex;gap:12px;flex-wrap:wrap}
-#help-chat-dialog .help-compose-selectors label{display:flex;gap:6px;align-items:center}
-#help-chat-dialog .help-compose-selectors select{min-width:120px}
-#help-chat-dialog .help-starter-questions{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-top:7px}
-#help-chat-dialog .help-starter-questions button{border:1px solid #57717b;border-radius:9px;background:transparent;color:inherit;font-size:11px;padding:7px 9px;cursor:pointer}
-#help-chat-dialog .help-starter-questions button:hover{border-color:#0b8780}
-#help-chat-dialog .help-action-preview{border:1px solid #19a198;border-radius:12px;padding:16px;margin-top:12px;white-space:pre-wrap}
-#help-chat-dialog .help-action-preview p{margin:9px 0 14px;line-height:1.6}
-#help-chat-dialog .help-action-controls{display:flex;gap:8px;flex-wrap:wrap}
-#help-chat-dialog :is(button,select,input,textarea):focus-visible{outline:2px solid #18bdb1;outline-offset:2px}
-html[data-workspace=tenders] #help-chat-dialog .help-tab.selected{background:#f4cf38;color:#172b3a;border-color:#d1a900}
-@media(max-width:650px){#help-chat-dialog .help-tabs{padding:8px 12px}#help-chat-dialog .help-guide{padding:0 10px 10px}#help-chat-dialog .help-guide-layout{grid-template-columns:1fr;grid-template-rows:minmax(96px,32%) minmax(0,1fr)}#help-chat-dialog .help-guide-search{margin-top:10px}#help-chat-dialog .help-header-actions{flex-wrap:wrap}#help-chat-dialog .help-starter-questions{display:none}#help-chat-dialog .help-compose-selectors{gap:4px}}
+#flow-guide figure img {display:block;box-sizing:border-box;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;margin:12px 0}
+.project-status.status-closed{background:#e5e9ed;color:#52606c}

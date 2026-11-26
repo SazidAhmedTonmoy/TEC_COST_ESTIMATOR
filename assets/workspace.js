@@ -34,7 +34,7 @@ function setAccount(user, token) {
 }
 function showLogin() {
   document.body.classList.remove('app-loading');
-  if(typeof resetHelpChat==='function')resetHelpChat();
+  document.getElementById('flow-guide')?.close();
   if(typeof clearProfilePhoto==='function')clearProfilePhoto();
   if(typeof resetUploadHistory==='function')resetUploadHistory();
   state.projectLoadRequest=(state.projectLoadRequest||0)+1;state.catalogDetailRequest=(state.catalogDetailRequest||0)+1;
@@ -49,7 +49,7 @@ function showLogin() {
   if(typeof resetLightPrices==='function')resetLightPrices();
   $('#catalog-hover-preview').classList.add('hidden');
   $('#login-screen').classList.remove('hidden');
-  $('#login-password').value = ''; $('#gemini-api-key').value = '';
+  $('#login-password').value = '';
 }
 async function enterWorkspace(result) {
   document.body.classList.add('app-loading');

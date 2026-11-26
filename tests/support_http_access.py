@@ -85,18 +85,6 @@ class Http232Tests(unittest.TestCase):
         for bad in ('-1','text','0'):
             status,error=self.request('GET',f'/api/projects/{pid}/activity?before_id={bad}');self.assertEqual(status,400,error)
 
-    def test_help_route_reads_other_team_and_lighting_and_catalogue(self):
-        d=self.data
-        for payload,expected in [({'question':'Show material and labour for Orchid Office project'},'Material cost:'),
-            ({'question':'Show catalog LED Batten components'},'Cable accessories'),
-            ({'question':'Explain light price for Orchid favourite'},'AUD 102.50')]:
-            status,result=self.request('POST','/api/assistant/help',payload)
-            self.assertEqual(status,200,result);self.assertIn(expected,result['answer']);self.assertTrue(result['sources'])
-        status,error=self.request('POST','/api/assistant/help',{'question':'Show all projects'},csrf=False)
-        self.assertEqual(status,403,error)
-        self.cookie='';self.csrf=''
-        status,error=self.request('POST','/api/assistant/help',{'question':'Show all projects'});self.assertEqual(status,401,error)
-        status,error=self.request('GET',f"/api/projects/{d['project_id']}");self.assertEqual(status,401,error)
 
     def test_profile_http_replacement_serves_new_bytes_only(self):
         uid=self.data['viewer']['id'];old=None
@@ -123,7 +111,7 @@ class Http232Tests(unittest.TestCase):
     def test_release_health_and_new_assets(self):
         status,result=self.request('GET','/api/health');self.assertEqual((status,result['release'],result['schema_version']),(200,__version__,CURRENT_SCHEMA))
         status,html=self.request('GET','/');self.assertEqual(status,200)
-        self.assertIn(b'help-chat-scope',html);self.assertIn(b'notes-readonly',html)
+        self.assertIn(b'help_shared.css',html);self.assertIn(b'notes-readonly',html)
         status,css=self.request('GET','/assets/styles.css');self.assertEqual(status,200);self.assertIn(b'calendar-metric-grid',css)
 
 if __name__=='__main__':unittest.main()
