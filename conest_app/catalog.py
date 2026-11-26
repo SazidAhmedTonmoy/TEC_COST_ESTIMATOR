@@ -290,7 +290,7 @@ def _search_catalog_uncached(
     category = clean_text(category)
     limit = max(1, min(int(limit or 20), 100))
     offset = max(0, int(offset))
-    if sort_by not in ("legacy", "recent", "uploaded", "relevance"):
+    if sort_by not in ("legacy", "recent", "uploaded", "relevance", "rating"):
         raise ValueError("Choose a valid catalog sort")
     rows = _search_rows(conn)
     recent = {int(row[0]): row[1] for row in conn.execute(
@@ -315,6 +315,7 @@ def _search_catalog_uncached(
         row=candidate[2]
         last_used=recent.get(int(row["id"]), "")
         latest_source=row["last_uploaded_at"] or (row["updated_at"] if row["is_manual"] else "") or ""
+        if sort_by == "rating":return (int(row["importance_rating"] or 0),last_used,latest_source,candidate[0],candidate[1],int(row["id"]))
         if sort_by == "uploaded":return (latest_source,last_used,candidate[0],candidate[1],int(row["id"]))
         if sort_by == "relevance":return (candidate[0],candidate[1],last_used,latest_source,int(row["id"]))
         if sort_by == "recent" or recent_first:return (last_used,latest_source,candidate[0],candidate[1],int(row["id"]))

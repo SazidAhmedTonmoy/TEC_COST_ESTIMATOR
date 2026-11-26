@@ -2,7 +2,7 @@
 
 **Electrical Estimating & Tender Management Platform** · **From Opportunity to Award**
 
-Version 3.8.13 · Estimator and Tenders
+Version 3.8.14 · Estimator and Tenders
 
 Open **? Help** inside the website to search these instructions.
 

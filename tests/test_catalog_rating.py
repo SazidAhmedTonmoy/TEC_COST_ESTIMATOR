@@ -38,6 +38,16 @@ class CatalogRatingTests(unittest.TestCase):
    results=search_catalog(c,'Test rating item')
    self.assertEqual(len(results),1);self.assertEqual(results[0]['importance_rating'],4)
    self.assertEqual(results[0]['id'],first['id'])
+ def test_rating_sort_orders_all_pages(self):
+  with connect() as c:
+   for rating in [0,3,5,1,4,2]:
+    create_manual_catalog_item(c,{'name':f'Starorder fitting {rating}','importance_rating':rating,'components':[{'description':'Allowance','quantity_per_unit':1,'unit_material':12+rating}]})
+  ratings=[]
+  for offset in (0,2,4):
+   status,result=self.request('GET',f'/api/catalog/search?q=Starorder&sort=rating&limit=2&offset={offset}')
+   self.assertEqual(status,200,result)
+   ratings.extend(item['importance_rating'] for item in result['results'])
+  self.assertEqual(ratings,[5,4,3,2,1,0])
  def test_schema28_upgrade_preserves_estimates_and_defaults_unstarred(self):
   with connect() as c:
    f=seed(c);before=projects.calculate_project(c,f['project_id'])['totals']

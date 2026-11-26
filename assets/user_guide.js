@@ -9,6 +9,7 @@
         <label>Find a task<input type="search" placeholder="Try Breakdown, contacts or chase-up" autofocus></label>
         <div class="guide-layout"><nav aria-label="Guide topics"></nav><article aria-live="polite"></article></div>
       </dialog>`;
+    if (location.pathname.startsWith('/tenders')) host.classList.add('tender-guide');
     document.body.append(host);
     const launch = host.querySelector('#guide-launch');
     const dialog = host.querySelector('dialog');

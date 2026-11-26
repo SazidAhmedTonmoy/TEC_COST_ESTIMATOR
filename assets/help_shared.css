@@ -36,3 +36,7 @@ html[data-theme=dark] #flow-guide,.dark #flow-guide {--paper:#192f39;--text:#e3e
 
 #flow-guide figure img {display:block;box-sizing:border-box;width:100%;height:auto;border:1px solid var(--line);border-radius:6px;margin:12px 0}
 .project-status.status-closed{background:#e5e9ed;color:#52606c}
+
+.tender-guide #guide-launch {background:#f5ca28;color:#172d37;border-color:#e4b91c}
+.tender-guide #flow-guide {--accent:#806100;--tint:#fff8d8}
+html[data-theme=dark] .tender-guide #flow-guide,.dark .tender-guide #flow-guide {--accent:#f5ca28;--tint:#393720}
