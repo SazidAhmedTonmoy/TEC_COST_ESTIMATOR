@@ -69,12 +69,13 @@ class OpenAwardedTests(unittest.TestCase):
         self.assertEqual(self.request('POST','/api/tenders/open-awarded/contact',{'id':'nonexistent','revision':0})[0],404)
 
     def test_separate_builder_contacts(self):
-        first=self.create('Same Project','Builder One')
         second=self.create('Same Project','Builder Two')
+        first=self.create('Same Project','Builder One')
         self.assertEqual(self.request('POST','/api/tenders/open-awarded/contact',{'id':first['id'],'revision':first['revision'],'awardContactName':'First builder manager'})[0],200)
         data=self.request('GET','/api/tenders/data')[1]
         one=next(i for i in data['submissions'] if i['id']==first['id'])
         two=next(i for i in data['submissions'] if i['id']==second['id'])
+        self.assertEqual((one['builderStatus'],two['builderStatus'],two['status']),('Awarded','Unsuccessful','Close'))
         self.assertEqual(one['awardContactName'],'First builder manager')
         self.assertEqual(two.get('awardContactName'),'Original estimator')
 

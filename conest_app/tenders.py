@@ -348,6 +348,10 @@ class Store:
                 self.normalize_records(db,fresh,shared=True)
                 db.execute("INSERT INTO settings VALUES('normalized-fields-v34b','true')")
 
+            if not db.execute("SELECT 1 FROM settings WHERE id='exclusive-builder-awards'").fetchone():
+                self.reconcile_project_awards(db)
+                db.execute("INSERT INTO settings VALUES('exclusive-builder-awards','true')")
+
     def link_contributors(self):
         from .database import connect
         with connect() as conn:
@@ -639,6 +643,9 @@ class Store:
             canonical=next((s['builder'] for s in existing if builder_key(s.get('builder'))==builder_key(fields['builder'])),None)
             if canonical:fields['builder']=canonical
             duplicate=next((s for s in existing if s['id']!=identifier and project_key(s.get('project'))==project_key(fields['project']) and builder_key(s.get('builder'))==builder_key(fields['builder'])),None)
+            peers = [s for s in existing if s['id'] != identifier and project_key(s['project']) == project_key(fields['project'])]
+            if fields['builderStatus'] != 'Awarded' and any(s.get('builderStatus') == 'Awarded' for s in peers):
+                fields.update(builderStatus='Unsuccessful', status='Close')
             if duplicate:raise ValidationError('This project already has a submission for '+fields['builder']+'. Edit the existing tender instead.',409)
             if b.get('id'):
                 old = self.find(db, 'submissions', identifier)
@@ -715,8 +722,33 @@ class Store:
                          'Builder unsuccessful' if fields['builderStatus'].casefold() == 'unsuccessful' else 'TEC quotation closed or lost')
             else:
                 self._reconcile_one_followup(db,item,sydney_today())
+            if item.get('builderStatus') == 'Awarded':
+                self.close_other_builders(db, item, peers, b.get('_actor_id'), b.get('author',''))
             self.sync_project(db,item,b.get('_actor_id'),b.get('author',''))
         return {'ok':True,'id':identifier}
+
+    def reconcile_project_awards(self, db):
+        projects = {}
+        for row in db.execute('SELECT body FROM submissions'):
+            submission = json.loads(row[0])
+            projects.setdefault(project_key(submission['project']), []).append(submission)
+        for peers in projects.values():
+            winners = [s for s in peers if s.get('builderStatus') == 'Awarded']
+            if len(winners) == 1:
+                self.close_other_builders(db,winners[0],peers,None,'TEC Flow')
+
+    def close_other_builders(self, db, winner, peers, actor_id, author):
+        for peer in peers:
+            if builder_key(peer['builder']) == builder_key(winner['builder']):
+                continue
+            if peer.get('builderStatus') == 'Unsuccessful' and peer.get('status') == 'Close':
+                continue
+            revision = self.find(db,'submissions',peer['id'])['revision'] + 1
+            peer.update(builderStatus='Unsuccessful',status='Close',revision=revision,
+                        updatedAt=timestamp(),statusClosedReason='Builder unsuccessful')
+            db.execute('UPDATE submissions SET body=?,revision=? WHERE id=?',(json.dumps(peer),revision,peer['id']))
+            self._cancel_pending_reminders(db,peer['id'],'Builder unsuccessful')
+            self.activity(db,actor_id,author,'Builder unsuccessful after project award',peer,{'awardedBuilder':winner['builder']})
 
     def save_awarded_contact(self, b):
         """Save Open-Awarded dates, manual project link and contact details.
@@ -782,6 +814,8 @@ class Store:
         builders=b.get('builders')
         if not isinstance(builders,list) or not 1<=len(builders)<=100:raise ValidationError('Choose between 1 and 100 builders.')
         if b.get('id'):raise ValidationError('Multiple builders are only supported for a new tender.')
+        if len(builders)>1 and str(b.get('builderStatus','')).casefold()=='awarded':
+            raise ValidationError('Select a single awarded builder for this project.')
         names=[text(v,'Builder',True,1000) for v in builders]
         if len({builder_key(v) for v in names})!=len(names):raise ValidationError('Choose each builder only once.')
         from .builder_contacts import validate_groups

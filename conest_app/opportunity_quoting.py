@@ -135,3 +135,41 @@ def quote(store, payload, user):
                    f'{actor["name"]} recorded the electrical services quote. The project is now in Project Chase-up.')
         db.execute('UPDATE tender_generation SET value=value+1')
         return {**op._detail(db, item, actor), 'submissionIds': ids, 'quoted': True}
+
+
+def unquote(store, payload, user):
+    op.initialize(store)
+    actor = op._actor(user, op.directory()[1])
+    with op._transaction(store) as db:
+        item = op._find(db, op._identifier(payload.get('id')))
+        op._require(item, actor, 'quote')
+        op._revision(item, payload)
+        if not op._is_quoted(item):
+            raise tenders.ValidationError('This opportunity has no recorded quote.', 409)
+        for sid in item.get('submissionIds', []):
+            row = db.execute('SELECT body,revision FROM submissions WHERE id=?', (sid,)).fetchone()
+            if not row:
+                continue
+            sub = json.loads(row['body'])
+            if sub.get('opportunityId') != item['id']:
+                continue
+            reminders = [json.loads(r[0]) for r in db.execute('SELECT body FROM reminders WHERE submission_id=?', (sid,))]
+            has_chase = db.execute('SELECT 1 FROM chases WHERE submission_id=? LIMIT 1', (sid,)).fetchone()
+            untouched = (not item.get('linkedAt') and sub.get('quotedAt') and sub['quotedAt']==item.get('quotedAt')
+                         and row['revision']==0 and not has_chase and all(r.get('automatic') and not r.get('revision') for r in reminders))
+            if untouched:
+                db.execute('DELETE FROM reminders WHERE submission_id=?', (sid,))
+                db.execute("DELETE FROM builder_contact_links WHERE source_kind='submission' AND source_id=?", (sid,))
+                db.execute('DELETE FROM submissions WHERE id=?', (sid,))
+            else:
+                for field in ('opportunityId','opportunityLink','opportunityRemarks'):
+                    sub.pop(field, None)
+                sub['revision'] = row['revision'] + 1
+                db.execute('UPDATE submissions SET body=?, revision=revision+1 WHERE id=?', (json.dumps(sub),sid))
+        fields = ('submissionIds','quoteStatus','linkedProjectName','linkedAt','linkedBy','linkedByName','quotedValue','quotedBuilders','quotedBy','quotedByName','quotedAt','quoteNote','quoteNo','submittedDate','submittedByTeamId')
+        previous = {key:item.pop(key) for key in fields if key in item}
+        item.update(updatedAt=tenders.timestamp(),updatedBy=actor['id'],updatedByName=actor['name'],revision=item['revision']+1)
+        op._write(db,item)
+        op._activity(store,db,actor,'Unquoted opportunity',item,previous)
+        db.execute('UPDATE tender_generation SET value=value+1')
+        return op._detail(db,item,actor)

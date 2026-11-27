@@ -80,7 +80,8 @@ def _actor(user, users):
     found = next((u for u in users if u['id'] == user.get('id')), None)
     if not found:
         raise tenders.ValidationError('Your account is no longer active. Sign in again.', 403)
-    return {**found, 'team_id': found['teamId'], 'team_ids': found.get('teamIds',[])}
+    return {**found, 'team_id': found['teamId'], 'team_ids': found.get('teamIds',[]),
+            'creator_teams': {u['id']: u.get('teamIds') or ([u['teamId']] if u.get('teamId') else []) for u in users}}
 
 
 def permissions(item, actor):
@@ -90,13 +91,16 @@ def permissions(item, actor):
     memberships=set(actor.get('team_ids') or ([actor['team_id']] if actor.get('team_id') else []))
     team_member = bool(memberships)
     manage = actor['role'] == 'admin' or item.get('createdBy') == actor['id']
+    creator_teams = item.get('creatorTeamIds', actor.get('creator_teams', {}).get(item.get('createdBy'), []))
+    managing_teams = creator_teams or item.get('assignedTeamIds', [])
+    manage = manage or bool(memberships.intersection(managing_teams))
     edit = manage or team_member or actor['id'] in item.get('editorUserIds', []) or (
         team_member and bool(memberships.intersection(item.get('editorTeamIds', []))))
     decision = bool(actor['role'] == 'admin' or team_member)
     can_create_estimate = (item.get('status') == 'approved' and not item.get('deletedAt')
         and not item.get('estimatorProjectId') and bool(item.get('assignedTeamIds'))
         and (actor['role'] == 'admin' or bool(memberships.intersection(item.get('assignedTeamIds', [])))))
-    return {'edit': bool(edit), 'assign': bool(manage or team_member),
+    return {'edit': bool(edit), 'assign': bool(manage or (team_member and creator_teams)),
             'manage': bool(manage), 'approve': decision, 'quote': decision,
             'createEstimate': bool(can_create_estimate)}
 
@@ -104,8 +108,8 @@ def permissions(item, actor):
 def _require(item, actor, permission):
     if not permissions(item, actor)[permission]:
         messages = {
-            'manage': 'Only the creator or an administrator can delete or manage editing access.',
-            'assign': 'Only the creator, an administrator, or an active team member can assign an opportunity.',
+            'manage': 'Your account cannot manage access or delete this opportunity.',
+            'assign': 'Your account cannot change assignments for this opportunity.',
             'edit': 'Only the creator, an administrator, an active team member, or an authorised editor can edit this opportunity.',
             'approve': 'An administrator or a user who belongs to a team must make this decision.',
             'quote': 'An administrator or a user who belongs to a team must record the quote.',
@@ -429,6 +433,7 @@ def _new_item(db, fields, actor):
     else:
         raise tenders.ValidationError('A unique opportunity ID could not be created. Try again.', 503)
     return {**fields, 'id': identifier, 'revision': 0, 'status': 'pending',
+            'creatorTeamIds': actor.get('team_ids') or ([actor['team_id']] if actor.get('team_id') else []),
             'createdBy': actor['id'] or None, 'createdByName': actor['name'],
             'createdAt': now, 'updatedAt': now, 'updatedBy': actor['id'] or None,
             'updatedByName': actor['name'], 'decisionBy': None, 'decisionByName': '',
@@ -444,7 +449,11 @@ def _authority(payload, current, actor, teams, users):
             result[field] = current.get(field, [])
             continue
         valid = {x['id'] for x in (teams if 'Team' in field else users)}
-        ids = _ids(payload[field], 'teams' if 'Team' in field else 'people', valid)
+        requested = payload[field]
+        if isinstance(requested, list):
+            retired = set(current.get(field, [])) - valid
+            requested = [v for v in requested if type(v) is not int or v not in retired]
+        ids = _ids(requested, 'teams' if 'Team' in field else 'people', valid)
         permission = 'assign' if field in AUTHORITY_FIELDS[:2] else 'manage'
         if ids != current.get(field, []) and not permissions(current, actor)[permission]:
             raise tenders.ValidationError(

@@ -170,8 +170,10 @@ class OpportunityTests(unittest.TestCase):
             self.assert_denied(lambda actor=actor: op.delete(self.store, edited, actor))
         self.assert_denied(lambda: op.save(self.store, {**edited, 'editorUserIds': [self.outsider['id']]}, self.member))
         # Team members may assign, but cannot forge creator ownership.
+        self.assert_denied(lambda: op.save(self.store, {**edited, 'assignedTeamIds':[self.team]}, self.member))
         assigned = op.save(self.store, {**edited, 'createdBy': self.member['id'],
-                                      'assignedTeamIds': [self.other_team]}, self.member)['opportunity']
+                                      'assignedTeamIds': [self.other_team]}, self.creator)['opportunity']
+        self.assertTrue(op.detail(self.store,assigned['id'],self.outsider)['opportunity']['permissions']['manage'])
         self.assertEqual(assigned['createdBy'], self.creator['id'])
         self.assertTrue(assigned['permissions']['edit'])
         admin_edit = op.save(self.store, {**assigned, 'remarks': 'Admin review'}, self.admin)['opportunity']

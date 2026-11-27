@@ -134,8 +134,8 @@ class MultipleAwardContactsTests(unittest.TestCase):
         self.assertEqual(contact_details(self.rows(s['id'])['awardContacts']), valid)
 
     def test_contacts_are_isolated_per_builder(self):
-        a = self.create('One project', 'Builder A')
         b = self.create('One project', 'Builder B')
+        a = self.create('One project', 'Builder A')
         self.assertEqual(self.request('POST', '/api/tenders/open-awarded/contact', {
             'id': a['id'], 'revision': a['revision'],
             'awardContacts': [{'name': 'Builder A contact', 'phones': ['02 4444 5555'], 'emails': []}]})[0], 200)

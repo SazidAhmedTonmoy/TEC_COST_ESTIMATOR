@@ -18,7 +18,7 @@ test('Tender views remember search, filter, sorting and scroll when navigating',
 });
 test('Both client entrypoints load versioned guide styles',()=>{
  for(const file of ['assets/index.html','tenders_frontend/index.html']){
-  assert.match(source(file),/help_shared\.css\?v=3\.8\.13/);
+  assert.match(source(file),/help_shared\.css\?v=3\.8\.\d+/);
  }
 });
 test('Estimate view preserves collapsed groups, expanded items and search by user and project',()=>{

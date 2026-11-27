@@ -284,6 +284,7 @@ def import_workbook(store, filename, content, actor, expected=None):
                 db.execute(f'INSERT INTO {kind} VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET body=excluded.body',(identifier,sid,json.dumps(item,ensure_ascii=False)))
         if expected is not None:
             store.normalize_records(db)
+            store.reconcile_project_awards(db)
             if True:  # A completed upload is counted even when all rows are unchanged.
                 store.activity(db,actor['id'],actor['name'],'Imported Excel',details={'filename':filename,**counts})
             db.execute("INSERT INTO settings VALUES('excel-import-baselines',?) ON CONFLICT(id) DO UPDATE SET body=excluded.body",(json.dumps(baselines,ensure_ascii=False),))

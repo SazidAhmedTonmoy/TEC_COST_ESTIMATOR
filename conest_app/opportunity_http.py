@@ -86,6 +86,9 @@ def route(handler, path, store, send):
     elif path == prefix + '/link-project':
         from .opportunity_matching import link_project
         result = link_project(store, payload, handler.user)
+    elif path == prefix + '/unquote':
+        from .opportunity_quoting import unquote
+        result = unquote(store, payload, handler.user)
     elif path == prefix + '/quote':
         result = opportunities.quote(store, payload, handler.user)
     elif path in (prefix + '/assign', prefix + '/access'):

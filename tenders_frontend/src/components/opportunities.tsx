@@ -247,7 +247,10 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
   function openManagement(item:Opportunity,kind:Management['kind'],origin:Management['origin']='details'){
     if(item.deletedAt||!(kind==='assign'?item.permissions.assign:item.permissions.manage)||
       (origin==='card'&&!canAssignOpportunityFromCard(item)))return;
-    setActionError('');setManagement(opportunityManagementDraft(item,kind,origin));
+    const draft=opportunityManagementDraft(item,kind,origin);
+    draft.teams=draft.teams.filter(id=>teamNames.has(id));
+    draft.users=draft.users.filter(id=>userNames.has(id));
+    setActionError('');setManagement(draft);
   }
   function clearFilters(){setQuickView('all');setQuery('');setSearch('');setStatus('all');setQuoteFilter('all');setClosedFilter('all');setRegion('');setTeam('');setPerson('');setSort('due_desc');setPage(1)}
   async function changed(){setReload(n=>n+1);window.dispatchEvent(new Event('tenders:notifications-changed'))}
@@ -278,6 +281,13 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
     if(data){
       setResult(previous=>previous?{...previous,items:previous.items.map(item=>item.id===data.opportunity.id?data.opportunity:item)}:previous);
       toast.success(management.kind==='assign'?(management.status!=='approved'&&data.opportunity.status==='approved'?'Team assigned and opportunity approved':'Assignments updated'):'Editing access updated');setManagement(null);
+    }
+  }
+  async function unquote(item:Opportunity){
+    if(!window.confirm('Return this opportunity to Need to quote? Untouched submissions created by this quote and their automatic reminders will be removed. Existing linked tenders and submissions with later work will be kept in Project Chase-up.'))return;
+    if(await mutate('/unquote',{id:item.id,revision:item.revision})){
+      toast.success('Opportunity returned to Need to quote');
+      await Promise.resolve(onSubmissionsChanged()).catch(()=>toast.info('Refresh Tenders to load the updated register.'));
     }
   }
   async function saveQuote(e:React.FormEvent){
@@ -355,7 +365,7 @@ export default function Opportunities({requestedId,onRequestHandled,onOpenChaseU
       {!selected.deletedAt&&selected.status==='approved'&&!isOpportunityQuoted(selected)&&!selected.linkedAt&&!!selected.due&&(opportunityDeadline(selected,regions,deadlineNow).days??0)<0&&<p className="op-info">To move this Approved opportunity to In Review, first extend its closing deadline using Edit. In Review opportunities expire when their deadline passes.</p>}
       {!selected.deletedAt&&canQuote(selected)&&(opportunityDeadline(selected,regions,deadlineNow).days??0)<0&&<p className="op-info">The deadline has passed, but this opportunity remains Approved. You can still record Quoted or Not quoted, or link an existing tender project.</p>}
       {canQuote(selected)&&<section className="op-quote-prompt" aria-label="Record quote outcome"><div><h3>Ready to record the outcome?</h3><p>Quoted projects appear in Projects and Project Chase-up. Not quoted moves this opportunity to Rejected.</p></div><div className="op-quote-actions"><button className="primary-btn" disabled={busy} onClick={()=>openQuote(selected)}><FileCheck2 size={17}/>Quoted</button><button className="secondary-btn danger-text" disabled={busy} onClick={()=>markNotQuoted(selected)}><XCircle size={17}/>Not quoted</button></div></section>}
-      {isOpportunityQuoted(selected)&&<section className="op-quote-summary" aria-label="Recorded quote"><div className="op-quote-summary-heading"><span><FileCheck2 size={20}/><b>{selected.linkedAt?'Linked to tender':'Quoted'}</b></span><strong><Money value={selected.quotedValue??null} precise/></strong></div><p>{selected.linkedAt?'Existing tender value at linking':'Electrical services submission value'}</p><dl><div><dt>{selected.linkedAt?'Linked on':'Submitted'}</dt><dd>{selected.linkedAt?opportunityDate(selected.linkedAt):selected.submittedDate?opportunityDate(selected.submittedDate):'Not recorded'}</dd></div><div><dt>Recorded by</dt><dd>{selected.linkedByName||selected.quotedByName||'Not recorded'}</dd></div>{selected.quoteNo&&<div><dt>Quote number</dt><dd>{selected.quoteNo}</dd></div>}{selected.submittedByTeamId&&<div><dt>Submitted by team</dt><dd>{teamNames.get(selected.submittedByTeamId)||'Former team'}</dd></div>}</dl>{selected.quoteNote&&<p className="op-preserve-text">{selected.quoteNote}</p>}{selected.submissionIds?.[0]&&<button className="secondary-btn" onClick={()=>onOpenChaseUp(selected.submissionIds![0])}>Open Project Chase-up<ArrowUpRight size={16}/></button>}</section>}
+      {isOpportunityQuoted(selected)&&<section className="op-quote-summary" aria-label="Recorded quote"><div className="op-quote-summary-heading"><span><FileCheck2 size={20}/><b>{selected.linkedAt?'Linked to tender':'Quoted'}</b></span><strong><Money value={selected.quotedValue??null} precise/></strong></div><p>{selected.linkedAt?'Existing tender value at linking':'Electrical services submission value'}</p><dl><div><dt>{selected.linkedAt?'Linked on':'Submitted'}</dt><dd>{selected.linkedAt?opportunityDate(selected.linkedAt):selected.submittedDate?opportunityDate(selected.submittedDate):'Not recorded'}</dd></div><div><dt>Recorded by</dt><dd>{selected.linkedByName||selected.quotedByName||'Not recorded'}</dd></div>{selected.quoteNo&&<div><dt>Quote number</dt><dd>{selected.quoteNo}</dd></div>}{selected.submittedByTeamId&&<div><dt>Submitted by team</dt><dd>{teamNames.get(selected.submittedByTeamId)||'Former team'}</dd></div>}</dl>{!selected.deletedAt&&selected.permissions.quote&&<button className="secondary-btn" disabled={busy} onClick={()=>unquote(selected)}>Unquote</button>}{selected.quoteNote&&<p className="op-preserve-text">{selected.quoteNote}</p>}{selected.submissionIds?.[0]&&<button className="secondary-btn" onClick={()=>onOpenChaseUp(selected.submissionIds![0])}>Open Project Chase-up<ArrowUpRight size={16}/></button>}</section>}
       <div className="op-detail-tabs" role="tablist" aria-label="Opportunity details"><button role="tab" id="op-tab-overview" aria-controls="op-tab-panel" aria-selected={detailTab==='overview'} onClick={()=>setDetailTab('overview')}><ClipboardList size={15}/>Overview</button><button role="tab" id="op-tab-activity" aria-controls="op-tab-panel" aria-selected={detailTab==='activity'} onClick={()=>setDetailTab('activity')}><History size={15}/>Activity <span>{detail?.activityTotal??detail?.activity.length??0}</span></button></div>
       <div role="tabpanel" id="op-tab-panel" aria-labelledby={'op-tab-'+detailTab}>{detailTab==='overview'?<>
         {detail?.journey&&<OpportunityJourneyView item={selected} journey={detail.journey} onChase={onOpenChaseUp} onChooseEstimator={openEstimatorPicker} onCreateEstimate={()=>{setActionError('');setCreateEstimateConfirm(true)}}/>}
